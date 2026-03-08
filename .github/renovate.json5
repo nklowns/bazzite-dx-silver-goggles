@@ -1,15 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:best-practices",
+    "config:best-practices"
   ],
 
+  "forkProcessing": "enabled",
+  "dependencyDashboard": true,
   "rebaseWhen": "never",
 
   "packageRules": [
     {
+      "matchUpdateTypes": ["pin", "pinDigest"],
       "automerge": true,
-      "matchUpdateTypes": ["pin", "pinDigest"]
+      "ignoreTests": true
     },
     {
       "enabled": false,
@@ -17,5 +20,24 @@
       "matchDepTypes": ["container"],
       "matchFileNames": [".github/workflows/**.yaml", ".github/workflows/**.yml"],
     },
+    {
+      "description": "Automerge GitHub Actions digest updates in workflows",
+      "matchDatasources": ["github-tags"],
+      "matchFileNames": [".github/workflows/**"],
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "automerge": true,
+      "ignoreTests": true
+    },
+    {
+      "description": "Automatically update Bazzite-DX digests to match the latest build",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/ublue-os/bazzite-dx"],
+      "matchFileNames": ["Containerfile"],
+      "pinDigests": true,
+      "automerge": true,
+      "ignoreTests": true,
+      "commitMessagePrefix": "chore(deps): ",
+      "enabled": true 
+    }
   ]
 }
