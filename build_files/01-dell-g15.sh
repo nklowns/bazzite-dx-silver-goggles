@@ -7,9 +7,9 @@ set -ouex pipefail
 echo "Applying Dell G15 specific tweaks..."
 
 # Install Dell management utilities
-dnf5 install -y \
-    smbios-utils-python \
-    akmod-acpi_call
+# Note: acpi_call is already provided by the Bazzite kernel (in-tree)
+dnf5 install -y --skip-unavailable \
+    smbios-utils-python
 
 # Install our custom AWCC RPM compiled in the builder stage via transient mount
 dnf5 install -y /tmp/builder_artifacts/awcc-1.16.9-*.rpm
