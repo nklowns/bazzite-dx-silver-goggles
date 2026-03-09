@@ -34,11 +34,6 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %install
 %cmake_install
 
-# Remove statically built libusb development files
-rm -rf %{buildroot}%{_includedir}/libusb-1.0
-rm -rf %{buildroot}%{_libdir}/cmake/libusb
-rm -f %{buildroot}%{_libdir}/libusb-1.0.a
-
 %files
 /usr/bin/awcc
 /usr/share/applications/awcc.desktop
@@ -46,6 +41,13 @@ rm -f %{buildroot}%{_libdir}/libusb-1.0.a
 /etc/udev/rules.d/70-awcc.rules
 /etc/systemd/system/awccd.service
 /etc/awcc/database.json
+
+%exclude %{_includedir}/libusb-1.0/libusb.h
+%exclude %dir %{_includedir}/libusb-1.0
+%exclude %{_libdir}/cmake/libusb/libusb-config-version.cmake
+%exclude %{_libdir}/cmake/libusb/usb-1.0-targets.cmake
+%exclude %dir %{_libdir}/cmake/libusb
+%exclude %{_libdir}/libusb-1.0.a
 
 %changelog
 * Mon Mar 09 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1
