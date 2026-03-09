@@ -34,6 +34,11 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %install
 %cmake_install
 
+# Remove statically built libusb development files
+rm -rf %{buildroot}%{_includedir}/libusb-1.0
+rm -rf %{buildroot}%{_libdir}/cmake/libusb
+rm -f %{buildroot}%{_libdir}/libusb-1.0.a
+
 %files
 /usr/bin/awcc
 /usr/share/applications/awcc.desktop
