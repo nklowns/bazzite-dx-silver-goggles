@@ -9,29 +9,13 @@ echo "Applying Dell G15 specific tweaks..."
 # Install Dell management utilities
 dnf5 install -y \
     smbios-utils-python \
-    akmod-acpi_call \
-    cmake \
-    ninja-build \
-    meson \
-    libx11-devel \
-    libxkbcommon-devel \
-    glfw-devel \
-    libudev-devel \
-    libglvnd-devel \
-    gcc-c++ \
-    wget
+    akmod-acpi_call
 
-# Build AWCC from source (tr1xem/AWCC)
-echo "Building AWCC from source..."
-cd /tmp
-git clone https://github.com/tr1xem/AWCC.git
-cd AWCC
-mkdir build && cd build
-cmake -DCMAKE_INSTALL_PREFIX=/usr .. -G Ninja
-ninja
-ninja install
+# Install our custom AWCC RPM compiled in the builder stage
+dnf5 install -y /tmp/awcc-1.16.9-*.rpm
+rm -f /tmp/awcc-1.16.9-*.rpm
 
-# Enable AWCC Daemon
+# Enable AWCC Daemon (Installed natively via RPM)
 systemctl enable awccd.service
 
 echo "Dell G15 tweaks applied (smbios-utils + AWCC installed)."

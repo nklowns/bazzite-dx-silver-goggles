@@ -1,3 +1,19 @@
+# Builder Stage for AWCC native RPM packaging
+FROM ghcr.io/ublue-os/bazzite-dx-nvidia:stable AS builder
+WORKDIR /tmp/rpmbuild
+# Install rpm tools and required build dependencies explicitly
+RUN dnf5 install -y rpm-build rpmdevtools dnf5-plugins \
+    cmake ninja-build meson gcc-c++ git libX11-devel libxkbcommon-devel \
+    glfw-devel systemd-devel libudev-devel libglvnd-devel
+
+COPY build_files/awcc.spec .
+
+# Fetch sources, build RPM, and extract it
+RUN rpmdev-setuptree && \
+    spectool -g -R awcc.spec && \
+    rpmbuild -ba awcc.spec && \
+    cp /root/rpmbuild/RPMS/x86_64/awcc*.rpm /tmp/
+
 # Allow build scripts to be referenced without being copied into the final image
 FROM scratch AS ctx
 COPY system_files /system_files
@@ -6,6 +22,9 @@ COPY build_files /build_files
 # Base Image
 ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:stable"
 FROM ${BASE_IMAGE}
+
+# Inject the generated RPM package
+COPY --from=builder /tmp/awcc*.rpm /tmp/
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
