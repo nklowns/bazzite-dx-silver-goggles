@@ -5,7 +5,7 @@ WORKDIR /tmp/rpmbuild
 # We use --setopt=*.exclude= to bypass Bazzite's strict mesa package exclusion rules temporarily
 RUN dnf5 install -y --setopt=*.exclude= rpm-build rpmdevtools dnf5-plugins \
     cmake ninja-build meson gcc-c++ git libX11-devel libxkbcommon-devel \
-    glfw-devel systemd-devel libudev-devel libglvnd-devel
+    glfw-devel systemd-devel libudev-devel libglvnd-devel wayland-devel
 
 COPY build_files/awcc.spec .
 

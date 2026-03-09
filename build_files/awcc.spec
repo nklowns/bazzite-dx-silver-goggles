@@ -18,6 +18,7 @@ BuildRequires:  glfw-devel
 BuildRequires:  systemd-devel
 BuildRequires:  libudev-devel
 BuildRequires:  libglvnd-devel
+BuildRequires:  wayland-devel
 
 %description
 AWCC is an unofficial, open-source alternative to Alienware Command Centre.
