@@ -27,7 +27,7 @@ cd /tmp
 git clone https://github.com/tr1xem/AWCC.git
 cd AWCC
 mkdir build && cd build
-cmake .. -G Ninja
+cmake -DCMAKE_INSTALL_PREFIX=/usr .. -G Ninja
 ninja
 ninja install
 
