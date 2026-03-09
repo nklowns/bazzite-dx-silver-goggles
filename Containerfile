@@ -1,3 +1,6 @@
+# Base Image (Must be declared globally before first FROM for Buildah compatibility)
+ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:stable"
+
 # Builder Stage for AWCC native RPM packaging
 FROM ghcr.io/ublue-os/bazzite-dx-nvidia:stable AS builder
 WORKDIR /tmp/rpmbuild
@@ -20,8 +23,7 @@ FROM scratch AS ctx
 COPY system_files /system_files
 COPY build_files /build_files
 
-# Base Image
-ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:stable"
+# Final Image Stage
 FROM ${BASE_IMAGE}
 
 ## Other possible base images include:
