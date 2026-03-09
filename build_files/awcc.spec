@@ -44,8 +44,7 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 
 %exclude %{_includedir}/libusb-1.0/libusb.h
 %exclude %dir %{_includedir}/libusb-1.0
-%exclude %{_libdir}/cmake/libusb/libusb-config-version.cmake
-%exclude %{_libdir}/cmake/libusb/usb-1.0-targets.cmake
+%exclude %{_libdir}/cmake/libusb/*
 %exclude %dir %{_libdir}/cmake/libusb
 %exclude %{_libdir}/libusb-1.0.a
 
