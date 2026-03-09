@@ -23,9 +23,6 @@ COPY build_files /build_files
 ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:stable"
 FROM ${BASE_IMAGE}
 
-# Inject the generated RPM package
-COPY --from=builder /tmp/awcc*.rpm /tmp/
-
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
 # FROM ghcr.io/ublue-os/bluefin-nvidia:stable
@@ -51,6 +48,7 @@ COPY --from=builder /tmp/awcc*.rpm /tmp/
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=bind,from=builder,source=/tmp,target=/tmp/builder_artifacts \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \

@@ -11,9 +11,8 @@ dnf5 install -y \
     smbios-utils-python \
     akmod-acpi_call
 
-# Install our custom AWCC RPM compiled in the builder stage
-dnf5 install -y /tmp/awcc-1.16.9-*.rpm
-rm -f /tmp/awcc-1.16.9-*.rpm
+# Install our custom AWCC RPM compiled in the builder stage via transient mount
+dnf5 install -y /tmp/builder_artifacts/awcc-1.16.9-*.rpm
 
 # Enable AWCC Daemon (Installed natively via RPM)
 systemctl enable awccd.service

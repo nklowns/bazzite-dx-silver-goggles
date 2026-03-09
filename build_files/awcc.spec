@@ -27,13 +27,11 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %autosetup -n AWCC-%{version}
 
 %build
-mkdir -p build && cd build
-cmake -DCMAKE_INSTALL_PREFIX=/usr .. -G Ninja
-ninja
+%cmake -G Ninja -DCMAKE_INSTALL_PREFIX=/usr
+%cmake_build
 
 %install
-cd build
-DESTDIR=%{buildroot} ninja install
+%cmake_install
 
 %files
 /usr/bin/awcc
