@@ -2,9 +2,8 @@
 FROM ghcr.io/ublue-os/bazzite-dx-nvidia:stable AS builder
 WORKDIR /tmp/rpmbuild
 # Install rpm tools and required build dependencies explicitly
-# Bazzite excludes mesa packages by default which breaks libglvnd-devel / libGLU-devel.
-RUN sed -i -E 's/(exclude|excludepkgs)=.*mesa-libGLU.*//g' /etc/yum.repos.d/*.repo && \
-    dnf5 install -y rpm-build rpmdevtools dnf5-plugins \
+# We use --setopt=*.exclude= to bypass Bazzite's strict mesa package exclusion rules temporarily
+RUN dnf5 install -y --setopt=*.exclude= rpm-build rpmdevtools dnf5-plugins \
     cmake ninja-build meson gcc-c++ git libX11-devel libxkbcommon-devel \
     glfw-devel systemd-devel libudev-devel libglvnd-devel
 
