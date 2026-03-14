@@ -117,11 +117,6 @@ jobs:
 
           echo "SOURCE_VERSION_MAJOR=$SOURCE_VERSION_MAJOR" >>$GITHUB_OUTPUT
 
-      - name: Generate output image ref
-        id: gen_image_ref
-        run: |
-          echo "IMAGE_NAME=${BASE_IMAGE/bazzite/bazzite-dx}" | sed 's/-deck//' | tee -a "$GITHUB_ENV"
-
       # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
       # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
       - name: Image Metadata
@@ -182,7 +177,7 @@ jobs:
         id: rechunk
         uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
         with:
-          rechunk: 'ghcr.io/hhd-dev/rechunk:v1.0.1'
+          rechunk: "ghcr.io/hhd-dev/rechunk:v1.0.1"
           ref: "localhost/${{ env.IMAGE_NAME }}:latest"
           prev-ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
           skip_compression: true
