@@ -16,10 +16,10 @@ on:
   merge_group:
 
 env:
-  IMAGE_DESC: "${{ github.event.repository.description }}"
+  IMAGE_DESC: "${{ github.event.repository.description || 'Personal customization of Bazzite DX for Dell G15 5521' }}"
   IMAGE_KEYWORDS: "bootc,ublue,universal-blue"
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/187439889?s=200&v=4" # Put your own image here for a fancy profile on https://artifacthub.io/!
-  IMAGE_NAME: "${{ github.event.repository.name }}" # the name of the image produced by this build, matches repo names
+  IMAGE_NAME: "${{ github.event.repository.name || 'bazzite-dx-silver-goggles' }}" # the name of the image produced by this build, matches repo names
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}" # do not edit
 
   # The tag used in the image from which we base of.
@@ -120,6 +120,7 @@ jobs:
       # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
       # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
       - name: Image Metadata
+        if: env.ACT != 'true'
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v6
         id: metadata
         with:
@@ -132,8 +133,8 @@ jobs:
             type=raw,value=stable-${{ steps.fetch_source_meta.outputs.SOURCE_VERSION_MAJOR }}.{{date 'YYYYMMDD'}}
             type=raw,value=${{ steps.fetch_source_meta.outputs.SOURCE_VERSION_MAJOR }}
             type=raw,value=${{ steps.fetch_source_meta.outputs.SOURCE_VERSION_MAJOR }}.{{date 'YYYYMMDD'}}
-            type=sha,enable=${{ github.event_name == 'pull_request' }}
-            type=ref,event=pr
+            type=sha,enable=${{ github.event_name == 'pull_request' && env.ACT != 'true' }}
+            type=ref,enable=${{ env.ACT != 'true' }},event=pr
           labels: |
             io.artifacthub.package.readme-url=https://raw.githubusercontent.com/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}/refs/heads/main/README.md
             org.opencontainers.image.created=${{ steps.date.outputs.date }}
@@ -153,6 +154,13 @@ jobs:
           sep-tags: " "
           sep-annotations: " "
 
+      - name: Local Metadata (act)
+        if: env.ACT == 'true'
+        id: metadata_local
+        run: |
+          echo "tags=latest local" >> $GITHUB_OUTPUT
+          echo "labels=org.opencontainers.image.title=${{ env.IMAGE_NAME }}-local" >> $GITHUB_OUTPUT
+
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2.13
@@ -162,8 +170,8 @@ jobs:
           # Postfix image name with -custom to make it a little more descriptive
           # Syntax: https://docs.github.com/en/actions/learn-github-actions/expressions#format
           image: ${{ env.IMAGE_NAME }}
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }} ${{ steps.metadata_local.outputs.labels }}
           oci: false
           build-args: |
             BASE_IMAGE=ghcr.io/${{ env.SOURCE_ORG }}/${{ env.BASE_IMAGE }}:${{ env.IMAGE_SOURCE_TAG || 'latest' }}
@@ -186,6 +194,7 @@ jobs:
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
       # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
       - name: Run Rechunker
+        if: env.ACT != 'true'
         id: rechunk
         uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
         with:
@@ -193,13 +202,14 @@ jobs:
           ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
           prev-ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
           skip_compression: true
-          labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
+          labels: ${{ steps.metadata.outputs.labels }} ${{ steps.metadata_local.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
 
       # This is necessary so that the podman socket can find the rechunked image on its storage
       - name: Load in podman and tag
+        if: env.ACT != 'true'
         run: |
-          IMAGE=$(podman pull containers-storage:${{ steps.rechunk.outputs.ref }})
-          for tag in ${{ steps.metadata.outputs.tags }}; do
+          IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
+          for tag in ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}; do
             podman tag $IMAGE ${{ env.IMAGE_NAME }}:$tag
           done
 
@@ -224,7 +234,7 @@ jobs:
         with:
           registry: ${{ steps.lowercase.outputs.registry }}
           image: ${{ steps.lowercase.outputs.image }}
-          tags: ${{ steps.metadata.outputs.tags }}
+          tags: ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}
 
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
@@ -239,7 +249,7 @@ jobs:
         env:
           LOWERCASE_REGISTRY: ${{ steps.lowercase.outputs.registry }}
           LOWERCASE_IMAGE: ${{ steps.lowercase.outputs.image }}
-          TAGS_TO_SIGN: ${{ steps.metadata.outputs.tags }}
+          TAGS_TO_SIGN: ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}
           TAGS: ${{ steps.push.outputs.digest }}
           COSIGN_EXPERIMENTAL: false
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}

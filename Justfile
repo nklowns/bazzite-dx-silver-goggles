@@ -316,3 +316,10 @@ format:
     fi
     # Run shfmt on all Bash scripts
     /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
+
+# Run GitHub Actions locally using act
+act:
+    #!/usr/bin/bash
+    act -j build_push \
+        -P ubuntu-24.04=catthehacker/ubuntu:full-24.04 \
+        --privileged

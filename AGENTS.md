@@ -58,8 +58,9 @@ To test GitHub Actions workflows without pushing to the cloud:
 2. Run local build simulation:
    ```bash
    # Use the 'full' image variant to include dependencies like skopeo
-   act -j build_push -P ubuntu-24.04=catthehacker/ubuntu:full-24.04
+   just act
    ```
+   *Note: `act` requires the `--privileged` flag (handled by `just act`) to allow `buildah` to create user namespaces.*
    *Note: `act` can be heavy and may require high disk space. For Containerfile testing, prefer `just build`.*
 
 ### 2. Self-Hosted Runner (Distrobox)
