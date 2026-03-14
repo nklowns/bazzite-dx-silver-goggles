@@ -2,11 +2,10 @@
 ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:stable"
 
 # Builder Stage for AWCC native RPM packaging
-FROM ghcr.io/ublue-os/bazzite-dx-nvidia:stable AS builder
+FROM fedora:43 AS builder
 WORKDIR /tmp/rpmbuild
 # Install rpm tools and required build dependencies explicitly
-# We use --setopt=*.exclude= to bypass Bazzite's strict mesa package exclusion rules temporarily
-RUN dnf5 install -y --setopt=*.exclude= rpm-build rpmdevtools dnf5-plugins \
+RUN dnf install -y dnf5 && dnf5 install -y rpm-build rpmdevtools dnf5-plugins \
     cmake ninja-build meson gcc-c++ git libX11-devel libxkbcommon-devel \
     glfw-devel systemd-devel libudev-devel libglvnd-devel wayland-devel
 
