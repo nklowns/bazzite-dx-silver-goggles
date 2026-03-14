@@ -45,4 +45,35 @@ Use these libraries for BlueBuild patterns and templates:
 ```bash
 # Validate template syntax
 just check
+
+# Local image build
+just build
 ```
+
+## Local Development & Runner Strategy
+
+### 1. Local GHA Testing (`act`)
+To test GitHub Actions workflows without pushing to the cloud:
+1. Install `act` via Homebrew: `brew install act`
+2. Run local build simulation:
+   ```bash
+   # Use the 'full' image variant to include dependencies like skopeo
+   act -j build_push -P ubuntu-24.04=catthehacker/ubuntu:full-24.04
+   ```
+   *Note: `act` can be heavy and may require high disk space. For Containerfile testing, prefer `just build`.*
+
+### 2. Self-Hosted Runner (Distrobox)
+To keep the atomic host clean, run the GitHub runner inside an isolated container:
+1. **Create Runner Environment**:
+   `distrobox-create --name gha-runner --image fedora:43 --init` 
+   *(Note: `--init` allows running the runner as a systemd service internally)*
+2. **Setup Runner**:
+   `distrobox-enter gha-runner`
+   *(Inside container)*:
+   `sudo dnf install -y git podman curl`
+   `mkdir ~/actions-runner && cd ~/actions-runner`
+   `curl -o actions-runner-linux-x64-2.321.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.321.0/actions-runner-linux-x64-2.321.0.tar.gz`
+   `tar xzf ./actions-runner-linux-x64-2.321.0.tar.gz`
+   `./config.sh --url https://github.com/nklowns/bazzite-dx-silver-goggles --token <TOKEN>`
+   `./run.sh`
+   *(Optional: Use `sudo ./svc.sh install` and `sudo ./svc.sh start` to run as a service inside Distrobox)*

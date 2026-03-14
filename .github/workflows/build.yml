@@ -170,6 +170,18 @@ jobs:
             IMAGE_NAME=${{ env.IMAGE_NAME }}
             IMAGE_VENDOR=${{ github.repository_owner }}
 
+      # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
+      # https://github.com/macbre/push-to-ghcr/issues/12
+      - name: Lowercase Image and Registry
+        id: lowercase
+        env:
+          IMAGE_REGISTRY: ${{ env.IMAGE_REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          set -x
+          echo "registry=${IMAGE_REGISTRY,,}" >> $GITHUB_OUTPUT
+          echo "image=${IMAGE_NAME,,}" >> $GITHUB_OUTPUT
+
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
       # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
@@ -178,7 +190,7 @@ jobs:
         uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
         with:
           rechunk: "ghcr.io/hhd-dev/rechunk:v1.0.1"
-          ref: "localhost/${{ env.IMAGE_NAME }}:latest"
+          ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
           prev-ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
           skip_compression: true
           labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
@@ -186,7 +198,7 @@ jobs:
       # This is necessary so that the podman socket can find the rechunked image on its storage
       - name: Load in podman and tag
         run: |
-          IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
+          IMAGE=$(podman pull containers-storage:${{ steps.rechunk.outputs.ref }})
           for tag in ${{ steps.metadata.outputs.tags }}; do
             podman tag $IMAGE ${{ env.IMAGE_NAME }}:$tag
           done
@@ -201,17 +213,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
-      # https://github.com/macbre/push-to-ghcr/issues/12
-      - name: Lowercase Image and Registry
-        id: lowercase
-        env:
-          IMAGE_REGISTRY: ${{ env.IMAGE_REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-        run: |
-          set -x
-          echo "registry=${IMAGE_REGISTRY,,}" >> $GITHUB_OUTPUT
-          echo "image=${IMAGE_NAME,,}" >> $GITHUB_OUTPUT
 
       - name: Push To GHCR
         uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2
