@@ -5,7 +5,7 @@
 
 My system: Dell G15 5521 Laptop, 12th Generation Intel Core i7-12700H, NVIDIA GeForce RTX 3060 6GB, 64GB DDR5 RAM
 
-Base image: [Bazzite DX](https://bazzite.gg/)
+Base image: [Bazzite DX (KDE/NVIDIA)](https://bazzite.gg/) - *Slim edition: built specifically for my Dell G15 setup.*
 
 Modifications:
 

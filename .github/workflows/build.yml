@@ -37,17 +37,8 @@ jobs:
     name: Build and push image
     runs-on: ubuntu-24.04
 
-    strategy:
-      fail-fast: false
-      matrix:
-        base_image:
-          - bazzite-deck
-          - bazzite-deck-gnome
-          - bazzite-deck-nvidia-gnome
-          - bazzite-deck-nvidia
-
     env:
-      BASE_IMAGE: ${{ matrix.base_image }}
+      BASE_IMAGE: "bazzite-dx-nvidia"
 
     permissions:
       contents: read
@@ -57,7 +48,7 @@ jobs:
     steps:
       # These stage versions are pinned by https://github.com/renovatebot/renovate
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6.0.2
 
       - name: Show disk space
         run: sudo df -h
@@ -134,7 +125,7 @@ jobs:
       # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
       # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
       - name: Image Metadata
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v6
         id: metadata
         with:
           # This generates all the tags for your image, you can add custom tags here too!
@@ -180,38 +171,35 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           oci: false
           build-args: |
-            BASE_IMAGE=ghcr.io/${{ env.SOURCE_ORG }}/${{ matrix.base_image }}:${{ env.IMAGE_SOURCE_TAG || 'latest' }}
+            BASE_IMAGE=ghcr.io/${{ env.SOURCE_ORG }}/${{ env.BASE_IMAGE }}:${{ env.IMAGE_SOURCE_TAG || 'latest' }}
             IMAGE_NAME=${{ env.IMAGE_NAME }}
             IMAGE_VENDOR=${{ github.repository_owner }}
 
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
       # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
-      # You can enable it by uncommenting the following lines:
-      # - name: Run Rechunker
-      #   id: rechunk
-      #   uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
-      #   with:
-      #     rechunk: 'ghcr.io/hhd-dev/rechunk:v1.0.1'
-      #     ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-      #     prev-ref: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-      #     skip_compression: true
-      #     version: ${{ env.CENTOS_VERSION }}
-      #     labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
+      - name: Run Rechunker
+        id: rechunk
+        uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
+        with:
+          rechunk: 'ghcr.io/hhd-dev/rechunk:v1.0.1'
+          ref: "localhost/${{ env.IMAGE_NAME }}:latest"
+          prev-ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
+          skip_compression: true
+          labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
 
       # This is necessary so that the podman socket can find the rechunked image on its storage
-      # - name: Load in podman and tag
-      #   run: |
-      #     IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
-      #     sudo rm -rf ${{ steps.rechunk.outputs.output }}
-      #     for tag in ${{ steps.metadata.outputs.tags }}; do
-      #       podman tag $IMAGE ${{ env.IMAGE_NAME }}:$tag
-      #     done
+      - name: Load in podman and tag
+        run: |
+          IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
+          for tag in ${{ steps.metadata.outputs.tags }}; do
+            podman tag $IMAGE ${{ env.IMAGE_NAME }}:$tag
+          done
 
       # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
       # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
@@ -247,7 +235,7 @@ jobs:
       # using Cosign and save the private key as a repository secret in Github for this workflow
       # to consume. For more details, review the image signing section of the README.
       - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v4.1.0
         if: github.event_name != 'pull_request'
 
       - name: Sign container image

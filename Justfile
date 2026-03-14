@@ -80,9 +80,9 @@ sudoif command *args:
 # just build $target_image $tag
 #
 # Example usage:
-#   just build aurora lts
+#   just build bazzite-dx-silver-goggles latest
 #
-# This will build an image 'aurora:lts' with DX and GDX enabled.
+# This will build an image 'bazzite-dx-silver-goggles:latest' with DX enabled.
 #
 
 # Build the image using the specified parameters
