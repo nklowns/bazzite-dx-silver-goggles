@@ -323,3 +323,13 @@ act:
     act -j build_push \
         -P ubuntu-24.04=catthehacker/ubuntu:full-24.04 \
         --privileged
+
+# Build and rebase the current system to the local image (for testing)
+[group('Utility')]
+rebase-local:
+    just build
+    rm -f /tmp/{{ image_name }}.tar || true
+    podman save localhost/{{ image_name }}:latest --format oci-archive -o /tmp/{{ image_name }}.tar
+    sudo rpm-ostree rebase ostree-unverified-image:oci-archive:/tmp/{{ image_name }}.tar
+    rm -f /tmp/{{ image_name }}.tar
+    echo "Rebase complete. Please reboot to apply changes."

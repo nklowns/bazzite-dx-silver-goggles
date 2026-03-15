@@ -21,6 +21,7 @@ env:
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/187439889?s=200&v=4" # Put your own image here for a fancy profile on https://artifacthub.io/!
   IMAGE_NAME: "${{ github.event.repository.name || 'bazzite-dx-silver-goggles' }}" # the name of the image produced by this build, matches repo names
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}" # do not edit
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
   # The tag used in the image from which we base of.
   # ex.: ghcr.io/org/image:IMAGE_SOURCE_TAG
@@ -48,7 +49,7 @@ jobs:
     steps:
       # These stage versions are pinned by https://github.com/renovatebot/renovate
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6.0.2
+        uses: actions/checkout@v6.0.2
 
       - name: Show disk space
         run: sudo df -h
@@ -121,7 +122,7 @@ jobs:
       # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
       - name: Image Metadata
         if: env.ACT != 'true'
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v6
+        uses: docker/metadata-action@v6.0.0
         id: metadata
         with:
           # This generates all the tags for your image, you can add custom tags here too!
@@ -216,7 +217,7 @@ jobs:
       # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
       # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v4
+        uses: docker/login-action@v4.0.0
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
@@ -225,7 +226,7 @@ jobs:
 
 
       - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2
+        uses: redhat-actions/push-to-registry@v2
         if: github.event_name != 'pull_request'
         id: push
         env:
