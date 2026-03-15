@@ -47,10 +47,11 @@ lint:
     #!/usr/bin/env bash
     set -eoux pipefail
     if ! command -v shellcheck &> /dev/null; then
-        echo "shellcheck could not be found. Please install it."
-        exit 1
+        echo "shellcheck not found locally. Running via podman..."
+        /usr/bin/find . -name "*.sh" -type f -exec podman run --rm -v "$PWD:/mnt:Z" docker.io/koalaman/shellcheck-alpine shellcheck /mnt/{} ';'
+    else
+        /usr/bin/find . -iname "*.sh" -type f -exec shellcheck "{}" ';'
     fi
-    /usr/bin/find . -iname "*.sh" -type f -exec shellcheck "{}" ';'
 
 # Runs shfmt on all Bash scripts
 [group('Management')]
@@ -58,10 +59,11 @@ format:
     #!/usr/bin/env bash
     set -eoux pipefail
     if ! command -v shfmt &> /dev/null; then
-        echo "shfmt could not be found. Please install it."
-        exit 1
+        echo "shfmt not found locally. Running via podman..."
+        /usr/bin/find . -name "*.sh" -type f -exec podman run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -w /mnt/{} ';'
+    else
+        /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
     fi
-    /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
 
 # Run GitHub Actions locally using act
 [group('Management')]

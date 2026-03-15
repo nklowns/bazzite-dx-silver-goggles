@@ -25,7 +25,7 @@ Use these libraries for BlueBuild patterns and templates:
 
 - **Build Engine**: [BlueBuild](https://blue-build.org/).
 - **Structure**: Based on the uBlue image-template.
-- **Base Image**: `ghcr.io/ublue-os/bazzite-dx`.
+- **Base Image**: `ghcr.io/ublue-os/bazzite-dx-nvidia`.
 
 ## Repository Structure
 
@@ -88,7 +88,9 @@ To maintain clarity, recipes are split between development and system-wide usage
 To avoid frequent reboots when testing specific changes, use these local-first patterns:
 
 ### 1. Testing Base Image Forks (Source Only)
+
 If you have a local source fork of `bazzite-dx` (no GHCR image):
+
 1. **Inside `bazzite-dx` folder**:
    ```bash
    podman build -t localhost/bazzite-dx:dev .
@@ -100,46 +102,55 @@ If you have a local source fork of `bazzite-dx` (no GHCR image):
    ```
 
 ### 2. Hot Swapping Components (AWCC)
+
 To test local changes in `dell_related/AWCC` without rebuilding the whole image or rebooting:
+
 1. **Build & Apply Live**:
    ```bash
    just hot-swap-awcc /path/to/AWCC/source
    ```
-   *This will build an RPM from your local source using a container and install it live on the host system.*
+   _This will build an RPM from your local source using a container and install it live on the host system._
 
 ## Safety & Reversal (Rollback)
 
 In case a test build or hot-swap causes issues, use these commands to revert:
 
 1. **Undo System Rebase**:
+
    ```bash
    just rollback-local
    ```
-   *This returns your system to the previous deployment state. Requires a reboot.*
+
+   _This returns your system to the previous deployment state. Requires a reboot._
 
 2. **Return to Official Signed Image**:
+
    ```bash
    just rebase-official
    ```
-   *The ultimate safety recipe: switches back to the GHCR production image.*
+
+   _The ultimate safety recipe: switches back to the GHCR production image._
 
 3. **Undo AWCC Hot-Swap**:
    ```bash
    just uninstall-awcc
    ```
-   *This removes the live installed AWCC RPM immediately.*
+   _This removes the live installed AWCC RPM immediately._
 
 ## System State & Lifecycle
 
 Use `rpm-ostree status` to identify where you are in the lifecycle.
 
 ### 1. State Identification
+
 - **● Signed (GHCR)**: `ostree-image-signed:docker://ghcr.io/...`. This is the target "Production" state.
 - **● Unverified (Local)**: `ostree-unverified-image:oci-archive:...`. You are testing a full image build locally via `just rebase-local`.
 - **Layered/Local Packages**: If `awcc` appears in `LocalPackages`, you have an active **Hot-Swap** on top of the base image.
 
 ### 2. Transition to Production
+
 Once local tests pass:
+
 1. **Push Code**: `git push` to trigger GitHub Actions.
 2. **Revert Local State**:
    - If using a local image: `just rollback-local` (reboot).
@@ -150,28 +161,32 @@ Once local tests pass:
 ## Local Development & Runner Strategy
 
 ### 1. Local GHA Testing (`act`)
+
 To test GitHub Actions workflows without pushing to the cloud:
+
 1. Install `act` via Homebrew: `brew install act`
 2. Run local build simulation:
    ```bash
    # Use the 'full' image variant to include dependencies like skopeo
    just act
    ```
-   *Note: `act` requires the `--privileged` flag (handled by `just act`) to allow `buildah` to create user namespaces.*
-   *Note: `act` can be heavy and may require high disk space. For Containerfile testing, prefer `just build`.*
+   _Note: `act` requires the `--privileged` flag (handled by `just act`) to allow `buildah` to create user namespaces._
+   _Note: `act` can be heavy and may require high disk space. For Containerfile testing, prefer `just build`._
 
 ### 2. Self-Hosted Runner (Distrobox)
+
 To keep the atomic host clean, run the GitHub runner inside an isolated container:
+
 1. **Create Runner Environment**:
-   `distrobox-create --name gha-runner --image fedora:43 --init` 
-   *(Note: `--init` allows running the runner as a systemd service internally)*
+   `distrobox-create --name gha-runner --image fedora:43 --init`
+   _(Note: `--init` allows running the runner as a systemd service internally)_
 2. **Setup Runner**:
    `distrobox-enter gha-runner`
-   *(Inside container)*:
+   _(Inside container)_:
    `sudo dnf install -y git podman curl`
    `mkdir ~/actions-runner && cd ~/actions-runner`
    `curl -o actions-runner-linux-x64-2.321.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.321.0/actions-runner-linux-x64-2.321.0.tar.gz`
    `tar xzf ./actions-runner-linux-x64-2.321.0.tar.gz`
    `./config.sh --url https://github.com/nklowns/bazzite-dx-silver-goggles --token <TOKEN>`
    `./run.sh`
-   *(Optional: Use `sudo ./svc.sh install` and `sudo ./svc.sh start` to run as a service inside Distrobox)*
+   _(Optional: Use `sudo ./svc.sh install` and `sudo ./svc.sh start` to run as a service inside Distrobox)_

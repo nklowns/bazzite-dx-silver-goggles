@@ -13,9 +13,9 @@ rsync -rvKl ${CONTEXT_PATH}/system_files/. /
 echo "::endgroup::"
 
 # Run all numbered scripts in order
-for script in ${BUILD_SCRIPTS_PATH}/*-*.sh; do
+for script in "${BUILD_SCRIPTS_PATH}"/*-*.sh; do
     if [[ -f "$script" ]]; then
-        echo "::group:: === Running $(basename $script) ==="
+        echo "::group:: === Running $(basename "$script") ==="
         bash "$script"
         echo "::endgroup::"
     fi

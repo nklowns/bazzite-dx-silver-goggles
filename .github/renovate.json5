@@ -10,7 +10,7 @@
 
   "packageRules": [
     {
-      "matchUpdateTypes": ["pin", "pinDigest"],
+      "matchUpdateTypes": ["pinDigest", "pin"],
       "automerge": true,
       "ignoreTests": true
     },
@@ -31,7 +31,7 @@
     {
       "description": "Automatically update Bazzite-DX digests to match the latest build",
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["ghcr.io/ublue-os/bazzite-dx"],
+      "matchPackageNames": ["ghcr.io/ublue-os/bazzite-dx-nvidia", "ghcr.io/ublue-os/bazzite-dx"],
       "matchFileNames": ["Containerfile"],
       "pinDigests": true,
       "automerge": true,

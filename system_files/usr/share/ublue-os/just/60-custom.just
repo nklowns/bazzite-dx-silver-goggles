@@ -1,5 +1,30 @@
 # vim: set ft=make :
 
+# Check hardware and system health status
+status:
+    /usr/bin/g15-status
+
+# Setup User Apps (Flatpak & Brew)
+setup-apps:
+    #!/usr/bin/env bash
+    set -eoux pipefail
+    echo "Installing Flatpaks..."
+    flatpak install -y flathub \
+        dev.vencord.Vesktop com.spotify.Client org.qbittorrent.qBittorrent \
+        io.podman_desktop.PodmanDesktop \
+        com.obsproject.Studio com.google.Chrome \
+        md.obsidian.Obsidian us.zoom.Zoom \
+        com.rustdesk.RustDesk dev.deedles.Trayscale \
+        net.retrodeck.retrodeck com.heroicgameslauncher.hgl \
+        io.github.Faugus.faugus-launcher io.github.unknownskl.greenlight \
+        io.github.elyprismlauncher.ElyPrismLauncher
+
+    echo "Installing Brew Packages..."
+    brew tap ublue-os/experimental-tap
+    brew tap ublue-os/tap
+    brew install act cosign mise opentofu gh libpq gcloud-cli chezmoi \
+        ublue-os/tap/antigravity-linux ublue-os/tap/visual-studio-code-linux
+
 # Setup kernel arguments to match current system configuration
 setup-kargs:
     rpm-ostree kargs --append-if-missing="vconsole.keymap=br" \
@@ -14,7 +39,3 @@ setup-kargs:
 # Check current kernel arguments
 check-kargs:
     rpm-ostree kargs
-
-# Check hardware and system health status
-status:
-    /usr/bin/g15-status
