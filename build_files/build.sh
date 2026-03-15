@@ -2,41 +2,40 @@
 
 set -ouex pipefail
 
-CONTEXT_PATH="/ctx"
-BUILD_SCRIPTS_PATH="${CONTEXT_PATH}/build_files"
-
-echo "=== Starting Vespera Build ==="
+echo "::group:: === Copying System Files ==="
+# Use rsync to align with Reference Patterns (Bluefin/Aurora)
+# -r (recursive), -v (verbose), -K (keep symlinks), -l (links as links)
+rsync -rvKl ${CONTEXT_PATH}/system_files/. /
+echo "::endgroup::"
 
 # Run all numbered scripts in order
 for script in ${BUILD_SCRIPTS_PATH}/*-*.sh; do
     if [[ -f "$script" ]]; then
-        echo "=== Running $(basename $script) ==="
+        echo "::group:: === Running $(basename $script) ==="
         bash "$script"
+        echo "::endgroup::"
     fi
 done
 
+# Re-apply system_files to ensure our custom configs (like database.json)
+# take priority over default files installed by RPMs in the previous step.
+# This is critical for the final "Silver Goggles" layer.
+echo "::group:: === Re-applying Priority Overrides ==="
+rsync -rvKl ${CONTEXT_PATH}/system_files/. /
+echo "::endgroup::"
+
+echo "::group:: === Cleanup ==="
 # Clean up DNF metadata and temporary files to satisfy bootc lint
-# We only clean what we created and isn't a mount point
 dnf5 clean all
 rm -rf /var/tmp/* /var/lib/dnf/*
 
-# Relocate AWCC database path (Risk 3 Mitigation)
-# Ensure /var/lib/awcc exists for persistence (also handled by tmpfiles.d)
-mkdir -p /var/lib/awcc
-chmod 755 /var/lib/awcc
-
-# If the database exists in /etc (from RPM), move it to /var/lib and symlink it
-# This allows the data to persist across OCI updates in /var
-if [ -f /etc/awcc/database.json ]; then
-    echo "Relocating AWCC database to /var/lib/awcc for persistence..."
-    mv /etc/awcc/database.json /var/lib/awcc/database.json
-    ln -sf /var/lib/awcc/database.json /etc/awcc/database.json
-fi
+# Note: /var/lib/awcc is managed via /usr/lib/tmpfiles.d/awcc.conf
+# following uBlue/BlueBuild state management patterns.
 
 # Fix for bootc lint: missing sysusers for docker group
-# uBlue images often have a docker group in /etc/group but no corresponding sysusers.d entry
 if grep -q "^docker:" /etc/group && [ ! -f /usr/lib/sysusers.d/docker.conf ]; then
     echo "g docker - -" > /usr/lib/sysusers.d/docker.conf
 fi
+echo "::endgroup::"
 
 echo "=== Build Complete ==="
