@@ -20,4 +20,7 @@ systemctl enable awccd.service
 # Mask thermald to prevent conflict with AWCC (critical for Dell G15)
 systemctl mask thermald.service
 
-echo "Dell G15 tweaks applied (smbios-utils + AWCC installed)."
+# Make our utility scripts executable
+chmod +x /usr/bin/g15-status
+
+echo "Dell G15 tweaks applied (smbios-utils + AWCC installed + status utility)."

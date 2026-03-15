@@ -1,0 +1,40 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}=== Silver-Goggles G15 Status ===${NC}"
+
+# 1. AWCC Service
+if systemctl is-active --quiet awccd; then
+    echo -e "AWCC Service: ${GREEN}Active${NC}"
+else
+    echo -e "AWCC Service: ${RED}Inactive${NC}"
+fi
+
+# 2. Thermald Status (Should be masked)
+THERMAL_STATUS=$(systemctl is-enabled thermald || true)
+if [[ "$THERMAL_STATUS" == "masked" ]]; then
+    echo -e "Thermald Mask: ${GREEN}Correct (Masked)${NC}"
+else
+    echo -e "Thermald Mask: ${RED}Incorrect ($THERMAL_STATUS)${NC}"
+fi
+
+# 3. Database Integrity
+if [[ -f "/etc/awcc/database.json" ]]; then
+    echo -e "Database File: ${GREEN}Present${NC}"
+else
+    echo -e "Database File: ${RED}Missing${NC}"
+fi
+
+# 4. Image Version
+if [[ -f "/usr/lib/os-release" ]]; then
+    VERSION=$(grep "VARIANT_ID" /etc/os-release | cut -d= -f2 | tr -d '"')
+    echo -e "Image Variant: ${BLUE}$VERSION${NC}"
+fi
+
+echo -e "${BLUE}==============================${NC}"

@@ -100,6 +100,11 @@ build $target_image=image_name $tag=default_tag:
         --tag "${target_image}:${tag}" \
         .
 
+# Build the image forcing a clean cache (no-cache)
+build-nocache $target_image=image_name $tag=default_tag:
+    #!/usr/bin/env bash
+    podman build --no-cache --pull=newer --tag "${target_image}:${tag}" .
+
 # Command: _rootful_load_image
 # Description: This script checks if the current user is root or running under sudo. If not, it attempts to resolve the image tag using podman inspect.
 #              If the image is found, it loads it into rootful podman. If the image is not found, it pulls it from the repository.
@@ -333,3 +338,8 @@ rebase-local:
     sudo rpm-ostree rebase ostree-unverified-image:oci-archive:/tmp/{{ image_name }}.tar
     rm -f /tmp/{{ image_name }}.tar
     echo "Rebase complete. Please reboot to apply changes."
+
+# Check hardware and system health status (Post-rebase)
+[group('Utility')]
+status:
+    /usr/bin/g15-status

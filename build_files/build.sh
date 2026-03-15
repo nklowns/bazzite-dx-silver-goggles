@@ -2,6 +2,10 @@
 
 set -ouex pipefail
 
+CONTEXT_PATH="/ctx"
+BUILD_SCRIPTS_PATH="${CONTEXT_PATH}/build_files"
+
+
 echo "::group:: === Copying System Files ==="
 # Use rsync to align with Reference Patterns (Bluefin/Aurora)
 # -r (recursive), -v (verbose), -K (keep symlinks), -l (links as links)

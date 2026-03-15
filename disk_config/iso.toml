@@ -1,0 +1,23 @@
+[customizations.installer.kickstart]
+contents = """
+%post
+# Automatically switch to the user's custom registry after installation
+bootc switch --mutate-in-place --transport registry ghcr.io/nklowns/bazzite-dx-silver-goggles:latest
+%end
+"""
+
+[customizations.installer.modules]
+# Enable necessary installer modules for a full KDE atomic install
+enable = [
+  "org.fedoraproject.Anaconda.Modules.Storage",
+  "org.fedoraproject.Anaconda.Modules.Runtime",
+  "org.fedoraproject.Anaconda.Modules.Network",
+  "org.fedoraproject.Anaconda.Modules.Security",
+  "org.fedoraproject.Anaconda.Modules.Services",
+  "org.fedoraproject.Anaconda.Modules.Users",
+  "org.fedoraproject.Anaconda.Modules.Timezone"
+]
+
+disable = [
+  "org.fedoraproject.Anaconda.Modules.Subscription",
+]
