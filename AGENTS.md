@@ -50,6 +50,103 @@ just check
 just build
 ```
 
+## Working with Forks & Branch Overrides
+
+This project follows the "Personal Customization" role. If you are developing features in a fork of `bazzite-dx` and want to test them here:
+
+1. **Override Base Image**: Pass the `BASE_IMAGE` build argument during build.
+   ```bash
+   just build --build-arg BASE_IMAGE=ghcr.io/YOUR_USER/bazzite-dx-nvidia:YOUR_BRANCH
+   ```
+2. **Automated Fork Build**: Use the `build-fork` recipe (added in Justfile):
+   ```bash
+   just build-fork github_user branch_name
+   ```
+
+## Enterprise Development Lifecycle
+
+To maintain enterprise-grade quality, follow this **Build -> Apply** pattern:
+
+1. **Step 1: Build your variant**
+   - **Standard**: `just build`
+   - **Component (Dev AWCC)**: `AWCC_SPEC=awcc.dev.spec just build`
+   - **Full Integration (Fork + Dev AWCC)**: `just build-dev <user> <branch> awcc.dev.spec`
+
+2. **Step 2: Apply Changes**
+   - Run `just rebase-local` to apply your built image.
+   - Use `just hot-swap-awcc <path>` for immediate AWCC testing.
+
+## Justfile Architecture
+
+To maintain clarity, recipes are split between development and system-wide usage:
+
+- **Root Justfile** ([Justfile](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/Justfile)): Used for **development tasks** (building, rebasing, linting). These recipes run in your dev context.
+- **System Justfile** ([60-custom.just](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/system_files/usr/share/ublue-os/just/60-custom.just)): Copied to `/usr/share/ublue-os/just/60-custom.just`. These recipes are what you see when running `ujust` on the host.
+
+## Local Source & Hot Swap (Rapid Iteration)
+
+To avoid frequent reboots when testing specific changes, use these local-first patterns:
+
+### 1. Testing Base Image Forks (Source Only)
+If you have a local source fork of `bazzite-dx` (no GHCR image):
+1. **Inside `bazzite-dx` folder**:
+   ```bash
+   podman build -t localhost/bazzite-dx:dev .
+   ```
+2. **Inside `silver-goggles` folder**:
+   ```bash
+   BASE_IMAGE=localhost/bazzite-dx:dev just build
+   just rebase-local
+   ```
+
+### 2. Hot Swapping Components (AWCC)
+To test local changes in `dell_related/AWCC` without rebuilding the whole image or rebooting:
+1. **Build & Apply Live**:
+   ```bash
+   just hot-swap-awcc /path/to/AWCC/source
+   ```
+   *This will build an RPM from your local source using a container and install it live on the host system.*
+
+## Safety & Reversal (Rollback)
+
+In case a test build or hot-swap causes issues, use these commands to revert:
+
+1. **Undo System Rebase**:
+   ```bash
+   just rollback-local
+   ```
+   *This returns your system to the previous deployment state. Requires a reboot.*
+
+2. **Return to Official Signed Image**:
+   ```bash
+   just rebase-official
+   ```
+   *The ultimate safety recipe: switches back to the GHCR production image.*
+
+3. **Undo AWCC Hot-Swap**:
+   ```bash
+   just uninstall-awcc
+   ```
+   *This removes the live installed AWCC RPM immediately.*
+
+## System State & Lifecycle
+
+Use `rpm-ostree status` to identify where you are in the lifecycle.
+
+### 1. State Identification
+- **● Signed (GHCR)**: `ostree-image-signed:docker://ghcr.io/...`. This is the target "Production" state.
+- **● Unverified (Local)**: `ostree-unverified-image:oci-archive:...`. You are testing a full image build locally via `just rebase-local`.
+- **Layered/Local Packages**: If `awcc` appears in `LocalPackages`, you have an active **Hot-Swap** on top of the base image.
+
+### 2. Transition to Production
+Once local tests pass:
+1. **Push Code**: `git push` to trigger GitHub Actions.
+2. **Revert Local State**:
+   - If using a local image: `just rollback-local` (reboot).
+   - If using hot-swap: `just uninstall-awcc` (live).
+   - For the ultimate reversal: `just rebase-official` (reboot).
+3. **Upgrade**: Once the GHCR build finishes, run `ujust update` or `rpm-ostree upgrade` to pull the final signed image.
+
 ## Local Development & Runner Strategy
 
 ### 1. Local GHA Testing (`act`)

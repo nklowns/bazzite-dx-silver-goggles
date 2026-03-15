@@ -14,3 +14,7 @@ setup-kargs:
 # Check current kernel arguments
 check-kargs:
     rpm-ostree kargs
+
+# Check hardware and system health status
+status:
+    /usr/bin/g15-status

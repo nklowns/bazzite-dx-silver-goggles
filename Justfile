@@ -1,6 +1,7 @@
-export image_name := env("IMAGE_NAME", "bazzite-dx-silver-goggles")
-export default_tag := env("DEFAULT_TAG", "latest")
-export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
+export IMAGE_NAME := env("IMAGE_NAME", "bazzite-dx-silver-goggles")
+export DEFAULT_TAG := env("DEFAULT_TAG", "latest")
+export BIB_IMAGE := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
+export AWCC_SPEC := env("AWCC_SPEC", "awcc.spec")
 
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
@@ -10,30 +11,68 @@ alias run-vm := run-vm-qcow2
 default:
     @just --list
 
+# ==============================================================================
+# GROUP 1: Management (Maintenance & CI)
+# ==============================================================================
+
 # Check Just Syntax
-[group('Just')]
+[group('Management')]
 check:
     #!/usr/bin/bash
-    find . -type f -name "*.just" | while read -r file; do
+    find . -maxdepth 1 -type f -name "*.just" | while read -r file; do
     	echo "Checking syntax: $file"
     	just --unstable --fmt --check -f $file
     done
+    echo "Checking syntax: system_files Justfile"
+    just --unstable --fmt --check -f system_files/usr/share/ublue-os/just/60-custom.just
     echo "Checking syntax: Justfile"
     just --unstable --fmt --check -f Justfile
 
 # Fix Just Syntax
-[group('Just')]
+[group('Management')]
 fix:
     #!/usr/bin/bash
-    find . -type f -name "*.just" | while read -r file; do
+    find . -maxdepth 1 -type f -name "*.just" | while read -r file; do
     	echo "Checking syntax: $file"
     	just --unstable --fmt -f $file
     done
+    echo "Fixing syntax: system_files Justfile"
+    just --unstable --fmt -f system_files/usr/share/ublue-os/just/60-custom.just
     echo "Checking syntax: Justfile"
     just --unstable --fmt -f Justfile || { exit 1; }
 
+# Runs shell check on all Bash scripts
+[group('Management')]
+lint:
+    #!/usr/bin/env bash
+    set -eoux pipefail
+    if ! command -v shellcheck &> /dev/null; then
+        echo "shellcheck could not be found. Please install it."
+        exit 1
+    fi
+    /usr/bin/find . -iname "*.sh" -type f -exec shellcheck "{}" ';'
+
+# Runs shfmt on all Bash scripts
+[group('Management')]
+format:
+    #!/usr/bin/env bash
+    set -eoux pipefail
+    if ! command -v shfmt &> /dev/null; then
+        echo "shfmt could not be found. Please install it."
+        exit 1
+    fi
+    /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
+
+# Run GitHub Actions locally using act
+[group('Management')]
+act:
+    #!/usr/bin/bash
+    act -j build_push \
+        -P ubuntu-24.04=catthehacker/ubuntu:full-24.04 \
+        --privileged
+
 # Clean Repo
-[group('Utility')]
+[group('Management')]
 clean:
     #!/usr/bin/bash
     set -eoux pipefail
@@ -45,13 +84,13 @@ clean:
     rm -f output/
 
 # Sudo Clean Repo
-[group('Utility')]
+[group('Management')]
 [private]
 sudo-clean:
     just sudoif just clean
 
 # sudoif bash function
-[group('Utility')]
+[group('Management')]
 [private]
 sudoif command *args:
     #!/usr/bin/bash
@@ -68,111 +107,207 @@ sudoif command *args:
     }
     sudoif {{ command }} {{ args }}
 
-# This Justfile recipe builds a container image using Podman.
-#
-# Arguments:
-#   $target_image - The tag you want to apply to the image (default: $image_name).
-#   $tag - The tag for the image (default: $default_tag).
-#
-# The script constructs the version string using the tag and the current date.
-# If the git working directory is clean, it also includes the short SHA of the current HEAD.
-#
-# just build $target_image $tag
-#
-# Example usage:
-#   just build bazzite-dx-silver-goggles latest
-#
-# This will build an image 'bazzite-dx-silver-goggles:latest' with DX enabled.
-#
+# ==============================================================================
+# GROUP 2: Image Builds
+# ==============================================================================
 
 # Build the image using the specified parameters
-build $target_image=image_name $tag=default_tag:
+[group('Build')]
+build $target_image=IMAGE_NAME $tag=DEFAULT_TAG:
     #!/usr/bin/env bash
-
     BUILD_ARGS=()
+    if [[ -n "{{ AWCC_SPEC }}" ]]; then
+        BUILD_ARGS+=("--build-arg" "AWCC_SPEC={{ AWCC_SPEC }}")
+    fi
     if [[ -z "$(git status -s)" ]]; then
         BUILD_ARGS+=("--build-arg" "SHA_HEAD_SHORT=$(git rev-parse --short HEAD)")
     fi
-
     podman build \
         "${BUILD_ARGS[@]}" \
         --pull=newer \
-        --tag "${target_image}:${tag}" \
+        --tag "{{ target_image }}:{{ tag }}" \
         .
 
 # Build the image forcing a clean cache (no-cache)
-build-nocache $target_image=image_name $tag=default_tag:
+[group('Build')]
+build-nocache $target_image=IMAGE_NAME $tag=DEFAULT_TAG:
     #!/usr/bin/env bash
-    podman build --no-cache --pull=newer --tag "${target_image}:${tag}" .
+    podman build --no-cache --pull=newer --tag "{{ target_image }}:{{ tag }}" .
 
-# Command: _rootful_load_image
-# Description: This script checks if the current user is root or running under sudo. If not, it attempts to resolve the image tag using podman inspect.
-#              If the image is found, it loads it into rootful podman. If the image is not found, it pulls it from the repository.
-#
-# Parameters:
-#   $target_image - The name of the target image to be loaded or pulled.
-#   $tag - The tag of the target image to be loaded or pulled. Default is 'default_tag'.
-#
-# Example usage:
-#   _rootful_load_image my_image latest
-#
-# Steps:
-# 1. Check if the script is already running as root or under sudo.
-# 2. Check if target image is in the non-root podman container storage)
-# 3. If the image is found, load it into rootful podman using podman scp.
-# 4. If the image is not found, pull it from the remote repository into reootful podman.
-
-_rootful_load_image $target_image=image_name $tag=default_tag:
+# Build the image pointing to a custom Bazzite-DX fork/branch
+[group('Build')]
+build-fork user branch:
     #!/usr/bin/bash
-    set -eoux pipefail
+    BASE_IMAGE="ghcr.io/{{ user }}/bazzite-dx-nvidia:{{ branch }}" just build
 
-    # Check if already running as root or under sudo
-    if [[ -n "${SUDO_USER:-}" || "${UID}" -eq "0" ]]; then
-        echo "Already root or running under sudo, no need to load image from user podman."
-        exit 0
-    fi
+# Build the image in dev mode (Forked Base + Custom AWCC Spec)
+[group('Build')]
+build-dev user branch spec="awcc.dev.spec":
+    #!/usr/bin/bash
+    BASE_IMAGE="ghcr.io/{{ user }}/bazzite-dx-nvidia:{{ branch }}" AWCC_SPEC="{{ spec }}" just build
 
-    # Try to resolve the image tag using podman inspect
-    set +e
-    resolved_tag=$(podman inspect -t image "${target_image}:${tag}" | jq -r '.[].RepoTags.[0]')
-    return_code=$?
+# ==============================================================================
+# GROUP 3: Apply & Safety (Lifecycle)
+# ==============================================================================
+
+# Apply the locally built image to the current system
+[group('Lifecycle')]
+rebase-local:
+    rm -f /tmp/{{ IMAGE_NAME }}.tar || true
+    podman save localhost/{{ IMAGE_NAME }}:latest --format oci-archive -o /tmp/{{ IMAGE_NAME }}.tar
+    sudo rpm-ostree rebase ostree-unverified-image:oci-archive:/tmp/{{ IMAGE_NAME }}.tar
+    rm -f /tmp/{{ IMAGE_NAME }}.tar
+    echo "Rebase complete. Please reboot to apply changes."
+
+# Rollback the last rpm-ostree transaction (Reverses rebase-local)
+[group('Lifecycle')]
+rollback-local:
+    sudo rpm-ostree rollback
+    echo "Rollback complete. Please reboot to return to the previous state."
+
+# Rebase the system back to the official signed production image
+[group('Lifecycle')]
+rebase-official:
+    sudo rpm-ostree rebase ostree-image-signed:docker://ghcr.io/nklowns/bazzite-dx-silver-goggles:latest
+    echo "Rebase to official image initiated. Please reboot after completion."
+
+# ==============================================================================
+# GROUP 4: Component Development (Hot-Swap)
+# ==============================================================================
+
+# Build AWCC RPM from LOCAL source code (bind-mount)
+[group('Development')]
+dev-awcc-rpm source_path:
+    #!/usr/bin/bash
     set -e
+    echo "Building AWCC RPM from local source: {{ source_path }}"
+    podman build --target builder --build-arg AWCC_SPEC={{ AWCC_SPEC }} -t awcc-dev-builder .
+    podman run --rm -v {{ source_path }}:/tmp/AWCC_SRC:Z -v .:/output:Z awcc-dev-builder bash -c ' \
+        set -e
+        # Prepare an isolated build environment
+        mkdir -p /tmp/build_env && cd /tmp/build_env && \
 
-    USER_IMG_ID=$(podman images --filter reference="${target_image}:${tag}" --format "'{{ '{{.ID}}' }}'")
+        # Define spec file path
+        SPEC_FILE="/tmp/rpmbuild/{{ AWCC_SPEC }}"
 
-    if [[ $return_code -eq 0 ]]; then
-        # If the image is found, load it into rootful podman
-        ID=$(just sudoif podman images --filter reference="${target_image}:${tag}" --format "'{{ '{{.ID}}' }}'")
-        if [[ "$ID" != "$USER_IMG_ID" ]]; then
-            # If the image ID is not found or different from user, copy the image from user podman to root podman
-            COPYTMP=$(mktemp -p "${PWD}" -d -t _build_podman_scp.XXXXXXXXXX)
-            just sudoif TMPDIR=${COPYTMP} podman image scp ${UID}@localhost::"${target_image}:${tag}" root@localhost::"${target_image}:${tag}"
-            rm -rf "${COPYTMP}"
-        fi
-    else
-        # If the image is not found, pull it from the repository
-        just sudoif podman pull "${target_image}:${tag}"
-    fi
+        # Nuclear SED: Force the spec file to conform to our dev environment
+        # 1. Update Version and Release
+        sed -i "s/^Version:.*/Version: dev.swap/" $SPEC_FILE
+        sed -i "s/^Release:.*/Release: $(date +%s)/" $SPEC_FILE
 
-# Build a bootc bootable image using Bootc Image Builder (BIB)
-# Converts a container image to a bootable image
-# Parameters:
-#   target_image: The name of the image to build (ex. localhost/fedora)
-#   tag: The tag of the image to build (ex. latest)
-#   type: The type of image to build (ex. qcow2, raw, iso)
-#   config: The configuration file to use for the build (default: disk_config/disk.toml)
+        # 2. Force Source0 and %autosetup to use fixed names
+        sed -i "s|^Source0:.*|Source0: dev.swap.tar.gz|" $SPEC_FILE
+        sed -i "s|^%autosetup.*|%autosetup -n AWCC-dev.swap|" $SPEC_FILE
 
-# Example: just _rebuild-bib localhost/fedora latest qcow2 disk_config/disk.toml
+        # 3. Clean up potentially conflicting globals
+        sed -i "/^%global commit/d" $SPEC_FILE
+        sed -i "/^%global shortcommit/d" $SPEC_FILE
+
+        # Package the source into the expected directory and tarball name
+        mkdir -p AWCC-dev.swap
+        cp -r /tmp/AWCC_SRC/* AWCC-dev.swap/
+        tar -czf dev.swap.tar.gz AWCC-dev.swap/
+
+        # Run rpmbuild pointing to our isolated source directory
+        rpmbuild -bb \
+            --define "_sourcedir $PWD" \
+            --define "_builddir $PWD" \
+            $SPEC_FILE && \
+
+        # Select the main RPM and copy it to output
+        find /root/rpmbuild/RPMS/x86_64/ -name "awcc-*.rpm" ! -name "*-debug*" -exec cp {} /output/awcc-dev.rpm \;
+    '
+    echo "Done. awcc-dev.rpm is ready."
+
+# Install a local RPM package live to the system
+[group('Development')]
+install-awcc package="awcc-dev.rpm":
+    #!/usr/bin/bash
+    set -e
+    echo "Stopping AWCC services..."
+    sudo systemctl stop awccd.service || true
+    echo "Staging {{ package }} via rpm-ostree override replace..."
+    sudo rpm-ostree override replace ./{{ package }}
+    echo "Applying changes live..."
+    sudo rpm-ostree apply-live --allow-replacement
+    echo "Starting AWCC services..."
+    sudo systemctl enable --now awccd.service
+
+# Hot-swap AWCC: Build from local source and apply live to the host
+[group('Development')]
+hot-swap-awcc source_path:
+    just dev-awcc-rpm {{ source_path }}
+    just install-awcc awcc-dev.rpm
+
+# Uninstall AWCC live from the host system
+[group('Development')]
+uninstall-awcc:
+    #!/usr/bin/bash
+    sudo rpm-ostree uninstall awcc --apply-live
+
+# ==============================================================================
+# GROUP 5: Virtual Machine & Bootable (Advanced)
+# ==============================================================================
+
+# Build a QCOW2 virtual machine image
+[group('Virtual Machine')]
+build-qcow2 $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_build-bib target_image tag "qcow2" "disk_config/disk.toml")
+
+# Build a RAW virtual machine image
+[group('Virtual Machine')]
+build-raw $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_build-bib target_image tag "raw" "disk_config/disk.toml")
+
+# Build an ISO virtual machine image
+[group('Virtual Machine')]
+build-iso $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_build-bib target_image tag "iso" "disk_config/iso.toml")
+
+# Rebuild a QCOW2 virtual machine image
+[group('Virtual Machine')]
+rebuild-qcow2 $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_rebuild-bib target_image tag "qcow2" "disk_config/disk.toml")
+
+# Rebuild a RAW virtual machine image
+[group('Virtual Machine')]
+rebuild-raw $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_rebuild-bib target_image tag "raw" "disk_config/disk.toml")
+
+# Rebuild an ISO virtual machine image
+[group('Virtual Machine')]
+rebuild-iso $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_rebuild-bib target_image tag "iso" "disk_config/iso.toml")
+
+# Run a virtual machine from a QCOW2 image
+[group('Virtual Machine')]
+run-vm-qcow2 $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_run-vm target_image tag "qcow2" "disk_config/disk.toml")
+
+# Run a virtual machine from a RAW image
+[group('Virtual Machine')]
+run-vm-raw $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_run-vm target_image tag "raw" "disk_config/disk.toml")
+
+# Run a virtual machine from an ISO
+[group('Virtual Machine')]
+run-vm-iso $target_image=("localhost/" + IMAGE_NAME) $tag=DEFAULT_TAG: && (_run-vm target_image tag "iso" "disk_config/iso.toml")
+
+# Run a virtual machine using systemd-vmspawn
+[group('Virtual Machine')]
+spawn-vm rebuild="0" type="qcow2" ram="6G":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "{{ rebuild }}" -eq 1 ] && echo "Rebuilding the ISO" && just build-vm {{ rebuild }} {{ type }}
+    systemd-vmspawn \
+      -M "bootc-image" \
+      --console=gui \
+      --cpus=2 \
+      --ram=$(echo {{ ram }}| /usr/bin/numfmt --from=iec) \
+      --network-user-mode \
+      --vsock=false --pass-ssh-key=false \
+      -i ./output/**/*.{{ type }}
+
+[private]
 _build-bib $target_image $tag $type $config: (_rootful_load_image target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
-
     args="--type ${type} "
     args+="--use-librepo=True "
     args+="--rootfs=btrfs"
-
     BUILDTMP=$(mktemp -p "${PWD}" -d -t _build-bib.XXXXXXXXXX)
-
     sudo podman run \
       --rm \
       -it \
@@ -186,71 +321,55 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
       "${bib_image}" \
       ${args} \
       "${target_image}:${tag}"
-
     mkdir -p output
     sudo mv -f $BUILDTMP/* output/
     sudo rmdir $BUILDTMP
     sudo chown -R $USER:$USER output/
 
-# Podman builds the image from the Containerfile and creates a bootable image
-# Parameters:
-#   target_image: The name of the image to build (ex. localhost/fedora)
-#   tag: The tag of the image to build (ex. latest)
-#   type: The type of image to build (ex. qcow2, raw, iso)
-#   config: The configuration file to use for the build (deafult: disk_config/disk.toml)
-
-# Example: just _rebuild-bib localhost/fedora latest qcow2 disk_config/disk.toml
+[private]
 _rebuild-bib $target_image $tag $type $config: (build target_image tag) && (_build-bib target_image tag type config)
 
-# Build a QCOW2 virtual machine image
-[group('Build Virtal Machine Image')]
-build-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "qcow2" "disk_config/disk.toml")
+[private]
+_rootful_load_image $target_image=IMAGE_NAME $tag=DEFAULT_TAG:
+    #!/usr/bin/bash
+    set -eoux pipefail
+    if [[ -n "${SUDO_USER:-}" || "${UID}" -eq "0" ]]; then
+        echo "Already root or running under sudo, no need to load image from user podman."
+        exit 0
+    fi
+    set +e
+    resolved_tag=$(podman inspect -t image "${target_image}:${tag}" | jq -r '.[].RepoTags.[0]')
+    return_code=$?
+    set -e
+    USER_IMG_ID=$(podman images --filter reference="${target_image}:${tag}" --format "'{{ '{{.ID}}' }}'")
+    if [[ $return_code -eq 0 ]]; then
+        ID=$(just sudoif podman images --filter reference="${target_image}:${tag}" --format "'{{ '{{.ID}}' }}'")
+        if [[ "$ID" != "$USER_IMG_ID" ]]; then
+            COPYTMP=$(mktemp -p "${PWD}" -d -t _build_podman_scp.XXXXXXXXXX)
+            just sudoif TMPDIR=${COPYTMP} podman image scp ${UID}@localhost::"${target_image}:${tag}" root@localhost::"${target_image}:${tag}"
+            rm -rf "${COPYTMP}"
+        fi
+    else
+        just sudoif podman pull "${target_image}:${tag}"
+    fi
 
-# Build a RAW virtual machine image
-[group('Build Virtal Machine Image')]
-build-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "raw" "disk_config/disk.toml")
-
-# Build an ISO virtual machine image
-[group('Build Virtal Machine Image')]
-build-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "iso" "disk_config/iso.toml")
-
-# Rebuild a QCOW2 virtual machine image
-[group('Build Virtal Machine Image')]
-rebuild-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "qcow2" "disk_config/disk.toml")
-
-# Rebuild a RAW virtual machine image
-[group('Build Virtal Machine Image')]
-rebuild-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "raw" "disk_config/disk.toml")
-
-# Rebuild an ISO virtual machine image
-[group('Build Virtal Machine Image')]
-rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "iso" "disk_config/iso.toml")
-
-# Run a virtual machine with the specified image type and configuration
+[private]
 _run-vm $target_image $tag $type $config:
     #!/usr/bin/bash
     set -eoux pipefail
-
-    # Determine the image file based on the type
     image_file="output/${type}/disk.${type}"
     if [[ $type == iso ]]; then
         image_file="output/bootiso/install.iso"
     fi
-
-    # Build the image if it does not exist
     if [[ ! -f "${image_file}" ]]; then
         just "build-${type}" "$target_image" "$tag"
     fi
-
-    # Determine an available port to use
     port=8006
     while grep -q :${port} <<< $(ss -tunalp); do
         port=$(( port + 1 ))
     done
     echo "Using Port: ${port}"
     echo "Connect to http://localhost:${port}"
-
-    # Set up the arguments for running the VM
     run_args=()
     run_args+=(--rm --privileged)
     run_args+=(--pull=newer)
@@ -263,83 +382,14 @@ _run-vm $target_image $tag $type $config:
     run_args+=(--device=/dev/kvm)
     run_args+=(--volume "${PWD}/${image_file}":"/boot.${type}")
     run_args+=(docker.io/qemux/qemu)
-
-    # Run the VM and open the browser to connect
     (sleep 30 && xdg-open http://localhost:"$port") &
     podman run "${run_args[@]}"
 
-# Run a virtual machine from a QCOW2 image
-[group('Run Virtal Machine')]
-run-vm-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_run-vm target_image tag "qcow2" "disk_config/disk.toml")
+# ==============================================================================
+# GROUP 6: Status
+# ==============================================================================
 
-# Run a virtual machine from a RAW image
-[group('Run Virtal Machine')]
-run-vm-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_run-vm target_image tag "raw" "disk_config/disk.toml")
-
-# Run a virtual machine from an ISO
-[group('Run Virtal Machine')]
-run-vm-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_run-vm target_image tag "iso" "disk_config/iso.toml")
-
-# Run a virtual machine using systemd-vmspawn
-[group('Run Virtal Machine')]
-spawn-vm rebuild="0" type="qcow2" ram="6G":
-    #!/usr/bin/env bash
-
-    set -euo pipefail
-
-    [ "{{ rebuild }}" -eq 1 ] && echo "Rebuilding the ISO" && just build-vm {{ rebuild }} {{ type }}
-
-    systemd-vmspawn \
-      -M "bootc-image" \
-      --console=gui \
-      --cpus=2 \
-      --ram=$(echo {{ ram }}| /usr/bin/numfmt --from=iec) \
-      --network-user-mode \
-      --vsock=false --pass-ssh-key=false \
-      -i ./output/**/*.{{ type }}
-
-# Runs shell check on all Bash scripts
-lint:
-    #!/usr/bin/env bash
-    set -eoux pipefail
-    # Check if shellcheck is installed
-    if ! command -v shellcheck &> /dev/null; then
-        echo "shellcheck could not be found. Please install it."
-        exit 1
-    fi
-    # Run shellcheck on all Bash scripts
-    /usr/bin/find . -iname "*.sh" -type f -exec shellcheck "{}" ';'
-
-# Runs shfmt on all Bash scripts
-format:
-    #!/usr/bin/env bash
-    set -eoux pipefail
-    # Check if shfmt is installed
-    if ! command -v shfmt &> /dev/null; then
-        echo "shellcheck could not be found. Please install it."
-        exit 1
-    fi
-    # Run shfmt on all Bash scripts
-    /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
-
-# Run GitHub Actions locally using act
-act:
-    #!/usr/bin/bash
-    act -j build_push \
-        -P ubuntu-24.04=catthehacker/ubuntu:full-24.04 \
-        --privileged
-
-# Build and rebase the current system to the local image (for testing)
-[group('Utility')]
-rebase-local:
-    just build
-    rm -f /tmp/{{ image_name }}.tar || true
-    podman save localhost/{{ image_name }}:latest --format oci-archive -o /tmp/{{ image_name }}.tar
-    sudo rpm-ostree rebase ostree-unverified-image:oci-archive:/tmp/{{ image_name }}.tar
-    rm -f /tmp/{{ image_name }}.tar
-    echo "Rebase complete. Please reboot to apply changes."
-
-# Check hardware and system health status (Post-rebase)
-[group('Utility')]
+# Check hardware and system health status
+[group('Status')]
 status:
     /usr/bin/g15-status

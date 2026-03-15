@@ -3,18 +3,19 @@ ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:stable"
 
 # Builder Stage for AWCC native RPM packaging
 FROM fedora:43 AS builder
+ARG AWCC_SPEC="awcc.spec"
 WORKDIR /tmp/rpmbuild
 # Install rpm tools and required build dependencies explicitly
 RUN dnf install -y dnf5 && dnf5 install -y rpm-build rpmdevtools dnf5-plugins \
     cmake ninja-build meson gcc-c++ git libX11-devel libxkbcommon-devel \
     glfw-devel systemd-devel libudev-devel libglvnd-devel wayland-devel
 
-COPY build_files/awcc.spec .
+COPY build_files/${AWCC_SPEC} .
 
 # Fetch sources, build RPM, and extract it
 RUN rpmdev-setuptree && \
-    spectool -g -R awcc.spec && \
-    rpmbuild -ba awcc.spec && \
+    spectool -g -R ${AWCC_SPEC} && \
+    rpmbuild -ba ${AWCC_SPEC} && \
     cp /root/rpmbuild/RPMS/x86_64/awcc*.rpm /tmp/
 
 # Allow build scripts to be referenced without being copied into the final image
