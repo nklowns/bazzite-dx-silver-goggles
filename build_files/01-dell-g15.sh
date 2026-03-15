@@ -17,4 +17,7 @@ dnf5 install -y /tmp/builder_artifacts/awcc-1.16.9-*.rpm
 # Enable AWCC Daemon (Installed natively via RPM)
 systemctl enable awccd.service
 
+# Mask thermald to prevent conflict with AWCC (critical for Dell G15)
+systemctl mask thermald.service
+
 echo "Dell G15 tweaks applied (smbios-utils + AWCC installed)."
