@@ -170,6 +170,9 @@ rollback-local:
 # Rebase the system back to the official signed production image
 [group('Lifecycle')]
 rebase-official:
+    # sudo rpm-ostree reset
+    # sudo rpm-ostree override reset --all
+    # sudo rpm-ostree uninstall --all
     sudo rpm-ostree rebase ostree-image-signed:docker://ghcr.io/nklowns/bazzite-dx-silver-goggles:latest
     echo "Rebase to official image initiated. Please reboot after completion."
 
@@ -245,7 +248,10 @@ hot-swap-awcc source_path:
 [group('Development')]
 uninstall-awcc:
     #!/usr/bin/bash
-    sudo rpm-ostree uninstall awcc --apply-live
+    echo "Resetting AWCC override..."
+    sudo rpm-ostree override reset awcc
+    echo "Applying changes live..."
+    sudo rpm-ostree apply-live
 
 # ==============================================================================
 # GROUP 5: Virtual Machine & Bootable (Advanced)

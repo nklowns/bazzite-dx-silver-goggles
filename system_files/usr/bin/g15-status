@@ -11,7 +11,7 @@ echo -e "${BLUE}=== Silver-Goggles G15 Status ===${NC}"
 
 # 1. AWCC Service
 if systemctl is-active --quiet awccd; then
-    echo -e "AWCC Service: ${GREEN}Active${NC}"
+    echo -e "AWCC Service: ${GREEN}Active${NC} (${BLUE}$(rpm -q awcc)${NC})"
 else
     echo -e "AWCC Service: ${RED}Inactive${NC}"
 fi

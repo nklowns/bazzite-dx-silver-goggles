@@ -4,7 +4,7 @@ This repository is a **personal customization** of Bazzite DX. It uses the [ublu
 
 ## Repository Purpose
 
-- **Personal Use**: Specifically tailored for the user's hardware (Dell G15 5521).
+- **Personal Use**: Specifically tailored for the user's hardware (Dell G15 5520).
 - **Customization Layer**: Used to apply personal configurations on top of the `bazzite-dx` base image.
 
 ## MCP Context7 Libraries

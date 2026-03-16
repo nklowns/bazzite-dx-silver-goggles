@@ -16,8 +16,10 @@ setup-apps:
         md.obsidian.Obsidian us.zoom.Zoom \
         com.rustdesk.RustDesk dev.deedles.Trayscale \
         net.retrodeck.retrodeck com.heroicgameslauncher.hgl \
-        io.github.Faugus.faugus-launcher io.github.unknownskl.greenlight \
-        io.github.elyprismlauncher.ElyPrismLauncher
+        io.github.Faugus.faugus-launcher io.github.unknownskl.greenlight
+
+    flatpak install -y \
+        https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref
 
     echo "Installing Brew Packages..."
     brew tap ublue-os/experimental-tap
