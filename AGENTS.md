@@ -146,6 +146,7 @@ Use `rpm-ostree status` to identify where you are in the lifecycle.
 - **● Signed (GHCR)**: `ostree-image-signed:docker://ghcr.io/...`. This is the target "Production" state.
 - **● Unverified (Local)**: `ostree-unverified-image:oci-archive:...`. You are testing a full image build locally via `just rebase-local`.
 - **Layered/Local Packages**: If `awcc` appears in `LocalPackages`, you have an active **Hot-Swap** on top of the base image.
+- **Inactive Overrides Note**: Due to the OCI-native build nature of this image (using `dnf` in the Containerfile), `rpm-ostree db list` may appear empty on the host. This makes standard `override replace` commands appear as "Inactive". For development, always use the `just install-awcc` recipe which bypasses this via `usroverlay`.
 
 ### 2. Transition to Production
 

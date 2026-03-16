@@ -1,4 +1,4 @@
-%global commit 8d2a6878cf71a67a5ff0ca38b71f2908869c2d9f
+%global commit 2b95bd12920db98babeb4db288c5f3a2ffa22d7f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           awcc
@@ -52,5 +52,8 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %exclude %{_libdir}/libusb-1.0.a
 
 %changelog
+* Sun Mar 15 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1.dev.2b95bd1
+- Implement dynamic keyboard lighting zones
+- Refactor EffectController to use dynamic zones from database.json
 * Mon Mar 09 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1
 - Initial RPM release for uBlue

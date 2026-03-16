@@ -1,7 +1,7 @@
 export IMAGE_NAME := env("IMAGE_NAME", "bazzite-dx-silver-goggles")
 export DEFAULT_TAG := env("DEFAULT_TAG", "latest")
 export BIB_IMAGE := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
-export AWCC_SPEC := env("AWCC_SPEC", "awcc.spec")
+export AWCC_SPEC := env("AWCC_SPEC", "awcc.dev.spec")
 
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
@@ -231,10 +231,12 @@ install-awcc package="awcc-dev.rpm":
     set -e
     echo "Stopping AWCC services..."
     sudo systemctl stop awccd.service || true
-    echo "Staging {{ package }} via rpm-ostree override replace..."
-    sudo rpm-ostree override replace ./{{ package }}
-    echo "Applying changes live..."
-    sudo rpm-ostree apply-live --allow-replacement
+    echo "Unlocking filesystem (transient)..."
+    sudo rpm-ostree usroverlay || true
+    echo "Installing {{ package }} directly via RPM..."
+    sudo rpm -Uvh --force ./{{ package }}
+    echo "Verifying installation..."
+    rpm -q awcc
     echo "Starting AWCC services..."
     sudo systemctl enable --now awccd.service
 
@@ -248,10 +250,8 @@ hot-swap-awcc source_path:
 [group('Development')]
 uninstall-awcc:
     #!/usr/bin/bash
-    echo "Resetting AWCC override..."
-    sudo rpm-ostree override reset awcc
-    echo "Applying changes live..."
-    sudo rpm-ostree apply-live
+    echo "Resetting transient changes (reverts system to base image state)..."
+    sudo rpm-ostree apply-live --reset
 
 # ==============================================================================
 # GROUP 5: Virtual Machine & Bootable (Advanced)

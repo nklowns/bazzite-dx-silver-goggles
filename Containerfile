@@ -3,7 +3,7 @@ ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:stable"
 
 # Builder Stage for AWCC native RPM packaging
 FROM fedora:43 AS builder
-ARG AWCC_SPEC="awcc.spec"
+ARG AWCC_SPEC="awcc.dev.spec"
 WORKDIR /tmp/rpmbuild
 # Install rpm tools and required build dependencies explicitly
 RUN dnf install -y dnf5 && dnf5 install -y rpm-build rpmdevtools dnf5-plugins \
