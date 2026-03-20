@@ -63,6 +63,15 @@ This project follows the "Personal Customization" role. If you are developing fe
    just build-fork github_user branch_name
    ```
 
+### 3. Local-Only Base Image Testing
+
+If you are making changes to a local clone of `bazzite-dx` but haven't pushed it to GHCR yet:
+
+1. **Build base**: `podman build -t localhost/bazzite-dx:dev .` (inside `bazzite-dx` folder)
+2. **Build downstream**: `BASE_IMAGE=localhost/bazzite-dx:dev just build` (inside this folder)
+
+_This ensures your changes to core uBlue logic are correctly inherited by the Silver Goggles layer before any remote pushing._
+
 ## Enterprise Development Lifecycle
 
 To maintain enterprise-grade quality, follow this **Build -> Apply** pattern:

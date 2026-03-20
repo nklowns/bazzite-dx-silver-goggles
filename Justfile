@@ -27,6 +27,11 @@ check:
     just --unstable --fmt --check -f system_files/usr/share/ublue-os/just/60-custom.just
     echo "Checking syntax: Justfile"
     just --unstable --fmt --check -f Justfile
+    echo "Checking Flatpak overrides..."
+    find system_files/etc/flatpak/overrides/ -type f | while read -r file; do
+    	echo "Validating structure: $file"
+    	grep -q "^\[.*\]" "$file" || { echo "Error: $file missing valid INI group"; exit 1; }
+    done
 
 # Fix Just Syntax
 [group('Management')]
