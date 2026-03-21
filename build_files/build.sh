@@ -28,6 +28,10 @@ echo "::group:: === Re-applying Priority Overrides ==="
 rsync -rvKl ${CONTEXT_PATH}/system_files/. /
 echo "::endgroup::"
 
+# Apply systemd presets to ensure services (like awccd) are enabled
+# and others (like thermald) are masked correctly.
+systemctl preset-all
+
 echo "::group:: === Cleanup ==="
 # Clean up DNF metadata and temporary files to satisfy bootc lint
 dnf5 clean all
