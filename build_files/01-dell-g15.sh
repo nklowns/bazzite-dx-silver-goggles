@@ -11,12 +11,6 @@ echo "Applying Dell G15 specific tweaks..."
 # Install our custom AWCC RPM compiled in the builder stage via transient mount
 dnf5 install -y /tmp/builder_artifacts/awcc-*.rpm
 
-# Enable AWCC Daemon (Installed natively via RPM)
-systemctl enable awccd.service
-
-# Mask thermald to prevent conflict with AWCC (critical for Dell G15)
-systemctl mask thermald.service
-
 # Make our utility scripts executable
 chmod +x /usr/bin/g15-status
 

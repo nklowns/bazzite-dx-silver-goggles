@@ -1,2 +1,2 @@
 [Environment]
-CHROME_EXTRA_FLAGS="--ozone-platform=x11"
+CHROME_EXTRA_FLAGS=--ozone-platform=x11
