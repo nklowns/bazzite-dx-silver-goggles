@@ -1,0 +1,10 @@
+/* Allow wheel group to run AWCC ACPI commands without password */
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        subject.isInGroup("wheel")) {
+        var command = action.lookup("command_line");
+        if (command && command.indexOf("_SB.AMWW.WMAX") !== -1) {
+            return polkit.Result.YES;
+        }
+    }
+});
