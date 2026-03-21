@@ -5,7 +5,6 @@ set -ouex pipefail
 CONTEXT_PATH="/ctx"
 BUILD_SCRIPTS_PATH="${CONTEXT_PATH}/build_files"
 
-
 echo "::group:: === Copying System Files ==="
 # Use rsync to align with Reference Patterns (Bluefin/Aurora)
 # -r (recursive), -v (verbose), -K (keep symlinks), -l (links as links)
@@ -14,11 +13,11 @@ echo "::endgroup::"
 
 # Run all numbered scripts in order
 for script in "${BUILD_SCRIPTS_PATH}"/*-*.sh; do
-    if [[ -f "$script" ]]; then
-        echo "::group:: === Running $(basename "$script") ==="
-        bash "$script"
-        echo "::endgroup::"
-    fi
+	if [[ -f "$script" ]]; then
+		echo "::group:: === Running $(basename "$script") ==="
+		bash "$script"
+		echo "::endgroup::"
+	fi
 done
 
 # Re-apply system_files to ensure our custom configs (like database.json)
@@ -27,6 +26,9 @@ done
 echo "::group:: === Re-applying Priority Overrides ==="
 rsync -rvKl ${CONTEXT_PATH}/system_files/. /
 echo "::endgroup::"
+
+# Enable AWCC Daemon (Professional Enablement)
+systemctl enable awccd.service
 
 # Apply systemd presets to ensure services (like awccd) are enabled
 # and others (like thermald) are masked correctly.
@@ -42,7 +44,7 @@ rm -rf /var/tmp/* /var/lib/dnf/*
 
 # Fix for bootc lint: missing sysusers for docker group
 if grep -q "^docker:" /etc/group && [ ! -f /usr/lib/sysusers.d/docker.conf ]; then
-    echo "g docker - -" > /usr/lib/sysusers.d/docker.conf
+	echo "g docker - -" >/usr/lib/sysusers.d/docker.conf
 fi
 echo "::endgroup::"
 
