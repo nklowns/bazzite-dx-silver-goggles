@@ -27,8 +27,6 @@ echo "::group:: === Re-applying Priority Overrides ==="
 rsync -rvKl ${CONTEXT_PATH}/system_files/. /
 echo "::endgroup::"
 
-# Enable AWCC Daemon (Professional Enablement)
-systemctl enable awccd.service
 
 # Apply systemd presets to ensure services (like awccd) are enabled
 # and others (like thermald) are masked correctly.
