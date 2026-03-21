@@ -114,8 +114,8 @@ The files should be named after the Flatpak ID (e.g., `com.discordapp.Discord`) 
 
 Example (`system_files/etc/flatpak/overrides/com.google.Chrome`):
 ```ini
-[Environment]
-CHROME_EXTRA_FLAGS="--ozone-platform=x11"
+[Context]
+env=CHROME_EXTRA_FLAGS=--ozone-platform=x11
 ```
 
 These overrides are applied system-wide during the image build.
