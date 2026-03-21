@@ -1,2 +1,0 @@
-[Context]
-env=CHROME_EXTRA_FLAGS=--ozone-platform=x11

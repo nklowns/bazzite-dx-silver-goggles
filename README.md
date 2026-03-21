@@ -108,14 +108,14 @@ The `hot-swap-awcc` recipe uses a sophisticated mechanism to allow rapid iterati
 
 # Flatpak Overrides
 
-You can declaratively manage Flatpak permissions and environment variables by adding files to `system_files/etc/flatpak/overrides/`.
+You can declaratively manage Flatpak permissions and environment variables by adding files to `system_files/usr/share/flatpak/overrides/`.
 
-The files should be named after the Flatpak ID (e.g., `com.discordapp.Discord`) and use the `KeyFile` format.
+The files should be named after the Flatpak ID (e.g., `com.google.Chrome`) and use the `KeyFile` format.
 
-Example (`system_files/etc/flatpak/overrides/com.google.Chrome`):
+Example (`system_files/usr/share/flatpak/overrides/com.google.Chrome`):
 ```ini
-[Context]
-env=CHROME_EXTRA_FLAGS=--ozone-platform=x11
+[Environment]
+CHROME_EXTRA_FLAGS="--ozone-platform=x11"
 ```
 
 These overrides are applied system-wide during the image build.
