@@ -1,4 +1,4 @@
-%global commit 113c6aa5cb45ded57ebecf1757269b1bdba14321
+%global commit 8d3f4313636585d57c6da77b8581582800e81917
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           awcc
@@ -31,19 +31,23 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %autosetup -n AWCC-%{commit}
 
 %build
-%cmake -G Ninja -DCMAKE_INSTALL_PREFIX=/usr
+%cmake -G Ninja \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DUDEV_RULES_DIR=%{_udevrulesdir} \
+  -DSYSTEMD_UNIT_DIR=%{_unitdir} \
+  -DAWCC_CONFIG_DIR=%{_sysconfdir}/awcc
 %cmake_build
 
 %install
 %cmake_install
 
 %files
-/usr/bin/awcc
-/usr/share/applications/awcc.desktop
-/usr/share/icons/awcc.png
-/etc/udev/rules.d/70-awcc.rules
-/etc/systemd/system/awccd.service
-/etc/awcc/database.json
+%{_bindir}/awcc
+%{_datadir}/applications/awcc.desktop
+%{_datadir}/icons/awcc.png
+%{_udevrulesdir}/70-awcc.rules
+%{_unitdir}/awccd.service
+%config(noreplace) %{_sysconfdir}/awcc/database.json
 
 %exclude %{_includedir}/libusb-1.0/libusb.h
 %exclude %dir %{_includedir}/libusb-1.0
