@@ -1,5 +1,5 @@
 Name:           awcc
-Version:        1.16.9
+Version:        1.17.0
 Release:        1%{?dist}
 Summary:        Alienware Command Center alternative for Linux
 
@@ -49,5 +49,7 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %exclude %{_libdir}/libusb-1.0.a
 
 %changelog
+* Sat Mar 21 2026 Cloud <cloud@bazzite-local.com> - 1.17.0-1
+- Update to upstream v1.17.0
 * Mon Mar 09 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1
 - Initial RPM release for uBlue

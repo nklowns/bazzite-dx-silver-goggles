@@ -1,8 +1,8 @@
-%global commit 2b95bd12920db98babeb4db288c5f3a2ffa22d7f
+%global commit 113c6aa5cb45ded57ebecf1757269b1bdba14321
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           awcc
-Version:        1.16.9
+Version:        1.17.0
 Release:        1.dev.%{shortcommit}%{?dist}
 Summary:        Alienware Command Center alternative for Linux (Custom Refined)
 
@@ -52,6 +52,9 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %exclude %{_libdir}/libusb-1.0.a
 
 %changelog
+* Sat Mar 21 2026 Cloud <cloud@bazzite-local.com> - 1.17.0-1.dev.113c6aa
+- Rebase onto upstream v1.17.0
+- Refactored EffectController to use dynamic zones from database.json
 * Sun Mar 15 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1.dev.2b95bd1
 - Implement dynamic keyboard lighting zones
 - Refactor EffectController to use dynamic zones from database.json
