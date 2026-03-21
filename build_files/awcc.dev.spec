@@ -1,4 +1,4 @@
-%global commit 8d3f4313636585d57c6da77b8581582800e81917
+%global commit ebc9451e9d1fd05adabe77990f1c93bf8f131a92
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           awcc
