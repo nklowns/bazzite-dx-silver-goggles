@@ -1,5 +1,8 @@
 cosign.key
 _build_*
-output
 _build-*/**
 *.rpm
+output/
+*.qcow2
+*.raw
+*.iso
