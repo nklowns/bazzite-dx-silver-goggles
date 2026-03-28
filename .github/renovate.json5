@@ -8,20 +8,26 @@
   "dependencyDashboard": true,
   "rebaseWhen": "never",
 
+  "git-submodules": {
+    "enabled": true
+  },
+
   "packageRules": [
     {
-      "matchUpdateTypes": ["pinDigest", "pin"],
+      "description": "Automatically automerge pin and pinDigest updates for all dependencies to maintain stability",
+      "matchUpdateTypes": ["pin", "pinDigest"],
       "automerge": true,
       "ignoreTests": true
     },
     {
+      "description": "Disable automated container updates within GitHub workflows for security/drift prevention",
       "enabled": false,
       "matchUpdateTypes": ["digest", "pinDigest", "pin"],
       "matchDepTypes": ["container"],
-      "matchFileNames": [".github/workflows/**.yaml", ".github/workflows/**.yml"],
+      "matchFileNames": [".github/workflows/**.yaml", ".github/workflows/**.yml"]
     },
     {
-      "description": "Automerge GitHub Actions digest updates in workflows",
+      "description": "Automerge GitHub Actions digest updates in workflows for security parity",
       "matchDatasources": ["github-tags"],
       "matchFileNames": [".github/workflows/**"],
       "matchUpdateTypes": ["digest", "pinDigest"],
@@ -29,15 +35,18 @@
       "ignoreTests": true
     },
     {
-      "description": "Automatically update Bazzite-DX digests to match the latest build",
+      "description": "Automatically update and automerge Bazzite-DX upstream digests to ensure the Zero-Ops image cascade",
+      "matchUpdateTypes": ["digest"],
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["ghcr.io/ublue-os/bazzite-dx-nvidia", "ghcr.io/ublue-os/bazzite-dx"],
+      "matchPackageNames": [
+        "ghcr.io/ublue-os/bazzite-dx-nvidia",
+        "ghcr.io/ublue-os/bazzite-dx"
+      ],
       "matchFileNames": ["Containerfile"],
       "pinDigests": true,
       "automerge": true,
       "ignoreTests": true,
-      "commitMessagePrefix": "chore(deps): ",
-      "enabled": true 
+      "commitMessagePrefix": "chore(deps): "
     }
   ]
 }

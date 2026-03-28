@@ -23,12 +23,6 @@ env:
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}" # do not edit
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
-  # The tag used in the image from which we base of.
-  # ex.: ghcr.io/org/image:IMAGE_SOURCE_TAG
-  IMAGE_SOURCE_TAG: "latest"
-  SOURCE_ORG: "ublue-os"
-  SOURCE_REPO: "bazzite"
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
   cancel-in-progress: true
@@ -37,9 +31,6 @@ jobs:
   build_push:
     name: Build and push image
     runs-on: ubuntu-24.04
-
-    env:
-      BASE_IMAGE: "bazzite-dx-nvidia"
 
     permissions:
       contents: read
@@ -85,24 +76,27 @@ jobs:
       #   - SOURCE_VERSION_MAJOR: major version. Used to identify big releases. Ex.: 41
       - name: Get image major version
         id: fetch_source_meta
-        env:
-          org: ${{ env.SOURCE_ORG }}
-          IMAGE_SOURCE_TAG: ${{ env.IMAGE_SOURCE_TAG || 'latest' }}
         run: |
           set -x
           # SOURCE_VERSION_MAJOR must be a number
           declare -i SOURCE_VERSION_MAJOR=0
 
-          # There are some ways to get the major release from an image.
-          # First method: `skopeo inspect` and annotations.
+          # Extract base image accurately from Containerfile (Truth source)
+          # This works for both tags (:) and digests (@)
+          FULL_BASE_IMAGE=$(grep -Po '(?<=ARG BASE_IMAGE=")[^"]*' Containerfile)
+          if [[ -z $FULL_BASE_IMAGE ]]; then
+            echo "::error::Could not extract BASE_IMAGE from Containerfile"
+            exit 1
+          fi
 
+          # Inspect the actual pinned image
           SOURCE_VERSION=$(
                 skopeo inspect --no-tags --raw --config \
-                "docker://ghcr.io/${org}/${BASE_IMAGE}:${IMAGE_SOURCE_TAG}" | \
+                "docker://${FULL_BASE_IMAGE}" | \
                 jq -r '.config.Labels["org.opencontainers.image.version"]'
           )
-          if [[ -z $SOURCE_VERSION ]]; then
-            echo "::error::$SOURCE_VERSION was not fetched correctly: $SOURCE_VERSION=${$SOURCE_VERSION}"
+          if [[ -z $SOURCE_VERSION || "$SOURCE_VERSION" == "null" ]]; then
+            echo "::error::SOURCE_VERSION was not fetched correctly"
             exit 1
           fi
           echo "SOURCE_VERSION=$SOURCE_VERSION" >>$GITHUB_OUTPUT
@@ -175,7 +169,6 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }} ${{ steps.metadata_local.outputs.labels }}
           oci: false
           build-args: |
-            BASE_IMAGE=ghcr.io/${{ env.SOURCE_ORG }}/${{ env.BASE_IMAGE }}:${{ env.IMAGE_SOURCE_TAG || 'latest' }}
             IMAGE_NAME=${{ env.IMAGE_NAME }}
             IMAGE_VENDOR=${{ github.repository_owner }}
 
