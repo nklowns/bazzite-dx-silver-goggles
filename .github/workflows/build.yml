@@ -71,6 +71,20 @@ jobs:
           # https://linux.die.net/man/1/date
           echo "date=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)" >> $GITHUB_OUTPUT
 
+      - name: Extract base image digest
+        id: extract_digest
+        shell: bash
+        run: |
+          # Use yq to extract the image + digest for the target image
+          FULL_IMAGE=$(yq '.images[] | select(.name == "bazzite-dx-nvidia") | .image + "@" + .digest' image-versions.yaml)
+          
+          if [[ -z "$FULL_IMAGE" || "$FULL_IMAGE" == "@" ]]; then
+            echo "::error::Digest not found in image-versions.yaml for bazzite-dx-nvidia"
+            exit 1
+          fi
+          
+          echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
+
       # OUTPUTS:
       #   - SOURCE_VERSION: version of the source image. Ex.: testing-41.20250312
       #   - SOURCE_VERSION_MAJOR: major version. Used to identify big releases. Ex.: 41
@@ -81,18 +95,10 @@ jobs:
           # SOURCE_VERSION_MAJOR must be a number
           declare -i SOURCE_VERSION_MAJOR=0
 
-          # Extract base image accurately from Containerfile (Truth source)
-          # This works for both tags (:) and digests (@)
-          FULL_BASE_IMAGE=$(grep -Po '(?<=ARG BASE_IMAGE=")[^"]*' Containerfile)
-          if [[ -z $FULL_BASE_IMAGE ]]; then
-            echo "::error::Could not extract BASE_IMAGE from Containerfile"
-            exit 1
-          fi
-
-          # Inspect the actual pinned image
+          # Inspect the actual pinned image from image-versions.yaml
           SOURCE_VERSION=$(
                 skopeo inspect --no-tags --raw --config \
-                "docker://${FULL_BASE_IMAGE}" | \
+                "docker://${{ steps.extract_digest.outputs.full_image }}" | \
                 jq -r '.config.Labels["org.opencontainers.image.version"]'
           )
           if [[ -z $SOURCE_VERSION || "$SOURCE_VERSION" == "null" ]]; then
@@ -102,11 +108,8 @@ jobs:
           echo "SOURCE_VERSION=$SOURCE_VERSION" >>$GITHUB_OUTPUT
 
           SOURCE_VERSION_MAJOR=$([[ ${SOURCE_VERSION} =~ ^(.*-)?([[:digit:]]+) ]] && echo "${BASH_REMATCH[-1]}")
-          _status=$?
-          unset -v _tag
-
-          if [[ $_status -ne 0 ]] || [[ -z ${SOURCE_VERSION_MAJOR} ]] || (( SOURCE_VERSION_MAJOR <= 0 )); then
-            echo "::error::SOURCE_VERSION_MAJOR was not fetched correctly: SOURCE_VERSION_MAJOR=${SOURCE_VERSION_MAJOR}"
+          if [[ -z ${SOURCE_VERSION_MAJOR} ]] || (( SOURCE_VERSION_MAJOR <= 0 )); then
+            echo "::error::SOURCE_VERSION_MAJOR was not fetched correctly"
             exit 1
           fi
 
@@ -169,6 +172,7 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }} ${{ steps.metadata_local.outputs.labels }}
           oci: false
           build-args: |
+            BASE_IMAGE=${{ steps.extract_digest.outputs.full_image }}
             IMAGE_NAME=${{ env.IMAGE_NAME }}
             IMAGE_VENDOR=${{ github.repository_owner }}
 
