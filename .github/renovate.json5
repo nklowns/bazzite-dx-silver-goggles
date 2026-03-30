@@ -17,9 +17,10 @@
       "description": "Track digests in image-versions.yaml",
       "fileMatch": ["^image-versions\\.yaml$"],
       "matchStrings": [
-        "image: (?<depName>[^\\s]+)\\s+tag: (?<currentValue>[^\\s]+)\\s+digest: (?<currentDigest>sha256:[a-f0-9]+)"
+        "image:\\s+(?<depName>[^\\s]+)\\s+tag:\\s+(?<currentValue>[^\\s]+)\\s+digest:\\s+(?<currentDigest>sha256:[a-f0-9]+)"
       ],
-      "datasourceTemplate": "docker"
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
     }
   ],
 

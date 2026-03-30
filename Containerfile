@@ -1,5 +1,5 @@
 # Base Image (Must be declared globally before first FROM for Buildah compatibility)
-ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:latest"
+ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:latest@sha256:b8bc0e7c90422cc25236faf5fed08ae9779a99b1dbc50be2a812e45fbe9702da"
 
 # Builder Stage for AWCC native RPM packaging
 FROM fedora:43 AS builder
