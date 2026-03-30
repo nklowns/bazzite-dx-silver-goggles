@@ -1,71 +1,105 @@
 {
-  $schema: "https://docs.renovatebot.com/renovate-schema.json",
-  extends: ["config:best-practices"],
-
-  forkProcessing: "enabled",
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:best-practices',
+  ],
+  forkProcessing: 'enabled',
   dependencyDashboard: true,
-  rebaseWhen: "never",
-
-  "git-submodules": {
+  rebaseWhen: 'never',
+  'git-submodules': {
     enabled: true,
   },
-
-  regexManagers: [
+  customManagers: [
     {
-      description: "Track digests in image-versions.yaml",
-      fileMatch: ["^image-versions\\.yaml$"],
-      matchStrings: [
-        "image:\\s+(?<depName>[^\\s]+)\\s+tag:\\s+(?<currentValue>[^\\s]+)\\s+digest:\\s+(?<currentDigest>sha256:[a-f0-9]+)",
+      customType: 'regex',
+      description: 'Track digests in image-versions.yaml',
+      managerFilePatterns: [
+        '/^image-versions\\.yaml$/',
       ],
-      datasourceTemplate: "docker",
-      versioningTemplate: "docker",
+      matchStrings: [
+        'image:\\s+(?<depName>[^\\s]+)\\s+tag:\\s+(?<currentValue>[^\\s]+)\\s+digest:\\s+(?<currentDigest>sha256:[a-f0-9]+)',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
     },
   ],
-
   packageRules: [
     {
-      description: "Automatically automerge pin and pinDigest updates for all dependencies to maintain stability",
-      matchUpdateTypes: ["pin", "pinDigest"],
+      description: 'Automatically automerge pin and pinDigest updates for all dependencies to maintain stability',
+      matchUpdateTypes: [
+        'pin',
+        'pinDigest',
+      ],
       automerge: true,
       ignoreTests: true,
     },
     {
-      description: "Disable automated container updates within GitHub workflows for security/drift prevention",
+      description: 'Disable automated container updates within GitHub workflows for security/drift prevention',
       enabled: false,
-      matchUpdateTypes: ["digest", "pinDigest", "pin"],
-      matchDepTypes: ["container"],
-      matchFileNames: [".github/workflows/**.yaml", ".github/workflows/**.yml"],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+        'pin',
+      ],
+      matchDepTypes: [
+        'container',
+      ],
+      matchFileNames: [
+        '.github/workflows/**.yaml',
+        '.github/workflows/**.yml',
+      ],
     },
     {
-      description: "Automerge GitHub Actions digest updates in workflows for security parity",
-      matchDatasources: ["github-tags"],
-      matchFileNames: [".github/workflows/**"],
-      matchUpdateTypes: ["digest", "pinDigest"],
+      description: 'Automerge GitHub Actions digest updates in workflows for security parity',
+      matchDatasources: [
+        'github-tags',
+      ],
+      matchFileNames: [
+        '.github/workflows/**',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
       automerge: true,
       ignoreTests: true,
     },
     {
-      description: "Automatically update and automerge all upstream digests in image-versions.yaml to ensure a sync build",
-      matchFileNames: ["image-versions.yaml"],
-      matchUpdateTypes: ["digest"],
+      description: 'Automatically update and automerge all upstream digests in image-versions.yaml to ensure a sync build',
+      matchFileNames: [
+        'image-versions.yaml',
+      ],
+      matchUpdateTypes: [
+        'digest',
+      ],
       automerge: true,
       ignoreTests: true,
-      commitMessagePrefix: "chore(deps): ",
+      commitMessagePrefix: 'chore(deps): ',
     },
     {
-      description: "Automatically update and automerge Bazzite-DX-Nvidia upstream digests in Containerfile",
-      matchUpdateTypes: ["digest"],
-      matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/ublue-os/bazzite-dx-nvidia"],
-      matchFileNames: ["Containerfile"],
+      description: 'Automatically update and automerge Bazzite-DX-Nvidia upstream digests in Containerfile',
+      matchUpdateTypes: [
+        'digest',
+      ],
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'ghcr.io/ublue-os/bazzite-dx-nvidia',
+      ],
+      matchFileNames: [
+        'Containerfile',
+      ],
       pinDigests: true,
       automerge: true,
       ignoreTests: true,
-      commitMessagePrefix: "chore(deps): ",
+      commitMessagePrefix: 'chore(deps): ',
     },
     {
-      description: "Disable pinDigests for Fedora builder stage to avoid registry mismatch",
-      matchPackageNames: ["fedora"],
+      description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',
+      matchPackageNames: [
+        'fedora',
+      ],
       pinDigests: false,
     },
   ],
