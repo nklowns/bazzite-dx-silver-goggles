@@ -5,8 +5,9 @@ ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:latest@sha256:b8bc0e7c90422cc
 FROM fedora:43@sha256:e43db0af14f5a44939d644204b4238699c42e8b298f15321d2f03b206f72426c AS builder
 ARG AWCC_SPEC="awcc.dev.spec"
 WORKDIR /tmp/rpmbuild
-# Install rpm tools and required build dependencies explicitly
-RUN dnf install -y dnf5 && dnf5 install -y rpm-build rpmdevtools dnf5-plugins \
+# Install required build dependencies explicitly using dnf5 (default in F43)
+RUN dnf5 install -y --setopt=install_weak_deps=False \
+    rpm-build rpmdevtools dnf5-plugins \
     cmake ninja-build meson gcc-c++ git libX11-devel libxkbcommon-devel \
     glfw-devel systemd-devel libudev-devel libglvnd-devel wayland-devel
 

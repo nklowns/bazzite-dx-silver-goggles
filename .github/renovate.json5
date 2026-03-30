@@ -3,9 +3,7 @@
   extends: ["config:best-practices"],
 
   forkProcessing: "enabled",
-  onboarding: false,
   dependencyDashboard: true,
-  dependencyDashboardAutocreate: true,
   rebaseWhen: "never",
 
   "git-submodules": {
