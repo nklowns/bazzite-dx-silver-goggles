@@ -2,7 +2,7 @@
 ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:latest@sha256:b8bc0e7c90422cc25236faf5fed08ae9779a99b1dbc50be2a812e45fbe9702da"
 
 # Builder Stage for AWCC native RPM packaging
-FROM fedora:43@sha256:781b7642e8bf256e9cf75d2aa58d86f5cc695fd2df113517614e181a5eee9138 AS builder
+FROM fedora:43@sha256:e43db0af14f5a44939d644204b4238699c42e8b298f15321d2f03b206f72426c AS builder
 ARG AWCC_SPEC="awcc.dev.spec"
 WORKDIR /tmp/rpmbuild
 # Install rpm tools and required build dependencies explicitly
