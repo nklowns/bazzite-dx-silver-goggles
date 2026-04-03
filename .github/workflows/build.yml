@@ -67,11 +67,11 @@ jobs:
       - name: Build Image with BlueBuild
         uses: blue-build/github-action@v1
         with:
-          recipe: recipes/recipe.yml
+          recipe: recipe.yml
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry: ghcr.io
           registry_username: ${{ github.actor }}
-          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          registry_token: ${{ secrets.GITHUB_TOKEN }}
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: false # handled by container-storage-action above
 
