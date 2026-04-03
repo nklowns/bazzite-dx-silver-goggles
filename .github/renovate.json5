@@ -11,13 +11,22 @@
   },
   customManagers: [
     {
+      // Tracks base-image digest in recipes/recipe.yml
+      // Format: image-version: latest # renovate: datasource=docker depName=ghcr.io/ublue-os/bazzite-dx-nvidia
       customType: 'regex',
-      description: 'Track digests in image-versions.yaml',
-      managerFilePatterns: [
-        '/^image-versions\\.yaml$/',
-      ],
+      description: 'Track base-image digest in recipe.yml',
+      fileMatch: ['^recipes/recipe\\.yml$'],
       matchStrings: [
-        'image:\\s+(?<depName>[^\\s]+)\\s+tag:\\s+(?<currentValue>[^\\s]+)\\s+digest:\\s+(?<currentDigest>sha256:[a-f0-9]+)',
+        'image-version:\\s+(?<currentValue>[^\\s#]+)\\s+#\\s+renovate:\\s+datasource=(?<datasource>[^\\s]+)\\s+depName=(?<depName>[^\\s]+)',
+      ],
+    },
+    {
+      // Tracks hardcoded builder images in Justfile (e.g., fedora:43)
+      customType: 'regex',
+      description: 'Track image dependencies in Justfile',
+      fileMatch: ['^Justfile$'],
+      matchStrings: [
+        '["\'](?<depName>fedora):(?<currentValue>[^"\']+)["\']',
       ],
       datasourceTemplate: 'docker',
       versioningTemplate: 'docker',
@@ -26,70 +35,30 @@
   packageRules: [
     {
       description: 'Automatically automerge pin and pinDigest updates for all dependencies to maintain stability',
-      matchUpdateTypes: [
-        'pin',
-        'pinDigest',
-      ],
+      matchUpdateTypes: ['pin', 'pinDigest'],
       automerge: true,
       ignoreTests: true,
     },
     {
       description: 'Disable automated container updates within GitHub workflows for security/drift prevention',
       enabled: false,
-      matchUpdateTypes: [
-        'digest',
-        'pinDigest',
-        'pin',
-      ],
-      matchDepTypes: [
-        'container',
-      ],
-      matchFileNames: [
-        '.github/workflows/**.yaml',
-        '.github/workflows/**.yml',
-      ],
+      matchUpdateTypes: ['digest', 'pinDigest', 'pin'],
+      matchDepTypes: ['container'],
+      matchFileNames: ['.github/workflows/**.yaml', '.github/workflows/**.yml'],
     },
     {
       description: 'Automerge GitHub Actions digest updates in workflows for security parity',
-      matchDatasources: [
-        'github-tags',
-      ],
-      matchFileNames: [
-        '.github/workflows/**',
-      ],
-      matchUpdateTypes: [
-        'digest',
-        'pinDigest',
-      ],
+      matchDatasources: ['github-tags'],
+      matchFileNames: ['.github/workflows/**'],
+      matchUpdateTypes: ['digest', 'pinDigest'],
       automerge: true,
       ignoreTests: true,
     },
     {
-      description: 'Automatically update and automerge all upstream digests in image-versions.yaml to ensure a sync build',
-      matchFileNames: [
-        'image-versions.yaml',
-      ],
-      matchUpdateTypes: [
-        'digest',
-      ],
-      automerge: true,
-      ignoreTests: true,
-      commitMessagePrefix: 'chore(deps): ',
-    },
-    {
-      description: 'Automatically update and automerge Bazzite-DX-Nvidia upstream digests in Containerfile',
-      matchUpdateTypes: [
-        'digest',
-      ],
-      matchDatasources: [
-        'docker',
-      ],
-      matchPackageNames: [
-        'ghcr.io/ublue-os/bazzite-dx-nvidia',
-      ],
-      matchFileNames: [
-        'Containerfile',
-      ],
+      description: 'Auto-update and automerge Bazzite-DX-Nvidia base image digest in recipe.yml',
+      matchFileNames: ['recipes/recipe.yml'],
+      matchUpdateTypes: ['digest', 'pinDigest'],
+      matchPackageNames: ['ghcr.io/ublue-os/bazzite-dx-nvidia'],
       pinDigests: true,
       automerge: true,
       ignoreTests: true,
@@ -97,9 +66,7 @@
     },
     {
       description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',
-      matchPackageNames: [
-        'fedora',
-      ],
+      matchPackageNames: ['fedora'],
       pinDigests: false,
     },
   ],

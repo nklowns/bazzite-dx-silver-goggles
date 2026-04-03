@@ -1,0 +1,50 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: bazzite-dx-silver-goggles
+description: "Personal DX layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NVIDIA \u2014 Slim Edition. Powered by BlueBuild."
+
+# Slim Edition Policy: only KDE/NVIDIA variant
+base-image: ghcr.io/ublue-os/bazzite-dx-nvidia
+# Digest pinned by Renovate — see .github/renovate.json5
+image-version: latest # renovate: datasource=docker depName=ghcr.io/ublue-os/bazzite-dx-nvidia
+
+modules:
+  # ── 1. Static System Files ─────────────────────────────────────────────────
+  # Injects all files from files/system/* into the image root.
+  # Includes: g15-status script, systemd presets, tmpfiles, flatpak overrides,
+  #           polkit rules, environment.d, and ublue just recipes.
+  - type: files
+    files:
+      - source: system
+        destination: /
+
+  # ── 2. Additional Packages ─────────────────────────────────────────────────
+  # Extra RPMs not present in bazzite-dx upstream.
+  - type: rpm-ostree
+    install:
+      - smbios-utils-python   # Dell SMBIOS/BIOS management utilities
+      - tmux                  # Terminal multiplexer
+
+  # ── 3. AWCC (Alienware Command Center Companion) ───────────────────────────
+  # Installs the pre-compiled RPM bundled in the repository.
+  # The RPM was built from build_files/awcc.dev.spec and is committed to the
+  # repo root to avoid a complex multi-stage builder at image build time.
+  - type: script
+    scripts:
+      - 00-install-awcc.sh
+
+  # ── 4. Kernel Arguments (Dell G15 / VFIO / KVM) ───────────────────────────
+  # Writes bootc-native kargs.d TOML. Applied on bootc install/rebase.
+  - type: script
+    scripts:
+      - 01-kargs.sh
+
+  # ── 5. Image Identity ──────────────────────────────────────────────────────
+  - type: os-release
+    properties:
+      VARIANT_ID: silver-goggles
+      VARIANT: "Silver Goggles (Dell G15 5520)"
+
+  # ── 6. Signing ─────────────────────────────────────────────────────────────
+  # Sets up cosign policy files for signed image verification.
+  - type: signing

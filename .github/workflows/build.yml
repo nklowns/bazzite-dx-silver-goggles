@@ -16,20 +16,16 @@ on:
   merge_group:
 
 env:
-  IMAGE_DESC: "${{ github.event.repository.description || 'Personal customization of Bazzite DX for Dell G15 5520' }}"
-  IMAGE_KEYWORDS: "bootc,ublue,universal-blue"
-  ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/187439889?s=200&v=4" # Put your own image here for a fancy profile on https://artifacthub.io/!
-  IMAGE_NAME: "${{ github.event.repository.name || 'bazzite-dx-silver-goggles' }}" # the name of the image produced by this build, matches repo names
-  IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}" # do not edit
+  IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  build_push:
-    name: Build and push image
+  bluebuild:
+    name: Build and Push (BlueBuild)
     runs-on: ubuntu-24.04
 
     permissions:
@@ -62,205 +58,28 @@ jobs:
         uses: ublue-os/container-storage-action@dc1f4c8f17b672069e921f001132f7cf98a423a6 # main
         if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
 
-      - name: Get current date
-        id: date
-        run: |
-          # This generates a timestamp like what is defined on the ArtifactHub documentation
-          # E.G: 2022-02-08T15:38:15Z'
-          # https://artifacthub.io/docs/topics/repositories/container-images/
-          # https://linux.die.net/man/1/date
-          echo "date=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)" >> $GITHUB_OUTPUT
-
-      - name: Extract base image digest
-        id: extract_digest
-        shell: bash
-        run: |
-          # Use yq to extract the image + digest for the target image
-          FULL_IMAGE=$(yq '.images[] | select(.name == "bazzite-dx-nvidia") | .image + "@" + .digest' image-versions.yaml)
-          
-          if [[ -z "$FULL_IMAGE" || "$FULL_IMAGE" == "@" ]]; then
-            echo "::error::Digest not found in image-versions.yaml for bazzite-dx-nvidia"
-            exit 1
-          fi
-          
-          echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
-
-      # OUTPUTS:
-      #   - SOURCE_VERSION: version of the source image. Ex.: testing-41.20250312
-      #   - SOURCE_VERSION_MAJOR: major version. Used to identify big releases. Ex.: 41
-      - name: Get image major version
-        id: fetch_source_meta
-        run: |
-          set -x
-          # SOURCE_VERSION_MAJOR must be a number
-          declare -i SOURCE_VERSION_MAJOR=0
-
-          # Inspect the actual pinned image from image-versions.yaml
-          SOURCE_VERSION=$(
-                skopeo inspect --no-tags --raw --config \
-                "docker://${{ steps.extract_digest.outputs.full_image }}" | \
-                jq -r '.config.Labels["org.opencontainers.image.version"]'
-          )
-          if [[ -z $SOURCE_VERSION || "$SOURCE_VERSION" == "null" ]]; then
-            echo "::error::SOURCE_VERSION was not fetched correctly"
-            exit 1
-          fi
-          echo "SOURCE_VERSION=$SOURCE_VERSION" >>$GITHUB_OUTPUT
-
-          SOURCE_VERSION_MAJOR=$([[ ${SOURCE_VERSION} =~ ^(.*-)?([[:digit:]]+) ]] && echo "${BASH_REMATCH[-1]}")
-          if [[ -z ${SOURCE_VERSION_MAJOR} ]] || (( SOURCE_VERSION_MAJOR <= 0 )); then
-            echo "::error::SOURCE_VERSION_MAJOR was not fetched correctly"
-            exit 1
-          fi
-
-          echo "SOURCE_VERSION_MAJOR=$SOURCE_VERSION_MAJOR" >>$GITHUB_OUTPUT
-
-      # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
-      # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
-      - name: Image Metadata
-        if: env.ACT != 'true'
-        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
-        id: metadata
+      # ── BlueBuild Core Build ─────────────────────────────────────────────
+      # The blue-build/github-action handles:
+      #   - Building the image from recipes/recipe.yml
+      #   - Pushing to GHCR (skipped on PRs)
+      #   - Cosign signing (skipped on PRs)
+      #   - ArtifactHub metadata generation
+      - name: Build Image with BlueBuild
+        uses: blue-build/github-action@v1
         with:
-          # This generates all the tags for your image, you can add custom tags here too!
-          # By default, it should generate "latest" and "latest.(date here)".
-          tags: |
-            type=raw,value=latest
-            type=raw,value=stable
-            type=raw,value=stable-${{ steps.fetch_source_meta.outputs.SOURCE_VERSION_MAJOR }}
-            type=raw,value=stable-${{ steps.fetch_source_meta.outputs.SOURCE_VERSION_MAJOR }}.{{date 'YYYYMMDD'}}
-            type=raw,value=${{ steps.fetch_source_meta.outputs.SOURCE_VERSION_MAJOR }}
-            type=raw,value=${{ steps.fetch_source_meta.outputs.SOURCE_VERSION_MAJOR }}.{{date 'YYYYMMDD'}}
-            type=sha,enable=${{ github.event_name == 'pull_request' && env.ACT != 'true' }}
-            type=ref,enable=${{ env.ACT != 'true' }},event=pr
-          labels: |
-            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}/refs/heads/main/README.md
-            org.opencontainers.image.created=${{ steps.date.outputs.date }}
-            org.opencontainers.image.description=${{ env.IMAGE_DESC }}
-            org.opencontainers.image.documentation=https://raw.githubusercontent.com/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}/refs/heads/main/README.md
-            org.opencontainers.image.source=https://github.com/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}/blob/main/Containerfile
-            org.opencontainers.image.title=${{ env.IMAGE_NAME }}
-            org.opencontainers.image.url=https://github.com/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-            org.opencontainers.image.vendor=${{ github.repository_owner }}
-            org.opencontainers.image.version=${{ steps.fetch_source_meta.outputs.SOURCE_VERSION }}
-            io.artifacthub.package.deprecated=false
-            io.artifacthub.package.keywords=${{ env.IMAGE_KEYWORDS }}
-            io.artifacthub.package.license=Apache-2.0
-            io.artifacthub.package.logo-url=${{ env.ARTIFACTHUB_LOGO_URL }}
-            io.artifacthub.package.prerelease=false
-            containers.bootc=1
-          sep-tags: " "
-          sep-annotations: " "
-
-      - name: Local Metadata (act)
-        if: env.ACT == 'true'
-        id: metadata_local
-        run: |
-          echo "tags=latest local" >> $GITHUB_OUTPUT
-          echo "labels=org.opencontainers.image.title=${{ env.IMAGE_NAME }}-local" >> $GITHUB_OUTPUT
-
-      - name: Build Image
-        id: build_image
-        uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2.13
-        with:
-          containerfiles: |
-            ./Containerfile
-          # Postfix image name with -custom to make it a little more descriptive
-          # Syntax: https://docs.github.com/en/actions/learn-github-actions/expressions#format
-          image: ${{ env.IMAGE_NAME }}
-          tags: ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }} ${{ steps.metadata_local.outputs.labels }}
-          oci: false
-          build-args: |
-            BASE_IMAGE=${{ steps.extract_digest.outputs.full_image }}
-            IMAGE_NAME=${{ env.IMAGE_NAME }}
-            IMAGE_VENDOR=${{ github.repository_owner }}
-
-      # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
-      # https://github.com/macbre/push-to-ghcr/issues/12
-      - name: Lowercase Image and Registry
-        id: lowercase
-        env:
-          IMAGE_REGISTRY: ${{ env.IMAGE_REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-        run: |
-          set -x
-          echo "registry=${IMAGE_REGISTRY,,}" >> $GITHUB_OUTPUT
-          echo "image=${IMAGE_NAME,,}" >> $GITHUB_OUTPUT
-
-      # # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
-      # # This does not make your image faster to download, just provides better resumability and fixes a few errors.
-      # # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
-      # - name: Run Rechunker
-      #   if: env.ACT != 'true'
-      #   id: rechunk
-      #   uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
-      #   with:
-      #     rechunk: "ghcr.io/hhd-dev/rechunk:v1.0.1"
-      #     ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
-      #     prev-ref: "${{ steps.lowercase.outputs.registry }}/${{ steps.lowercase.outputs.image }}:latest"
-      #     skip_compression: true
-      #     labels: ${{ steps.metadata.outputs.labels }} ${{ steps.metadata_local.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
-
-      # # This is necessary so that the podman socket can find the rechunked image on its storage
-      # - name: Load in podman and tag
-      #   if: env.ACT != 'true'
-      #   run: |
-      #     IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
-      #     for tag in ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}; do
-      #       podman tag $IMAGE ${{ env.IMAGE_NAME }}:$tag
-      #     done
-
-      # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
-      # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        if: github.event_name != 'pull_request'
-        with:
+          recipe: recipes/recipe.yml
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2
-        if: github.event_name != 'pull_request'
-        id: push
-        env:
-          REGISTRY_USER: ${{ github.actor }}
-          REGISTRY_PASSWORD: ${{ github.token }}
-        with:
-          registry: ${{ steps.lowercase.outputs.registry }}
-          image: ${{ steps.lowercase.outputs.image }}
-          tags: ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}
-
-      # This section is optional and only needs to be enabled if you plan on distributing
-      # your project for others to consume. You will need to create a public and private key
-      # using Cosign and save the private key as a repository secret in Github for this workflow
-      # to consume. For more details, review the image signing section of the README.
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
-        if: github.event_name != 'pull_request'
-
-      - name: Sign container image
-        if: github.event_name != 'pull_request'
-        env:
-          LOWERCASE_REGISTRY: ${{ steps.lowercase.outputs.registry }}
-          LOWERCASE_IMAGE: ${{ steps.lowercase.outputs.image }}
-          TAGS_TO_SIGN: ${{ steps.metadata.outputs.tags }} ${{ steps.metadata_local.outputs.tags }}
-          TAGS: ${{ steps.push.outputs.digest }}
-          COSIGN_EXPERIMENTAL: false
-          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-        run: |
-          IMAGE_FULL="${LOWERCASE_REGISTRY}/${LOWERCASE_IMAGE}"
-          for tag in ${TAGS_TO_SIGN}; do
-            cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag
-          done
+          registry_username: ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          pr_event_number: ${{ github.event.number }}
+          maximize_build_space: false # handled by container-storage-action above
 
   check:
     name: Check all builds successful
     if: always()
     runs-on: ubuntu-latest
-    needs: [build_push]
+    needs: [bluebuild]
     steps:
       - name: Check Jobs
         env:

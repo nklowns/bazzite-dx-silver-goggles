@@ -1,4 +1,4 @@
-export AWCC_SPEC := env("AWCC_SPEC", "awcc.dev.spec")
+export AWCC_SPEC := env("AWCC_SPEC", "awcc.spec")
 export image_name := env("IMAGE_NAME", "bazzite-dx-silver-goggles")
 export default_tag := env("DEFAULT_TAG", "latest")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
@@ -25,14 +25,14 @@ check:
     	echo "Checking syntax: $file"
     	just --unstable --fmt --check -f $file
     done
-    echo "Checking syntax: system_files Justfile"
-    just --unstable --fmt --check -f system_files/usr/share/ublue-os/just/60-custom.just
+    echo "Checking syntax: 60-custom.just"
+    just --unstable --fmt --check -f files/system/usr/share/ublue-os/just/60-custom.just
     echo "Checking syntax: Justfile"
     just --unstable --fmt --check -f Justfile
     echo "Running ShellCheck on Bash scripts..."
     just lint
     echo "Checking Flatpak overrides..."
-    find system_files/usr/share/flatpak/overrides/ -type f | while read -r file; do
+    find files/system/usr/share/flatpak/overrides/ -type f | while read -r file; do
     	echo "Validating structure: $file"
     	grep -q "^\[.*\]" "$file" || { echo "Error: $file missing valid INI group"; exit 1; }
     done
@@ -45,8 +45,8 @@ fix:
     	echo "Checking syntax: $file"
     	just --unstable --fmt -f $file
     done
-    echo "Fixing syntax: system_files Justfile"
-    just --unstable --fmt -f system_files/usr/share/ublue-os/just/60-custom.just
+    echo "Fixing syntax: 60-custom.just"
+    just --unstable --fmt -f files/system/usr/share/ublue-os/just/60-custom.just
     echo "Checking syntax: Justfile"
     just --unstable --fmt -f Justfile || { exit 1; }
     echo "Formatting Bash scripts..."
@@ -57,11 +57,11 @@ fix:
 lint:
     #!/usr/bin/env bash
     set -eoux pipefail
-    if ! command -v shellcheck &> /dev/null; then
+    if ! command -v shellcheck &>/dev/null; then
         echo "shellcheck not found locally. Running via ${PODMAN}..."
-        /usr/bin/find . -name "*.sh" -type f -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" docker.io/koalaman/shellcheck-alpine shellcheck /mnt/{} ';'
+        /usr/bin/find . -name "*.sh" -type f -not -path "./.bluebuild*" -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" docker.io/koalaman/shellcheck-alpine shellcheck /mnt/{} ';'
     else
-        /usr/bin/find . -iname "*.sh" -type f -exec shellcheck "{}" ';'
+        /usr/bin/find . -iname "*.sh" -type f -not -path "./.bluebuild*" -exec shellcheck "{}" ';'
     fi
 
 # Runs shfmt on all Bash scripts
@@ -69,11 +69,11 @@ lint:
 format:
     #!/usr/bin/env bash
     set -eoux pipefail
-    if ! command -v shfmt &> /dev/null; then
+    if ! command -v shfmt &>/dev/null; then
         echo "shfmt not found locally. Running via ${PODMAN}..."
-        /usr/bin/find . -name "*.sh" -type f -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -w /mnt/{} ';'
+        /usr/bin/find . -name "*.sh" -type f -not -path "./.bluebuild*" -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -w /mnt/{} ';'
     else
-        /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
+        /usr/bin/find . -iname "*.sh" -type f -not -path "./.bluebuild*" -exec shfmt --write "{}" ';'
     fi
 
 # Clean Repo
@@ -115,53 +115,41 @@ sudoif command *args:
 # ==============================================================================
 # GROUP 2: Image Builds
 # ==============================================================================
+# Build image using BlueBuild CLI (recommended — mirrors CI pipeline)
 
-# Build the image using the specified parameters
+# Requires: blue-build CLI installed (https://blue-build.org/learn/getting-started/)
 [group('Build')]
-build $target_image=image_name $tag=default_tag:
+build recipe="recipes/recipe.yml":
     #!/usr/bin/env bash
-    BUILD_ARGS=()
-    if [[ -n "${NO_CACHE:-}" ]]; then
-        BUILD_ARGS+=("--no-cache")
+    set -euo pipefail
+    if ! command -v bluebuild &>/dev/null; then
+        echo "::error::bluebuild CLI not found."
+        echo "Install: podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash"
+        exit 1
     fi
-    if [[ -n "${BASE_IMAGE:-}" ]]; then
-        BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
-    fi
-    if [[ -n "{{ AWCC_SPEC }}" ]]; then
-        BUILD_ARGS+=("--build-arg" "AWCC_SPEC={{ AWCC_SPEC }}")
-    fi
-    if [[ -z "$(git status -s)" ]]; then
-        BUILD_ARGS+=("--build-arg" "SHA_HEAD_SHORT=$(git rev-parse --short HEAD)")
-    fi
-    # Ensure localhost/ prefix for local builds if no registry is specified
-    full_image="{{ target_image }}:{{ tag }}"
-    if [[ "${full_image}" != */* ]]; then
-        full_image="localhost/${full_image}"
-    fi
+    bluebuild build {{ recipe }}
 
-    {{ PODMAN }} build \
-        "${BUILD_ARGS[@]}" \
-        --pull={{ PULL_POLICY }} \
-        --tag "${full_image}" \
-        .
-
-# Build the image forcing a clean cache (no-cache)
+# Build image forcing no cache
 [group('Build')]
-build-nocache $target_image=image_name $tag=default_tag:
+build-nocache:
     #!/usr/bin/env bash
-    NO_CACHE="true" just build
+    bluebuild build --no-cache recipes/recipe.yml
 
-# Build the image pointing to a custom Bazzite-DX fork/branch
+# Build image pointing to a custom Bazzite-DX fork/branch (overrides base-image)
+# Note: requires editing recipes/recipe.yml base-image field manually or
+
+# using --build-arg if your blue-build version supports it.
 [group('Build')]
 build-fork user branch:
     #!/usr/bin/env bash
-    BASE_IMAGE="ghcr.io/{{ user }}/bazzite-dx-nvidia:{{ branch }}" just build
+    echo "Override base-image in recipes/recipe.yml to ghcr.io/{{ user }}/bazzite-dx-nvidia:{{ branch }}"
+    echo "Then run: just build"
 
-# Run GitHub Actions locally using act
+# Run GitHub Actions locally using act (uses BlueBuild job)
 [group('Build')]
 act:
     #!/usr/bin/env bash
-    act -j build_push \
+    act -j bluebuild \
         -P ubuntu-24.04=catthehacker/ubuntu:full-24.04 \
         --privileged
 
@@ -263,7 +251,7 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
     sudo chown -R $USER:$USER output/
 
 [private]
-_rebuild-bib $target_image $tag $type $config: (build target_image tag) && (_build-bib target_image tag type config)
+_rebuild-bib $target_image $tag $type $config: build && (_build-bib target_image tag type config)
 
 [private]
 _rootful_load_image $target_image=image_name $tag=default_tag:
@@ -366,54 +354,76 @@ rebase-official:
 # ==============================================================================
 # GROUP 5: Component Development (Hot-Swap)
 # ==============================================================================
+# Build AWCC RPM (Stable or Local Dev)
+# Usage (Stable):  just build-awcc
+# Usage (Local):   just build-awcc /path/to/AWCC-source
 
-# Build AWCC RPM from LOCAL source code (bind-mount)
+# Output: awcc-dev.rpm in files/ (tracked by git, used by the image build)
 [group('Development')]
-dev-awcc-rpm source_path:
+build-awcc source_path="":
     #!/usr/bin/env bash
-    set -e
-    echo "Building AWCC RPM from local source: {{ source_path }}"
-    ${PODMAN} build --target builder --build-arg AWCC_SPEC={{ AWCC_SPEC }} -t awcc-dev-builder .
-    ${PODMAN} run --rm -v {{ source_path }}:/tmp/AWCC_SRC:Z -v .:/output:Z awcc-dev-builder bash -c ' \
-        set -e
-        # Prepare an isolated build environment
-        mkdir -p /tmp/build_env && cd /tmp/build_env && \
+    set -euo pipefail
 
-        # Define spec file path
-        SPEC_FILE="/tmp/rpmbuild/{{ AWCC_SPEC }}"
+    if grep -q "dev" <<< "{{ AWCC_SPEC }}" || [ -n "{{ source_path }}" ]; then
+        MODE="Development (Local Source)"
+        [ -z "{{ source_path }}" ] && { echo "Error: source_path required for dev spec"; exit 1; }
+    else
+        MODE="Stable (Upstream Fetch)"
+    fi
 
-        # Nuclear SED: Force the spec file to conform to our dev environment
-        # 1. Update Version and Release
-        sed -i "s/^Version:.*/Version: dev.swap/" $SPEC_FILE
-        sed -i "s/^Release:.*/Release: $(date +%s)/" $SPEC_FILE
+    echo "Building AWCC RPM: ${MODE}"
+    [ -n "{{ source_path }}" ] && echo "Source: {{ source_path }}"
 
-        # 2. Force Source0 and %autosetup to use fixed names
-        sed -i "s|^Source0:.*|Source0: dev.swap.tar.gz|" $SPEC_FILE
-        sed -i "s|^%autosetup.*|%autosetup -n AWCC-dev.swap|" $SPEC_FILE
+    SPEC_FILE="/build_files/{{ AWCC_SPEC }}"
+    OUTPUT_DIR="$(pwd)/files"
 
-        # 3. Clean up potentially conflicting globals
-        sed -i "/^%global commit/d" $SPEC_FILE
-        sed -i "/^%global shortcommit/d" $SPEC_FILE
+    MOUNTS=("-v" "$(pwd)/build_files:/build_files:ro,z")
+    MOUNTS+=("-v" "$(pwd)/files:/output:z")
 
-        # Package the source into the expected directory and tarball name
-        mkdir -p AWCC-dev.swap
-        cp -r /tmp/AWCC_SRC/* AWCC-dev.swap/
-        tar -czf dev.swap.tar.gz AWCC-dev.swap/
+    if [ -n "{{ source_path }}" ]; then
+        MOUNTS+=("-v" "$(readlink -f {{ source_path }}):/tmp/AWCC_SRC:ro,z")
+    fi
 
-        # Run rpmbuild pointing to our isolated source directory
-        rpmbuild -bb \
-            --define "_sourcedir $PWD" \
-            --define "_builddir $PWD" \
-            $SPEC_FILE && \
+    ${PODMAN} run --rm "${MOUNTS[@]}" "fedora:43" bash -c '
+            set -euo pipefail
+            dnf5 install -y --setopt=install_weak_deps=False rpm-build rpmdevtools dnf5-plugins cmake ninja-build meson gcc-c++ git libX11-devel libxkbcommon-devel glfw-devel systemd-devel libudev-devel libglvnd-devel wayland-devel
 
-        # Select the main RPM and copy it to output
-        find /root/rpmbuild/RPMS/x86_64/ -name "awcc-*.rpm" ! -name "*-debug*" -exec cp {} /output/awcc-dev.rpm \;
-    '
-    echo "Done. awcc-dev.rpm is ready."
+            rpmdev-setuptree
+            WORKDIR=$(mktemp -d)
+            cd "${WORKDIR}"
+
+            if [ -d "/tmp/AWCC_SRC" ]; then
+                # Build from local source
+                cp "/build_files/{{ AWCC_SPEC }}" ./awcc-local.spec
+                sed -i "s/^Version:.*/Version: dev.local/" ./awcc-local.spec
+                sed -i "s/^Release:.*/Release: $(date +%s)/" ./awcc-local.spec
+                sed -i "s|^Source0:.*|Source0: awcc-dev.local.tar.gz|" ./awcc-local.spec
+                sed -i "s|^%autosetup.*|%autosetup -n awcc-dev.local|" ./awcc-local.spec
+                sed -i "/^%global commit/d" ./awcc-local.spec
+                sed -i "/^%global shortcommit/d" ./awcc-local.spec
+
+                mkdir -p "awcc-dev.local"
+                cp -r /tmp/AWCC_SRC/. "awcc-dev.local/"
+                tar -czf "awcc-dev.local.tar.gz" "awcc-dev.local/"
+                cp "awcc-dev.local.tar.gz" ~/rpmbuild/SOURCES/
+
+                rpmbuild -ba --define "_sourcedir ${WORKDIR}" ./awcc-local.spec
+            else
+                # Build stable release (fetch source defined in spec)
+                cp "/build_files/{{ AWCC_SPEC }}" ./awcc-stable.spec
+                # Handle potential dynamic sources/tarballs
+                spectool -g -C ~/rpmbuild/SOURCES/ ./awcc-stable.spec
+                rpmbuild -ba ./awcc-stable.spec
+            fi
+
+            # Copy output RPM (exclude debuginfo)
+            find ~/rpmbuild/RPMS/x86_64/ -name "awcc-*.rpm" ! -name "*debug*" -exec cp {} /output/awcc-dev.rpm \;
+        '
+    echo "Build complete: files/awcc-dev.rpm"
 
 # Install a local RPM package live to the system
 [group('Development')]
-install-awcc package="awcc-dev.rpm":
+install-awcc package="files/awcc-dev.rpm":
     #!/usr/bin/env bash
     set -e
     echo "Stopping AWCC services..."
@@ -430,8 +440,8 @@ install-awcc package="awcc-dev.rpm":
 # Hot-swap AWCC: Build from local source and apply live to the host
 [group('Development')]
 hot-swap-awcc source_path:
-    just dev-awcc-rpm {{ source_path }}
-    just install-awcc awcc-dev.rpm
+    just build-awcc {{ source_path }}
+    just install-awcc files/awcc-dev.rpm
 
 # Uninstall AWCC live from the host system
 [group('Development')]

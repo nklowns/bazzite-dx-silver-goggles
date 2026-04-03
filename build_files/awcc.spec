@@ -28,19 +28,23 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %autosetup -n AWCC-%{version}
 
 %build
-%cmake -G Ninja -DCMAKE_INSTALL_PREFIX=/usr
+%cmake -G Ninja \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DUDEV_RULES_DIR=%{_udevrulesdir} \
+  -DSYSTEMD_UNIT_DIR=%{_unitdir} \
+  -DAWCC_CONFIG_DIR=%{_sysconfdir}/awcc
 %cmake_build
 
 %install
 %cmake_install
 
 %files
-/usr/bin/awcc
-/usr/share/applications/awcc.desktop
-/usr/share/icons/awcc.png
-/etc/udev/rules.d/70-awcc.rules
-/etc/systemd/system/awccd.service
-/etc/awcc/database.json
+%{_bindir}/awcc
+%{_datadir}/applications/awcc.desktop
+%{_datadir}/icons/awcc.png
+%{_udevrulesdir}/70-awcc.rules
+%{_unitdir}/awccd.service
+%config(noreplace) %{_sysconfdir}/awcc/database.json
 
 %exclude %{_includedir}/libusb-1.0/libusb.h
 %exclude %dir %{_includedir}/libusb-1.0
@@ -50,6 +54,8 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 
 %changelog
 * Sat Mar 21 2026 Cloud <cloud@bazzite-local.com> - 1.17.0-1
-- Update to upstream v1.17.0
+- Update to upstream v1.17.0 (tr1xem/AWCC)
+- Use RPM macros for all install paths (replaces hardcoded /etc paths)
+- Add %%config(noreplace) for database.json
 * Mon Mar 09 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1
 - Initial RPM release for uBlue
