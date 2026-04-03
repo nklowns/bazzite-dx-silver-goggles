@@ -33,6 +33,13 @@ modules:
     scripts:
       - 00-install-awcc.sh
 
+  - type: systemd
+    system:
+      enabled:
+        - awccd.service
+      masked:
+        - thermald.service
+
   # ── 4. Kernel Arguments (Dell G15 / VFIO / KVM) ───────────────────────────
   # Writes bootc-native kargs.d TOML. Applied on bootc install/rebase.
   - type: script
