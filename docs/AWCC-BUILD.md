@@ -2,24 +2,27 @@
 
 O **AWCC** (Alienware Command Center Companion) é um software open-source de controle de hardware para notebooks Dell/Alienware no Linux. Ele fornece:
 
-- Controle de fans
-- Modos de performance (G-Mode)
+- Controle de fans e G-Mode
+- Modos de performance
 - Efeitos de iluminação RGB
 
-**Repositório upstream:** [`nklowns/AWCC`](https://github.com/nklowns/AWCC)
+| Repositório | Papel |
+|---|---|
+| [`tr1xem/AWCC`](https://github.com/tr1xem/AWCC) | Upstream estável (padrão) |
+| [`nklowns/AWCC`](https://github.com/nklowns/AWCC) | Fork pessoal (features experimentais) |
 
 ---
 
 ## 📦 RPM Canônico (`files/awcc-dev.rpm`)
 
-O arquivo `files/awcc-dev.rpm` na pasta `files/` é o **binário canônico** usado durante o build da imagem. Ele é:
+O arquivo `files/awcc-dev.rpm` é o **binário canônico** usado durante o build da imagem. Ele é:
 
-- Compilado a partir da **tag de release estável** definida em `build_files/awcc.spec`
+- Compilado via `just build-awcc` usando o spec ativo (`AWCC_SPEC`)
 - Comprometido diretamente no git (exceção no `.gitignore` via `!files/awcc-dev.rpm`)
-- Instalado em tempo de build pelo módulo `type: script` → `scripts/00-install-awcc.sh` (em `files/scripts/`)
+- Instalado em tempo de build via `type: script` → `files/scripts/00-install-awcc.sh`
 
 > **Por que comprometer o RPM?**
-> O BlueBuild não suporta multi-stage builds. Em vez de compilar o AWCC em tempo de CI (lento, frágil), optamos por pré-compilar e comprometer o binário. Este é o mesmo padrão usado por projetos como o `winblues7`.
+> O BlueBuild não suporta multi-stage builds. Em vez de compilar o AWCC em tempo de CI (lento e frágil), o binário é pré-compilado e comprometido. Este é o mesmo padrão usado por projetos como o `winblues7`.
 
 ### Dois Spec Files
 
@@ -28,51 +31,57 @@ O arquivo `files/awcc-dev.rpm` na pasta `files/` é o **binário canônico** usa
 | `build_files/awcc.spec` | Release estável via tag `vX.Y.Z` do upstream `tr1xem/AWCC` | ✅ **Principal** |
 | `build_files/awcc.dev.spec` | Build de commit específico do fork pessoal `nklowns/AWCC` | Experimental |
 
+O spec ativo é controlado pela variável `AWCC_SPEC` (default: `awcc.spec`).
+
 ---
 
 ## 🔄 Como Atualizar o AWCC
 
-Quando o upstream lançar uma nova versão:
+### 1. Compilar o RPM
 
-### 1. Atualizar o spec file (release estável)
+O target `just build-awcc` é **dual**: opera em modo estável ou local dependendo do argumento.
+
+```bash
+# Modo estável (padrão) — baixa tarball do upstream tr1xem/AWCC conforme awcc.spec:
+just build-awcc
+
+# Modo dev — compila a partir de source local do fork nklowns/AWCC:
+just build-awcc /path/to/AWCC-source
+
+# Usando o spec de dev explicitamente:
+AWCC_SPEC=awcc.dev.spec just build-awcc /path/to/AWCC-source
+```
+
+O RPM resultante é salvo em `files/awcc-dev.rpm` automaticamente.
+
+### 2. Atualizar a versão estável
 
 Edite `build_files/awcc.spec` com a nova tag upstream:
+
 ```diff
 - Version: 1.17.0
 + Version: <nova-versao>
 ```
+
 A `Source0` busca automaticamente `https://github.com/tr1xem/AWCC/archive/refs/tags/v%{version}.tar.gz`.
-
-> **Usando a versão de desenvolvimento?**
-> Para testar um commit específico do fork `nklowns/AWCC`, use `just build-awcc <src>`.
-
-### 2. Recompilar o RPM
-
-```bash
-# Para a versão estável (padrão), o spec baixa o tarball automaticamente:
-just build-awcc
-
-# Para a versão dev (fork pessoal com source local):
-just build-awcc /path/to/AWCC-source
-```
 
 ### 3. Comprometer o novo binário
 
 ```bash
 git add -f files/awcc-dev.rpm
-git commit -m "chore(awcc): update to v<versao> (commit <sha-curto>)"
+git commit -m "chore(awcc): update to v<versao>"
 ```
 
 ---
 
 ## 🏗️ Processo de Build Interno
 
-O target `just build-awcc [source]` executa um container `fedora:43` efêmero com:
+O `just build-awcc` executa um container `fedora:43` efêmero com:
 
 1. Instalação das dependências de build (`cmake`, `meson`, `ninja`, libs de sistema)
-2. Adaptação do spec file para usar fonte local (sem fetch de URL)
-3. Execução do `rpmbuild` em ambiente isolado
-4. Cópia do RPM resultante para `files/awcc-dev.rpm` no repo
+2. **Modo local**: adapta o spec para usar source local (sem fetch de URL), empacota em tarball, injeta versão `dev.local`
+3. **Modo estável**: baixa o tarball via `spectool` direto do GitHub e compila sem modificação
+4. Copia o RPM resultante (sem debuginfo) para `files/awcc-dev.rpm`
 
 ### Dependências do Build
 
@@ -95,9 +104,29 @@ O AWCC usa os seguintes arquivos instalados via módulo `files` (em `files/syste
 | Arquivo | Propósito |
 |---|---|
 | `usr/lib/tmpfiles.d/awcc.conf` | Cria `/var/lib/awcc` com permissões corretas |
-| `usr/lib/systemd/system-preset/00-silver-goggles.preset` | Habilita `awccd.service`, mascara `thermald.service` |
+| `usr/lib/systemd/system-preset/00-silver-goggles.preset` | Habilita `awccd.service` |
 | `usr/share/polkit-1/rules.d/99-awcc.rules` | Permite controle de fans sem sudo |
-| `etc/modules-load.d/acpi_call.conf` | Garante o módulo `acpi_call` no boot (controle de fans) |
+| `etc/modules-load.d/acpi_call.conf` | Garante o módulo `acpi_call` no boot |
+
+O mascaramento de `thermald.service` é gerenciado declarativamente no `recipe.yml` via módulo `systemd`.
+
+---
+
+## ♻️ Hot-Swap (Sem Rebuild da Imagem)
+
+Para iterar no AWCC sem fazer full image build:
+
+```bash
+# Build + apply live no sistema atual (sem reboot):
+just hot-swap-awcc /path/to/AWCC-source
+
+# Ou passo a passo:
+just build-awcc /path/to/AWCC-source
+just install-awcc
+
+# Reverter:
+just uninstall-awcc   # rpm-ostree apply-live --reset
+```
 
 ---
 
