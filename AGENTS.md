@@ -16,7 +16,7 @@ To maintain enterprise-grade quality on an atomic host, follow these rules:
 3. **Service Orchestration**:
    - **Enable/Mask Services**: Declared in `recipe.yml` via the `systemd` module. Do NOT add preset files manually.
    - As a reference, `thermald.service` is masked (AWCC compat) and `systemd-udev-settle.service` is masked (VFIO/IOMMU stability).
-4. **Boot Logic**: All kernel arguments are handled via `files/scripts/01-kargs.sh`, which writes to `/usr/lib/bootc/kargs.d/` (`.toml` format).
+4. **Boot Logic**: Todos os argumentos de kernel são declarados via módulo `kargs` na `recipe.yml`, sem scripts imperativos intermediários.
 5. **Static Files**: All system configuration goes under `files/system/`, injected by the `files` module in `recipe.yml`.
 
 ---
@@ -78,7 +78,6 @@ files/
     etc/modules-load.d/     ← Kernel module loading (acpi_call)
   scripts/
     00-install-awcc.sh      ← Installs files/awcc-dev.rpm at build time
-    01-kargs.sh             ← Writes bootc kargs.d TOML
   awcc-dev.rpm              ← Pre-compiled AWCC binary (committed to git)
 build_files/
   awcc.spec                 ← Stable RPM spec (tr1xem/AWCC)
@@ -87,7 +86,18 @@ build_files/
 
 **Justfile Split**:
 - Root `Justfile`: Development tasks (build, rebase, lint, AWCC).
-- `files/system/usr/share/ublue-os/just/60-custom.just`: Host-side recipes (ujust).
+- `files/justfiles/60-custom.just`: Modular host-side recipes (ujust). Injected via the `justfiles` module.
+
+---
+
+## 🏗️ Estratificação Expert Monolith
+O Silver Goggles adota a estrutura de camadas (Layers) para máxima clareza e declaratividade:
+
+1.  **CORE**: Fundação Federada (Módulos base Fedora/uBlue).
+2.  **EXTENSIONS**: Pacotes e Repositórios extras (Bazzite-DX).
+3.  **TUNING**: Otimizações de Kernel e Performance (Módulo `kargs` nativo).
+4.  **HARDWARE**: Customizações Dell G15 (AWCC, dGPU, Services).
+5.  **IDENTITY**: Identidade Visual e Branding.
 
 ---
 

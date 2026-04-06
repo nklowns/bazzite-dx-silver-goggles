@@ -5,7 +5,7 @@ _build-*/**
 *.rpm
 # Exception: the pre-compiled AWCC RPM is intentionally committed as the
 # canonical binary for the image build. Rebuilt via: just dev-awcc-rpm <src>
-!files/awcc-dev.rpm
+!files/rpm-ostree/awcc-dev.rpm
 output/
 *.qcow2
 *.raw

@@ -13,13 +13,13 @@ O **AWCC** (Alienware Command Center Companion) é um software open-source de co
 
 ---
 
-## 📦 RPM Canônico (`files/awcc-dev.rpm`)
+## 📦 RPM Canônico (`files/rpm-ostree/awcc-dev.rpm`)
 
-O arquivo `files/awcc-dev.rpm` é o **binário canônico** usado durante o build da imagem. Ele é:
+O arquivo `files/rpm-ostree/awcc-dev.rpm` é o **binário canônico** usado durante o build da imagem. Ele é:
 
 - Compilado via `just build-awcc` usando o spec ativo (`AWCC_SPEC`)
-- Comprometido diretamente no git (exceção no `.gitignore` via `!files/awcc-dev.rpm`)
-- Instalado em tempo de build via `type: script` → `files/scripts/00-install-awcc.sh`
+- Comprometido diretamente no git (exceção no `.gitignore` via `!files/rpm-ostree/awcc-dev.rpm`)
+- Instalado em tempo de build nativamente via módulo `rpm-ostree` no `recipe.yml`
 
 > **Por que comprometer o RPM?**
 > O BlueBuild não suporta multi-stage builds. Em vez de compilar o AWCC em tempo de CI (lento e frágil), o binário é pré-compilado e comprometido. Este é o mesmo padrão usado por projetos como o `winblues7`.
@@ -52,7 +52,7 @@ just build-awcc /path/to/AWCC-source
 AWCC_SPEC=awcc.dev.spec just build-awcc /path/to/AWCC-source
 ```
 
-O RPM resultante é salvo em `files/awcc-dev.rpm` automaticamente.
+O RPM resultante é salvo em `files/rpm-ostree/awcc-dev.rpm` automaticamente.
 
 ### 2. Atualizar a versão estável
 
@@ -68,7 +68,7 @@ A `Source0` busca automaticamente `https://github.com/tr1xem/AWCC/archive/refs/t
 ### 3. Comprometer o novo binário
 
 ```bash
-git add -f files/awcc-dev.rpm
+git add -f files/rpm-ostree/awcc-dev.rpm
 git commit -m "chore(awcc): update to v<versao>"
 ```
 
@@ -81,7 +81,7 @@ O `just build-awcc` executa um container `fedora:43` efêmero com:
 1. Instalação das dependências de build (`cmake`, `meson`, `ninja`, libs de sistema)
 2. **Modo local**: adapta o spec para usar source local (sem fetch de URL), empacota em tarball, injeta versão `dev.local`
 3. **Modo estável**: baixa o tarball via `spectool` direto do GitHub e compila sem modificação
-4. Copia o RPM resultante (sem debuginfo) para `files/awcc-dev.rpm`
+4. Copia o RPM resultante (sem debuginfo) para `files/rpm-ostree/awcc-dev.rpm`
 
 ### Dependências do Build
 

@@ -17,42 +17,37 @@ default:
 # GROUP 1: Utility (Maintenance & CI)
 # ==============================================================================
 
-# Check Just Syntax
+# Check Just Syntax and BlueBuild Recipe
 [group('Just')]
 check:
     #!/usr/bin/env bash
-    find . -maxdepth 1 -type f -name "*.just" | while read -r file; do
+    find . -type f -name "*.just" | while read -r file; do
     	echo "Checking syntax: $file"
     	just --unstable --fmt --check -f $file
     done
-    echo "Checking syntax: 60-custom.just"
-    just --unstable --fmt --check -f files/system/usr/share/ublue-os/just/60-custom.just
     echo "Checking syntax: Justfile"
     just --unstable --fmt --check -f Justfile
+    if [ -f recipes/recipe.yml ]; then
+      echo "Validating BlueBuild recipe..."
+      bluebuild validate recipes/recipe.yml
+    fi
     echo "Running ShellCheck on Bash scripts..."
     just lint
-    echo "Checking Flatpak overrides..."
-    find files/system/usr/share/flatpak/overrides/ -type f | while read -r file; do
-    	echo "Validating structure: $file"
-    	grep -q "^\[.*\]" "$file" || { echo "Error: $file missing valid INI group"; exit 1; }
-    done
 
-# Fix Just Syntax
+# Fix Just Syntax and Format scripts
 [group('Just')]
 fix:
     #!/usr/bin/env bash
-    find . -maxdepth 1 -type f -name "*.just" | while read -r file; do
-    	echo "Checking syntax: $file"
+    find . -type f -name "*.just" | while read -r file; do
+    	echo "Fixing syntax: $file"
     	just --unstable --fmt -f $file
     done
-    echo "Fixing syntax: 60-custom.just"
-    just --unstable --fmt -f files/system/usr/share/ublue-os/just/60-custom.just
-    echo "Checking syntax: Justfile"
-    just --unstable --fmt -f Justfile || { exit 1; }
+    echo "Fixing syntax: Justfile"
+    just --unstable --fmt -f Justfile
     echo "Formatting Bash scripts..."
     just format
 
-# Runs shell check on all Bash scripts
+# Runs shell check on all Bash scripts (uses Container if local not found)
 [group('Utility')]
 lint:
     #!/usr/bin/env bash
@@ -64,7 +59,7 @@ lint:
         /usr/bin/find . -iname "*.sh" -type f -not -path "./.bluebuild*" -exec shellcheck "{}" ';'
     fi
 
-# Runs shfmt on all Bash scripts
+# Runs shfmt on all Bash scripts (uses Container if local not found)
 [group('Utility')]
 format:
     #!/usr/bin/env bash
@@ -375,7 +370,7 @@ build-awcc source_path="":
     [ -n "{{ source_path }}" ] && echo "Source: {{ source_path }}"
 
     SPEC_FILE="/build_files/{{ AWCC_SPEC }}"
-    OUTPUT_DIR="$(pwd)/files"
+    OUTPUT_DIR="$(pwd)/files/rpm-ostree"
 
     MOUNTS=("-v" "$(pwd)/build_files:/build_files:ro,z")
     MOUNTS+=("-v" "$(pwd)/files:/output:z")
@@ -423,7 +418,7 @@ build-awcc source_path="":
 
 # Install a local RPM package live to the system
 [group('Development')]
-install-awcc package="files/awcc-dev.rpm":
+install-awcc package="files/rpm-ostree/awcc-dev.rpm":
     #!/usr/bin/env bash
     set -e
     echo "Stopping AWCC services..."

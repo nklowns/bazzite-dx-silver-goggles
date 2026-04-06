@@ -26,8 +26,9 @@ graph TD
     B --> C[BlueBuild Modules]
     C --> C1[kargs: Kernel Tuning]
     C --> C2[files: System Config]
+    C --> C5[justfiles: Modular Recipes]
     C --> C3[script: AWCC RPM Install]
-    C --> D[Enterprise Patterns]
+    B --> D[Enterprise Patterns]
     D --> D1[tmpfiles.d: Atomic Symlinks]
     D --> D2[environment.d: Global Env]
     D --> D3[systemd presets: Service Orchestration]
@@ -38,6 +39,7 @@ graph TD
 The entire build is driven by [`recipes/recipe.yml`](recipes/recipe.yml). This replaces the old imperative `Containerfile` + `build.sh` model with a YAML-declared state machine:
 
 - **`kargs` module**: Kernel arguments injected via `bootc` at `/usr/lib/bootc/kargs.d/` — the [official bootc pattern](https://containers.github.io/bootc/building/kernel-arguments.html).
+- **`justfiles` module**: Local G15 recipes in `files/justfiles/60-custom.just` are injected into the image as modular `ujust` commands.
 - **`files` module**: Static system configuration from `files/system/` is overlaid onto `/`. Includes `tmpfiles.d`, `environment.d`, `systemd` presets, and Flatpak overrides.
 - **`script` module**: Installs the pre-compiled AWCC RPM (`awcc-dev.rpm`) committed to the repo root. See [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md) for details.
 

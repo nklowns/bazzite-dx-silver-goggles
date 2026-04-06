@@ -1,7 +1,7 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 name: bazzite-dx-silver-goggles
-description: "Personal DX layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NVIDIA \u2014 Slim Edition. Powered by BlueBuild."
+description: "Personal DX layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NVIDIA — Slim Edition. Powered by BlueBuild."
 
 # Slim Edition Policy: only KDE/NVIDIA variant
 base-image: ghcr.io/ublue-os/bazzite-dx-nvidia
@@ -9,29 +9,45 @@ base-image: ghcr.io/ublue-os/bazzite-dx-nvidia
 image-version: latest # renovate: datasource=docker depName=ghcr.io/ublue-os/bazzite-dx-nvidia
 
 modules:
-  # ── 1. Static System Files ─────────────────────────────────────────────────
-  # Injects all files from files/system/* into the image root.
-  # Includes: g15-status script, systemd presets, tmpfiles, flatpak overrides,
-  #           polkit rules, environment.d, and ublue just recipes.
+  # ── LAYER 1: CORE ENGINE ──────────────────────────────────────────────────
+  # Injects all files from files/system/* into the image root and modular
+  # ujust recipes for internal workspace management.
   - type: files
     files:
       - source: system
         destination: /
 
-  # ── 2. Additional Packages ─────────────────────────────────────────────────
+  - type: justfiles
+    include:
+      - 60-custom.just
+
+  # ── LAYER 2: EXTENSIONS ───────────────────────────────────────────────────
   # Extra RPMs not present in bazzite-dx upstream.
   - type: rpm-ostree
     install:
-      - smbios-utils-python   # Dell SMBIOS/BIOS management utilities
-      - tmux                  # Terminal multiplexer
+      - smbios-utils-python # Dell SMBIOS/BIOS management utilities
+      - tmux # Terminal multiplexer
 
-  # ── 3. AWCC (Alienware Command Center Companion) ───────────────────────────
-  # Installs the pre-compiled RPM bundled in the repository.
-  # The RPM was built from build_files/awcc.dev.spec and is committed to the
-  # repo root to avoid a complex multi-stage builder at image build time.
-  - type: script
-    scripts:
-      - 00-install-awcc.sh
+  # ── LAYER 3: KERNEL TUNING ────────────────────────────────────────────────
+  # Declarative boot-time arguments via native bootc-toml module.
+  # Handles VFIO GPU passthrough, bluetooth fixes and Brazilian keyboard layout.
+  - type: kargs
+    kargs:
+      - vconsole.keymap=br
+      - bluetooth.disable_ertm=1
+      - kvm.ignore_msrs=1
+      - kvm.report_ignored_msrs=0
+      - intel_iommu=on
+      - iommu=pt
+      - rd.driver.pre=vfio-pci
+      - vfio_pci.disable_vga=1
+
+  # ── LAYER 4: HARDWARE (DELL G15 / AWCC) ───────────────────────────────────
+  # Specialized Alienware Command Center orchestration.
+  # Installs the local canonical RPM declared in files/rpm-ostree/.
+  - type: rpm-ostree
+    install:
+      - awcc-dev.rpm
 
   - type: systemd
     system:
@@ -40,18 +56,10 @@ modules:
       masked:
         - thermald.service
 
-  # ── 4. Kernel Arguments (Dell G15 / VFIO / KVM) ───────────────────────────
-  # Writes bootc-native kargs.d TOML. Applied on bootc install/rebase.
-  - type: script
-    scripts:
-      - 01-kargs.sh
-
-  # ── 5. Image Identity ──────────────────────────────────────────────────────
+  # ── LAYER 5: IDENTITY & SECURITY ──────────────────────────────────────────
   - type: os-release
     properties:
       VARIANT_ID: silver-goggles
       VARIANT: "Silver Goggles (Dell G15 5520)"
 
-  # ── 6. Signing ─────────────────────────────────────────────────────────────
-  # Sets up cosign policy files for signed image verification.
   - type: signing
