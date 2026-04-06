@@ -59,7 +59,7 @@ See [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md) for the full workflow.
 
 If testing a fork of `bazzite-dx` as base image:
 
-1. Edit `base-image` in `recipes/recipe.yml` to `ghcr.io/USER/bazzite-dx-nvidia:BRANCH`.
+1. Edit `base-image` in `recipes/recipe.yml` to `ghcr.io/nklowns/bazzite-dx-nvidia:latest`.
 2. Run `just build`.
 3. Revert the change after testing.
 
