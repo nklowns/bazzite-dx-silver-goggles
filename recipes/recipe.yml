@@ -6,7 +6,14 @@ description: "Personal DX layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NV
 # Slim Edition Policy: only KDE/NVIDIA variant
 base-image: ghcr.io/nklowns/bazzite-dx-nvidia
 # Digest pinned by Renovate — see .github/renovate.json5
-image-version: e021c3c-latest-43 # renovate: datasource=docker depName=ghcr.io/nklowns/bazzite-dx-nvidia
+image-version: 1345c3a-latest-43 # renovate: datasource=docker depName=ghcr.io/nklowns/bazzite-dx-nvidia
+
+alt-tags:
+  - stable
+  - "43"
+
+labels:
+  org.opencontainers.image.version: "43"
 
 modules:
   # ── LAYER 1: CORE ENGINE ──────────────────────────────────────────────────

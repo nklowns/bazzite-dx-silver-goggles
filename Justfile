@@ -108,27 +108,79 @@ sudoif command *args:
     sudoif {{ command }} {{ args }}
 
 # ==============================================================================
-# GROUP 2: Image Builds
+# GROUP 2: Image Builds (BlueBuild)
 # ==============================================================================
-# Build image using BlueBuild CLI (recommended — mirrors CI pipeline)
 
-# Requires: blue-build CLI installed (https://blue-build.org/learn/getting-started/)
+# Build image using BlueBuild CLI (Surface Recipe)
 [group('Build')]
-build recipe="recipes/recipe.yml":
+build target_image="bazzite-dx-nvidia" tag=default_tag: (build-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! command -v bluebuild &>/dev/null; then
-        echo "::error::bluebuild CLI not found."
-        echo "Install: podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash"
+    bluebuild build .bluebuild/build-recipe.yml
+
+# Build image without using cache
+[group('Build')]
+build-nocache target_image="bazzite-dx-nvidia" tag=default_tag: (build-recipe target_image tag)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bluebuild build --no-cache .bluebuild/build-recipe.yml
+
+# Generate build recipe with complete OCI metadata (Unified Logic)
+[private]
+build-recipe target_image tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Resolve and Patch
+    export BASE_IMAGE=$(yq ".images[] | select(.name == \"{{ target_image }}\") | .image" image-versions.yaml)
+    export BASE_TAG=$(yq ".images[] | select(.name == \"{{ target_image }}\") | .tag" image-versions.yaml)
+    export BASE_DIGEST=$(yq ".images[] | select(.name == \"{{ target_image }}\") | .digest" image-versions.yaml)
+    export IMAGE_NAME="bazzite-dx-silver-goggles"
+    export IMAGE_DESC="Personal DX layer for Dell G15 5520. KDE/NVIDIA — Slim Edition."
+    export ARTIFACTHUB_LOGO_URL="https://avatars.githubusercontent.com/u/187439889?s=200&v=4"
+    export REPO_OWNER=$(git remote get-url origin | sed -E 's/.*[:\/](.*)\/(.*)\.git/\1/')
+    export KERNEL_RELEASE=$(uname -r)
+    export DATE_CREATED=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+    export VERSION_FULL="${BASE_TAG}.$(date +%Y%m%d)"
+    export REVISION=$(git rev-parse HEAD 2>/dev/null || echo 'local')
+
+    if [[ -n "$BASE_DIGEST" && "$BASE_DIGEST" != "null" ]]; then
+        export IMAGE_VERSION_VAL="${BASE_TAG}@${BASE_DIGEST}"
+    else
+        export IMAGE_VERSION_VAL="${BASE_TAG}"
+    fi
+
+    if [ -z "${BASE_IMAGE}" ] || [ "${BASE_IMAGE}" == "null" ]; then
+        echo "Error: Image '{{ target_image }}' not found in image-versions.yaml"
         exit 1
     fi
-    bluebuild build {{ recipe }}
 
-# Build image forcing no cache
-[group('Build')]
-build-nocache:
-    #!/usr/bin/env bash
-    bluebuild build --no-cache recipes/recipe.yml
+    echo "Generating build recipe for {{ target_image }} (Base: ${BASE_IMAGE}:${IMAGE_VERSION_VAL})..."
+    mkdir -p .bluebuild
+    yq '
+      .name = env(IMAGE_NAME) |
+      .description = env(IMAGE_DESC) |
+      .base-image = env(BASE_IMAGE) |
+      .image-version = env(IMAGE_VERSION_VAL)
+    ' recipes/recipe.yml > .bluebuild/build-recipe.yml
+
+    yq -i '
+      .alt-tags = (["latest", "stable", "{{ tag }}", env(BASE_TAG)] | unique) |
+      .labels."io.artifacthub.package.logo-url" = env(ARTIFACTHUB_LOGO_URL) |
+      .labels."io.artifacthub.package.readme-url" = "https://raw.githubusercontent.com/" + env(REPO_OWNER) + "/bazzite-dx-silver-goggles/main/README.md" |
+      .labels."io.artifacthub.package.maintainers" = "[{\"name\": \"nklowns\", \"email\": \"nklowns@users.noreply.github.com\"}]" |
+      .labels."io.artifacthub.package.keywords" = "bootc,bazzite,dx,silver-goggles,dell-g15,ublue,universal-blue,fedora,gaming,developer" |
+      .labels."io.artifacthub.package.deprecated" = "false" |
+      .labels."io.artifacthub.package.prerelease" = "false" |
+      .labels."containers.bootc" = "1" |
+      .labels."ostree.linux" = env(KERNEL_RELEASE) |
+      .labels."org.opencontainers.image.vendor" = env(REPO_OWNER) |
+      .labels."org.opencontainers.image.licenses" = "Apache-2.0" |
+      .labels."org.opencontainers.image.source" = "https://github.com/" + env(REPO_OWNER) + "/bazzite-dx-silver-goggles" |
+      .labels."org.opencontainers.image.url" = "https://github.com/" + env(REPO_OWNER) + "/bazzite-dx-silver-goggles" |
+      .labels."org.opencontainers.image.documentation" = "https://raw.githubusercontent.com/" + env(REPO_OWNER) + "/bazzite-dx-silver-goggles/main/README.md" |
+      .labels."org.opencontainers.image.version" = env(VERSION_FULL) |
+      .labels."org.opencontainers.image.revision" = env(REVISION)
+    ' .bluebuild/build-recipe.yml
 
 # Build image pointing to a custom Bazzite-DX fork/branch (overrides base-image)
 # Note: requires editing recipes/recipe.yml base-image field manually or
