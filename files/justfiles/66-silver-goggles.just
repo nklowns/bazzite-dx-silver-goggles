@@ -9,12 +9,23 @@ status:
     /usr/bin/g15-status
 
 # ==============================================================================
-# GROUP 2: Setup & Packages
+# GROUP 2: Network & Privacy (Tailscale)
+# ==============================================================================
+
+# 🛡️ Initialize native Tailscale Tray with Systemd user integration
+[group('Network')]
+init-tailscale-systray:
+    tailscale configure systray --enable-startup=systemd
+    systemctl --user daemon-reload
+    systemctl --user enable --now tailscale-systray
+
+# ==============================================================================
+# GROUP 3: Setup & Packages
 # ==============================================================================
 
 # Install recommended Flatpaks and Brew packages (Personal Suite)
 [group('Setup')]
-setup-apps:
+setup-default-apps:
     #!/usr/bin/env bash
     set -eoux pipefail
     echo "🚀 Installing Flatpaks..."
@@ -35,35 +46,3 @@ setup-apps:
     brew tap ublue-os/tap
     brew install act cosign mise opentofu gh libpq gcloud-cli chezmoi \
         ublue-os/tap/antigravity-linux ublue-os/tap/visual-studio-code-linux
-
-# ==============================================================================
-# GROUP 3: System Tuning (KArgs & Hardware)
-# ==============================================================================
-
-# Apply optimized Kernel Arguments for G15 and Virtualization
-[group('System')]
-setup-kargs:
-    rpm-ostree kargs --append-if-missing="vconsole.keymap=br" \
-                     --append-if-missing="bluetooth.disable_ertm=1" \
-                     --append-if-missing="kvm.ignore_msrs=1" \
-                     --append-if-missing="kvm.report_ignored_msrs=0" \
-                     --append-if-missing="intel_iommu=on" \
-                     --append-if-missing="iommu=pt" \
-                     --append-if-missing="rd.driver.pre=vfio-pci" \
-                     --append-if-missing="vfio_pci.disable_vga=1"
-
-# Display current kernel arguments for verification
-[group('System')]
-check-kargs:
-    rpm-ostree kargs
-
-# ==============================================================================
-# GROUP 4: Network & Privacy (Tailscale)
-# ==============================================================================
-
-# 🛡️ Initialize native Tailscale Tray with Systemd user integration
-[group('Network')]
-init-tailscale-systray:
-    tailscale configure systray --enable-startup=systemd
-    systemctl --user daemon-reload
-    systemctl --user enable --now tailscale-systray

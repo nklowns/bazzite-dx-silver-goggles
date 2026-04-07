@@ -1,4 +1,5 @@
 images:
-  - name: bazzite-dx-nvidia
-    image: ghcr.io/nklowns/bazzite-dx-nvidia
-    tag: 1345c3a-latest-43
+  - name: bazzite-nvidia
+    image: ghcr.io/ublue-os/bazzite-nvidia
+    tag: latest
+    digest: sha256:a4a3acbba15c1956aab138a258016c7bd3d982ae0f0461cccf799976ec45a89c

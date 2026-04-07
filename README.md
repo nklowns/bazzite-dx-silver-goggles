@@ -22,7 +22,7 @@ This image follows the **"Personal Customization Layer"** pattern described in [
 
 ```mermaid
 graph TD
-    A[Bazzite-DX Base<br/>ghcr.io/ublue-os/bazzite-dx-nvidia] --> B[recipes/recipe.yml]
+    A[Bazzite-DX Base<br/>ghcr.io/ublue-os/bazzite-nvidia] --> B[recipes/recipe.yml]
     B --> C[BlueBuild Modules]
     C --> C1[kargs: Kernel Tuning]
     C --> C2[files: System Config]

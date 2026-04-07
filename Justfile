@@ -113,14 +113,14 @@ sudoif command *args:
 
 # Build image using BlueBuild CLI (Surface Recipe)
 [group('Build')]
-build target_image="bazzite-dx-nvidia" tag=default_tag: (build-recipe target_image tag)
+build target_image="bazzite-nvidia" tag=default_tag: (build-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
     bluebuild build .bluebuild/build-recipe.yml
 
 # Build image without using cache
 [group('Build')]
-build-nocache target_image="bazzite-dx-nvidia" tag=default_tag: (build-recipe target_image tag)
+build-nocache target_image="bazzite-nvidia" tag=default_tag: (build-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
     bluebuild build --no-cache .bluebuild/build-recipe.yml
@@ -189,7 +189,7 @@ build-recipe target_image tag:
 [group('Build')]
 build-fork user branch:
     #!/usr/bin/env bash
-    echo "Override base-image in recipes/recipe.yml to ghcr.io/{{ user }}/bazzite-dx-nvidia:{{ branch }}"
+    echo "Override base-image in recipes/recipe.yml to ghcr.io/{{ user }}/bazzite-nvidia:{{ branch }}"
     echo "Then run: just build"
 
 # Run GitHub Actions locally using act (uses BlueBuild job)

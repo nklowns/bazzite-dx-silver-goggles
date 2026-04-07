@@ -1,0 +1,139 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+modules:
+  # ==========================================
+  # LAYER 1: SYSTEM TOOLS & VIRTUALIZATION
+  # ==========================================
+  - type: dnf
+    repos:
+      cleanup: true
+      copr:
+        - karmab/kcli
+        - gmaglione/podman-bootc
+        - ublue-os/packages
+    install:
+      packages:
+        - kcli
+        - podman-bootc
+        - ublue-setup-services
+        - ublue-os-libvirt-workarounds
+
+  - type: rpm-ostree
+    repos:
+      - https://download.docker.com/linux/fedora/docker-ce.repo
+    install:
+      # Virtualization & Containers
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
+      - docker-model-plugin
+      - podman-compose
+      - podman-machine
+      - podman-tui
+      - libvirt
+      - libvirt-nss
+      - virt-manager
+      - virt-viewer
+      - virt-v2v
+      - edk2-ovmf
+      - qemu-kvm
+      - qemu-img
+      - swtpm
+      - swtpm-tools
+      - incus
+      - incus-agent
+      - lxc
+      # Observability & Analysis
+      - bcc
+      - bpftop
+      - bpftrace
+      - iotop
+      - nicstat
+      - numactl
+      - sysprof
+      - tiptop
+      - trace-cmd
+      - udica
+      - osbuild-selinux
+      - cockpit-bridge
+      - cockpit-ws
+      - cockpit-system
+      - cockpit-ostree
+      - cockpit-podman
+      - cockpit-machines
+      - cockpit-packagekit
+      - cockpit-networkmanager
+      - cockpit-storaged
+      - cockpit-selinux
+      - pcp
+      - rocm-smi
+      # Workstation Tools
+      - android-tools
+      - flatpak-builder
+      - git-subtree
+      - git-svn
+      - ccache
+      - zsh
+      - dbus-x11
+      - genisoimage
+      - util-linux-script
+      - ydotool
+      - python3-ramalama
+      - ramalama
+      - rclone
+      - restic
+      - usbmuxd
+      - libimobiledevice-utils
+
+  - type: systemd
+    system:
+      enabled:
+        - docker.socket
+        - podman.socket
+        - libvirt-workaround.service
+        - swtpm-workaround.service
+        - bazzite-dx-groups.service
+        - cockpit.socket
+        - uupd.timer
+        - input-remapper.service
+
+  # ==========================================
+  # LAYER 2: EXPERIENCE (Fonts & Flatpaks)
+  # ==========================================
+  - type: fonts
+    fonts:
+      nerd-fonts:
+        - FiraCode
+        - Hack
+        - JetBrainsMono
+      google-fonts:
+        - Inter
+        - Outfit
+
+  # - type: default-flatpaks
+  #   configurations:
+  #     - notify: false
+  #       scope: system
+  #       repo:
+  #         url: https://dl.flathub.org/repo/flathub.flatpakrepo
+  #         name: flathub
+  #       install:
+  #         - com.mattjakeman.ExtensionManager
+  #         - org.gnome.Boxes
+  #         - io.missioncenter.MissionCenter
+  #         - com.rtosta.zapzap
+
+  # ==========================================
+  # LAYER 3: CUSTOMIZATIONS (Scripts & Configs)
+  # ==========================================
+  - type: dx-flavor
+    source: local
+
+  - type: dx-udev
+    source: local
+
+  - type: justfiles
+    include:
+      - 95-bazzite-dx.just

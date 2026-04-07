@@ -75,7 +75,7 @@
       ignoreTests: true,
     },
     {
-      description: 'Auto-update and automerge Bazzite-DX-Nvidia base image digest in recipe.yml',
+      description: 'Auto-update and automerge Bazzite-Nvidia base image digest in recipe.yml',
       matchFileNames: [
         'recipes/recipe.yml',
       ],
@@ -84,7 +84,7 @@
         'pinDigest',
       ],
       matchPackageNames: [
-        'ghcr.io/ublue-os/bazzite-dx-nvidia',
+        'ghcr.io/ublue-os/bazzite-nvidia',
       ],
       pinDigests: true,
       automerge: true,

@@ -41,7 +41,7 @@ jobs:
         run: |
           set -ex
           # 1. Resolve Base Image from image-versions.yaml
-          export TARGET_IMAGE="bazzite-dx-nvidia"
+          export TARGET_IMAGE="bazzite-nvidia"
           export BASE_IMAGE=$(yq ".images[] | select(.name == \"${TARGET_IMAGE}\") | .image" image-versions.yaml)
           export BASE_TAG=$(yq ".images[] | select(.name == \"${TARGET_IMAGE}\") | .tag" image-versions.yaml)
           export BASE_DIGEST=$(yq ".images[] | select(.name == \"${TARGET_IMAGE}\") | .digest" image-versions.yaml)
