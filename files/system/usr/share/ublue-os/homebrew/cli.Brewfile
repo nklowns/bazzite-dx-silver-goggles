@@ -38,7 +38,7 @@ brew "restic"               # Fast, secure and efficient backup program
 
 # --- Network Debugging ---
 # Essential tools for API and network troubleshooting.
-brew "dog"                  # DNS client for humans (dig replacement)
+brew "doggo"                # DNS client for humans (dig replacement, successor to dog)
 brew "httpie"               # Modern, user-friendly CURL alternative
 brew "curlie"               # Power of curl, ease of httpie
 brew "mtr"                  # Network diagnostic tool (ping + traceroute)

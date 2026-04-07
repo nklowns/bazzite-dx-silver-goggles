@@ -8,14 +8,12 @@ tap "carvel-dev/carvel"                      # For Carvel toolset
 tap "k0sproject/tap"                         # For K0s
 
 # --- Virtualization & Infrastructure Management ---
-brew "kcli"                                  # Manage VMs, K8s clusters and cloud instances
 brew "opentofu"                              # Open-source Terraform alternative
-brew "gcloud-cli"                            # Google Cloud CLI
+cask "gcloud-cli"                            # Google Cloud CLI
 brew "lima"                                  # Linux VMs for isolation workflows
 
 # --- Container Orchestration & Tooling ---
 brew "podman-compose"                        # Docker Compose-compatible for Podman
-brew "podman-machine"                        # Podman machine management
 brew "podman-tui"                            # Terminal UI for Podman
 brew "nerdctl"                               # Docker-compatible CLI for containerd
 brew "cosign"                                # Container signing and verification

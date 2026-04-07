@@ -40,6 +40,7 @@ modules:
       - docker-buildx-plugin # Container: Buildx plugin
       - docker-compose-plugin # Container: Compose plugin
       - docker-model-plugin # Container: Model plugin
+      - podman-machine # Podman: Machine management
       - edk2-ovmf # VM: UEFI firmware
       - incus # VM/Container: Next-gen manager
       - incus-agent # VM: Incus guest agent

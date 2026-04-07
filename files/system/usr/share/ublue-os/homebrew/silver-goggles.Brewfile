@@ -23,7 +23,7 @@ flatpak "net.retrodeck.retrodeck"           # All-in-one emulation suite
 flatpak "com.heroicgameslauncher.hgl"       # Epic/GOG/Amazon games launcher
 flatpak "io.github.Faugus.faugus-launcher"  # Specialized game launcher
 flatpak "io.github.unknownskl.greenlight"   # Xbox Cloud Gaming/Cloud Stream
-flatpak "https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref"
+flatpak "io.github.elyprismlauncher.ElyPrismLauncher"
 
 # --- Taps (Trusted Sources) ---
 tap "ublue-os/tap"
@@ -36,7 +36,7 @@ brew "mise"                          # Multi-runtime manager
 brew "opentofu"                      # Open-source Terraform
 brew "gh"                            # GitHub CLI
 brew "libpq"                         # Postgres client libs
-brew "gcloud-cli"                    # Google Cloud SDK
+cask "gcloud-cli"                    # Google Cloud SDK
 
 # --- Personal Workspace (Dotfiles & IDE) ---
 brew "chezmoi"                       # Personal dotfiles manager
