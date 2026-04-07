@@ -2,56 +2,59 @@
 # Class: "Cloud-Native Infrastructure & Virtualization"
 
 # --- Taps (Trusted Sources) ---
-tap "carvel-dev/carvel"
-tap "k0sproject/tap"
+tap "ublue-os/tap"
+tap "ublue-os/experimental-tap"
+tap "carvel-dev/carvel"                      # For Carvel toolset
+tap "k0sproject/tap"                         # For K0s
 
 # --- Virtualization & Infrastructure Management ---
-brew "kcli"                      # Manage VMs, K8s clusters and cloud instances
-brew "opentofu"                  # Open-source Terraform alternative
-brew "gcloud-cli"                # Google Cloud CLI
-brew "lima"                      # Linux VMs for isolation workflows
+brew "kcli"                                  # Manage VMs, K8s clusters and cloud instances
+brew "opentofu"                              # Open-source Terraform alternative
+brew "gcloud-cli"                            # Google Cloud CLI
+brew "lima"                                  # Linux VMs for isolation workflows
 
 # --- Container Orchestration & Tooling ---
-brew "podman-compose"            # Docker Compose-compatible for Podman
-brew "podman-tui"                # Terminal UI for Podman
-brew "nerdctl"                   # Docker-compatible CLI for containerd
-brew "cosign"                    # Container signing and verification
+brew "podman-compose"                        # Docker Compose-compatible for Podman
+brew "podman-machine"                        # Podman machine management
+brew "podman-tui"                            # Terminal UI for Podman
+brew "nerdctl"                               # Docker-compatible CLI for containerd
+brew "cosign"                                # Container signing and verification
 
 # --- Kubernetes Ecosystem (Graduated) ---
-brew "kubernetes-cli"            # Standard 'kubectl' CLI
-brew "helm"                      # The Kubernetes package manager
-brew "minikube"                  # Local dev cluster (multi-driver)
-brew "kind"                      # Kubernetes in Docker (fast CI)
-brew "k3d"                       # Lightweight k3s in Docker
-brew "argo"                      # Argo Workflows & Events
-brew "argocd"                    # GitOps delivery tool
-brew "flux"                      # GitOps automated delivery
-brew "istioctl"                  # Service mesh management
-brew "linkerd"                   # Lightweight service mesh
-brew "opa"                       # Open Policy Agent
-brew "prometheus"                # Monitoring and alerting system
-brew "stern"                     # Multi-pod log tailing for Kubernetes
+brew "kubernetes-cli"                        # Standard 'kubectl' CLI
+brew "helm"                                  # The Kubernetes package manager
+brew "minikube"                              # Local dev cluster (multi-driver)
+brew "kind"                                  # Kubernetes in Docker (fast CI)
+brew "k3d"                                   # Lightweight k3s in Docker
+brew "argo"                                  # Argo Workflows & Events
+brew "argocd"                                # GitOps delivery tool
+brew "flux"                                  # GitOps automated delivery
+brew "istioctl"                              # Service mesh management
+brew "linkerd"                               # Lightweight service mesh
+brew "opa"                                   # Open Policy Agent
+brew "prometheus"                            # Monitoring and alerting system
+brew "stern"                                 # Multi-pod log tailing for Kubernetes
 
 # --- Kubernetes Dashboard & UX ---
-brew "k9s"                       # Premium terminal UI for K8s
-brew "cmctl"                     # Cert-manager control utility
-flatpak "dev.k8slens.OpenLens"   # Professional K8s IDE
-flatpak "io.podman_desktop.PodmanDesktop" # Container desktop management
+brew "k9s"                                   # Premium terminal UI for K8s
+brew "cmctl"                                 # Cert-manager control utility
+flatpak "dev.k8slens.OpenLens"               # Professional K8s IDE
+flatpak "io.podman_desktop.PodmanDesktop"    # Container desktop management
 
 # --- Cloud Infrastructure & Data (Incubating) ---
-brew "crossplane"                # Multicloud control plane
-brew "nats-server"               # Cloud-native messaging
-brew "notation"                  # Supply chain security (signing)
-brew "thanos"                    # Long-term Prometheus storage
+brew "crossplane"                            # Multicloud control plane
+brew "nats-server"                           # Cloud-native messaging
+brew "notation"                              # Supply chain security (signing)
+brew "thanos"                                # Long-term Prometheus storage
 
 # --- Carvel Toolset (Sandbox Excellence) ---
-brew "carvel-dev/carvel/ytt"     # YAML templating
-brew "carvel-dev/carvel/kapp"    # Kubernetes application deployment
-brew "carvel-dev/carvel/kbld"    # Image-to-deployment binding
-brew "carvel-dev/carvel/imgpkg"  # OCI artifact management
+brew "carvel-dev/carvel/ytt"                 # YAML templating
+brew "carvel-dev/carvel/kapp"                # Kubernetes application deployment
+brew "carvel-dev/carvel/kbld"                # Image-to-deployment binding
+brew "carvel-dev/carvel/imgpkg"              # OCI artifact management
 
 # --- Zero-Dependency Installers ---
-brew "k0sproject/tap/k0sctl"     # Zero-dependency K8s installer
+brew "k0sproject/tap/k0sctl"                 # Zero-dependency K8s installer
 
 # --- Databases ---
-brew "libpq"                     # PostgreSQL client library
+brew "libpq"                                 # PostgreSQL client library

@@ -1,7 +1,6 @@
 [Unit]
-Description=Add wheel members to docker, and incus-admin groups
+Description=Add wheel members to developer essential groups
 After=local-fs.target
-ConditionPathExists=!/etc/ublue/dx-groups
 
 [Service]
 Type=oneshot

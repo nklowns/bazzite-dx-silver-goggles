@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 modules:
   # ==========================================
-  # LAYER 1: SYSTEM TOOLS & VIRTUALIZATION
+  # LAYER 1: SYSTEM INFRASTRUCTURE (CORE)
   # ==========================================
   - type: dnf
     repos:
@@ -21,88 +21,107 @@ modules:
   - type: rpm-ostree
     repos:
       - https://download.docker.com/linux/fedora/docker-ce.repo
+      - https://download.opensuse.org/repositories/home:/cloud-hypervisor/Fedora_43/home:cloud-hypervisor.repo
     install:
-      # Virtualization & Containers (Engine & Host Utils)
-      - containerd.io
-      - docker-ce
-      - docker-ce-cli
-      - libvirt
-      - libvirt-nss
-      - virt-manager
-      - virt-viewer
-      - virt-v2v
-      - edk2-ovmf
-      - qemu-kvm
-      - qemu-img
-      - swtpm
-      - swtpm-tools
-      - incus
-      - incus-agent
-      - lxc
-      # Observability & Analysis
-      - bcc
-      - bpftop
-      - bpftrace
-      - iotop
-      - nicstat
-      - numactl
-      - sysprof
-      - tiptop
-      - trace-cmd
-      - udica
-      - osbuild-selinux
-      - cockpit-bridge
-      - cockpit-ws
-      - cockpit-system
-      - cockpit-ostree
-      - cockpit-podman
-      - cockpit-machines
-      - cockpit-packagekit
-      - cockpit-networkmanager
-      - cockpit-storaged
-      - cockpit-selinux
-      - pcp
-      - rocm-smi
-      # Workstation Tools
-      - android-tools
-      - flatpak-builder
-      - git-subtree
-      - git-svn
-      - zsh
-      - dbus-x11
-      - genisoimage
-      - util-linux-script
-      - ydotool
-      - usbmuxd
-      - libimobiledevice-utils
+      # --- Container & Virtualization Engines ---
+      - cockpit-bridge # Cockpit: Node monitoring bridge
+      - cockpit-machines # Cockpit: VM management
+      - cockpit-networkmanager # Cockpit: Network management
+      - cockpit-ostree # Cockpit: rpm-ostree management
+      # - cockpit-packagekit # Cockpit: Package management
+      - cockpit-podman # Cockpit: Container management
+      - cockpit-selinux # Cockpit: SELinux management
+      - cockpit-storaged # Cockpit: Storage management
+      - cockpit-system # Cockpit: System dashboard
+      - cockpit-ws # Cockpit: Web service
+      - containerd.io # Container: Runtime
+      - docker-ce # Container: Community Edition
+      - docker-ce-cli # Container: CLI tools
+      - docker-buildx-plugin # Container: Buildx plugin
+      - docker-compose-plugin # Container: Compose plugin
+      - docker-model-plugin # Container: Model plugin
+      - edk2-ovmf # VM: UEFI firmware
+      - incus # VM/Container: Next-gen manager
+      - incus-agent # VM: Incus guest agent
+      - libvirt # VM: Virtualization API
+      - libvirt-nss # VM: Name service switch
+      - lxc # Container: Linux Containers
+      - osbuild-selinux # System: SELinux policies
+      - qemu-img # VM: Image utilities
+      - qemu-kvm # VM: KVM hypervisor
+      - swtpm # VM: Software TPM
+      - swtpm-tools # VM: TPM utilities
+      - cloud-hypervisor # VM Engine: Rust-native VMM (2026)
+      - virt-manager # VM: Desktop manager
+      - virt-v2v # VM: V2V conversion
+      - virt-viewer # VM: Graphical console
+
+      # --- OS-Level Observability (eBPF & Trace Core) ---
+      - bcc # eBPF: Collection tools
+      - bpftop # eBPF: Dynamic monitoring (2026)
+      - bpftrace # eBPF: High-level tracing language
+      - iotop # System: I/O monitor
+      - nicstat # Network: Interface statistics
+      - numactl # System: NUMA policy control
+      - pcp # System: Performance Co-Pilot
+      # - profile-bee # eBPF: Rust-based live CPU profiler (Landscape 2026)
+      - rocm-smi # GPU: AMD monitoring
+      - sysprof # System: Profiler
+      - tiptop # System: Performance monitor
+      - trace-cmd # System: Ftrace interface
+      - udica # SELinux: Container policy generator
+
+      # --- Host Integration & Peripheral Bridges ---
+      - android-tools # Mobile: ADB & Fastboot
+      - dbus-x11 # OS: X11 bridge
+      - flatpak-builder # Build: Host-level sandbox tools
+      - genisoimage # Media: ISO creation
+      - git-subtree # VCS: Subtree management
+      - git-svn # VCS: Legacy Subversion bridge
+      # - intentrace # eBPF: Syscall intent observability (Landscape 2026 - Pending)
+      # - kubearmor # Security: BPF-LSM runtime enforcement (Landscape 2026)
+      - libimobiledevice-utils # Mobile: iOS utilities
+      # - libvfio # GPU: Mediated device orchestration (Landscape 2026)
+      - ramalama # AI: Host LLM engine (2026)
+      - skopeo # OCI: Image inspector (Bootc support)
+      - usbmuxd # Mobile: iOS bridge
+      # - usecomputer # AI: GUI automation/Wayland bridge (Landscape 2026 - Pending)
+      - util-linux-script # Terminal: Recording tools
+      - waypipe # OS: Wayland network transparency (2026)
+      - ydotool # OS: Wayland input automation
+      - zsh # Shell: Foundation
 
   - type: systemd
     system:
       enabled:
-        - docker.socket
-        - podman.socket
-        - libvirt-workaround.service
-        - swtpm-workaround.service
+        - ublue-system-setup.service # https://github.com/ublue-os/packages/blob/main/packages/ublue-setup-services/src/services/ublue-system-setup.service
+        - ublue-os-libvirt-workarounds.service # https://github.com/ublue-os/packages/blob/main/packages/ublue-os-libvirt-workarounds/src/usr/lib/systemd/system/ublue-os-libvirt-workarounds.service
+        - swtpm-workaround.service # https://github.com/ublue-os/ucore/blob/main/ucore/system_files/usr/lib/systemd/system/swtpm-workaround.service
         - bazzite-dx-groups.service
         - cockpit.socket
+        - docker.socket
+        - podman.socket
         - uupd.timer
         - input-remapper.service
+    user:
+      enabled:
+        - ublue-user-setup.service # https://github.com/ublue-os/packages/blob/main/packages/ublue-setup-services/src/user-services/ublue-user-setup.service
 
   # ==========================================
-  # LAYER 2: EXPERIENCE (Fonts & Flatpaks)
+  # LAYER 2: WORKSTATION EXPERIENCE
   # ==========================================
   - type: fonts
     fonts:
+      google-fonts:
+        - Inter
+        - Outfit
       nerd-fonts:
         - FiraCode
         - Hack
         - JetBrainsMono
-      google-fonts:
-        - Inter
-        - Outfit
 
   # ==========================================
-  # LAYER 3: CUSTOMIZATIONS (Scripts & Configs)
+  # LAYER 3: CUSTOMIZATIONS & LOGIC
   # ==========================================
   - type: dx-flavor
     source: local

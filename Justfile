@@ -480,20 +480,20 @@ install-awcc package="files/rpm-ostree/awcc-dev.rpm":
     fi
     echo "Stopping AWCC services..."
     sudo systemctl stop awccd.service 2>/dev/null || true
-    
+
     echo "Unlocking transient overlay..."
     sudo rpm-ostree usroverlay
-    
+
     echo "Installing {{ package }} via RPM override..."
     sudo rpm -Uvh --force ./{{ package }}
-    
+
     echo "Reloading systemd and udev rules..."
     sudo systemctl daemon-reload
     sudo udevadm control --reload-rules && sudo udevadm trigger
-    
+
     echo "Starting AWCC services..."
     sudo systemctl enable --now awccd.service
-    
+
     echo "--- Installation Summary ---"
     rpm -q awcc
     systemctl is-active awccd.service

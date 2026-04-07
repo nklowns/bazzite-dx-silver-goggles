@@ -13,16 +13,24 @@ dx-doctor:
     [[ -f /usr/share/ublue-os/image-info.json ]] && jq -C . /usr/share/ublue-os/image-info.json
 
     echo -e "\n3. Developer Group Sync:"
-    DX_GROUPS=("docker" "incus-admin" "libvirt" "dialout" "input" "video" "render" "plugdev")
-    for grp in "${DX_GROUPS[@]}"; do
+    DX_GROUPS_SYS=("dialout" "input" "video" "render" "plugdev")
+    DX_GROUPS_DEV=("docker" "libvirt" "incus-admin" "adbusers")
+
+    echo "--- System & Hardware ---"
+    for grp in "${DX_GROUPS_SYS[@]}"; do
         if groups "$USER" | grep -q "\b$grp\b"; then
             echo "[ OK ] $grp"
         else
-            if getent group "$grp" >/dev/null; then
-                echo "[FAIL] $grp (Run: ujust dx-group sync)"
-            else
-                echo "[SKIP] $grp (Not found in system)"
-            fi
+            [[ $(getent group "$grp") ]] && echo "[FAIL] $grp (Run: ujust dx-group sync)" || echo "[SKIP] $grp (Not in system)"
+        fi
+    done
+
+    echo "--- Developer Tools ---"
+    for grp in "${DX_GROUPS_DEV[@]}"; do
+        if groups "$USER" | grep -q "\b$grp\b"; then
+            echo "[ OK ] $grp"
+        else
+            [[ $(getent group "$grp") ]] && echo "[FAIL] $grp (Run: ujust dx-group sync)" || echo "[SKIP] $grp (Not in system)"
         fi
     done
 
@@ -38,7 +46,7 @@ dx-doctor:
 dx-group cmd="":
     #!/usr/bin/bash
     set -euo pipefail
-    DX_GROUPS=("docker" "incus-admin" "libvirt" "dialout" "input" "video" "render" "plugdev")
+    DX_GROUPS=("docker" "libvirt" "incus-admin" "dialout" "input" "video" "render" "plugdev" "adbusers")
     CMD="{{ cmd }}"
     if [[ -z "$CMD" ]]; then
         CMD=$(gum choose "sync" "list-all" "list-active")
@@ -49,9 +57,9 @@ dx-group cmd="":
             echo "Syncing $USER with Developer Experience groups..."
             for grp in "${DX_GROUPS[@]}"; do
                 if getent group "$grp" >/dev/null; then
-                    if ! grep -q "^$grp" /etc/group; then
+                    if ! grep -q "^$grp:" /etc/group; then
                         echo "Activating group: $grp (from system defaults)"
-                        grep "^$grp" /usr/lib/group | sudo tee -a /etc/group > /dev/null
+                        grep "^$grp:" /usr/lib/group | sudo tee -a /etc/group > /dev/null
                     fi
                     if groups "$USER" | grep -q "\b$grp\b"; then
                         echo "Already sync'd: $grp"

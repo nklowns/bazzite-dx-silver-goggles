@@ -1,3 +1,4 @@
+# https://github.com/ublue-os/ucore/blob/main/ucore/system_files/usr/lib/systemd/system/swtpm-workaround.service
 [Unit]
 Description=Workaround swtpm not having the correct label
 ConditionFileIsExecutable=/usr/bin/swtpm
