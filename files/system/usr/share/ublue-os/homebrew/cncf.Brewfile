@@ -1,20 +1,28 @@
 # Bazzite-DX: Cloud-Native Standard (cncf)
-# Industrial Cloud Engineering - Graduated/Incubating Tools.
+# Class: "Cloud-Native Infrastructure & Virtualization"
 
 # --- Taps (Trusted Sources) ---
 tap "carvel-dev/carvel"
 tap "k0sproject/tap"
 
-# --- CNCF Tools ---
-brew "cosign"                    # Container signing, verification and storage in OCI registries
+# --- Virtualization & Infrastructure Management ---
+brew "kcli"                      # Manage VMs, K8s clusters and cloud instances
 brew "opentofu"                  # Open-source Terraform alternative
 brew "gcloud-cli"                # Google Cloud CLI
+brew "lima"                      # Linux VMs for isolation workflows
+
+# --- Container Orchestration & Tooling ---
+brew "podman-compose"            # Docker Compose-compatible for Podman
+brew "podman-tui"                # Terminal UI for Podman
+brew "nerdctl"                   # Docker-compatible CLI for containerd
+brew "cosign"                    # Container signing and verification
 
 # --- Kubernetes Ecosystem (Graduated) ---
 brew "kubernetes-cli"            # Standard 'kubectl' CLI
 brew "helm"                      # The Kubernetes package manager
 brew "minikube"                  # Local dev cluster (multi-driver)
 brew "kind"                      # Kubernetes in Docker (fast CI)
+brew "k3d"                       # Lightweight k3s in Docker
 brew "argo"                      # Argo Workflows & Events
 brew "argocd"                    # GitOps delivery tool
 brew "flux"                      # GitOps automated delivery
@@ -22,15 +30,16 @@ brew "istioctl"                  # Service mesh management
 brew "linkerd"                   # Lightweight service mesh
 brew "opa"                       # Open Policy Agent
 brew "prometheus"                # Monitoring and alerting system
+brew "stern"                     # Multi-pod log tailing for Kubernetes
 
 # --- Kubernetes Dashboard & UX ---
 brew "k9s"                       # Premium terminal UI for K8s
 brew "cmctl"                     # Cert-manager control utility
-brew "nerdctl"                   # Docker-compatible CLI for containerd
+flatpak "dev.k8slens.OpenLens"   # Professional K8s IDE
+flatpak "io.podman_desktop.PodmanDesktop" # Container desktop management
 
 # --- Cloud Infrastructure & Data (Incubating) ---
 brew "crossplane"                # Multicloud control plane
-brew "lima"                      # Linux VMs for macOS/Linux workflows
 brew "nats-server"               # Cloud-native messaging
 brew "notation"                  # Supply chain security (signing)
 brew "thanos"                    # Long-term Prometheus storage
@@ -41,11 +50,8 @@ brew "carvel-dev/carvel/kapp"    # Kubernetes application deployment
 brew "carvel-dev/carvel/kbld"    # Image-to-deployment binding
 brew "carvel-dev/carvel/imgpkg"  # OCI artifact management
 
-# --- Local Cloud Runtimes ---
-brew "k3d"                       # Lightweight k3s in Docker
+# --- Zero-Dependency Installers ---
 brew "k0sproject/tap/k0sctl"     # Zero-dependency K8s installer
-flatpak "dev.k8slens.OpenLens"   # Professional K8s IDE
-flatpak "io.podman_desktop.PodmanDesktop" # Container desktop management
 
 # --- Databases ---
 brew "libpq"                     # PostgreSQL client library

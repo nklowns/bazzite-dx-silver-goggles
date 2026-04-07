@@ -43,13 +43,13 @@ O target `just build-awcc` é **dual**: opera em modo estável ou local dependen
 
 ```bash
 # Modo estável (padrão) — baixa tarball do upstream tr1xem/AWCC conforme awcc.spec:
-just build-awcc
+just build-awcc 2>&1 | tee output/build-awcc.log
 
 # Modo dev — compila a partir de source local do fork nklowns/AWCC:
-just build-awcc /path/to/AWCC-source
+just build-awcc ~/dev/linux/uBlueOs/dell_related/AWCC 2>&1 | tee output/build-awcc-dev.log
 
 # Usando o spec de dev explicitamente:
-AWCC_SPEC=awcc.dev.spec just build-awcc /path/to/AWCC-source
+AWCC_SPEC=awcc.dev.spec just build-awcc ~/dev/linux/uBlueOs/dell_related/AWCC 2>&1 | tee output/build-awcc-dev.log
 ```
 
 O RPM resultante é salvo em `files/rpm-ostree/awcc-dev.rpm` automaticamente.
@@ -117,6 +117,9 @@ O mascaramento de `thermald.service` é gerenciado declarativamente no `recipe.y
 Para iterar no AWCC sem fazer full image build:
 
 ```bash
+# Validar versão
+rpm -qi awcc
+
 # Build + apply live no sistema atual (sem reboot):
 just hot-swap-awcc /path/to/AWCC-source
 

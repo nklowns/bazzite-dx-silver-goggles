@@ -22,16 +22,10 @@ modules:
     repos:
       - https://download.docker.com/linux/fedora/docker-ce.repo
     install:
-      # Virtualization & Containers
+      # Virtualization & Containers (Engine & Host Utils)
       - containerd.io
-      - docker-buildx-plugin
       - docker-ce
       - docker-ce-cli
-      - docker-compose-plugin
-      - docker-model-plugin
-      - podman-compose
-      - podman-machine
-      - podman-tui
       - libvirt
       - libvirt-nss
       - virt-manager
@@ -74,16 +68,11 @@ modules:
       - flatpak-builder
       - git-subtree
       - git-svn
-      - ccache
       - zsh
       - dbus-x11
       - genisoimage
       - util-linux-script
       - ydotool
-      - python3-ramalama
-      - ramalama
-      - rclone
-      - restic
       - usbmuxd
       - libimobiledevice-utils
 
@@ -111,19 +100,6 @@ modules:
       google-fonts:
         - Inter
         - Outfit
-
-  # - type: default-flatpaks
-  #   configurations:
-  #     - notify: false
-  #       scope: system
-  #       repo:
-  #         url: https://dl.flathub.org/repo/flathub.flatpakrepo
-  #         name: flathub
-  #       install:
-  #         - com.mattjakeman.ExtensionManager
-  #         - org.gnome.Boxes
-  #         - io.missioncenter.MissionCenter
-  #         - com.rtosta.zapzap
 
   # ==========================================
   # LAYER 3: CUSTOMIZATIONS (Scripts & Configs)

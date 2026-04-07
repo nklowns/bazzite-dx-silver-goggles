@@ -37,33 +37,7 @@ modules:
         - thermald.service
 
   # ==========================================
-  # LAYER 4: EXPERIENCE (Flatpaks)
-  # ==========================================
-  # - type: default-flatpaks
-  #   configurations:
-  #     - notify: false
-  #       scope: system
-  #       repo:
-  #         url: https://dl.flathub.org/repo/flathub.flatpakrepo
-  #         name: flathub
-  #       install:
-  #         - dev.vencord.Vesktop
-  #         - com.spotify.Client
-  #         - org.qbittorrent.qBittorrent
-  #         - io.podman_desktop.PodmanDesktop
-  #         - com.obsproject.Studio
-  #         - com.google.Chrome
-  #         - md.obsidian.Obsidian
-  #         - us.zoom.Zoom
-  #         - com.rustdesk.RustDesk
-  #         - net.retrodeck.retrodeck
-  #         - com.heroicgameslauncher.hgl
-  #         - io.github.Faugus.faugus-launcher
-  #         - io.github.unknownskl.greenlight
-  #         - https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref
-
-  # ==========================================
-  # LAYER 5: CUSTOMIZATIONS (Scripts & Configs)
+  # LAYER 4: CUSTOMIZATIONS (Scripts & Configs)
   # ==========================================
   - type: justfiles
     include:

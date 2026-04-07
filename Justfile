@@ -425,7 +425,8 @@ build-awcc source_path="":
     OUTPUT_DIR="$(pwd)/files/rpm-ostree"
 
     MOUNTS=("-v" "$(pwd)/build_files:/build_files:ro,z")
-    MOUNTS+=("-v" "$(pwd)/files:/output:z")
+    mkdir -p files/rpm-ostree
+    MOUNTS+=("-v" "$(pwd)/files/rpm-ostree:/output:z")
 
     if [ -n "{{ source_path }}" ]; then
         MOUNTS+=("-v" "$(readlink -f {{ source_path }}):/tmp/AWCC_SRC:ro,z")
@@ -466,29 +467,46 @@ build-awcc source_path="":
             # Copy output RPM (exclude debuginfo)
             find ~/rpmbuild/RPMS/x86_64/ -name "awcc-*.rpm" ! -name "*debug*" -exec cp {} /output/awcc-dev.rpm \;
         '
-    echo "Build complete: files/awcc-dev.rpm"
+    echo "Build complete: files/rpm-ostree/awcc-dev.rpm"
 
 # Install a local RPM package live to the system
 [group('Development')]
 install-awcc package="files/rpm-ostree/awcc-dev.rpm":
     #!/usr/bin/env bash
     set -e
+    if [[ ! -f "./{{ package }}" ]]; then
+      echo "Error: RPM package not found at ./{{ package }}"
+      exit 1
+    fi
     echo "Stopping AWCC services..."
-    sudo systemctl stop awccd.service || true
-    echo "Unlocking filesystem (transient)..."
-    sudo rpm-ostree usroverlay || true
-    echo "Installing {{ package }} directly via RPM..."
+    sudo systemctl stop awccd.service 2>/dev/null || true
+    
+    echo "Unlocking transient overlay..."
+    sudo rpm-ostree usroverlay
+    
+    echo "Installing {{ package }} via RPM override..."
     sudo rpm -Uvh --force ./{{ package }}
-    echo "Verifying installation..."
-    rpm -q awcc
+    
+    echo "Reloading systemd and udev rules..."
+    sudo systemctl daemon-reload
+    sudo udevadm control --reload-rules && sudo udevadm trigger
+    
     echo "Starting AWCC services..."
     sudo systemctl enable --now awccd.service
+    
+    echo "--- Installation Summary ---"
+    rpm -q awcc
+    systemctl is-active awccd.service
 
 # Hot-swap AWCC: Build from local source and apply live to the host
 [group('Development')]
 hot-swap-awcc source_path:
+    #!/usr/bin/env bash
+    set -e
+    echo "Initiating Atomic Hot-swap for AWCC..."
     just build-awcc {{ source_path }}
-    just install-awcc files/awcc-dev.rpm
+    just install-awcc
+    echo "Hot-swap complete! Changes are live (Transient)."
 
 # Uninstall AWCC live from the host system
 [group('Development')]

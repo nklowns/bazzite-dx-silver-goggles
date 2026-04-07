@@ -23,26 +23,32 @@ init-tailscale-systray:
 # GROUP 3: Setup & Packages
 # ==============================================================================
 
-# Install recommended Flatpaks and Brew packages (Personal Suite)
+# Configure Silver-Goggles Personal Suite (Flatpaks & Brew)
 [group('Setup')]
-setup-default-apps:
+setup-personal-suite action="":
     #!/usr/bin/env bash
-    set -eoux pipefail
-    echo "🚀 Installing Flatpaks..."
-    flatpak install -y flathub \
-        dev.vencord.Vesktop com.spotify.Client org.qbittorrent.qBittorrent \
-        io.podman_desktop.PodmanDesktop \
-        com.obsproject.Studio com.google.Chrome \
-        md.obsidian.Obsidian us.zoom.Zoom \
-        com.rustdesk.RustDesk \
-        net.retrodeck.retrodeck com.heroicgameslauncher.hgl \
-        io.github.Faugus.faugus-launcher io.github.unknownskl.greenlight
-
-    flatpak install -y \
-        https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref
-
-    echo "🍺 Installing Brew Packages..."
-    brew tap ublue-os/experimental-tap
-    brew tap ublue-os/tap
-    brew install act cosign mise opentofu gh libpq gcloud-cli chezmoi \
-        ublue-os/tap/antigravity-linux ublue-os/tap/visual-studio-code-linux
+    set -e
+    ACTION="{{ action }}"
+    if [[ -z "$ACTION" ]]; then
+        echo "Choose action for Silver-Goggles Suite (Personal/Gaming):"
+        ACTION=$(gum choose "install" "check" "cleanup")
+    fi
+    case $ACTION in
+        install)
+            echo "🚀 Activating: Silver-Goggles Personal Suite..."
+            brew bundle --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
+            ;;
+        check)
+            echo "🔍 Checking status of Personal Suite..."
+            brew bundle check --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
+            ;;
+        cleanup)
+            echo "🧹 Cleaning up unused packages..."
+            brew bundle cleanup --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
+            ;;
+        *)
+            echo "Unknown action: $ACTION"
+            exit 1
+            ;;
+    esac
+    echo "Done! The Silver-Goggles experience is ready."
