@@ -1,0 +1,21 @@
+[Context]
+shared=ipc;network;
+devices=dri;
+allow=devel;
+# Essential fix: Map absolute system bus path
+filesystems=/run/dbus/system_bus_socket:ro;
+talk-name=org.freedesktop.portal.Desktop;
+talk-name=org.freedesktop.portal.Documents;
+talk-name=org.freedesktop.Notifications;
+sockets=x11;fallback-x11;!wayland;
+
+[Environment]
+# Force backend to X11
+OZONE_PLATFORM=x11
+ELECTRON_OZONE_PLATFORM_HINT=x11
+GDK_BACKEND=x11
+ELECTRON_DISABLE_GPU=1
+# Critical: Clear host environment variables that force Wayland
+XDG_SESSION_TYPE=
+WAYLAND_DISPLAY=
+CHROME_EXTRA_FLAGS=

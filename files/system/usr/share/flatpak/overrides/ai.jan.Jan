@@ -1,0 +1,10 @@
+[Context]
+shared=ipc;
+devices=dri;
+filesystems=/run/dbus/system_bus_socket:ro;
+sockets=x11;fallback-x11;!wayland;
+
+[Environment]
+# Prevent DMABUF issues on NVIDIA/Bazzite
+WEBKIT_DISABLE_DMABUF_RENDERER=1
+GSK_RENDERER=gl
