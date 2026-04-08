@@ -1,8 +1,9 @@
 # Bazzite-DX: Build Systems & Performance
-# Casta: "Build Systems & Performance"
+# Class: "Build Systems & Performance"
 
 # --- Compiler Accelerators ---
-brew "ccache"    # Object file caching to speed up subsequent builds
+brew "ccache"       # Object file caching to speed up subsequent builds
 
 # --- Performance & Benchmarking ---
-# brew "hyperfine" # Command-line benchmarking tool (Opcional, mas útil)
+brew "nicstat"      # Network: Throughput monitor (Performance)
+brew "hyperfine"    # Dev: Statistical benchmarking tool

@@ -23,17 +23,19 @@ modules:
       - https://download.docker.com/linux/fedora/docker-ce.repo
       - https://download.opensuse.org/repositories/home:/cloud-hypervisor/Fedora_43/home:cloud-hypervisor.repo
     install:
-      # --- Container & Virtualization Engines ---
+      # --- Cockpit Plugins (Bazzite pre-installed) ---
       - cockpit-bridge # Cockpit: Node monitoring bridge
       - cockpit-machines # Cockpit: VM management
-      - cockpit-networkmanager # Cockpit: Network management
       - cockpit-ostree # Cockpit: rpm-ostree management
-      # - cockpit-packagekit # Cockpit: Package management
-      - cockpit-podman # Cockpit: Container management
-      - cockpit-selinux # Cockpit: SELinux management
-      - cockpit-storaged # Cockpit: Storage management
-      - cockpit-system # Cockpit: System dashboard
       - cockpit-ws # Cockpit: Web service
+      # - cockpit-packagekit # Cockpit: Package management
+      # - cockpit-networkmanager # Cockpit: Network management
+      # - cockpit-podman # Cockpit: Container management
+      # - cockpit-selinux # Cockpit: SELinux management
+      # - cockpit-system # Cockpit: System dashboard
+      # - cockpit-files # Cockpit: File management
+      # - cockpit-storaged # Cockpit: Storage management
+      # --- Container & Virtualization Engines ---
       - containerd.io # Container: Runtime
       - docker-ce # Container: Community Edition
       - docker-ce-cli # Container: CLI tools
@@ -41,10 +43,10 @@ modules:
       - docker-compose-plugin # Container: Compose plugin
       - docker-model-plugin # Container: Model plugin
       - podman-machine # Podman: Machine management
-      - edk2-ovmf # VM: UEFI firmware
+      # - edk2-ovmf # VM: UEFI firmware (Bazzite pre-installed)
       - incus # VM/Container: Next-gen manager
       - incus-agent # VM: Incus guest agent
-      - libvirt # VM: Virtualization API
+      # - libvirt # VM: Virtualization API (Bazzite pre-installed)
       - libvirt-nss # VM: Name service switch
       - lxc # Container: Linux Containers
       - osbuild-selinux # System: SELinux policies
@@ -52,44 +54,41 @@ modules:
       - qemu-kvm # VM: KVM hypervisor
       - swtpm # VM: Software TPM
       - swtpm-tools # VM: TPM utilities
-      - cloud-hypervisor # VM Engine: Rust-native VMM (2026)
+      - cloud-hypervisor # VM Engine: Rust-native VMM
+      - crun-wasm # Container: OCI runtime for Wasm
       - virt-manager # VM: Desktop manager
       - virt-v2v # VM: V2V conversion
       - virt-viewer # VM: Graphical console
 
       # --- OS-Level Observability (eBPF & Trace Core) ---
       - bcc # eBPF: Collection tools
-      - bpftop # eBPF: Dynamic monitoring (2026)
+      - bpftop # eBPF: Dynamic monitoring
       - bpftrace # eBPF: High-level tracing language
+      # - otel-ebpf-instrumentation # eBPF: OBI 1.0
+      # - opentelemetry-collector # Collector: OBI 1.0
       - iotop # System: I/O monitor
-      - nicstat # Network: Interface statistics
       - numactl # System: NUMA policy control
       - pcp # System: Performance Co-Pilot
-      # - profile-bee # eBPF: Rust-based live CPU profiler (Landscape 2026)
-      - rocm-smi # GPU: AMD monitoring
+      # - zeroboot # VM: Sub-millisecond snapshotting
+      # - profile-bee # eBPF: Rust-based live CPU profiler
       - sysprof # System: Profiler
       - tiptop # System: Performance monitor
       - trace-cmd # System: Ftrace interface
-      - udica # SELinux: Container policy generator
+      # - udica # SELinux: Container policy generator (Bazzite pre-installed)
 
       # --- Host Integration & Peripheral Bridges ---
-      - android-tools # Mobile: ADB & Fastboot
-      - dbus-x11 # OS: X11 bridge
+      # - dbus-x11 # OS: X11 bridge (Bazzite pre-installed)
       - flatpak-builder # Build: Host-level sandbox tools
-      - genisoimage # Media: ISO creation
       - git-subtree # VCS: Subtree management
       - git-svn # VCS: Legacy Subversion bridge
-      # - intentrace # eBPF: Syscall intent observability (Landscape 2026 - Pending)
-      # - kubearmor # Security: BPF-LSM runtime enforcement (Landscape 2026)
+      # - intentrace # eBPF: Syscall intent observability
+      # - kubearmor # Security: BPF-LSM runtime enforcement
       - libimobiledevice-utils # Mobile: iOS utilities
-      # - libvfio # GPU: Mediated device orchestration (Landscape 2026)
-      - ramalama # AI: Host LLM engine (2026)
-      - skopeo # OCI: Image inspector (Bootc support)
+      # - libvfio # GPU: Mediated device orchestration
       - usbmuxd # Mobile: iOS bridge
-      # - usecomputer # AI: GUI automation/Wayland bridge (Landscape 2026 - Pending)
+      # - usecomputer # AI: GUI automation/Wayland bridge
       - util-linux-script # Terminal: Recording tools
-      - waypipe # OS: Wayland network transparency (2026)
-      - ydotool # OS: Wayland input automation
+      # - ydotool # OS: Wayland input automation (Bazzite pre-installed)
       - zsh # Shell: Foundation
 
   - type: systemd

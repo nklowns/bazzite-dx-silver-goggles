@@ -17,6 +17,11 @@ brew "podman-compose"                        # Docker Compose-compatible for Pod
 brew "podman-tui"                            # Terminal UI for Podman
 brew "nerdctl"                               # Docker-compatible CLI for containerd
 brew "cosign"                                # Container signing and verification
+brew "skopeo"                                # OCI: Image inspector (Migrated from L1)
+
+# --- Wasm & Serverless Runtimes ---
+brew "wasmtime"                              # Wasm: Standalone runtime (WASI 0.3.0)
+brew "wasmedge"                              # Wasm: High-performance runtime
 
 # --- Kubernetes Ecosystem (Graduated) ---
 brew "kubernetes-cli"                        # Standard 'kubectl' CLI
