@@ -24,6 +24,7 @@ flatpak "com.heroicgameslauncher.hgl"       # Epic/GOG/Amazon games launcher
 flatpak "io.github.Faugus.faugus-launcher"  # Specialized game launcher
 flatpak "io.github.unknownskl.greenlight"   # Xbox Cloud Gaming/Cloud Stream
 flatpak "io.github.elyprismlauncher.ElyPrismLauncher"
+flatpak "org.vinegarhq.Sober"
 
 # --- Taps (Trusted Sources) ---
 tap "ublue-os/tap"

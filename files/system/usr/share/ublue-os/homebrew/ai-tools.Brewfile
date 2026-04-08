@@ -15,10 +15,12 @@ cask "ublue-os/tap/goose-linux"                     # Desktop edition of Goose
 cask "claude-code"                                  # Anthropic's official terminal agent
 
 # --- Local LLM & Model Servers ---
+brew "llama.cpp"                                    # LLM: C++ implementation (GGUF runner)
 brew "ramalama"                                     # AI: Host LLM engine
 brew "ollama"                                       # Local inference server (easy-mode)
 cask "ublue-os/tap/lm-studio-linux"                 # Premium GUI for model management
 flatpak "ai.jan.Jan"                                # The open source desktop LLM platform
+flatpak "com.jeffser.Alpaca"                        # Local LLM chat GUI (Ollama compatible)
 
 # --- AI CLI Utilities ---
 brew "aichat"                                       # Interactive chat in the terminal

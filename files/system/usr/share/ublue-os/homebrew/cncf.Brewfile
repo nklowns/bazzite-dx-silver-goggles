@@ -6,11 +6,13 @@ tap "ublue-os/tap"
 tap "ublue-os/experimental-tap"
 tap "carvel-dev/carvel"                      # For Carvel toolset
 tap "k0sproject/tap"                         # For K0s
+tap "robscott/tap"                           # For kube-capacity
 
 # --- Virtualization & Infrastructure Management ---
 brew "opentofu"                              # Open-source Terraform alternative
 cask "gcloud-cli"                            # Google Cloud CLI
 brew "lima"                                  # Linux VMs for isolation workflows
+flatpak "io.missioncenter.MissionCenter"     # Performance: Highly-detailed system monitor
 
 # --- Container Orchestration & Tooling ---
 brew "podman-compose"                        # Docker Compose-compatible for Podman
@@ -37,18 +39,28 @@ brew "linkerd"                               # Lightweight service mesh
 brew "opa"                                   # Open Policy Agent
 brew "prometheus"                            # Monitoring and alerting system
 brew "stern"                                 # Multi-pod log tailing for Kubernetes
+brew "kubectx"                               # K8s: Quick context switcher
+brew "popeye"                                # K8s: Cluster sanitizer and health auditor
+brew "robscott/tap/kube-capacity"            # K8s: Cluster resource capacity overview
+brew "kube-score"                             # K8s: Static analysis for best practices
 
-# --- Kubernetes Dashboard & UX ---
+# --- UX, Dashboards & API Testing ---
 brew "k9s"                                   # Premium terminal UI for K8s
 brew "cmctl"                                 # Cert-manager control utility
-flatpak "dev.k8slens.OpenLens"               # Professional K8s IDE
+flatpak "app.freelens.Freelens"              # Professional K8s IDE
 flatpak "io.podman_desktop.PodmanDesktop"    # Container desktop management
+flatpak "com.usebruno.Bruno"                 # Git-friendly API Client for local services
+flatpak "com.github.tchx84.Flatseal"         # Sandbox: Flatpak permission manager
+flatpak "dev.skynomads.Seabird"              # Native Kubernetes browser (GTK)
 
-# --- Cloud Infrastructure & Data (Incubating) ---
+# --- Cloud Infrastructure & Security ---
 brew "crossplane"                            # Multicloud control plane
 brew "nats-server"                           # Cloud-native messaging
 brew "notation"                              # Supply chain security (signing)
 brew "thanos"                                # Long-term Prometheus storage
+brew "trivy"                                 # Security: Vulnerability scanner for images/K8s
+brew "gitleaks"                              # Security: Secret leakage detection for git
+flatpak "com.scanoss.sbom-workbench"         # Security: SBOM (Software Bill of Materials) auditor
 
 # --- Carvel Toolset (Sandbox Excellence) ---
 brew "carvel-dev/carvel/ytt"                 # YAML templating
@@ -61,3 +73,4 @@ brew "k0sproject/tap/k0sctl"                 # Zero-dependency K8s installer
 
 # --- Databases ---
 brew "libpq"                                 # PostgreSQL client library
+flatpak "io.dbeaver.DBeaverCommunity"        # Universal Database Manager

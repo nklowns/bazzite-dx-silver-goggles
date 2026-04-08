@@ -5,4 +5,5 @@
 brew "ccache"       # Object file caching to speed up subsequent builds
 
 # --- Performance & Benchmarking ---
+brew "scc"          # Sloc, Cloc and Code: Extremely fast code counter
 brew "hyperfine"    # Dev: Statistical benchmarking tool
