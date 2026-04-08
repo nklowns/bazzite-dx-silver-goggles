@@ -67,6 +67,7 @@ modules:
       # - otel-ebpf-instrumentation # eBPF: OBI 1.0
       # - opentelemetry-collector # Collector: OBI 1.0
       - iotop # System: I/O monitor
+      - nicstat # Network: Interface statistics
       - numactl # System: NUMA policy control
       - pcp # System: Performance Co-Pilot
       # - zeroboot # VM: Sub-millisecond snapshotting
@@ -77,6 +78,7 @@ modules:
       # - udica # SELinux: Container policy generator (Bazzite pre-installed)
 
       # --- Host Integration & Peripheral Bridges ---
+      # - android-tools # Mobile: ADB & Fastboot
       # - dbus-x11 # OS: X11 bridge (Bazzite pre-installed)
       - flatpak-builder # Build: Host-level sandbox tools
       - git-subtree # VCS: Subtree management
@@ -88,6 +90,7 @@ modules:
       - usbmuxd # Mobile: iOS bridge
       # - usecomputer # AI: GUI automation/Wayland bridge
       - util-linux-script # Terminal: Recording tools
+      - waypipe # OS: Wayland network transparency
       # - ydotool # OS: Wayland input automation (Bazzite pre-installed)
       - zsh # Shell: Foundation
 

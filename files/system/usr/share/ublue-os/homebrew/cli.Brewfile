@@ -6,7 +6,6 @@ tap "ublue-os/tap"
 tap "ublue-os/experimental-tap"
 tap "kernel/tap"                    # For Hypeman
 tap "spinframework/tap"             # For Spin
-tap "stripe/stripe-cli"             # For Stripe
 tap "supabase/tap"                  # For Supabase
 
 # --- Shell Foundations ---
@@ -59,11 +58,10 @@ brew "act"                          # GitHub Actions CLI
 brew "chezmoi"                      # Dotfiles manager
 
 # --- Services & Platform CLIs ---
-brew "spin"                         # Spin: Wasm runtime (Framework)
-brew "stripe/stripe-cli/stripe"     # Stripe: Payment API CLI
+brew "spinframework/tap/spin"       # Spin: Wasm runtime (Framework)
+brew "stripe-cli"                   # Stripe: Payment API CLI
 brew "supabase/tap/supabase"        # Supabase: Data Operations CLI
 
 # --- Hardware & Platform Utilities ---
-brew "android-platform-tools"       # Mobile: ADB & Fastboot
+cask "android-platform-tools"       # Mobile: ADB & Fastboot
 brew "cdrtools"                     # Media: ISO creation (provides genisoimage)
-brew "waypipe"                      # Platform: Wayland network transparency

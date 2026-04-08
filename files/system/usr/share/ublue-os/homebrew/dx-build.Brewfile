@@ -5,5 +5,4 @@
 brew "ccache"       # Object file caching to speed up subsequent builds
 
 # --- Performance & Benchmarking ---
-brew "nicstat"      # Network: Throughput monitor (Performance)
 brew "hyperfine"    # Dev: Statistical benchmarking tool
