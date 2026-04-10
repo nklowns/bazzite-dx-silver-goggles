@@ -7,9 +7,11 @@ tap "ublue-os/experimental-tap"
 tap "kernel/tap"                        # For Hypeman
 tap "spinframework/tap"                 # For Spin
 tap "supabase/tap"                      # For Supabase
+tap "valkyrie00/bbrew"                  # For bbrew
 
 # --- Shell Foundations ---
 brew "bat"                              # Better cat with syntax highlighting
+brew "bash-preexec"                     # Essential hooks for Bash history/direnv
 brew "eza"                              # Modern ls alternative
 brew "fzf"                              # Command-line fuzzy finder
 brew "zoxide"                           # Smarter cd command
@@ -50,6 +52,7 @@ flatpak "io.github.tobagin.digger"      # Modern DNS client (GUI companion to do
 # --- System & Monitor ---
 brew "duf"                              # Disk Usage/Free utility
 brew "btop"                             # Interactive system monitor
+brew "podman-tui"                       # Terminal UI for Podman
 brew "kernel/tap/hypeman"               # VM: Docker-style micro-VM manager
 
 # --- Editors & Knowledge Base ---
@@ -72,6 +75,7 @@ brew "difftastic"                       # Logic-based syntax diffing
 brew "shellcheck"                       # Linter for shell scripts
 brew "vale"                             # Documentation: The professional prose linter
 brew "trash-cli"                        # Command-line interface to the freedesktop.org trashcan
+brew "valkyrie00/bbrew/bbrew"           # Fast Brew search and preview
 
 # --- Services & Platform CLIs ---
 brew "spinframework/tap/spin"           # Spin: Wasm runtime (Framework)

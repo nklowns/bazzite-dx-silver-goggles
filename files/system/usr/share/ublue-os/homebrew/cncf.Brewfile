@@ -7,11 +7,13 @@ tap "ublue-os/experimental-tap"
 tap "carvel-dev/carvel"                      # For Carvel toolset
 tap "k0sproject/tap"                         # For K0s
 tap "robscott/tap"                           # For kube-capacity
+tap "dapr/tap"                               # For Dapr CLI
 
 # --- Virtualization & Infrastructure Management ---
 brew "opentofu"                              # Open-source Terraform alternative
 cask "gcloud-cli"                            # Google Cloud CLI
 brew "lima"                                  # Linux VMs for isolation workflows
+brew "virtctl"                               # CLI for KubeVirt (Kubernetes Virtualization)
 flatpak "io.missioncenter.MissionCenter"     # Performance: Highly-detailed system monitor
 
 # --- Container Orchestration & Tooling ---
@@ -20,6 +22,7 @@ brew "podman-tui"                            # Terminal UI for Podman
 brew "nerdctl"                               # Docker-compatible CLI for containerd
 brew "cosign"                                # Container signing and verification
 brew "skopeo"                                # OCI: Image inspector (Migrated from L1)
+brew "etcd"                                  # Distributed reliable key-value store
 
 # --- Wasm & Serverless Runtimes ---
 brew "wasmtime"                              # Wasm: Standalone runtime (WASI 0.3.0)
@@ -42,11 +45,13 @@ brew "stern"                                 # Multi-pod log tailing for Kuberne
 brew "kubectx"                               # K8s: Quick context switcher
 brew "popeye"                                # K8s: Cluster sanitizer and health auditor
 brew "robscott/tap/kube-capacity"            # K8s: Cluster resource capacity overview
-brew "kube-score"                             # K8s: Static analysis for best practices
+brew "kube-score"                            # K8s: Static analysis for best practices
+brew "kubectl-cnpg"                          # CLI for CloudNativePG (PostgreSQL on K8s)
 
 # --- UX, Dashboards & API Testing ---
 brew "k9s"                                   # Premium terminal UI for K8s
 brew "cmctl"                                 # Cert-manager control utility
+brew "k8sgpt"                                # AI-powered Kubernetes diagnostics
 flatpak "app.freelens.Freelens"              # Professional K8s IDE
 flatpak "io.podman_desktop.PodmanDesktop"    # Container desktop management
 flatpak "com.usebruno.Bruno"                 # Git-friendly API Client for local services
@@ -60,6 +65,11 @@ brew "notation"                              # Supply chain security (signing)
 brew "thanos"                                # Long-term Prometheus storage
 brew "trivy"                                 # Security: Vulnerability scanner for images/K8s
 brew "gitleaks"                              # Security: Secret leakage detection for git
+brew "kubescape"                             # Security: K8s security audit and hardening
+brew "kyverno"                               # Security: Policy management for K8s
+brew "atlantis"                              # Infrastructure: Terraform pull request automation
+brew "dapr/tap/dapr-cli"                     # Distributed Application Runtime CLI
+brew "grpc"                                  # High performance RPC framework
 flatpak "com.scanoss.sbom-workbench"         # Security: SBOM (Software Bill of Materials) auditor
 
 # --- Carvel Toolset (Sandbox Excellence) ---
