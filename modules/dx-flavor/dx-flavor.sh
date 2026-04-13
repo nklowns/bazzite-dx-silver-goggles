@@ -68,3 +68,9 @@ systemctl disable bazzite-autologin.service || true
 
 # Show interactive tools that are hidden by default upstream
 sed -i 's@^NoDisplay=true@NoDisplay=false@' /usr/share/applications/input-remapper-gtk.desktop 2>/dev/null || true
+
+# 5. Bazaar: Register DX blocklist
+BAZAAR_MAIN="/usr/share/ublue-os/bazaar/main.yaml"
+if [[ -f "$BAZAAR_MAIN" ]]; then
+	sed -i 's@override-eol-markings@  - /usr/share/ublue-os/bazaar/blocklist-dx.yaml\noverride-eol-markings@g' "$BAZAAR_MAIN"
+fi

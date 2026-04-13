@@ -3,6 +3,9 @@
 
 kargs = [
     "iommu=pt",
-    "intel_iommu=on",
+    "kvm.ignore_msrs=1",
+    "kvm.report_ignored_msrs=0",
+    "rd.driver.pre=vfio-pci",
+    "vfio_pci.disable_vga=1",
     "kvm.nested=1"
 ]

@@ -8,12 +8,13 @@ modules:
     kargs:
       - vconsole.keymap=br
       - bluetooth.disable_ertm=1
+      - iommu=pt
       - kvm.ignore_msrs=1
       - kvm.report_ignored_msrs=0
       - intel_iommu=on
-      - iommu=pt
       - rd.driver.pre=vfio-pci
       - vfio_pci.disable_vga=1
+      - kvm.nested=1
 
   # ==========================================
   # LAYER 2: SYSTEM TOOLS & VIRTUALIZATION
