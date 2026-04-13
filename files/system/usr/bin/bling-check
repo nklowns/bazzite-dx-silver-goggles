@@ -31,9 +31,11 @@ _check_file "Bling wrapper (fish)" /etc/fish/conf.d/95-bazzite-dx-bling.fish WAR
 _check_file "bling.fish          " /usr/share/ublue-os/silver-goggles/bling.fish WARN
 
 if rpm -q bash-preexec &>/dev/null; then
-    echo -e "   $OK bash-preexec       $(rpm -q bash-preexec --qf '%{VERSION}-%{RELEASE}')"
+    echo -e "   $OK bash-preexec       rpm:$(rpm -q bash-preexec --qf '%{VERSION}')"
+elif [[ -f "${HOMEBREW_PREFIX:-}/etc/profile.d/bash-preexec.sh" ]]; then
+    echo -e "   $OK bash-preexec       brew:${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
 else
-    echo -e "   $FAIL bash-preexec       — not installed (atuin hooks degraded in bash)"
+    echo -e "   $WARN bash-preexec       — not found (run: ujust setup-default-brew cli)"
 fi
 
 # --- 2. Homebrew ---
