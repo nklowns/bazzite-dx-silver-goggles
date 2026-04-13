@@ -1,0 +1,147 @@
+# Silver Goggles — Default Starship Prompt
+# Part of the Bazzite DX shell experience.
+#
+# This file was deployed to your home on first login.
+# It's yours to edit — no future overrides will happen.
+#
+# Full reference:    https://starship.rs/config/
+# Preview modules:   starship explain
+# Apply a preset:    starship preset <name> -o ~/.config/starship.toml
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Two-line prompt:
+#   line 1 → directory + git + language (when in project) + duration
+#   line 2 → ❯ (green on success, red on error)
+format = """
+$directory\
+$git_branch$git_state$git_status\
+$python$nodejs$rust$golang$java$ruby$php$dotnet$terraform$container\
+$cmd_duration\
+$line_break\
+$character"""
+
+# ─── Directory ────────────────────────────────────────────────────────────────
+
+[directory]
+truncation_length = 4
+truncate_to_repo  = true
+style             = "bold cyan"
+
+# ─── Git ──────────────────────────────────────────────────────────────────────
+
+[git_branch]
+symbol = " "
+style  = "bold purple"
+format = "on [$symbol$branch(:$remote_branch)]($style) "
+
+[git_state]
+format = '\([$state( $progress_current/$progress_total)]($style)\) '
+style  = "bold yellow"
+
+[git_status]
+style      = "bold red"
+ahead      = "⇡${count}"
+behind     = "⇣${count}"
+diverged   = "⇕⇡${ahead_count}⇣${behind_count}"
+conflicted = "="
+untracked  = "?"
+stashed    = "≡"
+modified   = "!"
+staged     = "+"
+renamed    = "»"
+deleted    = "✘"
+format     = '([\[$all_status$ahead_behind\]]($style) )'
+
+# ─── Command Duration ─────────────────────────────────────────────────────────
+# Shows how long a command took — only for slow commands (≥ 2s).
+
+[cmd_duration]
+min_time = 2_000
+format   = "took [$duration]($style) "
+style    = "yellow"
+
+# ─── Prompt Character ─────────────────────────────────────────────────────────
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol   = "[❯](bold red)"
+vimcmd_symbol  = "[❮](bold green)"
+
+# ─── Language / Runtime Detection ─────────────────────────────────────────────
+# Each module appears only when its signature files are present in the project.
+# This keeps the prompt clean in unrelated directories.
+
+[python]
+symbol            = " "
+detect_files      = ["requirements.txt", "pyproject.toml", ".python-version", "setup.py", "Pipfile", "tox.ini"]
+detect_extensions = ["py"]
+format            = "[$symbol($version )]($style)"
+style             = "yellow"
+
+[nodejs]
+symbol            = " "
+detect_files      = ["package.json", ".nvmrc", ".node-version"]
+detect_extensions = ["js", "mjs", "cjs", "ts", "mts"]
+format            = "[$symbol($version )]($style)"
+style             = "bold green"
+
+[rust]
+symbol       = " "
+detect_files = ["Cargo.toml"]
+format       = "[$symbol($version )]($style)"
+style        = "bold red"
+
+[golang]
+symbol       = " "
+detect_files = ["go.mod", "go.sum"]
+format       = "[$symbol($version )]($style)"
+style        = "bold cyan"
+
+[java]
+symbol            = " "
+detect_files      = ["pom.xml", "build.gradle", "build.gradle.kts", ".java-version"]
+detect_extensions = ["java", "kt", "kts"]
+format            = "[$symbol($version )]($style)"
+style             = "bold red"
+
+[ruby]
+symbol            = " "
+detect_files      = ["Gemfile", ".ruby-version"]
+detect_extensions = ["rb"]
+format            = "[$symbol($version )]($style)"
+style             = "bold red"
+
+[php]
+symbol            = " "
+detect_files      = ["composer.json", ".php-version"]
+detect_extensions = ["php"]
+format            = "[$symbol($version )]($style)"
+style             = "bold purple"
+
+[dotnet]
+symbol       = "󰪮 "
+detect_files = ["global.json", "*.sln", "*.csproj", "*.fsproj", "Directory.Build.props"]
+format       = "[$symbol($version )]($style)"
+style        = "bold blue"
+
+[terraform]
+detect_files   = ["main.tf", ".terraform-version"]
+detect_folders = [".terraform"]
+format         = "[$symbol$workspace]($style) "
+style          = "bold purple"
+
+[container]
+format = "[$symbol \\[$name\\]]($style) "
+
+# ─── Disabled by default ──────────────────────────────────────────────────────
+# Uncomment (or override in your config) to enable.
+
+[kubernetes]
+disabled = true   # enable if you work with k8s daily
+
+[time]
+disabled = true   # enable with: time.disabled = false, time.format = "[$time]($style) "
+
+[battery]
+disabled = true

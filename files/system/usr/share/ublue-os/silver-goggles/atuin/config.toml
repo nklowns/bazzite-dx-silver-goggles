@@ -1,0 +1,45 @@
+# Silver Goggles — Default Atuin Configuration
+# Part of the Bazzite DX shell experience.
+#
+# This file was deployed to your home on first login.
+# It's yours to edit — no future overrides will happen.
+#
+# Full reference: https://docs.atuin.sh/configuration/config/
+# Key bindings:   Ctrl-R → interactive search  |  ↑ → project-scoped history
+
+[behavior]
+# Ctrl-R searches across all history on this machine.
+filter_mode = "host"
+
+# ↑ arrow searches history from the current git project only.
+# This is atuin's killer feature: press ↑ in a repo and see what you ran there.
+# Change to "global" or "host" if you prefer uniform behavior.
+filter_mode_shell_up_arrow_binding = "workspace"
+
+# Fuzzy search is almost always better than prefix for interactive use.
+search_mode = "fuzzy"
+
+[ui]
+# Inline mode: history appears below the cursor, not full-screen.
+inline_height = 20
+
+# Show a preview of the full command when it's truncated.
+show_preview = true
+max_preview_height = 3
+
+# Show the help bar at the bottom.
+show_help = true
+
+[history]
+# Strip leading whitespace from commands before saving.
+# Prevents commands prefixed with a space from polluting history.
+filter_mode = "global"
+
+[sync]
+# Cloud sync is disabled by default.
+#
+# Sync lets you share history across machines and devices.
+# To enable: https://docs.atuin.sh/guide/sync/
+#
+# [sync]
+# sync_address = "https://api.atuin.sh"   # or your self-hosted instance
