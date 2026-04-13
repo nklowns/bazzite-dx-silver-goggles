@@ -12,9 +12,9 @@
 GUEST_NAME="$1"
 HOOK_NAME="$2"
 STATE_NAME="$3"
-MISC="${@:4}"
+# MISC="${@:4}" # MISC appears unused. Verify use (or export if used externally).
 
-BASEDIR="$(dirname $0)"
+BASEDIR="$(dirname "$0")"
 
 HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
 
@@ -24,13 +24,14 @@ set -e # If a script exits with an error, we should as well.
 
 # check if it's a non-empty executable file
 if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
-    eval \"$HOOKPATH\" "$@" <<< "$STDIN" # Call the hook with all our arguments and a copy of stdin.
+	# shellcheck disable=SC2294
+	eval "\"$HOOKPATH\"" "$@" <<<"$STDIN" # Call the hook with all our arguments and a copy of stdin.
 elif [ -d "$HOOKPATH" ]; then
-    while read file; do
-        # check for null string
-        if [ ! -z "$file" ]; then
-          eval \"$file\" "$@" <<< "$STDIN" # Call each hook with all our arguments and a copy of stdin.
-        fi
-    done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
+	while read -r file; do
+		# check for null string
+		if [ -n "$file" ]; then
+			# shellcheck disable=SC2294
+			eval "\"$file\"" "$@" <<<"$STDIN" # Call each hook with all our arguments and a copy of stdin.
+		fi
+	done <<<"$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print)"
 fi
-

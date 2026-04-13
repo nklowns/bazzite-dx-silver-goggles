@@ -54,9 +54,9 @@ lint:
     set -eoux pipefail
     if ! command -v shellcheck &>/dev/null; then
         echo "shellcheck not found locally. Running via ${PODMAN}..."
-        /usr/bin/find . -name "*.sh" -type f -not -path "./.bluebuild*" -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" docker.io/koalaman/shellcheck-alpine shellcheck /mnt/{} ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" docker.io/koalaman/shellcheck-alpine shellcheck /mnt/{} ';'
     else
-        /usr/bin/find . -iname "*.sh" -type f -not -path "./.bluebuild*" -exec shellcheck "{}" ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec shellcheck "{}" ';'
     fi
 
 # Runs shfmt on all Bash scripts (uses Container if local not found)
@@ -66,9 +66,9 @@ format:
     set -eoux pipefail
     if ! command -v shfmt &>/dev/null; then
         echo "shfmt not found locally. Running via ${PODMAN}..."
-        /usr/bin/find . -name "*.sh" -type f -not -path "./.bluebuild*" -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -w /mnt/{} ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -w /mnt/{} ';'
     else
-        /usr/bin/find . -iname "*.sh" -type f -not -path "./.bluebuild*" -exec shfmt --write "{}" ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec shfmt --write "{}" ';'
     fi
 
 # Clean Repo

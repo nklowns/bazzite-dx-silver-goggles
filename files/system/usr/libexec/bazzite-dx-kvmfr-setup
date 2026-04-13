@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1091
 source /usr/lib/ujust/ujust.sh
 # Get the image name based on the filename
 IMAGE_NAME=$(basename "$0" | sed -E 's/(-dx|)-kvmfr-setup//')
 if [ "$IMAGE_NAME" == "bazzite" ]; then
-    IMAGE_NAME="bazzite-dx"
+	IMAGE_NAME="bazzite-dx"
 fi
 
 # Required disclaimer and where to report issues first
@@ -17,14 +18,14 @@ echo "~ @HikariKnight"
 
 CONFIRM=$(Choose Ok Cancel)
 if [ "$CONFIRM" == "Cancel" ]; then
-    exit 0
+	exit 0
 fi
 
 # Add kvmfr modprobe file following upstream documentation
 echo "Setting up kvmfr module so it loads next boot"
 if [ -f "/etc/modprobe.d/kvmfr.conf" ]; then
-    echo "Re-creating dummy kvmfr modprobe file"
-    sudo rm /etc/modprobe.d/kvmfr.conf
+	echo "Re-creating dummy kvmfr modprobe file"
+	sudo rm /etc/modprobe.d/kvmfr.conf
 fi
 sudo bash -c 'cat << KVMFR_MODPROBE > /etc/modprobe.d/kvmfr.conf
 # This is a dummy file and changing it does nothing
@@ -69,16 +70,16 @@ sudo semanage fcontext -a -t svirt_tmpfs_t /dev/kvmfr0
 # Create type enforcement for /dev/kvmfr0 as there is no existing way to access kvmfr using virt context
 echo "Adding SELinux access rules for /dev/kvmfr0"
 if [ ! -d "$HOME/.config/selinux_te/mod" ]; then
-    mkdir -p "$HOME/.config/selinux_te/mod"
+	mkdir -p "$HOME/.config/selinux_te/mod"
 fi
 if [ ! -d "$HOME/.config/selinux_te/pp" ]; then
-    mkdir -p "$HOME/.config/selinux_te/pp"
+	mkdir -p "$HOME/.config/selinux_te/pp"
 fi
 if [ -f "$HOME/.config/selinux_te/kvmfr.te" ]; then
-    echo "Re-creating kvmfr selinux type enforcement rules"
-    rm $HOME/.config/selinux_te/kvmfr.te
+	echo "Re-creating kvmfr selinux type enforcement rules"
+	rm "$HOME"/.config/selinux_te/kvmfr.te
 fi
-bash -c "cat << KVMFR_SELINUX > $HOME/.config/selinux_te/kvmfr.te
+bash -c "cat << KVMFR_SELINUX > \"$HOME\"/.config/selinux_te/kvmfr.te
 module kvmfr 1.0;
 require {
     type device_t;
@@ -90,7 +91,7 @@ allow svirt_t device_t:chr_file { open read write map };
 KVMFR_SELINUX"
 
 # Tell user what type enforcement we made and how it looks like
-echo "This is the type enforcement we wrote for SELinux and you can find it in $HOME/.config/selinux_te/kvmfr.te"
+echo "This is the type enforcement we wrote for SELinux and you can find it in \"$HOME\"/.config/selinux_te/kvmfr.te"
 echo "#======= start of kvmfr.te ======="
 cat "$HOME/.config/selinux_te/kvmfr.te"
 echo "#======== end of kvmfr.te ========"
@@ -114,13 +115,14 @@ echo "Most ghost display adapters max out at 4k, hence the default value of 128m
 echo ""
 echo "If you need to change it to a different value"
 echo "you can read how to do that in /etc/modprobe.d/kvmfr.conf"
-echo "$(Urllink "https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt" "Please read official documentation for kvmfr for how to use it")"
+Urllink "https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt" "Please read official documentation for kvmfr for how to use it"
 echo ""
 if [ -e "/dev/kvmfr0" ]; then
-    sudo chown $USER:qemu /dev/kvmfr0
-    echo "${b}NOTE: You can start using kvmfr right now without rebooting${n}"
+	sudo chown "$USER":qemu /dev/kvmfr0
+	# shellcheck disable=SC2154
+	echo "${b}NOTE: You can start using kvmfr right now without rebooting${n}"
 else
-    echo "Please reboot in order to fully load the kvmfr module."
+	echo "Please reboot in order to fully load the kvmfr module."
 fi
 
 CONFIRM=$(Choose OK)
