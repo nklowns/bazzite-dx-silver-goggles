@@ -24,7 +24,6 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias mkdir='mkdir -p'
 alias g='git'
-alias d='docker'
 
 # --- Alias Sections ---
 

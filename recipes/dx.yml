@@ -94,6 +94,7 @@ modules:
       - waypipe # OS: Wayland network transparency
       # - ydotool # OS: Wayland input automation (Bazzite pre-installed)
       - zsh # Shell: Foundation
+      - bash-preexec # Shell: Bash pre/post exec hooks (required for full atuin functionality)
 
   - type: systemd
     system:

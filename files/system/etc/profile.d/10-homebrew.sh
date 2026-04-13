@@ -4,5 +4,5 @@
 # No interactive guard: PATH must be available for scripts and login shells alike.
 
 if [ -d /home/linuxbrew/.linuxbrew ] && [ "$(/usr/bin/id -u)" != "0" ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+	eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi

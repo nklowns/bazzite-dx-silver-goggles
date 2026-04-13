@@ -13,7 +13,7 @@ OVERRIDE_FILE="${OVERRIDE_DIR}/override.conf"
 
 mkdir -p "${OVERRIDE_DIR}"
 
-cat > "${OVERRIDE_FILE}" << 'EOF'
+cat >"${OVERRIDE_FILE}" <<'EOF'
 [Service]
 # Workaround for KRDP blank screen caused by buggy VAAPI drivers
 # https://discuss.kde.org/t/krdp-help-blank-screen-on-connect/41952/5

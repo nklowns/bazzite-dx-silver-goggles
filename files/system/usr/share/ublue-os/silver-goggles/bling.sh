@@ -25,7 +25,6 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias mkdir='mkdir -p'
 alias g='git'
-alias d='docker'
 
 # --- Alias Sections ---
 
@@ -49,7 +48,7 @@ fi
 
 # bat for cat
 if [ "$BLUEFIN_SHELL_ENABLE_BAT" -eq 1 ] && [ "$(command -v bat)" ]; then
-	alias cat='bat --style=plain --pager=never' 2>/dev/null
+	alias cat='bat --style=plain --pager=never'
 fi
 
 # Kubernetes
@@ -59,7 +58,7 @@ fi
 
 # Obsidian CLI Fix: Symlink the socket from the Flatpak sandbox to the expected host location
 if [ "$(command -v obsidian)" ]; then
-    alias obsidian='ln -sf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock" "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.obsidian-cli.sock" 2>/dev/null; command obsidian'
+	alias obsidian='ln -sf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock" "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.obsidian-cli.sock" 2>/dev/null; command obsidian'
 fi
 
 # --- Tool Activation (interactive shells only) ---
@@ -67,45 +66,48 @@ fi
 # only make sense for humans — skip in scripts and agent-driven subshells.
 case $- in *i*)
 
-BLING_SHELL="$(basename "$(readlink /proc/$$/exe)")"
+	BLING_SHELL="$(basename "$(readlink /proc/$$/exe)")"
 
-# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
-if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" -eq 1 ] && [ "$(command -v direnv)" ]; then
-	eval "$(direnv hook "${BLING_SHELL}")"
-fi
-
-# 2. bash-preexec support for Bash users
-if [ "${BLING_SHELL}" = "bash" ]; then
-	[ -f "/etc/profile.d/bash-preexec.sh" ] && . "/etc/profile.d/bash-preexec.sh"
-	if [ -n "$HOMEBREW_PREFIX" ] && [ -f "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh" ]; then
-		. "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
+	# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
+	if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" -eq 1 ] && [ "$(command -v direnv)" ]; then
+		eval "$(direnv hook "${BLING_SHELL}")"
 	fi
-fi
 
-# 3. Atuin History Integration
-if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" -eq 1 ] && [ "$(command -v atuin)" ]; then
-	eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
-fi
+	# 2. bash-preexec support for Bash users
+	if [ "${BLING_SHELL}" = "bash" ]; then
+		# shellcheck disable=SC1091
+		[ -f "/etc/profile.d/bash-preexec.sh" ] && . "/etc/profile.d/bash-preexec.sh"
+		if [ -n "$HOMEBREW_PREFIX" ] && [ -f "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh" ]; then
+			# shellcheck disable=SC1091
+			. "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
+		fi
+	fi
 
-# 4. Starship
-if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" -eq 1 ] && [ "$(command -v starship)" ]; then
-	eval "$(starship init "${BLING_SHELL}")"
-fi
+	# 3. Atuin History Integration
+	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" -eq 1 ] && [ "$(command -v atuin)" ]; then
+		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+	fi
 
-# 5. Zoxide (Better 'cd')
-if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" -eq 1 ] && [ "$(command -v zoxide)" ]; then
-	eval "$(zoxide init "${BLING_SHELL}")"
-fi
+	# 4. Starship
+	if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" -eq 1 ] && [ "$(command -v starship)" ]; then
+		eval "$(starship init "${BLING_SHELL}")"
+	fi
 
-# 6. Mise
-if [ "$BLUEFIN_SHELL_ENABLE_MISE" -eq 1 ] && [ "$(command -v mise)" ]; then
-	case "${BLING_SHELL}" in
+	# 5. Zoxide (Better 'cd')
+	if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" -eq 1 ] && [ "$(command -v zoxide)" ]; then
+		eval "$(zoxide init "${BLING_SHELL}")"
+	fi
+
+	# 6. Mise
+	if [ "$BLUEFIN_SHELL_ENABLE_MISE" -eq 1 ] && [ "$(command -v mise)" ]; then
+		case "${BLING_SHELL}" in
 		bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
-		zsh)  [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)" ;;
-		*)    eval "$(mise activate "${BLING_SHELL}")" ;;
-	esac
-fi
+		zsh) [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)" ;;
+		*) eval "$(mise activate "${BLING_SHELL}")" ;;
+		esac
+	fi
 
-unset BLING_SHELL
+	unset BLING_SHELL
+	;;
 
 esac
