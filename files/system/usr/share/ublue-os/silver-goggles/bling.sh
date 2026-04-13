@@ -106,3 +106,5 @@ if [ "$BLUEFIN_SHELL_ENABLE_MISE" -eq 1 ] && [ "$(command -v mise)" ]; then
 		*)    eval "$(mise activate "${BLING_SHELL}")" ;;
 	esac
 fi
+
+unset BLING_SHELL
