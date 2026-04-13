@@ -1,7 +1,6 @@
-#!/usr/bin/env sh
-
 # Bazzite-DX Silver Goggles: Shell Excellence (Declarative Wrapper)
-# This file ensures that the Silver Goggles 'bling' is sourced for Bash and ZSH.
+# Sourced by /etc/zshrc → /etc/zshrc.d/ for Zsh interactive shells.
+# For login shells, runs after ~/.zprofile where Homebrew sets up PATH.
 
 BLING_PATH="/usr/share/ublue-os/silver-goggles/bling.sh"
 
