@@ -48,6 +48,7 @@ modules:
       - incus-agent # VM: Incus guest agent
       # - libvirt # VM: Virtualization API (Bazzite pre-installed)
       - libvirt-nss # VM: Name service switch
+      - virtiofsd # VM: VirtioFS daemon
       - lxc # Container: Linux Containers
       - osbuild-selinux # System: SELinux policies
       - qemu-img # VM: Image utilities
