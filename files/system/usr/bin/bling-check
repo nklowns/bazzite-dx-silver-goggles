@@ -1,0 +1,77 @@
+#!/usr/bin/bash
+# Silver Goggles: Shell Experience Audit
+# Checks bling infrastructure, Homebrew PATH, tools, and toggle states.
+# Usage: bling-check  |  ujust bling-check
+
+set -uo pipefail
+
+GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+OK="${GREEN}[ OK ]${NC}"; FAIL="${RED}[FAIL]${NC}"; WARN="${YELLOW}[WARN]${NC}"; OFF="${YELLOW}[ -- ]${NC}"
+
+echo -e "\n${BLUE}=== Silver Goggles: Shell Experience ===${NC}"
+
+# --- 1. Infrastructure ---
+echo -e "\n${BLUE}1. Infrastructure${NC}"
+
+_check_file() {
+    local label="$1" path="$2" severity="${3:-FAIL}"
+    if [[ -f "$path" ]]; then
+        echo -e "   $OK $label"
+    elif [[ "$severity" == "WARN" ]]; then
+        echo -e "   $WARN $label — missing ($path)"
+    else
+        echo -e "   $FAIL $label — missing ($path)"
+    fi
+}
+
+_check_file "Homebrew init       " /etc/profile.d/10-homebrew.sh
+_check_file "Bling wrapper (sh)  " /etc/profile.d/95-bazzite-dx-bling.sh
+_check_file "bling.sh            " /usr/share/ublue-os/silver-goggles/bling.sh
+_check_file "Bling wrapper (fish)" /etc/fish/conf.d/95-bazzite-dx-bling.fish WARN
+_check_file "bling.fish          " /usr/share/ublue-os/silver-goggles/bling.fish WARN
+
+if rpm -q bash-preexec &>/dev/null; then
+    echo -e "   $OK bash-preexec       $(rpm -q bash-preexec --qf '%{VERSION}-%{RELEASE}')"
+else
+    echo -e "   $FAIL bash-preexec       — not installed (atuin hooks degraded in bash)"
+fi
+
+# --- 2. Homebrew ---
+echo -e "\n${BLUE}2. Homebrew${NC}"
+# shellcheck disable=SC1091
+source /etc/profile.d/10-homebrew.sh 2>/dev/null || true
+
+if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
+    echo -e "   $OK HOMEBREW_PREFIX=${HOMEBREW_PREFIX}"
+else
+    echo -e "   $FAIL Homebrew not initialized — run brew setup first"
+fi
+
+# --- 3. Tools ---
+echo -e "\n${BLUE}3. Tools${NC}"
+declare -A TOOL_BINS=(
+    [mise]=mise [atuin]=atuin [starship]=starship
+    [zoxide]=zoxide [direnv]=direnv [eza]=eza [bat]=bat [ugrep]=ug
+)
+for tool in mise atuin starship zoxide direnv eza bat ugrep; do
+    bin="${TOOL_BINS[$tool]}"
+    if path=$(command -v "$bin" 2>/dev/null); then
+        echo -e "   $OK $tool ($path)"
+    else
+        echo -e "   $FAIL $tool — not found (install via Brewfile)"
+    fi
+done
+
+# --- 4. Toggles ---
+echo -e "\n${BLUE}4. Toggles${NC}"
+for t in EZA UGREP BAT ATUIN STARSHIP ZOXIDE MISE DIRENV; do
+    var="BLUEFIN_SHELL_ENABLE_${t}"
+    val="${!var:-1}"
+    if [[ "$val" == "0" ]]; then
+        echo -e "   $OFF ${var}=0  (disabled)"
+    else
+        echo -e "   $OK ${var}=${!var:-1 (default)}"
+    fi
+done
+
+echo ""

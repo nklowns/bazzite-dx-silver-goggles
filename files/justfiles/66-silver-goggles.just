@@ -8,6 +8,11 @@
 status:
     /usr/bin/g15-status
 
+# Audit the Silver Goggles shell experience (bling infrastructure + tools)
+[group('Status')]
+bling-check:
+    /usr/bin/bling-check
+
 # ==============================================================================
 # GROUP 2: Network & Privacy (Tailscale)
 # ==============================================================================
