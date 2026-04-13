@@ -6,7 +6,7 @@ description: "Personal DX layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NV
 # Slim Edition Policy: only KDE/NVIDIA variant
 base-image: ghcr.io/ublue-os/bazzite-nvidia
 # Digest pinned by Renovate — see .github/renovate.json5
-image-version: latest # renovate: datasource=docker depName=ghcr.io/ublue-os/bazzite-nvidia
+image-version: latest # digest managed via image-versions.yaml (updated by Renovate)
 
 alt-tags:
   - stable

@@ -12,13 +12,15 @@
   customManagers: [
     {
       customType: 'regex',
-      description: 'Track base-image digest in recipe.yml',
+      description: 'Track base-image tag and digest in image-versions.yaml',
       managerFilePatterns: [
-        '/^recipes/recipe\\.yml$/',
+        '/^image-versions\\.yaml$/',
       ],
       matchStrings: [
-        'image-version:\\s+(?<currentValue>[^\\s#]+)\\s+#\\s+renovate:\\s+datasource=(?<datasource>[^\\s]+)\\s+depName=(?<depName>[^\\s]+)',
+        'image:\\s+(?<depName>[^\\n]+)\\n\\s+tag:\\s+(?<currentValue>[^\\n]+)\\n\\s+digest:\\s+(?<currentDigest>sha256:[a-f0-9]+)',
       ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
     },
     {
       customType: 'regex',
@@ -75,9 +77,9 @@
       ignoreTests: true,
     },
     {
-      description: 'Auto-update and automerge Bazzite-Nvidia base image digest in recipe.yml',
+      description: 'Auto-update and automerge Bazzite-Nvidia base image digest in image-versions.yaml',
       matchFileNames: [
-        'recipes/recipe.yml',
+        'image-versions.yaml',
       ],
       matchUpdateTypes: [
         'digest',
