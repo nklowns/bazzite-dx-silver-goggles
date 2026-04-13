@@ -8,7 +8,6 @@ tap "charmbracelet/tap"                             # For Crush
 tap "anomalyco/tap"                                 # For Opencode
 
 # --- Core AI Agents ---
-brew "goose"                                        # Open-source autonomous engineering agent
 brew "block-goose-cli"                              # CLI for memory-augmented Goose
 brew "vtcode"                                       # Tree-sitter powered structural refactoring
 brew "anomalyco/tap/opencode"                       # Open source AI coding assistant

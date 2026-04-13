@@ -29,6 +29,7 @@ brew "yq"                               # YAML command-line processor
 brew "qsv"                              # Ultra-fast CSV analysis and manipulation
 brew "glow"                             # Terminal markdown renderer
 brew "ripgrep"                          # Fast line-oriented search tool
+brew "ugrep"                            # Ultra-fast grep with interactive TUI
 brew "fd"                               # Simple, fast alternative to find
 brew "fx"                               # Interactive JSON viewer (TUI companion to jq)
 

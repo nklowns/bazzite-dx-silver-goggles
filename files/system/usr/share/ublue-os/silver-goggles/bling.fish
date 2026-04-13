@@ -78,6 +78,7 @@ if status is-interactive
     # 3. Starship
     if test "$BLUEFIN_SHELL_ENABLE_STARSHIP" = 1; and command -v starship >/dev/null
         starship init fish | source
+        function fish_mode_prompt; true; end # https://github.com/microsoft/vscode/issues/245607#issuecomment-2777199777
     end
 
     # 4. Zoxide (Better 'cd')

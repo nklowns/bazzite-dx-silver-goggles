@@ -37,13 +37,22 @@ if [ "$BLUEFIN_SHELL_ENABLE_EZA" -eq 1 ] && [ "$(command -v eza)" ]; then
 fi
 
 # ugrep for grep
-if [ "$BLUEFIN_SHELL_ENABLE_UGREP" -eq 1 ] && [ "$(command -v ug)" ]; then
-	alias grep='ug'
-	alias egrep='ug -E'
-	alias fgrep='ug -F'
-	alias xzgrep='ug -z'
-	alias xzegrep='ug -zE'
-	alias xzfgrep='ug -zF'
+if [ "$BLUEFIN_SHELL_ENABLE_UGREP" -eq 1 ]; then
+	if [ "$(command -v ug)" ]; then
+		alias grep='ug'
+		alias egrep='ug -E'
+		alias fgrep='ug -F'
+		alias xzgrep='ug -z'
+		alias xzegrep='ug -zE'
+		alias xzfgrep='ug -zF'
+	elif [ "$(command -v ugrep)" ]; then
+		alias grep='ugrep'
+		alias egrep='ugrep -E'
+		alias fgrep='ugrep -F'
+		alias xzgrep='ugrep -z'
+		alias xzegrep='ugrep -zE'
+		alias xzfgrep='ugrep -zF'
+	fi
 fi
 
 # bat for cat
@@ -66,20 +75,23 @@ fi
 # only make sense for humans — skip in scripts and agent-driven subshells.
 case $- in *i*)
 
-	BLING_SHELL="$(basename "$(readlink /proc/$$/exe)")"
+	# Detect shell (macOS/Linux compatible)
+	if [ -z "$BLING_SHELL" ]; then
+		if [ -n "$BASH_VERSION" ]; then
+			BLING_SHELL="bash"
+		elif [ -n "$ZSH_VERSION" ]; then
+			BLING_SHELL="zsh"
+		else
+			BLING_SHELL="$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//' | xargs basename 2>/dev/null)"
+		fi
+	fi
 
 	# zsh: autoload add-zsh-hook before any tool tries to use it (atuin, direnv)
-	# shellcheck disable=SC2039,SC3044
 	[ "${BLING_SHELL}" = "zsh" ] && autoload -Uz add-zsh-hook
 
 	# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
 	if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" -eq 1 ] && [ "$(command -v direnv)" ]; then
-		if [ "${BLING_SHELL}" = "zsh" ]; then
-			# shellcheck disable=SC3001,SC3046,SC1090
-			source <(direnv hook zsh)
-		else
-			eval "$(direnv hook "${BLING_SHELL}")"
-		fi
+		eval "$(direnv hook "${BLING_SHELL}")"
 	fi
 
 	# 2. bash-preexec support for Bash users
@@ -94,15 +106,10 @@ case $- in *i*)
 
 	# 3. Atuin History Integration
 	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" -eq 1 ] && [ "$(command -v atuin)" ]; then
-		if [ "${BLING_SHELL}" = "zsh" ]; then
-			# shellcheck disable=SC3001,SC3046,SC1090
-			source <(atuin init zsh${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})
-		else
-			eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
-		fi
+		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
 	fi
 
-	# 4. Starship
+	# 4. Starship Prompt
 	if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" -eq 1 ] && [ "$(command -v starship)" ]; then
 		eval "$(starship init "${BLING_SHELL}")"
 	fi
@@ -112,13 +119,12 @@ case $- in *i*)
 		eval "$(zoxide init "${BLING_SHELL}")"
 	fi
 
-	# 6. Mise
+	# 6. Mise Runtime Manager
 	if [ "$BLUEFIN_SHELL_ENABLE_MISE" -eq 1 ] && [ "$(command -v mise)" ]; then
 		case "${BLING_SHELL}" in
 		bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
-		zsh)  # shellcheck disable=SC3001,SC3046,SC1090
-		      [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && source <(mise activate zsh) ;;
-		*)    eval "$(mise activate "${BLING_SHELL}")" ;;
+		zsh) [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)" ;;
+		*) eval "$(mise activate "${BLING_SHELL}")" ;;
 		esac
 	fi
 
