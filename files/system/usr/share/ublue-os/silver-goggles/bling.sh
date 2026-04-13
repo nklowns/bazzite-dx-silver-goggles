@@ -62,9 +62,11 @@ if [ "$(command -v obsidian)" ]; then
     alias obsidian='ln -sf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock" "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.obsidian-cli.sock" 2>/dev/null; command obsidian'
 fi
 
-# --- Tool Activation ---
+# --- Tool Activation (interactive shells only) ---
+# Aliases above are always available. Evals (prompt, hooks, completions)
+# only make sense for humans — skip in scripts and agent-driven subshells.
+case $- in *i*)
 
-# Detect shell
 BLING_SHELL="$(basename "$(readlink /proc/$$/exe)")"
 
 # 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
@@ -75,8 +77,6 @@ fi
 # 2. bash-preexec support for Bash users
 if [ "${BLING_SHELL}" = "bash" ]; then
 	[ -f "/etc/profile.d/bash-preexec.sh" ] && . "/etc/profile.d/bash-preexec.sh"
-	[ -f "/usr/share/bash-prexec" ] && . "/usr/share/bash-prexec"
-	[ -f "/usr/share/bash-prexec.sh" ] && . "/usr/share/bash-prexec.sh"
 	if [ -n "$HOMEBREW_PREFIX" ] && [ -f "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh" ]; then
 		. "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
 	fi
@@ -84,8 +84,7 @@ fi
 
 # 3. Atuin History Integration
 if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" -eq 1 ] && [ "$(command -v atuin)" ]; then
-	ATUIN_INIT_FLAGS="${ATUIN_INIT_FLAGS:-}"
-	eval "$(atuin init "${BLING_SHELL}" "${ATUIN_INIT_FLAGS}")"
+	eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
 fi
 
 # 4. Starship
@@ -108,3 +107,5 @@ if [ "$BLUEFIN_SHELL_ENABLE_MISE" -eq 1 ] && [ "$(command -v mise)" ]; then
 fi
 
 unset BLING_SHELL
+
+esac

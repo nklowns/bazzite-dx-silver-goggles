@@ -61,32 +61,36 @@ if command -v obsidian >/dev/null
     alias obsidian='ln -sf (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /run/user/(id -u))/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /run/user/(id -u))/.obsidian-cli.sock 2>/dev/null; command obsidian'
 end
 
-# --- Tool Activation ---
+# --- Tool Activation (interactive shells only) ---
+# Aliases above are always available. Evals (prompt, hooks, completions)
+# only make sense for humans — skip in scripts and agent-driven subshells.
+if status is-interactive
 
-# 1. Initialize direnv
-if test "$BLUEFIN_SHELL_ENABLE_DIRENV" = 1; and command -v direnv >/dev/null
-    direnv hook fish | source
-end
-
-# 2. Atuin History Integration
-if test "$BLUEFIN_SHELL_ENABLE_ATUIN" = 1; and command -v atuin >/dev/null
-    set -q ATUIN_INIT_FLAGS; or set -l ATUIN_INIT_FLAGS ""
-    atuin init fish $ATUIN_INIT_FLAGS | source
-end
-
-# 3. Starship
-if test "$BLUEFIN_SHELL_ENABLE_STARSHIP" = 1; and command -v starship >/dev/null
-    starship init fish | source
-end
-
-# 4. Zoxide (Better 'cd')
-if test "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = 1; and command -v zoxide >/dev/null
-    zoxide init fish | source
-end
-
-# 5. Mise
-if test "$BLUEFIN_SHELL_ENABLE_MISE" = 1; and command -v mise >/dev/null
-    if test "$MISE_FISH_AUTO_ACTIVATE" != "0"
-        mise activate fish | source
+    # 1. Initialize direnv
+    if test "$BLUEFIN_SHELL_ENABLE_DIRENV" = 1; and command -v direnv >/dev/null
+        direnv hook fish | source
     end
+
+    # 2. Atuin History Integration
+    if test "$BLUEFIN_SHELL_ENABLE_ATUIN" = 1; and command -v atuin >/dev/null
+        atuin init fish $ATUIN_INIT_FLAGS | source
+    end
+
+    # 3. Starship
+    if test "$BLUEFIN_SHELL_ENABLE_STARSHIP" = 1; and command -v starship >/dev/null
+        starship init fish | source
+    end
+
+    # 4. Zoxide (Better 'cd')
+    if test "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = 1; and command -v zoxide >/dev/null
+        zoxide init fish | source
+    end
+
+    # 5. Mise
+    if test "$BLUEFIN_SHELL_ENABLE_MISE" = 1; and command -v mise >/dev/null
+        if test "$MISE_FISH_AUTO_ACTIVATE" != "0"
+            mise activate fish | source
+        end
+    end
+
 end

@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 # Set up system Homebrew PATH for all users.
 # /home/linuxbrew/.linuxbrew is a system-wide install — belongs in profile.d.
-# Guards mirror the BlueBuild brew module reference implementation.
+# No interactive guard: PATH must be available for scripts and login shells alike.
 
-if [[ -d /home/linuxbrew/.linuxbrew && $- == *i* && "$(/usr/bin/id -u)" != "0" ]]; then
+if [ -d /home/linuxbrew/.linuxbrew ] && [ "$(/usr/bin/id -u)" != "0" ]; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
