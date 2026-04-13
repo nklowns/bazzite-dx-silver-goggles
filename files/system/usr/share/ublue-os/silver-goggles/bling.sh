@@ -5,7 +5,7 @@
 # Located in: /usr/share/ublue-os/silver-goggles/bling.sh
 
 # Check if shell has already been sourced to prevent recursion
-[ "${BLING_SOURCED:-0}" -eq 1 ] && return
+[ "${BLING_SOURCED:-0}" = "1" ] && return
 BLING_SOURCED=1
 
 # --- Configuration Toggles ---
@@ -29,7 +29,7 @@ alias g='git'
 # --- Alias Sections ---
 
 # eza for ls
-if [ "$BLUEFIN_SHELL_ENABLE_EZA" -eq 1 ] && [ "$(command -v eza)" ]; then
+if [ "$BLUEFIN_SHELL_ENABLE_EZA" = "1" ] && [ "$(command -v eza)" ]; then
 	alias ll='eza -l --icons=auto --group-directories-first'
 	alias l.='eza -d .*'
 	alias ls='eza'
@@ -37,7 +37,7 @@ if [ "$BLUEFIN_SHELL_ENABLE_EZA" -eq 1 ] && [ "$(command -v eza)" ]; then
 fi
 
 # ugrep for grep
-if [ "$BLUEFIN_SHELL_ENABLE_UGREP" -eq 1 ]; then
+if [ "$BLUEFIN_SHELL_ENABLE_UGREP" = "1" ]; then
 	if [ "$(command -v ug)" ]; then
 		alias grep='ug'
 		alias egrep='ug -E'
@@ -56,7 +56,7 @@ if [ "$BLUEFIN_SHELL_ENABLE_UGREP" -eq 1 ]; then
 fi
 
 # bat for cat
-if [ "$BLUEFIN_SHELL_ENABLE_BAT" -eq 1 ] && [ "$(command -v bat)" ]; then
+if [ "$BLUEFIN_SHELL_ENABLE_BAT" = "1" ] && [ "$(command -v bat)" ]; then
 	alias cat='bat --style=plain --pager=never'
 fi
 
@@ -90,7 +90,7 @@ case $- in *i*)
 	[ "${BLING_SHELL}" = "zsh" ] && autoload -Uz add-zsh-hook
 
 	# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
-	if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" -eq 1 ] && [ "$(command -v direnv)" ]; then
+	if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" = "1" ] && [ "$(command -v direnv)" ]; then
 		eval "$(direnv hook "${BLING_SHELL}")"
 	fi
 
@@ -105,22 +105,22 @@ case $- in *i*)
 	fi
 
 	# 3. Atuin History Integration
-	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" -eq 1 ] && [ "$(command -v atuin)" ]; then
+	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
 		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
 	fi
 
 	# 4. Starship Prompt
-	if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" -eq 1 ] && [ "$(command -v starship)" ]; then
+	if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" = "1" ] && [ "$(command -v starship)" ]; then
 		eval "$(starship init "${BLING_SHELL}")"
 	fi
 
 	# 5. Zoxide (Better 'cd')
-	if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" -eq 1 ] && [ "$(command -v zoxide)" ]; then
+	if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = "1" ] && [ "$(command -v zoxide)" ]; then
 		eval "$(zoxide init "${BLING_SHELL}")"
 	fi
 
 	# 6. Mise Runtime Manager
-	if [ "$BLUEFIN_SHELL_ENABLE_MISE" -eq 1 ] && [ "$(command -v mise)" ]; then
+	if [ "$BLUEFIN_SHELL_ENABLE_MISE" = "1" ] && [ "$(command -v mise)" ]; then
 		case "${BLING_SHELL}" in
 		bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
 		zsh) [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)" ;;
