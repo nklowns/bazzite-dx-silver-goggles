@@ -68,9 +68,18 @@ case $- in *i*)
 
 	BLING_SHELL="$(basename "$(readlink /proc/$$/exe)")"
 
+	# zsh: autoload add-zsh-hook before any tool tries to use it (atuin, direnv)
+	# shellcheck disable=SC2039,SC3044
+	[ "${BLING_SHELL}" = "zsh" ] && autoload -Uz add-zsh-hook
+
 	# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
 	if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" -eq 1 ] && [ "$(command -v direnv)" ]; then
-		eval "$(direnv hook "${BLING_SHELL}")"
+		if [ "${BLING_SHELL}" = "zsh" ]; then
+			# shellcheck disable=SC3001,SC3046,SC1090
+			source <(direnv hook zsh)
+		else
+			eval "$(direnv hook "${BLING_SHELL}")"
+		fi
 	fi
 
 	# 2. bash-preexec support for Bash users
@@ -85,7 +94,12 @@ case $- in *i*)
 
 	# 3. Atuin History Integration
 	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" -eq 1 ] && [ "$(command -v atuin)" ]; then
-		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+		if [ "${BLING_SHELL}" = "zsh" ]; then
+			# shellcheck disable=SC3001,SC3046,SC1090
+			source <(atuin init zsh${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})
+		else
+			eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+		fi
 	fi
 
 	# 4. Starship
@@ -102,8 +116,9 @@ case $- in *i*)
 	if [ "$BLUEFIN_SHELL_ENABLE_MISE" -eq 1 ] && [ "$(command -v mise)" ]; then
 		case "${BLING_SHELL}" in
 		bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
-		zsh) [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)" ;;
-		*) eval "$(mise activate "${BLING_SHELL}")" ;;
+		zsh)  # shellcheck disable=SC3001,SC3046,SC1090
+		      [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && source <(mise activate zsh) ;;
+		*)    eval "$(mise activate "${BLING_SHELL}")" ;;
 		esac
 	fi
 
