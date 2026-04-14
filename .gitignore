@@ -10,5 +10,8 @@ output/
 *.qcow2
 *.raw
 *.iso
+# BlueBuild dynamic recipe
+recipes/build-recipe.yml
+# Old build system artifacts (clean up)
 /.bluebuild*/
 /.bluebuild-scripts_*

@@ -38,14 +38,13 @@ if [ -z "${BASE_IMAGE}" ] || [ "${BASE_IMAGE}" == "null" ]; then
 fi
 
 echo "Generating build recipe for ${TARGET_IMAGE} (Base: ${BASE_IMAGE}:${IMAGE_VERSION_VAL})..."
-mkdir -p .bluebuild
 
 yq '
   .name = env(IMAGE_NAME) |
   .description = env(IMAGE_DESC) |
   .base-image = env(BASE_IMAGE) |
   .image-version = env(IMAGE_VERSION_VAL)
-' recipes/recipe.yml >.bluebuild/build-recipe.yml
+' recipes/recipe.yml > recipes/build-recipe.yml
 
 yq -i "
   .alt-tags = ([\"latest\", \"stable\", \"${TAG}\", env(BASE_TAG)] | unique) |
@@ -64,4 +63,4 @@ yq -i "
   .labels.\"org.opencontainers.image.documentation\" = \"https://raw.githubusercontent.com/\" + env(REPO_OWNER) + \"/bazzite-dx-silver-goggles/main/README.md\" |
   .labels.\"org.opencontainers.image.version\" = env(VERSION_FULL) |
   .labels.\"org.opencontainers.image.revision\" = env(REVISION)
-" .bluebuild/build-recipe.yml
+" recipes/build-recipe.yml
