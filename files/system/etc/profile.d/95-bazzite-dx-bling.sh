@@ -5,6 +5,6 @@
 # To disable: BLING_ENABLE=0 bash -l  /  BLING_ENABLE=0 zsh -l
 
 if [ "${BLING_ENABLE:-1}" != "0" ] && [ -f "/usr/share/ublue-os/silver-goggles/bling.sh" ]; then
-	# shellcheck disable=SC1091
+	# shellcheck source=/dev/null
 	. "/usr/share/ublue-os/silver-goggles/bling.sh"
 fi

@@ -47,7 +47,7 @@ fi
 
 # --- 2. Homebrew ---
 echo -e "\n${BLUE}2. Homebrew${NC}"
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 source /etc/profile.d/10-homebrew.sh 2>/dev/null || true
 
 if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then

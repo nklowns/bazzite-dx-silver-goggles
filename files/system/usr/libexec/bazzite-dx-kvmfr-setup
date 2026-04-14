@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1091
+# Declare external ujust helpers to satisfy ShellCheck
+# Defining these BEFORE sourcing ujust.sh ensures they act as stubs
+# for linting but get overwritten by real implementations at runtime.
+b="${b:-}"       # Bold
+n="${n:-}"       # Normal
+Urllink() { :; } # Placeholder for ujust Urllink
+Choose() { :; }  # Placeholder for ujust Choose
+
+# shellcheck source=/dev/null
 source /usr/lib/ujust/ujust.sh
+
 # Get the image name based on the filename
 IMAGE_NAME=$(basename "$0" | sed -E 's/(-dx|)-kvmfr-setup//')
 if [ "$IMAGE_NAME" == "bazzite" ]; then
@@ -119,7 +128,6 @@ Urllink "https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt" "Please read o
 echo ""
 if [ -e "/dev/kvmfr0" ]; then
 	sudo chown "$USER":qemu /dev/kvmfr0
-	# shellcheck disable=SC2154
 	echo "${b}NOTE: You can start using kvmfr right now without rebooting${n}"
 else
 	echo "Please reboot in order to fully load the kvmfr module."

@@ -5,7 +5,7 @@
 
 set -ouex pipefail
 
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
 version-script bling-shell-config user 1 || exit 0

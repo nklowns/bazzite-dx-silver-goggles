@@ -96,10 +96,10 @@ case $- in *i*)
 
 	# 2. bash-preexec support for Bash users
 	if [ "${BLING_SHELL}" = "bash" ]; then
-		# shellcheck disable=SC1091
+		# shellcheck source=/dev/null
 		[ -f "/etc/profile.d/bash-preexec.sh" ] && . "/etc/profile.d/bash-preexec.sh"
 		if [ -n "$HOMEBREW_PREFIX" ] && [ -f "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh" ]; then
-			# shellcheck disable=SC1091
+			# shellcheck source=/dev/null
 			. "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
 		fi
 	fi

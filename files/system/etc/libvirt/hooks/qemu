@@ -24,14 +24,12 @@ set -e # If a script exits with an error, we should as well.
 
 # check if it's a non-empty executable file
 if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
-	# shellcheck disable=SC2294
-	eval "\"$HOOKPATH\"" "$@" <<<"$STDIN" # Call the hook with all our arguments and a copy of stdin.
+	"$HOOKPATH" "$@" <<<"$STDIN" # Call the hook with all our arguments and a copy of stdin.
 elif [ -d "$HOOKPATH" ]; then
 	while read -r file; do
 		# check for null string
 		if [ -n "$file" ]; then
-			# shellcheck disable=SC2294
-			eval "\"$file\"" "$@" <<<"$STDIN" # Call each hook with all our arguments and a copy of stdin.
+			"$file" "$@" <<<"$STDIN" # Call each hook with all our arguments and a copy of stdin.
 		fi
 	done <<<"$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print)"
 fi
