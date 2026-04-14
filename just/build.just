@@ -4,21 +4,20 @@
 
 # Build image using BlueBuild CLI (Surface Recipe)
 [group('Build')]
-build target_image="bazzite-nvidia" tag=default_tag: (build-recipe target_image tag)
+build target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
     bluebuild build .bluebuild/build-recipe.yml
 
 # Build image without using cache
 [group('Build')]
-build-nocache target_image="bazzite-nvidia" tag=default_tag: (build-recipe target_image tag)
+build-nocache target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
     bluebuild build --no-cache .bluebuild/build-recipe.yml
 
 # Generate build recipe with complete OCI metadata (Unified Logic)
-[private]
-build-recipe target_image tag:
+generate-recipe target_image tag:
     ./scripts/generate-recipe.sh "{{ target_image }}" "{{ tag }}"
 
 # Build image pointing to a custom Bazzite-DX fork/branch (overrides base-image)
