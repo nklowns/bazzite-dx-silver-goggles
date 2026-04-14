@@ -70,27 +70,28 @@ if status is-interactive
         direnv hook fish | source
     end
 
-    # 2. Atuin History Integration
-    if test "$BLUEFIN_SHELL_ENABLE_ATUIN" = 1; and command -v atuin >/dev/null
-        atuin init fish $ATUIN_INIT_FLAGS | source
-    end
-
-    # 3. Starship
-    if test "$BLUEFIN_SHELL_ENABLE_STARSHIP" = 1; and command -v starship >/dev/null
-        starship init fish | source
-        function fish_mode_prompt; true; end # https://github.com/microsoft/vscode/issues/245607#issuecomment-2777199777
-    end
-
-    # 4. Zoxide (Better 'cd')
-    if test "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = 1; and command -v zoxide >/dev/null
-        zoxide init fish | source
-    end
-
-    # 5. Mise
+    # 2. Mise (early for PATH availability)
     if test "$BLUEFIN_SHELL_ENABLE_MISE" = 1; and command -v mise >/dev/null
         if test "$MISE_FISH_AUTO_ACTIVATE" != "0"
             mise activate fish | source
         end
     end
+
+    # 3. Zoxide (Better 'cd')
+    if test "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = 1; and command -v zoxide >/dev/null
+        zoxide init fish | source
+    end
+
+    # 4. Starship
+    if test "$BLUEFIN_SHELL_ENABLE_STARSHIP" = 1; and command -v starship >/dev/null
+        starship init fish | source
+        function fish_mode_prompt; true; end # https://github.com/microsoft/vscode/issues/245607#issuecomment-2777199777
+    end
+
+    # 5. Atuin History Integration (source last to avoid hook conflicts)
+    if test "$BLUEFIN_SHELL_ENABLE_ATUIN" = 1; and command -v atuin >/dev/null
+        atuin init fish $ATUIN_INIT_FLAGS | source
+    end
+
 
 end

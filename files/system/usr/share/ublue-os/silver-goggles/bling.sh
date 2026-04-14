@@ -77,17 +77,22 @@ case $- in *i*)
 
 	# Detect shell (macOS/Linux compatible)
 	if [ -z "$BLING_SHELL" ]; then
-		if [ -n "$BASH_VERSION" ]; then
+		if [ -n "${BASH_VERSION:-}" ]; then
 			BLING_SHELL="bash"
-		elif [ -n "$ZSH_VERSION" ]; then
+		elif [ -n "${ZSH_VERSION:-}" ]; then
 			BLING_SHELL="zsh"
 		else
 			BLING_SHELL="$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//' | xargs basename 2>/dev/null)"
 		fi
 	fi
 
-	# zsh: autoload add-zsh-hook before any tool tries to use it (atuin, direnv)
-	[ "${BLING_SHELL}" = "zsh" ] && autoload -Uz add-zsh-hook
+	# zsh-specific setup: initialization of hook arrays to prevent tool init errors
+	if [ "${BLING_SHELL}" = "zsh" ]; then
+		autoload -Uz add-zsh-hook
+		# Initialize hook arrays to avoid "operand expected" errors in math expressions
+		# which some tools (like direnv) use to check for their own hooks.
+		typeset -ga precmd_functions preexec_functions chpwd_functions 2>/dev/null
+	fi
 
 	# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
 	if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" = "1" ] && [ "$(command -v direnv)" ]; then
@@ -104,22 +109,7 @@ case $- in *i*)
 		fi
 	fi
 
-	# 3. Atuin History Integration
-	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
-		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
-	fi
-
-	# 4. Starship Prompt
-	if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" = "1" ] && [ "$(command -v starship)" ]; then
-		eval "$(starship init "${BLING_SHELL}")"
-	fi
-
-	# 5. Zoxide (Better 'cd')
-	if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = "1" ] && [ "$(command -v zoxide)" ]; then
-		eval "$(zoxide init "${BLING_SHELL}")"
-	fi
-
-	# 6. Mise Runtime Manager
+	# 3. Mise Runtime Manager (early for PATH availability)
 	if [ "$BLUEFIN_SHELL_ENABLE_MISE" = "1" ] && [ "$(command -v mise)" ]; then
 		case "${BLING_SHELL}" in
 		bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
@@ -127,6 +117,22 @@ case $- in *i*)
 		*) eval "$(mise activate "${BLING_SHELL}")" ;;
 		esac
 	fi
+
+	# 4. Zoxide (Better 'cd')
+	if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = "1" ] && [ "$(command -v zoxide)" ]; then
+		eval "$(zoxide init "${BLING_SHELL}")"
+	fi
+
+	# 5. Starship Prompt
+	if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" = "1" ] && [ "$(command -v starship)" ]; then
+		eval "$(starship init "${BLING_SHELL}")"
+	fi
+
+	# 6. Atuin History Integration (source last to avoid hook conflicts)
+	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
+		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+	fi
+
 
 	unset BLING_SHELL
 	;;
