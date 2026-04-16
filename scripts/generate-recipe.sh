@@ -44,7 +44,7 @@ yq '
   .description = env(IMAGE_DESC) |
   .base-image = env(BASE_IMAGE) |
   .image-version = env(IMAGE_VERSION_VAL)
-' recipes/recipe.yml > recipes/build-recipe.yml
+' recipes/recipe.yml >recipes/build-recipe.yml
 
 yq -i "
   .alt-tags = ([\"latest\", \"stable\", \"${TAG}\", env(BASE_TAG)] | unique) |

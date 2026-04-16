@@ -10,14 +10,14 @@ BLING_SOURCED=1
 
 # --- Configuration Toggles ---
 # Set these in your private configs before this is sourced to override
-: "${BLUEFIN_SHELL_ENABLE_EZA:=1}"
-: "${BLUEFIN_SHELL_ENABLE_UGREP:=1}"
-: "${BLUEFIN_SHELL_ENABLE_BAT:=1}"
-: "${BLUEFIN_SHELL_ENABLE_ATUIN:=1}"
-: "${BLUEFIN_SHELL_ENABLE_STARSHIP:=1}"
-: "${BLUEFIN_SHELL_ENABLE_ZOXIDE:=1}"
-: "${BLUEFIN_SHELL_ENABLE_MISE:=1}"
-: "${BLUEFIN_SHELL_ENABLE_DIRENV:=1}"
+[ -z "${BLUEFIN_SHELL_ENABLE_EZA:-}" ] && BLUEFIN_SHELL_ENABLE_EZA=1
+[ -z "${BLUEFIN_SHELL_ENABLE_UGREP:-}" ] && BLUEFIN_SHELL_ENABLE_UGREP=1
+[ -z "${BLUEFIN_SHELL_ENABLE_BAT:-}" ] && BLUEFIN_SHELL_ENABLE_BAT=1
+[ -z "${BLUEFIN_SHELL_ENABLE_ATUIN:-}" ] && BLUEFIN_SHELL_ENABLE_ATUIN=1
+[ -z "${BLUEFIN_SHELL_ENABLE_STARSHIP:-}" ] && BLUEFIN_SHELL_ENABLE_STARSHIP=1
+[ -z "${BLUEFIN_SHELL_ENABLE_ZOXIDE:-}" ] && BLUEFIN_SHELL_ENABLE_ZOXIDE=1
+[ -z "${BLUEFIN_SHELL_ENABLE_MISE:-}" ] && BLUEFIN_SHELL_ENABLE_MISE=1
+[ -z "${BLUEFIN_SHELL_ENABLE_DIRENV:-}" ] && BLUEFIN_SHELL_ENABLE_DIRENV=1
 
 # --- Power-User Extras ---
 alias ..='cd ..'
@@ -89,9 +89,10 @@ case $- in *i*)
 	# zsh-specific setup: initialization of hook arrays to prevent tool init errors
 	if [ "${BLING_SHELL}" = "zsh" ]; then
 		autoload -Uz add-zsh-hook
-		# Initialize hook arrays to avoid "operand expected" errors in math expressions
-		# which some tools (like direnv) use to check for their own hooks.
-		typeset -ga precmd_functions preexec_functions chpwd_functions 2>/dev/null
+		# Initialize hook arrays as unique global arrays to prevent "operand expected"
+		# errors in math expressions triggered by some tools (like direnv).
+		# -g: global, -a: array, -U: unique (keeps only first occurrence)
+		typeset -gaU precmd_functions preexec_functions chpwd_functions 2>/dev/null
 	fi
 
 	# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
@@ -128,11 +129,11 @@ case $- in *i*)
 		eval "$(starship init "${BLING_SHELL}")"
 	fi
 
-	# 6. Atuin History Integration (source last to avoid hook conflicts)
+	# 6. Atuin History Integration
+	# Source last to ensure it captures changes from other tools and avoids hook conflicts.
 	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
 		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
 	fi
-
 
 	unset BLING_SHELL
 	;;
