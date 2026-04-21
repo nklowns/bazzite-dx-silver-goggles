@@ -86,53 +86,91 @@ case $- in *i*)
 		fi
 	fi
 
-	# zsh-specific setup: initialization of hook arrays to prevent tool init errors
 	if [ "${BLING_SHELL}" = "zsh" ]; then
-		autoload -Uz add-zsh-hook
-		# Initialize hook arrays as unique global arrays to prevent "operand expected"
-		# errors in math expressions triggered by some tools (like direnv).
-		# -g: global, -a: array, -U: unique (keeps only first occurrence)
-		typeset -gaU precmd_functions preexec_functions chpwd_functions 2>/dev/null
-	fi
+		# /etc/zprofile sources /etc/profile via `emulate -L ksh`, so bling.sh runs
+		# in ksh emulation mode when loaded from profile.d. In that mode:
+		#   - typeset -gaU silently ignores the -U flag, leaving arrays uninitialized
+		#   - zsh array subscript syntax ${arr[(I)val]} (used by direnv's hook) fails
+		#     with "bad math expression: operand expected at end of string"
+		# Wrapping all zsh initialization in a function with emulate -L zsh restores
+		# native zsh semantics for the duration of the call.
+		_bling_zsh_init() {
+			emulate -L zsh
+			autoload -Uz add-zsh-hook
+			# shellcheck disable=SC3044,SC2034
+			typeset -gaU precmd_functions preexec_functions chpwd_functions
 
-	# 1. Initialize direnv before bash-preexec to avoid PROMPT_COMMAND conflicts
-	if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" = "1" ] && [ "$(command -v direnv)" ]; then
-		eval "$(direnv hook "${BLING_SHELL}")"
-	fi
+			# 1. direnv (before mise/starship to avoid hook ordering issues)
+			if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" = "1" ] && [ "$(command -v direnv)" ]; then
+				eval "$(direnv hook zsh)"
+			fi
 
-	# 2. bash-preexec support for Bash users
-	if [ "${BLING_SHELL}" = "bash" ]; then
-		# shellcheck source=/dev/null
-		[ -f "/etc/profile.d/bash-preexec.sh" ] && . "/etc/profile.d/bash-preexec.sh"
-		if [ -n "$HOMEBREW_PREFIX" ] && [ -f "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh" ]; then
-			# shellcheck source=/dev/null
-			. "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
+			# 2. Mise Runtime Manager (early for PATH availability)
+			if [ "$BLUEFIN_SHELL_ENABLE_MISE" = "1" ] && [ "$(command -v mise)" ]; then
+				[ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)"
+			fi
+
+			# 3. Zoxide (Better 'cd')
+			if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = "1" ] && [ "$(command -v zoxide)" ]; then
+				eval "$(zoxide init zsh)"
+			fi
+
+			# 4. Starship Prompt
+			if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" = "1" ] && [ "$(command -v starship)" ]; then
+				eval "$(starship init zsh)"
+			fi
+
+			# 5. Atuin History Integration (last, to capture hook changes from other tools)
+			if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
+				eval "$(atuin init zsh${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+			fi
+		}
+		_bling_zsh_init
+		unset -f _bling_zsh_init
+
+	else
+		# 1. Initialize direnv first (before array-modifying tools)
+		if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" = "1" ] && [ "$(command -v direnv)" ]; then
+			eval "$(direnv hook "${BLING_SHELL}")"
 		fi
-	fi
 
-	# 3. Mise Runtime Manager (early for PATH availability)
-	if [ "$BLUEFIN_SHELL_ENABLE_MISE" = "1" ] && [ "$(command -v mise)" ]; then
-		case "${BLING_SHELL}" in
-		bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
-		zsh) [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)" ;;
-		*) eval "$(mise activate "${BLING_SHELL}")" ;;
-		esac
-	fi
+		# 2. Mise Runtime Manager (early for PATH availability)
+		# Must run before bash-preexec: mise prepends _mise_hook_prompt_command as a new
+		# PROMPT_COMMAND array element. If bash-preexec loaded first, its deferred install
+		# string (containing `trap - DEBUG`) would be pushed to element[1] by mise's prepend,
+		# where __bp_install's cleanup cannot reach it — causing trap - DEBUG to fire on every
+		# prompt and permanently clear the DEBUG trap that atuin requires.
+		if [ "$BLUEFIN_SHELL_ENABLE_MISE" = "1" ] && [ "$(command -v mise)" ]; then
+			case "${BLING_SHELL}" in
+			bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
+			*) eval "$(mise activate "${BLING_SHELL}")" ;;
+			esac
+		fi
 
-	# 4. Zoxide (Better 'cd')
-	if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = "1" ] && [ "$(command -v zoxide)" ]; then
-		eval "$(zoxide init "${BLING_SHELL}")"
-	fi
+		# 3. Zoxide (Better 'cd') — before bash-preexec for same array-ordering reason
+		if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = "1" ] && [ "$(command -v zoxide)" ]; then
+			eval "$(zoxide init "${BLING_SHELL}")"
+		fi
 
-	# 5. Starship Prompt
-	if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" = "1" ] && [ "$(command -v starship)" ]; then
-		eval "$(starship init "${BLING_SHELL}")"
-	fi
+		# 4. bash-preexec (after mise/zoxide so its install string lands in PROMPT_COMMAND[0])
+		if [ "${BLING_SHELL}" = "bash" ]; then
+			# shellcheck source=/dev/null
+			[ -f "/etc/profile.d/bash-preexec.sh" ] && . "/etc/profile.d/bash-preexec.sh"
+			if [ -n "$HOMEBREW_PREFIX" ] && [ -f "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh" ]; then
+				# shellcheck source=/dev/null
+				. "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
+			fi
+		fi
 
-	# 6. Atuin History Integration
-	# Source last to ensure it captures changes from other tools and avoids hook conflicts.
-	if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
-		eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+		# 5. Starship Prompt (after bash-preexec so it detects bash_preexec_imported)
+		if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" = "1" ] && [ "$(command -v starship)" ]; then
+			eval "$(starship init "${BLING_SHELL}")"
+		fi
+
+		# 6. Atuin History Integration (last, to capture hook changes from other tools)
+		if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
+			eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+		fi
 	fi
 
 	unset BLING_SHELL
