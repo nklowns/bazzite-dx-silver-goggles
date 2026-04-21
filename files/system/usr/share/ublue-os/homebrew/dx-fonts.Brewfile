@@ -1,9 +1,10 @@
 # Bazzite-DX: Extra Developer Fonts (fonts)
 # Additional coding fonts available via Homebrew Casks.
-
-# NOTE: Core fonts (JetBrainsMono, Hack, FiraCode, Inter, Outfit) are
-# already provided in the system layer (dx.yml) for global availability.
 # This Brewfile provides specialized alternatives and Nerd Font variants.
+
+# --- Google Fonts ---
+cask "font-inter"
+cask "font-outfit"
 
 # --- Specialized Monospace Fonts ---
 cask "font-cascadia-code"
@@ -22,5 +23,6 @@ cask "font-blex-mono-nerd-font"
 cask "font-sauce-code-pro-nerd-font"
 cask "font-ubuntu-nerd-font"
 cask "font-0xproto-nerd-font"
-# cask "font-jetbrains-mono-nerd-font"
-# cask "font-fira-code-nerd-font"
+cask "font-jetbrains-mono-nerd-font"
+cask "font-fira-code-nerd-font"
+cask "font-hack-nerd-font"

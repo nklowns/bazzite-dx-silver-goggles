@@ -112,19 +112,6 @@ modules:
         - ublue-user-setup.service # https://github.com/ublue-os/packages/blob/main/packages/ublue-setup-services/src/user-services/ublue-user-setup.service
 
   # ==========================================
-  # LAYER 2: WORKSTATION EXPERIENCE
-  # ==========================================
-  - type: fonts
-    fonts:
-      google-fonts:
-        - Inter
-        - Outfit
-      nerd-fonts:
-        - FiraCode
-        - Hack
-        - JetBrainsMono
-
-  # ==========================================
   # LAYER 3: CUSTOMIZATIONS & LOGIC
   # ==========================================
   - type: dx-flavor
