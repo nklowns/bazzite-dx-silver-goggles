@@ -5,7 +5,13 @@
 # Located in: /usr/share/ublue-os/silver-goggles/bling.sh
 
 # Check if shell has already been sourced to prevent recursion
-[ "${BLING_SOURCED:-0}" = "1" ] && return
+# (Allow re-sourcing in interactive shells to ensure hooks are loaded)
+if [ "${BLING_SOURCED:-0}" = "1" ]; then
+	case $- in
+	*i*) ;;
+	*) return ;;
+	esac
+fi
 BLING_SOURCED=1
 
 # --- Configuration Toggles ---
@@ -87,46 +93,42 @@ case $- in *i*)
 	fi
 
 	if [ "${BLING_SHELL}" = "zsh" ]; then
-		# /etc/zprofile sources /etc/profile via `emulate -L ksh`, so bling.sh runs
-		# in ksh emulation mode when loaded from profile.d. In that mode:
-		#   - typeset -gaU silently ignores the -U flag, leaving arrays uninitialized
-		#   - zsh array subscript syntax ${arr[(I)val]} (used by direnv's hook) fails
-		#     with "bad math expression: operand expected at end of string"
-		# Wrapping all zsh initialization in a function with emulate -L zsh restores
-		# native zsh semantics for the duration of the call.
-		_bling_zsh_init() {
-			emulate -L zsh
-			autoload -Uz add-zsh-hook
-			# shellcheck disable=SC3044,SC2034
-			typeset -gaU precmd_functions preexec_functions chpwd_functions
+		# Use native Zsh features and ensure options (like prompt_subst) persist.
+		# We avoid 'emulate -L' to allow initializers to set global shell options.
+		# shellcheck disable=SC3010,SC3014
+		autoload -Uz add-zsh-hook
+		# shellcheck disable=SC3044,SC2034,SC3010,SC3014
+		typeset -gaU precmd_functions preexec_functions chpwd_functions
 
-			# 1. direnv (before mise/starship to avoid hook ordering issues)
-			if [ "$BLUEFIN_SHELL_ENABLE_DIRENV" = "1" ] && [ "$(command -v direnv)" ]; then
-				eval "$(direnv hook zsh)"
-			fi
+		# 1. direnv (before mise/starship to avoid hook ordering issues)
+		# shellcheck disable=SC3010,SC3014
+		if [[ "$BLUEFIN_SHELL_ENABLE_DIRENV" == "1" ]] && command -v direnv >/dev/null; then
+			eval "$(direnv hook zsh)"
+		fi
 
-			# 2. Mise Runtime Manager (early for PATH availability)
-			if [ "$BLUEFIN_SHELL_ENABLE_MISE" = "1" ] && [ "$(command -v mise)" ]; then
-				[ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate zsh)"
-			fi
+		# 2. Mise Runtime Manager (early for PATH availability)
+		# shellcheck disable=SC3010,SC3014
+		if [[ "$BLUEFIN_SHELL_ENABLE_MISE" == "1" ]] && command -v mise >/dev/null; then
+			[[ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ]] && eval "$(mise activate zsh)"
+		fi
 
-			# 3. Zoxide (Better 'cd')
-			if [ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" = "1" ] && [ "$(command -v zoxide)" ]; then
-				eval "$(zoxide init zsh)"
-			fi
+		# 3. Zoxide (Better 'cd')
+		# shellcheck disable=SC3010,SC3014
+		if [[ "$BLUEFIN_SHELL_ENABLE_ZOXIDE" == "1" ]] && command -v zoxide >/dev/null; then
+			eval "$(zoxide init zsh)"
+		fi
 
-			# 4. Starship Prompt
-			if [ "$BLUEFIN_SHELL_ENABLE_STARSHIP" = "1" ] && [ "$(command -v starship)" ]; then
-				eval "$(starship init zsh)"
-			fi
+		# 4. Starship Prompt
+		# shellcheck disable=SC3010,SC3014
+		if [[ "$BLUEFIN_SHELL_ENABLE_STARSHIP" == "1" ]] && command -v starship >/dev/null; then
+			eval "$(starship init zsh)"
+		fi
 
-			# 5. Atuin History Integration (last, to capture hook changes from other tools)
-			if [ "$BLUEFIN_SHELL_ENABLE_ATUIN" = "1" ] && [ "$(command -v atuin)" ]; then
-				eval "$(atuin init zsh${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
-			fi
-		}
-		_bling_zsh_init
-		unset -f _bling_zsh_init
+		# 5. Atuin History Integration (last, to capture hook changes from other tools)
+		# shellcheck disable=SC3010,SC3014
+		if [[ "$BLUEFIN_SHELL_ENABLE_ATUIN" == "1" ]] && command -v atuin >/dev/null; then
+			eval "$(atuin init zsh${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+		fi
 
 	else
 		# 1. Initialize direnv first (before array-modifying tools)
