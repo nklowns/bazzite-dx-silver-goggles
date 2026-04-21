@@ -54,6 +54,18 @@ jobs:
         recipe:
           - recipe.yml
     steps:
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@cc0becac701cf642c8f0a6613bbdaf5dc36b259e # v9
+        with:
+          extra-squeeze: true
+
+      - name: Mount BTRFS for podman storage
+        uses: ublue-os/container-storage-action@main
+        continue-on-error: true
+        with:
+          target-dir: /var/lib/containers
+          mount-opts: compress-force=zstd:2
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -71,7 +83,7 @@ jobs:
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
           skip_checkout: true
-          maximize_build_space: true
+          maximize_build_space: false
           rechunk: false
           build_chunked_oci: true
           # Custom build options (conditional signing)
