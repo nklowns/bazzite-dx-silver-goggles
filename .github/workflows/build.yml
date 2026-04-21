@@ -60,7 +60,7 @@ jobs:
           extra-squeeze: true
 
       - name: Mount BTRFS for podman storage
-        uses: ublue-os/container-storage-action@main
+        uses: ublue-os/container-storage-action@dc1f4c8f17b672069e921f001132f7cf98a423a6 # main
         continue-on-error: true
         with:
           target-dir: /var/lib/containers
