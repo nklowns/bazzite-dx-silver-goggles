@@ -9,55 +9,15 @@ end
 set -g BLING_SOURCED 1
 
 # --- Configuration Toggles ---
-set -q BLUEFIN_SHELL_ENABLE_EZA; or set -g BLUEFIN_SHELL_ENABLE_EZA 1
-set -q BLUEFIN_SHELL_ENABLE_UGREP; or set -g BLUEFIN_SHELL_ENABLE_UGREP 1
-set -q BLUEFIN_SHELL_ENABLE_BAT; or set -g BLUEFIN_SHELL_ENABLE_BAT 1
 set -q BLUEFIN_SHELL_ENABLE_ATUIN; or set -g BLUEFIN_SHELL_ENABLE_ATUIN 1
 set -q BLUEFIN_SHELL_ENABLE_STARSHIP; or set -g BLUEFIN_SHELL_ENABLE_STARSHIP 1
 set -q BLUEFIN_SHELL_ENABLE_ZOXIDE; or set -g BLUEFIN_SHELL_ENABLE_ZOXIDE 1
 set -q BLUEFIN_SHELL_ENABLE_MISE; or set -g BLUEFIN_SHELL_ENABLE_MISE 1
 set -q BLUEFIN_SHELL_ENABLE_DIRENV; or set -g BLUEFIN_SHELL_ENABLE_DIRENV 1
 
-# --- Power-User Extras ---
-alias ..='cd ..'
-alias ...='cd ../..'
-alias ....='cd ../../..'
-alias mkdir='mkdir -p'
-alias g='git'
-
-# --- Alias Sections ---
-
-# eza for ls
-if test "$BLUEFIN_SHELL_ENABLE_EZA" = 1; and command -v eza >/dev/null
-    alias ll='eza -l --icons=auto --group-directories-first'
-    alias l.='eza -d .*'
-    alias ls='eza'
-    alias l1='eza -1'
-end
-
-# ugrep for grep
-if test "$BLUEFIN_SHELL_ENABLE_UGREP" = 1; and command -v ug >/dev/null
-    alias grep='ug'
-    alias egrep='ug -E'
-    alias fgrep='ug -F'
-    alias xzgrep='ug -z'
-    alias xzegrep='ug -zE'
-    alias xzfgrep='ug -zF'
-end
-
-# bat for cat
-if test "$BLUEFIN_SHELL_ENABLE_BAT" = 1; and command -v bat >/dev/null
-    alias cat='bat --style=plain --pager=never'
-end
-
-# Kubernetes
-if command -v kubectl >/dev/null
-    alias k='kubectl'
-end
-
-# Obsidian CLI Fix
-if command -v obsidian >/dev/null
-    alias obsidian='ln -sf (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /run/user/(id -u))/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /run/user/(id -u))/.obsidian-cli.sock 2>/dev/null; command obsidian'
+# --- Load Common Aliases ---
+if test -f /usr/share/ublue-os/silver-goggles/common-aliases.fish
+    source /usr/share/ublue-os/silver-goggles/common-aliases.fish
 end
 
 # --- Tool Activation (interactive shells only) ---
