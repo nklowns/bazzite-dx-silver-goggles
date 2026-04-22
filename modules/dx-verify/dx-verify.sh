@@ -12,10 +12,10 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-log_info() { echo -e "${BLUE}info:${NC} $1"; }
-log_success() { echo -e "${GREEN}pass:${NC} $1"; }
+log_info() { printf "%binfo:%b %s\n" "${BLUE}" "${NC}" "$1"; }
+log_success() { printf "%bpass:%b %s\n" "${GREEN}" "${NC}" "$1"; }
 log_error() {
-	echo -e "${RED}error:${NC} $1"
+	printf "%berror:%b %s\n" "${RED}" "${NC}" "$1"
 	exit 1
 }
 
@@ -113,8 +113,8 @@ done
 log_info "Verifying repository cleanliness..."
 COPR_REPOS=$(find /etc/yum.repos.d/ -maxdepth 1 -name "*.repo" -printf "%f\n" | grep -E "copr|vscode|docker" || true)
 if [[ -n "$COPR_REPOS" ]]; then
-	echo -e "${RED}Warning:${NC} Residual repo files detected: $COPR_REPOS"
+	printf "%bWarning:%b Residual repo files detected: %s\n" "${RED}" "${NC}" "$COPR_REPOS"
 fi
 
-echo -e "\n${GREEN}✔ Bazzite-DX Integrity: 100% VERIFIED.${NC}"
+printf "\n%b✔ Bazzite-DX Integrity: 100%% VERIFIED.%b\n" "${GREEN}" "${NC}"
 echo "::endgroup::"

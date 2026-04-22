@@ -32,29 +32,52 @@ fix:
     echo "Formatting Bash scripts..."
     just format
 
-# Runs shell check on all Bash scripts (uses Container if local not found)
+# Runs shell check on all scripts (ShellCheck for Bash, zsh -n for Zsh, fish -n for Fish)
 [group('Utility')]
 lint:
     #!/usr/bin/env bash
     set -eoux pipefail
+    # 1. ShellCheck for Bash/Sh
+    echo "Running ShellCheck on Bash/Sh scripts..."
     if ! command -v shellcheck &>/dev/null; then
-        echo "shellcheck not found locally. Running via ${PODMAN}..."
-        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" docker.io/koalaman/shellcheck-alpine shellcheck /mnt/{} ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" docker.io/koalaman/shellcheck-alpine shellcheck /mnt/{} ';'
     else
-        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec shellcheck "{}" ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print -exec shellcheck "{}" ';'
     fi
 
-# Runs shfmt on all Bash scripts (uses Container if local not found)
+    # 2. Zsh Syntax Check
+    echo "Running syntax check on Zsh scripts..."
+    /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.zsh" -o -exec grep -qE '^#!.*\<zsh\>' {} \; \) -print -exec zsh -n "{}" ';'
+
+    # 3. Fish Syntax Check
+    echo "Running syntax check on Fish scripts..."
+    /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.fish" -o -exec grep -qE '^#!.*\<fish\>' {} \; \) -print -exec fish -n "{}" ';'
+
+# Runs formatting on all scripts (shfmt for Bash/Zsh, fish_indent for Fish)
 [group('Utility')]
 format:
     #!/usr/bin/env bash
     set -eoux pipefail
+    # 1. shfmt for Bash/Sh
+    echo "Formatting Bash/Sh scripts..."
     if ! command -v shfmt &>/dev/null; then
-        echo "shfmt not found locally. Running via ${PODMAN}..."
-        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -w /mnt/{} ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -w /mnt/{} ';'
     else
-        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(bash|sh|zsh)' {} \; \) -print -exec shfmt --write "{}" ';'
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print -exec shfmt --write "{}" ';'
     fi
+
+    # 2. shfmt for Zsh
+    echo "Formatting Zsh scripts..."
+    if ! command -v shfmt &>/dev/null; then
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.zsh" -o -exec grep -qE '^#!.*\<zsh\>' {} \; \) -print -exec ${PODMAN} run --rm -v "$PWD:/mnt:Z" --entrypoint shfmt docker.io/mvdan/shfmt:latest -ln=zsh -w /mnt/{} ';'
+    else
+        /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.zsh" -o -exec grep -qE '^#!.*\<zsh\>' {} \; \) -print -exec shfmt -ln=zsh --write "{}" ';'
+    fi
+
+    # 3. fish_indent for Fish
+    echo "Formatting Fish scripts..."
+    # fish_indent is part of the fish package
+    /usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.fish" -o -exec grep -qE '^#!.*\<fish\>' {} \; \) -print -exec fish_indent --write "{}" ';'
 
 # Clean Repo
 [group('Utility')]

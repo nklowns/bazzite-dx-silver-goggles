@@ -52,3 +52,8 @@ uninstall-awcc:
     #!/usr/bin/env bash
     echo "Resetting transient changes (reverts system to base image state)..."
     sudo rpm-ostree apply-live --reset
+
+# Abre um shell interativo com o contexto de desenvolvimento (bash, zsh, fish)
+[group('Development')]
+dev-shell shell="bash":
+    ./scripts/dev-shell.sh {{ shell }}

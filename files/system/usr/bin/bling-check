@@ -15,19 +15,20 @@ FAIL="${RED}[FAIL]${NC}"
 WARN="${YELLOW}[WARN]${NC}"
 OFF="${YELLOW}[ -- ]${NC}"
 
-echo -e "\n${BLUE}=== Silver Goggles: Shell Experience ===${NC}"
+printf "\n%b=== Silver Goggles: Shell Experience ===%b\n" "${BLUE}" "${NC}"
+printf "%bVersion: %b%s%b\n" "${BLUE}" "${YELLOW}" "${DX_VERSION:-unknown}" "${NC}"
 
 # --- 1. Infrastructure ---
-echo -e "\n${BLUE}1. Infrastructure${NC}"
+printf "\n%b1. Infrastructure%b\n" "${BLUE}" "${NC}"
 
 _check_file() {
 	local label="$1" path="$2" severity="${3:-FAIL}"
 	if [[ -f "$path" ]]; then
-		echo -e "   $OK $label"
+		printf "   %b %s\n" "$OK" "$label"
 	elif [[ "$severity" == "WARN" ]]; then
-		echo -e "   $WARN $label — missing ($path)"
+		printf "   %b %s — missing (%s)\n" "$WARN" "$label" "$path"
 	else
-		echo -e "   $FAIL $label — missing ($path)"
+		printf "   %b %s — missing (%s)\n" "$FAIL" "$label" "$path"
 	fi
 }
 
@@ -38,26 +39,26 @@ _check_file "Bling wrapper (fish)" /etc/fish/conf.d/95-bazzite-dx-bling.fish WAR
 _check_file "bling.fish          " /usr/share/ublue-os/silver-goggles/bling.fish WARN
 
 if rpm -q bash-preexec &>/dev/null; then
-	echo -e "   $OK bash-preexec       rpm:$(rpm -q bash-preexec --qf '%{VERSION}')"
+	printf "   %b bash-preexec       rpm:%s\n" "$OK" "$(rpm -q bash-preexec --qf '%{VERSION}')"
 elif [[ -f "${HOMEBREW_PREFIX:-}/etc/profile.d/bash-preexec.sh" ]]; then
-	echo -e "   $OK bash-preexec       brew:${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
+	printf "   %b bash-preexec       brew:%s\n" "$OK" "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
 else
-	echo -e "   $WARN bash-preexec       — not found (run: ujust setup-default-brew cli)"
+	printf "   %b bash-preexec       — not found (run: ujust setup-default-brew cli)\n" "$WARN"
 fi
 
 # --- 2. Homebrew ---
-echo -e "\n${BLUE}2. Homebrew${NC}"
+printf "\n%b2. Homebrew%b\n" "${BLUE}" "${NC}"
 # shellcheck source=/dev/null
 source /etc/profile.d/10-homebrew.sh 2>/dev/null || true
 
 if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
-	echo -e "   $OK HOMEBREW_PREFIX=${HOMEBREW_PREFIX}"
+	printf "   %b HOMEBREW_PREFIX=%s\n" "$OK" "${HOMEBREW_PREFIX}"
 else
-	echo -e "   $FAIL Homebrew not initialized — run brew setup first"
+	printf "   %b Homebrew not initialized — run brew setup first\n" "$FAIL"
 fi
 
 # --- 3. Tools ---
-echo -e "\n${BLUE}3. Tools${NC}"
+printf "\n%b3. Tools%b\n" "${BLUE}" "${NC}"
 declare -A TOOL_BINS=(
 	[mise]=mise [atuin]=atuin [starship]=starship
 	[zoxide]=zoxide [direnv]=direnv [eza]=eza [bat]=bat [ugrep]=ug
@@ -65,22 +66,22 @@ declare -A TOOL_BINS=(
 for tool in mise atuin starship zoxide direnv eza bat ugrep; do
 	bin="${TOOL_BINS[$tool]}"
 	if path=$(command -v "$bin" 2>/dev/null); then
-		echo -e "   $OK $tool ($path)"
+		printf "   %b %s (%s)\n" "$OK" "$tool" "$path"
 	else
-		echo -e "   $FAIL $tool — not found (install via Brewfile)"
+		printf "   %b %s — not found (install via Brewfile)\n" "$FAIL" "$tool"
 	fi
 done
 
 # --- 4. Toggles ---
-echo -e "\n${BLUE}4. Toggles${NC}"
+printf "\n%b4. Toggles%b\n" "${BLUE}" "${NC}"
 for t in EZA UGREP BAT ATUIN STARSHIP ZOXIDE MISE DIRENV; do
 	var="BLUEFIN_SHELL_ENABLE_${t}"
 	val="${!var:-1}"
 	if [[ "$val" == "0" ]]; then
-		echo -e "   $OFF ${var}=0  (disabled)"
+		printf "   %b %s=0  (disabled)\n" "$OFF" "$var"
 	else
-		echo -e "   $OK ${var}=${!var:-1 (default)}"
+		printf "   %b %s=%s\n" "$OK" "$var" "${!var:-1 (default)}"
 	fi
 done
 
-echo ""
+printf "\n"
