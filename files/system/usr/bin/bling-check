@@ -32,7 +32,8 @@ _check_file() {
 	fi
 }
 
-_check_file "Homebrew init       " /etc/profile.d/10-homebrew.sh
+_check_file "Homebrew init (sh)   " /etc/profile.d/brew.sh
+_check_file "Homebrew init (fish) " /etc/fish/conf.d/brew.fish WARN
 _check_file "Bling wrapper (sh)  " /etc/profile.d/95-bazzite-dx-bling.sh
 _check_file "bling.sh            " /usr/share/ublue-os/silver-goggles/bling.sh
 _check_file "Bling wrapper (fish)" /etc/fish/conf.d/95-bazzite-dx-bling.fish WARN
@@ -61,9 +62,10 @@ fi
 printf "\n%b3. Tools%b\n" "${BLUE}" "${NC}"
 declare -A TOOL_BINS=(
 	[mise]=mise [atuin]=atuin [starship]=starship
-	[zoxide]=zoxide [direnv]=direnv [eza]=eza [bat]=bat [ugrep]=ug
+	[zoxide]=zoxide [direnv]=direnv [eza]=eza [bat]=bat [ugrep]=ugrep
+	[k9s]=k9s [helm]=helm [topgrade]=topgrade [fzf]=fzf
 )
-for tool in mise atuin starship zoxide direnv eza bat ugrep; do
+for tool in mise atuin starship zoxide direnv eza bat ugrep k9s helm topgrade fzf; do
 	bin="${TOOL_BINS[$tool]}"
 	if path=$(command -v "$bin" 2>/dev/null); then
 		printf "   %b %s (%s)\n" "$OK" "$tool" "$path"
@@ -74,7 +76,7 @@ done
 
 # --- 4. Toggles ---
 printf "\n%b4. Toggles%b\n" "${BLUE}" "${NC}"
-for t in EZA UGREP BAT ATUIN STARSHIP ZOXIDE MISE DIRENV; do
+for t in EZA UGREP BAT ATUIN STARSHIP ZOXIDE MISE DIRENV FZF K8S; do
 	var="BLUEFIN_SHELL_ENABLE_${t}"
 	val="${!var:-1}"
 	if [[ "$val" == "0" ]]; then
@@ -83,5 +85,43 @@ for t in EZA UGREP BAT ATUIN STARSHIP ZOXIDE MISE DIRENV; do
 		printf "   %b %s=%s\n" "$OK" "$var" "${!var:-1 (default)}"
 	fi
 done
+
+# --- 5. Environment ---
+printf "\n%b5. Environment%b\n" "${BLUE}" "${NC}"
+printf "   %b EDITOR=%s\n" "$OK" "${EDITOR:-not set}"
+printf "   %b PAGER=%s\n" "$OK" "${PAGER:-not set}"
+
+if [[ ":$PATH:" == *":$HOME/.local/share/mise/shims:"* ]]; then
+	printf "   %b Mise shims in PATH\n" "$OK"
+else
+	printf "   %b Mise shims NOT in PATH\n" "$WARN"
+fi
+
+# --- 6. Flatpak Atomic Integrity ---
+printf "\n%b6. Flatpak Overrides (Atomic Integrity)%b\n" "${BLUE}" "${NC}"
+OVERRIDE_SRC="/usr/share/flatpak/overrides"
+OVERRIDE_DST="/var/lib/flatpak/overrides"
+
+if [[ -d "$OVERRIDE_SRC" ]]; then
+	for src in "$OVERRIDE_SRC"/*; do
+		app=$(basename "$src")
+		dst="$OVERRIDE_DST/$app"
+
+		if [[ -L "$dst" ]]; then
+			target=$(readlink -f "$dst")
+			if [[ "$target" == "$src" ]]; then
+				printf "   %b %s -> %s\n" "$OK" "$app" "Linked correctly"
+			else
+				printf "   %b %s -> %bDRIFT%b (Points to: %s)\n" "$FAIL" "$app" "${RED}" "${NC}" "$target"
+			fi
+		elif [[ -f "$dst" ]]; then
+			printf "   %b %s -> %bSHADOWED%b (Regular file in /var)\n" "$FAIL" "$app" "${RED}" "${NC}"
+		else
+			printf "   %b %s -> %bMISSING%b (Run tmpfiles setup)\n" "$FAIL" "$app" "${RED}" "${NC}"
+		fi
+	done
+else
+	printf "   %b No overrides found in image\n" "$WARN"
+fi
 
 printf "\n"

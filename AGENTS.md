@@ -116,7 +116,7 @@ O Silver Goggles adota a estrutura de camadas (Layers) para máxima clareza e de
 ```bash
 # Requires: bluebuild CLI
 # Install: podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
-just build
+just build 2>&1 | tee output/build.log
 ```
 
 ### 2. Local GHA Testing (`act`)

@@ -9,12 +9,15 @@ build target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_ima
     set -euo pipefail
     bluebuild build recipes/build-recipe.yml
 
-# Build image without using cache
+# Build image without using cache (prunes all build artifacts first)
 [group('Build')]
 build-nocache target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
-    bluebuild build --no-cache recipes/build-recipe.yml
+    echo "Pruning all build artifacts and cache..."
+    bluebuild prune --all --force
+    echo "Starting clean build..."
+    bluebuild build recipes/build-recipe.yml
 
 # Generate build recipe with complete OCI metadata (Unified Logic)
 generate-recipe target_image tag:

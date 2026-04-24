@@ -14,6 +14,8 @@ set -q BLUEFIN_SHELL_ENABLE_STARSHIP; or set -g BLUEFIN_SHELL_ENABLE_STARSHIP 1
 set -q BLUEFIN_SHELL_ENABLE_ZOXIDE; or set -g BLUEFIN_SHELL_ENABLE_ZOXIDE 1
 set -q BLUEFIN_SHELL_ENABLE_MISE; or set -g BLUEFIN_SHELL_ENABLE_MISE 1
 set -q BLUEFIN_SHELL_ENABLE_DIRENV; or set -g BLUEFIN_SHELL_ENABLE_DIRENV 1
+set -q BLUEFIN_SHELL_ENABLE_FZF; or set -g BLUEFIN_SHELL_ENABLE_FZF 1
+set -q BLUEFIN_SHELL_ENABLE_K8S; or set -g BLUEFIN_SHELL_ENABLE_K8S 1
 
 # --- Load Common Aliases ---
 if test -f /usr/share/ublue-os/silver-goggles/common-aliases.fish
@@ -30,8 +32,15 @@ if status is-interactive
         direnv hook fish | source
     end
 
-    # 2. Mise (early for PATH availability)
+    # 2. Mise (Shims-first for performance)
     if test "$BLUEFIN_SHELL_ENABLE_MISE" = 1; and command -v mise >/dev/null
+        # Use mise's own logic to find data dir if possible, otherwise default
+        set -l mise_data_dir (if set -q MISE_DATA_DIR; echo $MISE_DATA_DIR; else; echo $HOME/.local/share/mise; end)
+        set -l mise_shims $mise_data_dir/shims
+        if test -d $mise_shims
+            set -gx PATH $mise_shims $PATH
+        end
+
         if test "$MISE_FISH_AUTO_ACTIVATE" != 0
             mise activate fish | source
         end
@@ -42,6 +51,18 @@ if status is-interactive
         zoxide init fish | source
     end
 
+    # 3.1 FZF
+    if test "$BLUEFIN_SHELL_ENABLE_FZF" = 1; and command -v fzf >/dev/null
+        if fzf --fish >/dev/null 2>&1
+            fzf --fish | source
+        else
+            # Fallback for older fzf versions
+            if test -n "$HOMEBREW_PREFIX"; and test -f $HOMEBREW_PREFIX/opt/fzf/shell/key-bindings.fish
+                source $HOMEBREW_PREFIX/opt/fzf/shell/key-bindings.fish
+            end
+        end
+    end
+
     # 4. Starship
     if test "$BLUEFIN_SHELL_ENABLE_STARSHIP" = 1; and command -v starship >/dev/null
         starship init fish | source
@@ -50,9 +71,12 @@ if status is-interactive
         end # https://github.com/microsoft/vscode/issues/245607#issuecomment-2777199777
     end
 
-    # 5. Atuin History Integration (source last to avoid hook conflicts)
+    # 5. Atuin History Integration (Deferred/Lazy Loading)
     if test "$BLUEFIN_SHELL_ENABLE_ATUIN" = 1; and command -v atuin >/dev/null
-        atuin init fish $ATUIN_INIT_FLAGS | source
+        function _bling_lazy_atuin --on-event fish_prompt
+            atuin init fish $ATUIN_INIT_FLAGS | source
+            functions -e _bling_lazy_atuin
+        end
     end
 
 end

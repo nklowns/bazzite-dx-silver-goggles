@@ -29,6 +29,8 @@ bash)
 	# Carrega o bashrc real primeiro
 	[[ -f ~/.bashrc ]] && echo "source ~/.bashrc" >"$BASHRC_DEV"
 	echo "export BLING_ENABLE=1" >>"$BASHRC_DEV"
+	# Injeta o Homebrew local
+	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$BASHRC_DEV"
 	# Injeta o wrapper patcheado
 	sed "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" "$PROJECT_ROOT/files/system/etc/profile.d/95-bazzite-dx-bling.sh" >>"$BASHRC_DEV"
 	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (BASH) Active!'\n" >>"$BASHRC_DEV"
@@ -43,6 +45,9 @@ zsh)
 [[ -f ~/.zshrc ]] && source ~/.zshrc
 export BLING_ENABLE=1
 EOF
+	# Injeta o Homebrew local
+	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$ZDOTDIR_DEV/.zshrc"
+	# Injeta o wrapper patcheado
 	sed "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" "$PROJECT_ROOT/files/system/etc/profile.d/95-bazzite-dx-bling.sh" >>"$ZDOTDIR_DEV/.zshrc"
 
 	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (ZSH) Active!'\n" >>"$ZDOTDIR_DEV/.zshrc"
@@ -53,8 +58,10 @@ EOF
 fish)
 	FISH_INIT="$TEMP_DEV_DIR/init.fish"
 	# Gera o comando de inicialização com caminhos patcheados
-	# No Fish, usamos caminhos absolutos baseados no Shadow Root
-	sed "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" "$PROJECT_ROOT/files/system/etc/fish/conf.d/95-bazzite-dx-bling.fish" >"$FISH_INIT"
+	# Primeiro carrega o homebrew local
+	cat "$PROJECT_ROOT/files/system/etc/fish/conf.d/brew.fish" >"$FISH_INIT"
+	# Depois injeta o wrapper patcheado
+	sed "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" "$PROJECT_ROOT/files/system/etc/fish/conf.d/95-bazzite-dx-bling.fish" >>"$FISH_INIT"
 
 	printf "✨ Silver Goggles Dev-Shell (FISH) Active!\n"
 	# -i força interatividade. -C executa o comando.

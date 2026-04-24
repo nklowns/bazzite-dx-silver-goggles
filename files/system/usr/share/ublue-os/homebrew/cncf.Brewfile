@@ -8,6 +8,7 @@ tap "carvel-dev/carvel"                      # For Carvel toolset
 tap "k0sproject/tap"                         # For K0s
 tap "robscott/tap"                           # For kube-capacity
 tap "dapr/tap"                               # For Dapr CLI
+tap "kdash-rs/kdash"                         # For kdash
 
 # --- Virtualization & Infrastructure Management ---
 brew "opentofu"                              # Open-source Terraform alternative
@@ -30,6 +31,8 @@ brew "wasmedge"                              # Wasm: High-performance runtime
 
 # --- Kubernetes Ecosystem (Graduated) ---
 brew "kubernetes-cli"                        # Standard 'kubectl' CLI
+brew "kubecolor"                             # Colorize kubectl output
+brew "kubent"                                # K8s: Check for deprecated APIs (Kube No Trouble)
 brew "helm"                                  # The Kubernetes package manager
 brew "minikube"                              # Local dev cluster (multi-driver)
 brew "kind"                                  # Kubernetes in Docker (fast CI)
@@ -50,6 +53,7 @@ brew "kubectl-cnpg"                          # CLI for CloudNativePG (PostgreSQL
 
 # --- UX, Dashboards & API Testing ---
 brew "k9s"                                   # Premium terminal UI for K8s
+brew "kdash-rs/kdash/kdash"                   # Fast and simple dashboard for K8s
 brew "cmctl"                                 # Cert-manager control utility
 brew "k8sgpt"                                # AI-powered Kubernetes diagnostics
 flatpak "app.freelens.Freelens"              # Professional K8s IDE

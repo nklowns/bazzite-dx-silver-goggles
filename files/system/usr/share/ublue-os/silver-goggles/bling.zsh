@@ -26,6 +26,8 @@ export BLING_ZSH_SOURCED=1
 [ -z "${BLUEFIN_SHELL_ENABLE_ZOXIDE:-}" ] && BLUEFIN_SHELL_ENABLE_ZOXIDE=1
 [ -z "${BLUEFIN_SHELL_ENABLE_MISE:-}" ] && BLUEFIN_SHELL_ENABLE_MISE=1
 [ -z "${BLUEFIN_SHELL_ENABLE_DIRENV:-}" ] && BLUEFIN_SHELL_ENABLE_DIRENV=1
+[ -z "${BLUEFIN_SHELL_ENABLE_FZF:-}" ] && BLUEFIN_SHELL_ENABLE_FZF=1
+[ -z "${BLUEFIN_SHELL_ENABLE_K8S:-}" ] && BLUEFIN_SHELL_ENABLE_K8S=1
 
 # --- Load Common Aliases ---
 if [ -f "/usr/share/ublue-os/silver-goggles/common-aliases.sh" ]; then
@@ -44,8 +46,11 @@ case $- in *i*)
 		eval "$(direnv hook zsh)"
 	fi
 
-	# 2. Mise Runtime Manager
+	# 2. Mise Runtime Manager (Shims-first for performance)
 	if [ "${BLUEFIN_SHELL_ENABLE_MISE:-1}" = "1" ] && command -v mise >/dev/null; then
+		# Use mise's own logic to find data dir if possible, otherwise default
+		MISE_SHIMS_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
+		[ -d "$MISE_SHIMS_DIR" ] && export PATH="$MISE_SHIMS_DIR:$PATH"
 		if [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ]; then
 			eval "$(mise activate zsh)"
 		fi
@@ -56,14 +61,31 @@ case $- in *i*)
 		eval "$(zoxide init zsh)"
 	fi
 
+	# 3.1 FZF
+	if [ "${BLUEFIN_SHELL_ENABLE_FZF:-1}" = "1" ] && command -v fzf >/dev/null; then
+		if fzf --zsh >/dev/null 2>&1; then
+			eval "$(fzf --zsh)"
+		else
+			# Fallback for older fzf versions
+			[ -f "${HOMEBREW_PREFIX:-}/opt/fzf/shell/key-bindings.zsh" ] && . "${HOMEBREW_PREFIX:-}/opt/fzf/shell/key-bindings.zsh"
+			[ -f "${HOMEBREW_PREFIX:-}/opt/fzf/shell/completion.zsh" ] && . "${HOMEBREW_PREFIX:-}/opt/fzf/shell/completion.zsh"
+		fi
+	fi
+
 	# 4. Starship Prompt
 	if [ "${BLUEFIN_SHELL_ENABLE_STARSHIP:-1}" = "1" ] && command -v starship >/dev/null; then
 		eval "$(starship init zsh)"
 	fi
 
-	# 5. Atuin History Integration (last)
+	# 5. Atuin History Integration (Deferred/Lazy Loading)
 	if [ "${BLUEFIN_SHELL_ENABLE_ATUIN:-1}" = "1" ] && command -v atuin >/dev/null; then
-		eval "$(atuin init zsh${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+		# We lazy-load atuin by overriding the first call to history-related widgets
+		# or by initializing it on the first prompt (precmd).
+		_bling_lazy_atuin() {
+			eval "$(atuin init zsh${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+			add-zsh-hook -d precmd _bling_lazy_atuin
+		}
+		add-zsh-hook precmd _bling_lazy_atuin
 	fi
 	;;
 esac

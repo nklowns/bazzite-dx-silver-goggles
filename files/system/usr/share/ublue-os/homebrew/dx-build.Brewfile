@@ -7,6 +7,10 @@ brew "ccache"       # Object file caching to speed up subsequent builds
 # --- Toolchains & Runtimes ---
 brew "devcontainer" # CLI for working with Dev Containers
 
+# --- Container Observability & DevEx ---
+brew "lazydocker"   # TUI: Full terminal management for Docker/Moby
+brew "dive"         # Tool for exploring each layer in a docker image
+
 # --- Swift Development (Inspiration from Bluefin) ---
 brew "swiftly"      # Swift toolchain management
 brew "swiftlint"    # Swift code quality: Linter

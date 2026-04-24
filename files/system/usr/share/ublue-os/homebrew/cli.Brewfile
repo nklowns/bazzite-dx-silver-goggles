@@ -27,6 +27,8 @@ brew "dasel"                            # Query/update JSON, YAML, TOML, XML, CS
 brew "jq"                               # JSON command-line processor
 brew "yq"                               # YAML command-line processor
 brew "qsv"                              # Ultra-fast CSV analysis and manipulation
+brew "miller"                           # Like sed/awk but for CSV, JSON, and tabular data
+brew "duckdb"                           # Analytical SQL engine (OLAP)
 brew "glow"                             # Terminal markdown renderer
 brew "ripgrep"                          # Fast line-oriented search tool
 brew "ugrep"                            # Ultra-fast grep with interactive TUI
@@ -53,7 +55,6 @@ flatpak "io.github.tobagin.digger"      # Modern DNS client (GUI companion to do
 # --- System & Monitor ---
 brew "duf"                              # Disk Usage/Free utility
 brew "btop"                             # Interactive system monitor
-brew "podman-tui"                       # Terminal UI for Podman
 brew "kernel/tap/hypeman"               # VM: Docker-style micro-VM manager
 
 # --- Editors & Knowledge Base ---

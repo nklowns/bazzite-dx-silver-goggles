@@ -4,56 +4,65 @@
 # Located in: /usr/share/ublue-os/silver-goggles/common-aliases.sh
 
 # --- Configuration Toggles ---
-# Set these in your private configs before this is sourced to override
 [ -z "${BLUEFIN_SHELL_ENABLE_EZA:-}" ] && BLUEFIN_SHELL_ENABLE_EZA=1
 [ -z "${BLUEFIN_SHELL_ENABLE_UGREP:-}" ] && BLUEFIN_SHELL_ENABLE_UGREP=1
 [ -z "${BLUEFIN_SHELL_ENABLE_BAT:-}" ] && BLUEFIN_SHELL_ENABLE_BAT=1
 
-# --- Navigation & Basics ---
+# --- Core Navigation & Basics ---
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 alias mkdir='mkdir -p'
 alias g='git'
 
-# --- Alias Sections ---
+# --- Modern CLI Replacements (Scannable Blocks) ---
 
-# eza for ls
+# <eza>
 if [ "${BLUEFIN_SHELL_ENABLE_EZA:-1}" = "1" ] && [ "$(command -v eza)" ]; then
+	alias ls='eza --icons=auto --group-directories-first'
 	alias ll='eza -l --icons=auto --group-directories-first'
-	alias l.='eza -d .*'
-	alias ls='eza'
-	alias l1='eza -1'
+	alias la='eza -la --icons=auto --group-directories-first'
+	alias l.='eza -d .* --icons=auto'
+	alias tree='eza --tree --icons=auto'
 fi
+# </eza>
 
-# ugrep for grep
-if [ "${BLUEFIN_SHELL_ENABLE_UGREP:-1}" = "1" ]; then
-	if [ "$(command -v ug)" ]; then
-		alias grep='ug'
-		alias egrep='ug -E'
-		alias fgrep='ug -F'
-		alias xzgrep='ug -z'
-		alias xzegrep='ug -zE'
-		alias xzfgrep='ug -zF'
-	elif [ "$(command -v ugrep)" ]; then
-		alias grep='ugrep'
-		alias egrep='ugrep -E'
-		alias fgrep='ugrep -F'
-		alias xzgrep='ugrep -z'
-		alias xzegrep='ugrep -zE'
-		alias xzfgrep='ugrep -zF'
-	fi
+# <ugrep>
+if [ "${BLUEFIN_SHELL_ENABLE_UGREP:-1}" = "1" ] && [ "$(command -v ug)" ]; then
+	alias grep='ug'
+	alias egrep='ug -E'
+	alias fgrep='ug -F'
 fi
+# </ugrep>
 
-# bat for cat
+# <ripgrep>
+[ "$(command -v rg)" ] && alias rg='rg --smart-case'
+# </ripgrep>
+
+# <bat>
 if [ "${BLUEFIN_SHELL_ENABLE_BAT:-1}" = "1" ] && [ "$(command -v bat)" ]; then
-	alias cat='bat --style=plain --pager=never'
+	alias cat='bat -pp --pager=never'
+	export PAGER="bat"
+	export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 fi
+# </bat>
 
-# Kubernetes
-if [ "$(command -v kubectl)" ]; then
-	alias k='kubectl'
-fi
+# <fd>
+[ "$(command -v fd)" ] && alias f='fd'
+# </fd>
+
+# --- Cloud Native & Dev Tools ---
+
+# <kubectl>
+[ "$(command -v kubectl)" ] && alias k='kubectl'
+[ "$(command -v kubecolor)" ] && alias kubectl='kubecolor'
+# </kubectl>
+
+# <helm>
+[ "$(command -v helm)" ] && alias h='helm'
+# </helm>
+
+# --- Project Specific Fixes ---
 
 # Obsidian CLI Fix: Symlink the socket from the Flatpak sandbox to the expected host location
 if [ "$(command -v obsidian)" ]; then

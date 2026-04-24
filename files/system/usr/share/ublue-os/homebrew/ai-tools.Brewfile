@@ -8,13 +8,13 @@ tap "charmbracelet/tap"                             # For Crush
 tap "anomalyco/tap"                                 # For Opencode
 
 # --- Core AI Agents ---
+cask "claude-code@latest"                           # Anthropic's official terminal agent
 brew "block-goose-cli"                              # CLI for memory-augmented Goose
+cask "ublue-os/tap/goose-linux"                     # Desktop edition of Goose
 brew "vtcode"                                       # Tree-sitter powered structural refactoring
 brew "anomalyco/tap/opencode"                       # Open source AI coding assistant
 brew "charmbracelet/tap/crush"                      # LSP-native AI supervisor for terminal ops
 cask "ublue-os/tap/antigravity-linux"               # The next-gen Linux agentic assistant
-cask "ublue-os/tap/goose-linux"                     # Desktop edition of Goose
-cask "claude-code"                                  # Anthropic's official terminal agent
 
 # --- Local LLM & Model Servers ---
 brew "llama.cpp"                                    # LLM: C++ implementation (GGUF runner)

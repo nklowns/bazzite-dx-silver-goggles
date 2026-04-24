@@ -7,51 +7,61 @@ set -q BLUEFIN_SHELL_ENABLE_EZA; or set -g BLUEFIN_SHELL_ENABLE_EZA 1
 set -q BLUEFIN_SHELL_ENABLE_UGREP; or set -g BLUEFIN_SHELL_ENABLE_UGREP 1
 set -q BLUEFIN_SHELL_ENABLE_BAT; or set -g BLUEFIN_SHELL_ENABLE_BAT 1
 
-# --- Navigation & Basics ---
+# --- Core Navigation & Basics ---
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 alias mkdir='mkdir -p'
 alias g='git'
 
-# --- Alias Sections ---
+# --- Modern CLI Replacements (Scannable Blocks) ---
 
-# eza for ls
+# <eza>
 if test "$BLUEFIN_SHELL_ENABLE_EZA" = 1; and command -v eza >/dev/null
+    alias ls='eza --icons=auto --group-directories-first'
     alias ll='eza -l --icons=auto --group-directories-first'
-    alias l.='eza -d .*'
-    alias ls='eza'
-    alias l1='eza -1'
+    alias la='eza -la --icons=auto --group-directories-first'
+    alias l.='eza -d .* --icons=auto'
+    alias tree='eza --tree --icons=auto'
 end
+# </eza>
 
-# ugrep for grep
-if test "$BLUEFIN_SHELL_ENABLE_UGREP" = 1
-    if command -v ug >/dev/null
-        alias grep='ug'
-        alias egrep='ug -E'
-        alias fgrep='ug -F'
-        alias xzgrep='ug -z'
-        alias xzegrep='ug -zE'
-        alias xzfgrep='ug -zF'
-    else if command -v ugrep >/dev/null
-        alias grep='ugrep'
-        alias egrep='ugrep -E'
-        alias fgrep='ugrep -F'
-        alias xzgrep='ugrep -z'
-        alias xzegrep='ugrep -zE'
-        alias xzfgrep='ugrep -zF'
-    end
+# <ugrep>
+if test "$BLUEFIN_SHELL_ENABLE_UGREP" = 1; and command -v ug >/dev/null
+    alias grep='ug'
+    alias egrep='ug -E'
+    alias fgrep='ug -F'
 end
+# </ugrep>
 
-# bat for cat
+# <ripgrep>
+command -v rg >/dev/null; and alias rg='rg --smart-case'
+# </ripgrep>
+
+# <bat>
 if test "$BLUEFIN_SHELL_ENABLE_BAT" = 1; and command -v bat >/dev/null
-    alias cat='bat --style=plain --pager=never'
+    alias cat='bat -pp --pager=never'
+    set -gx PAGER bat
+    set -gx MANPAGER "sh -c 'col -bx | bat -l man -p'"
 end
+# </bat>
 
-# Kubernetes
-if command -v kubectl >/dev/null
-    alias k='kubectl'
-end
+# <fd>
+command -v fd >/dev/null; and alias f='fd'
+# </fd>
+
+# --- Cloud Native & Dev Tools ---
+
+# <kubectl>
+command -v kubectl >/dev/null; and alias k='kubectl'
+command -v kubecolor >/dev/null; and alias kubectl='kubecolor'
+# </kubectl>
+
+# <helm>
+command -v helm >/dev/null; and alias h='helm'
+# </helm>
+
+# --- Project Specific Fixes ---
 
 # Obsidian CLI Fix
 if command -v obsidian >/dev/null
