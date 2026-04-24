@@ -1,5 +1,6 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/module-v1.json
 name: dx-udev
 shortdesc: Bazzite-DX udev rules for hardware access (Android ADB/Fastboot) and group management.
 example: |
-  - type: dx-udev
-    source: local
+  type: dx-udev
+  source: local

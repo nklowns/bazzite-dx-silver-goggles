@@ -20,7 +20,6 @@ modules:
 
   - type: rpm-ostree
     repos:
-      - https://download.docker.com/linux/fedora/docker-ce.repo
       - https://download.opensuse.org/repositories/home:/cloud-hypervisor/Fedora_43/home:cloud-hypervisor.repo
     install:
       # --- Cockpit Plugins (Bazzite pre-installed) ---
@@ -36,12 +35,14 @@ modules:
       # - cockpit-files # Cockpit: File management
       # - cockpit-storaged # Cockpit: Storage management
       # --- Container & Virtualization Engines ---
-      - containerd.io # Container: Runtime
-      - docker-ce # Container: Community Edition
-      - docker-ce-cli # Container: CLI tools
-      - docker-buildx-plugin # Container: Buildx plugin
-      - docker-compose-plugin # Container: Compose plugin
-      - docker-model-plugin # Container: Model plugin
+      - moby-engine # Container: Native Fedora Docker Engine
+      - containerd # Container: Runtime for Moby/Docker
+      - docker-cli # Container: Native Docker CLI
+      - docker-buildx # Container: Buildx plugin (Parity)
+      - docker-compose # Container: Native Compose v2 (Fedora)
+      - docker-compose-switch # Container: Provides 'docker-compose' command compatibility
+      - podman-compose # Podman: Docker Compose-compatible wrapper
+      - podman-tui # Podman: Terminal UI for container management
       - podman-machine # Podman: Machine management
       # - edk2-ovmf # VM: UEFI firmware (Bazzite pre-installed)
       - incus # VM/Container: Next-gen manager

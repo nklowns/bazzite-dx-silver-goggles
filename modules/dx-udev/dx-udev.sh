@@ -1,29 +1,31 @@
 #!/usr/bin/env bash
-
-# Bazzite-DX: Udev Provisioning (Android/Hardware)
-# Automates the ingestion of standard hardware debugging rules.
-
 set -euo pipefail
 
-# --- Android (ADB/Fastboot) Rules ---
-# Source: https://github.com/M0Rf30/android-udev-rules
-TARGET_PATH="/usr/lib/udev/rules.d/51-android.rules"
-URL="https://raw.githubusercontent.com/M0Rf30/android-udev-rules/master/51-android.rules"
+# dx-udev: Hardware Provisioning Logic
+# dx-udev: Hardware Provisioning Module
+# Purpose: Manages local hardware access rules and declarative system group requirements.
 
-echo "Ingesting Android udev rules from $URL..."
-curl -sSL "$URL" -o "$TARGET_PATH"
-chmod a+r "$TARGET_PATH"
+readonly RULES_SOURCE="/usr/lib/udev/rules.d/51-android.rules"
+readonly SYSUSERS_CONFIG="/usr/lib/sysusers.d/android-udev.conf"
 
-# --- Group Setup (sysusers) ---
-# Create adbusers group for rootless ADB access
-echo "Setting up adbusers group via sysusers.d..."
-cat <<EOF >/usr/lib/sysusers.d/android-udev.conf
+verify_udev_rule_integrity() {
+	# Reference: Local udev rules are provisioned via files/system to ensure offline build reproducibility.
+	if [[ ! -f "$RULES_SOURCE" ]]; then
+		echo "CRITICAL: Hardware rules missing from image overlay."
+		exit 1
+	fi
+}
+
+provision_system_groups() {
+	# Purpose: Create 'adbusers' for rootless hardware access.
+	# Policy: Declarative group management via sysusers.d.
+	cat <<EOF >"$SYSUSERS_CONFIG"
 g adbusers - -
 EOF
+}
 
-if [ -f "$TARGET_PATH" ]; then
-	echo "OK: Android rules and sysusers placed."
-else
-	echo "ERROR: Failed to download android rules!"
-	exit 1
-fi
+# Execution Flow
+verify_udev_rule_integrity
+provision_system_groups
+
+echo "OK: Hardware provisioning finalized."

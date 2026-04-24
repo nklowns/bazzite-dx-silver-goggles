@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/module-v1.json
+name: dx-hardening
+shortdesc: Final image hardening, repository hygiene, /var/opt consistency, and bootc linting.
+example: |
+  type: dx-hardening
+  source: local

@@ -18,8 +18,6 @@ brew "virtctl"                               # CLI for KubeVirt (Kubernetes Virt
 flatpak "io.missioncenter.MissionCenter"     # Performance: Highly-detailed system monitor
 
 # --- Container Orchestration & Tooling ---
-brew "podman-compose"                        # Docker Compose-compatible for Podman
-brew "podman-tui"                            # Terminal UI for Podman
 brew "nerdctl"                               # Docker-compatible CLI for containerd
 brew "cosign"                                # Container signing and verification
 brew "skopeo"                                # OCI: Image inspector (Migrated from L1)

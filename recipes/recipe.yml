@@ -26,6 +26,9 @@ modules:
 
   - type: initramfs
 
+  - type: dx-hardening
+    source: local
+
   - type: dx-verify
     source: local
 
@@ -36,5 +39,10 @@ modules:
       DEFAULT_HOSTNAME: bazzite-dx
       VARIANT_ID: silver-goggles
       VARIANT: "Silver Goggles (Dell G15 5520)"
+      HOME_URL: "https://bazzite.gg"
+      DOCUMENTATION_URL: "https://dev.bazzite.gg"
+      SUPPORT_URL: "https://github.com/ublue-os/bazzite/issues"
+      BUG_REPORT_URL: "https://github.com/ublue-os/bazzite/issues"
+      CPE_NAME: "cpe:/o:universal-blue:bazzite-dx"
 
   - type: signing

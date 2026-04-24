@@ -1,54 +1,70 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-set -xeuo pipefail
+readonly GROUP_CONFIG_VERSION=1
+readonly STATE_MARKER="/etc/ublue/dx-groups"
+readonly SYSTEM_GROUPS=(
+	"docker"
+	"libvirt"
+	"incus-admin"
+	"dialout"
+	"input"
+	"video"
+	"render"
+	"plugdev"
+	"adbusers"
+)
 
-GROUP_SETUP_VER=1
-GROUP_SETUP_VER_FILE="/etc/ublue/dx-groups"
-GROUP_SETUP_VER_RAN=$(cat "$GROUP_SETUP_VER_FILE" 2>/dev/null || echo "0")
+# --- Group Provisioner Logic ---
 
-# make the directory if it doesn't exist
-mkdir -p /etc/ublue
+IsStateSynchronized() {
+	[[ -f "$STATE_MARKER" ]] && [[ "$(cat "$STATE_MARKER")" == "$GROUP_CONFIG_VERSION" ]]
+}
 
-# Run script if updated
-if [[ -f $GROUP_SETUP_VER_FILE && "$GROUP_SETUP_VER" = "$GROUP_SETUP_VER_RAN" ]]; then
-	echo "Group setup has already run for version $GROUP_SETUP_VER. Exiting..."
+SynchronizeSystemGroups() {
+	for group_name in "${SYSTEM_GROUPS[@]}"; do
+		# Transition groups from /usr/lib to /etc/group (Atomic Host requirements)
+		if getent group "$group_name" >/dev/null && ! grep -q "^$group_name:" /etc/group; then
+			grep "^$group_name:" /usr/lib/group >>/etc/group || true
+		fi
+	done
+}
+
+GrantDeveloperEntitlements() {
+	local administrators
+	administrators=$(getent group wheel | cut -d ":" -f 4 | tr ',' ' ')
+	local provisioned_count=0
+
+	for user in $administrators; do
+		id "$user" >/dev/null 2>&1 || continue
+
+		for group_name in "${SYSTEM_GROUPS[@]}"; do
+			if getent group "$group_name" >/dev/null; then
+				usermod -aG "$group_name" "$user"
+				((provisioned_count++))
+			fi
+		done
+	done
+	return $provisioned_count
+}
+
+PersistStateMarker() {
+	mkdir -p "$(dirname "$STATE_MARKER")"
+	echo "$GROUP_CONFIG_VERSION" >"$STATE_MARKER"
+}
+
+# --- Principal Flow ---
+
+if IsStateSynchronized; then
 	exit 0
 fi
 
-# Function to append a group entry to /etc/group (Atomic /etc/group management)
-append_group() {
-	local group_name="$1"
-	if ! grep -q "^$group_name:" /usr/lib/group; then
-		echo "Warning: Group $group_name not found in /usr/lib/group (upstream). Skipping..."
-		return 0
-	fi
-	if ! grep -q "^$group_name:" /etc/group; then
-		echo "Appending $group_name to /etc/group"
-		grep "^$group_name:" /usr/lib/group | tee -a /etc/group >/dev/null
-	fi
-}
+SynchronizeSystemGroups
 
-# Define the list of developer-essential groups
-DX_GROUPS=("docker" "libvirt" "incus-admin" "dialout" "input" "video" "render" "plugdev" "adbusers")
-
-# Ensure all target groups exist in /etc/group
-for grp in "${DX_GROUPS[@]}"; do
-	append_group "$grp"
-done
-
-# Provision all wheel users (administrators) with these groups
-wheel_members=$(getent group wheel | cut -d ":" -f 4 | tr ',' ' ')
-for user in $wheel_members; do
-	if id "$user" >/dev/null 2>&1; then
-		echo "Provisioning permissions for user: $user"
-		for grp in "${DX_GROUPS[@]}"; do
-			if getent group "$grp" >/dev/null; then
-				usermod -aG "$grp" "$user"
-			fi
-		done
-	fi
-done
-
-# Prevent future executions for the same version
-echo "Writing state file"
-echo "$GROUP_SETUP_VER" >"$GROUP_SETUP_VER_FILE"
+# Only persist the state marker if we actually found users to provision.
+# This prevents a race condition on fresh installs where the user doesn't exist yet.
+if GrantDeveloperEntitlements; then
+	PersistStateMarker
+else
+	echo "No administrators found yet. Retrying on next boot."
+fi
