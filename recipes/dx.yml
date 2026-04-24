@@ -94,6 +94,7 @@ modules:
       - util-linux-script # Terminal: Recording tools
       - waypipe # OS: Wayland network transparency
       # - ydotool # OS: Wayland input automation (Bazzite pre-installed)
+      - qt6-qttools # OS: Essential for qtpaths (xdg-mime support)
       - zsh # Shell: Foundation
 
   - type: systemd

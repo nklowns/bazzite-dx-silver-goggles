@@ -33,10 +33,12 @@ _check_file() {
 }
 
 _check_file "Homebrew init (sh)   " /etc/profile.d/brew.sh
-_check_file "Homebrew init (fish) " /etc/fish/conf.d/brew.fish WARN
-_check_file "Bling wrapper (sh)  " /etc/profile.d/95-bazzite-dx-bling.sh
+_check_file "Homebrew completion (sh)" /etc/profile.d/brew-bash-completion.sh
+_check_file "DX Env Hook (sh)     " /usr/share/ublue-os/user-setup.hooks.d/40-bazzite-dx-env.sh
+_check_file "Homebrew init (fish) " /usr/share/fish/vendor_conf.d/ublue-brew.fish WARN
+_check_file "Bling wrapper (sh)  " /etc/profile.d/zz-bazzite-dx-bling.sh
 _check_file "bling.sh            " /usr/share/ublue-os/silver-goggles/bling.sh
-_check_file "Bling wrapper (fish)" /etc/fish/conf.d/95-bazzite-dx-bling.fish WARN
+_check_file "Bling wrapper (fish)" /usr/share/fish/vendor_conf.d/zz-bazzite-dx-bling.fish WARN
 _check_file "bling.fish          " /usr/share/ublue-os/silver-goggles/bling.fish WARN
 
 if rpm -q bash-preexec &>/dev/null; then
@@ -49,8 +51,12 @@ fi
 
 # --- 2. Homebrew ---
 printf "\n%b2. Homebrew%b\n" "${BLUE}" "${NC}"
-# shellcheck source=/dev/null
-source /etc/profile.d/10-homebrew.sh 2>/dev/null || true
+# brew.sh has an interactive guard — call brew directly for non-interactive diagnostics
+_BREW_BIN="/home/linuxbrew/.linuxbrew/bin/brew"
+if [[ -x "$_BREW_BIN" ]]; then
+	eval "$($_BREW_BIN shellenv)" 2>/dev/null || true
+fi
+unset _BREW_BIN
 
 if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
 	printf "   %b HOMEBREW_PREFIX=%s\n" "$OK" "${HOMEBREW_PREFIX}"

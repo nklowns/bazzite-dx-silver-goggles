@@ -3,10 +3,10 @@
 # Located in: /usr/share/ublue-os/silver-goggles/bling.fish
 
 # Check if shell has already been sourced to prevent recursion
-if set -q BLING_SOURCED
+if set -q BLING_FISH_SOURCED
     return
 end
-set -g BLING_SOURCED 1
+set -g BLING_FISH_SOURCED 1
 
 # --- Configuration Toggles ---
 set -q BLUEFIN_SHELL_ENABLE_ATUIN; or set -g BLUEFIN_SHELL_ENABLE_ATUIN 1

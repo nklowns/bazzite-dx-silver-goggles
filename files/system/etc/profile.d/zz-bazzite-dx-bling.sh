@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 # Bazzite-DX Silver Goggles: Shell Excellence (Declarative Wrapper)
 # Sourced by /etc/profile.d/ for Bash and Zsh.
+# Named zz- to sort AFTER brew.sh — brew must be in PATH before bling runs.
 # To disable: BLING_ENABLE=0 bash -l  /  BLING_ENABLE=0 zsh -l
 
 # Exit if disabled

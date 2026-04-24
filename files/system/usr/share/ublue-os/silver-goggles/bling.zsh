@@ -18,7 +18,9 @@ if [ "${BLING_ZSH_SOURCED:-0}" = "1" ]; then
 	*) return ;;
 	esac
 fi
-export BLING_ZSH_SOURCED=1
+BLING_ZSH_SOURCED=1
+# Ensure it's not exported to child shells
+export -n BLING_ZSH_SOURCED
 
 # --- Configuration Toggles ---
 [ -z "${BLUEFIN_SHELL_ENABLE_ATUIN:-}" ] && BLUEFIN_SHELL_ENABLE_ATUIN=1

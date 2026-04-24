@@ -1,8 +1,21 @@
 #!/usr/bin/env sh
-# Set up system Homebrew PATH for all users.
-# /home/linuxbrew/.linuxbrew is a system-wide install — belongs in profile.d.
-# No interactive guard: PATH must be available for scripts and login shells alike.
+# Bazzite-DX: Homebrew PATH and interactive extras for bash/zsh login shells.
+# HOMEBREW_PREFIX is set system-wide via /usr/lib/environment.d/homebrew.conf
+# Interactive guard prevents execution in bwrap/sandbox non-interactive contexts.
 
-if [ -d /home/linuxbrew/.linuxbrew ] && [ "$(/usr/bin/id -u)" != "0" ]; then
-	eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+_BREW_BIN="/home/linuxbrew/.linuxbrew/bin/brew"
+
+if [ -x "$_BREW_BIN" ] && [ "$(/usr/bin/id -u)" != "0" ] && [ -z "${HOMEBREW_PREFIX_INITIALIZED:-}" ]; then
+	case $- in
+	*i*)
+		# Add brew to PATH — appended so system tools keep priority over brew tools.
+		export PATH="${PATH}:${HOMEBREW_PREFIX}/bin:${HOMEBREW_PREFIX}/sbin"
+		export HOMEBREW_PREFIX_INITIALIZED=1
+
+		# Set MANPATH and INFOPATH so man/info find brew-installed documentation.
+		eval "$($_BREW_BIN shellenv | grep -E '(MANPATH|INFOPATH)=')"
+		;;
+	esac
 fi
+
+unset _BREW_BIN

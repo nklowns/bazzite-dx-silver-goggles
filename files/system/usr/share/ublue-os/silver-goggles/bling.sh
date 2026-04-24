@@ -6,13 +6,15 @@
 
 # Check if shell has already been sourced to prevent recursion
 # (Allow re-sourcing in interactive shells to ensure hooks are loaded)
-if [ "${BLING_SOURCED:-0}" = "1" ]; then
+if [ "${BLING_SH_SOURCED:-0}" = "1" ]; then
 	case $- in
 	*i*) ;;
 	*) return ;;
 	esac
 fi
-BLING_SOURCED=1
+BLING_SH_SOURCED=1
+# Ensure it's not exported to child shells (like fish)
+export -n BLING_SH_SOURCED
 
 # --- Configuration Toggles ---
 # Set these in your private configs before this is sourced to override
