@@ -22,6 +22,7 @@ PublishSystemMetadata() {
 	# Atomic write to prevent partial configuration during build interruptions.
 	local temp_info
 	temp_info=$(mktemp -p "$(dirname "$IDENTITY_MANIFEST")")
+	chmod 644 "$temp_info"
 
 	cat >"$temp_info" <<EOF
 {
