@@ -21,7 +21,7 @@ just lint           # ShellCheck all scripts
 just format         # shfmt all scripts
 just clean          # Remove build artifacts
 
-just build-awcc                           # Build stable AWCC RPM (downloads tarball)
+just build-awcc                           # Build stable AWCC RPM (version matched to base image)
 just build-awcc /path/to/AWCC            # Build dev AWCC RPM from local source
 just hot-swap-awcc /path/to/AWCC         # Build + apply AWCC live (no reboot)
 just uninstall-awcc                       # Revert hot-swap (live, no reboot)
@@ -38,14 +38,14 @@ podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
 
 ## Architecture
 
-### 5-Layer Build Model
+### Modular Hybrid Build Model
 
 ```
-recipe.yml              ← Entry point
+recipe.yml              ← Entry point (declarative orchestration)
 ├── files module        ← Overlays files/system/ onto /
-├── dx.yml              ← EXTENSIONS: Cockpit, Docker, Libvirt, KVM, eBPF tools, fonts
-│   └── custom modules  ← dx-flavor (branding), dx-udev (udev rules), dx-justfiles
-├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, AWCC RPM, thermald mask
+├── dx.yml              ← EXTENSIONS: Cockpit, Docker, Libvirt, eBPF tools, fonts
+│   └── local modules   ← Encapsulated Logic: dx-flavor (branding/policy), dx-udev
+├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, AWCC RPM (rpm-ostree), thermald mask
 ├── initramfs module
 ├── dx-verify           ← System integrity auditor (custom module in modules/)
 ├── os-release          ← OCI metadata
@@ -62,8 +62,8 @@ recipe.yml              ← Entry point
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables |
 | `files/system/usr/lib/bootc/kargs.d/` | Kernel arguments (IOMMU, KVM, VFIO, Bluetooth) |
-| `files/justfiles/` | Host-side `ujust` recipes injected via the `justfiles` module |
-| `files/scripts/` | Build-time install scripts (run inside the container build) |
+| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 95-bazzite-dx.just) |
+| `files/rpm-ostree/` | Location for pre-compiled RPMs (awcc-dev.rpm) |
 | `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |
 | `build_files/` | RPM specs for AWCC (stable: `awcc.spec`, dev fork: `awcc.dev.spec`) |
 | `just/` | Modular Just recipe files (build, dev, maint, status) |
@@ -71,9 +71,9 @@ recipe.yml              ← Entry point
 
 ### AWCC RPM
 
-`files/awcc-dev.rpm` is committed to the repo and installed at image build time by `files/scripts/00-install-awcc.sh`. Rebuild it when updating AWCC:
+`files/rpm-ostree/awcc-dev.rpm` is committed to the repo and installed at image build time via the `rpm-ostree` module. Rebuild it when updating AWCC:
 
-- Stable: `just build-awcc` (uses `awcc.spec`, downloads from `tr1xem/AWCC`)
+- Stable: `just build-awcc` (uses `awcc.spec`, version synced with base image)
 - Dev fork: `AWCC_SPEC=awcc.dev.spec just build-awcc /path/to/AWCC` (uses `awcc.dev.spec`)
 
 After rebuilding, commit the new RPM: `git add -f files/awcc-dev.rpm`.

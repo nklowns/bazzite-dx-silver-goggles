@@ -14,9 +14,9 @@ To maintain enterprise-grade quality on an atomic host, follow these rules:
    - Use `tmpfiles.d` with the **`L+` (Symlink with overwrite)** pattern to link override files from `/usr/share/flatpak/overrides/` to `/var/lib/flatpak/overrides/`.
 2. **Global Environment**: Use `files/system/usr/lib/environment.d/*.conf` for system-wide environment variables.
 3. **Service Orchestration**:
-   - **Enable/Mask Services**: Declared in `recipe.yml` via the `systemd` module. Do NOT add preset files manually.
+   - **Enable/Mask Services**: Declared in `recipe.yml` via the `systemd` module OR generated via **Local Modules** during the build process (e.g., `dx-flavor` generating presets).
    - As a reference, `thermald.service` is masked (AWCC compat) and `systemd-udev-settle.service` is masked (VFIO/IOMMU stability).
-4. **Boot Logic**: Todos os argumentos de kernel são declarados via módulo `kargs` na `recipe.yml`, sem scripts imperativos intermediários.
+4. **Boot Logic**: Kernel arguments are declared via the `kargs` module, with additional tuning performed by local modules if necessary.
 5. **Static Files**: All system configuration goes under `files/system/`, injected by the `files` module in `recipe.yml`.
 
 ---
@@ -39,14 +39,14 @@ Use these libraries for BlueBuild patterns and templates:
 ### 1. Build & Apply Patterns
 
 - **Standard Build**: `just build` → `just rebase-local` (requires reboot).
-- **AWCC (Stable Upstream)**: `just build-awcc` → `git add -f files/awcc-dev.rpm && git commit`.
-- **AWCC (Local Dev)**: `just build-awcc /path/to/AWCC-source` (compiles from local source).
+- **AWCC (Stable Upstream)**: `just build-awcc` → `git add -f files/rpm-ostree/awcc-dev.rpm && git commit`.
+- **AWCC (Local Dev)**: `just build-awcc /path/to/AWCC-source` (compiles from local source, matches Fedora version).
 - **Hot-Swap (AWCC)**: `just hot-swap-awcc <path>` (build + apply RPM live, no reboot).
-- **Full validate**: `just check` (just syntax + shellcheck + flatpak override validation).
+- **Full validate**: `just check` (syntax + shellcheck + integrity audit).
 
 ### 2. AWCC RPM Workflow
 
-The AWCC RPM (`files/awcc-dev.rpm`) is committed to the repo and installed at build time. Two modes:
+The AWCC RPM (`files/rpm-ostree/awcc-dev.rpm`) is committed to the repo and installed at build time via the `rpm-ostree` module.
 
 | Command | Spec Used | Source |
 |---|---|---|
@@ -74,11 +74,9 @@ files/
     usr/lib/
       environment.d/        ← Global env vars (CHROME_EXTRA_FLAGS, etc.)
       tmpfiles.d/           ← Atomic symlinks (L+ pattern)
-      systemd/system-preset/← Service presets (enabled via recipe.yml systemd module)
     etc/modules-load.d/     ← Kernel module loading (acpi_call)
-  scripts/
-    00-install-awcc.sh      ← Installs files/awcc-dev.rpm at build time
-  awcc-dev.rpm              ← Pre-compiled AWCC binary (committed to git)
+  rpm-ostree/
+    awcc-dev.rpm            ← Pre-compiled AWCC binary (committed to git)
 build_files/
   awcc.spec                 ← Stable RPM spec (tr1xem/AWCC)
   awcc.dev.spec             ← Dev RPM spec (nklowns/AWCC fork, specific commit)
@@ -86,7 +84,7 @@ build_files/
 
 **Justfile Split**:
 - Root `Justfile`: Development tasks (build, rebase, lint, AWCC).
-- `files/justfiles/60-custom.just`: Modular host-side recipes (ujust). Injected via the `justfiles` module.
+- `files/justfiles/66-silver-goggles.just`: Modular host-side recipes (ujust). Injected via the `justfiles` module.
 
 ---
 

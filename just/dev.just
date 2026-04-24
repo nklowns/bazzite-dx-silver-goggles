@@ -5,6 +5,9 @@
 # Build AWCC RPM (Stable or Local Dev)
 [group('Development')]
 build-awcc source_path="":
+    #!/usr/bin/env bash
+    FEDORA_VERSION=$(yq '.labels."org.opencontainers.image.version"' recipes/recipe.yml | tr -d '"')
+    export FEDORA_VERSION=${FEDORA_VERSION:-43}
     ./scripts/build-awcc.sh "{{ AWCC_SPEC }}" "{{ source_path }}"
 
 # Install a local RPM package live to the system

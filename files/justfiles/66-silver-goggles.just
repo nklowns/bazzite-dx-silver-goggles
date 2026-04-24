@@ -40,17 +40,17 @@ setup-personal-suite action="":
     fi
     case $ACTION in
         install)
-            echo "🚀 Activating: Silver-Goggles Personal Suite..."
+            echo "🚀 Provisioning: Silver-Goggles Personal Suite..."
             # Ensure ElyPrism remote is present (it's not on Flathub)
             flatpak remote-add --user --if-not-exists elyprismlauncher https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref || true
             brew bundle --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
             ;;
         check)
-            echo "🔍 Checking status of Personal Suite..."
+            echo "🔍 Auditing Personal Suite status..."
             brew bundle check --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
             ;;
         cleanup)
-            echo "🧹 Cleaning up unused packages..."
+            echo "🧹 Purging unused packages..."
             brew bundle cleanup --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
             ;;
         *)

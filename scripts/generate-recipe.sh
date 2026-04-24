@@ -1,30 +1,26 @@
 #!/usr/bin/env bash
-# scripts/generate-recipe.sh
-# Generates a BlueBuild build-recipe.yml with OCI metadata.
 
+# Generates the BlueBuild build-recipe.yml with OCI metadata and pinned digests.
 set -euo pipefail
 
 TARGET_IMAGE="${1:-bazzite-nvidia}"
 TAG="${2:-latest}"
 
-# Resolve and Patch
+# Metadata Resolution
 BASE_IMAGE=$(yq ".images[] | select(.name == \"${TARGET_IMAGE}\") | .image" image-versions.yaml)
-export BASE_IMAGE
 BASE_TAG=$(yq ".images[] | select(.name == \"${TARGET_IMAGE}\") | .tag" image-versions.yaml)
-export BASE_TAG
 BASE_DIGEST=$(yq ".images[] | select(.name == \"${TARGET_IMAGE}\") | .digest" image-versions.yaml)
-export BASE_DIGEST
+REPO_OWNER="${GITHUB_REPOSITORY_OWNER:-$(git remote get-url origin | sed -E 's/.*[:\/](.*)\/(.*)\.git/\1/')}"
+REVISION=$(git rev-parse HEAD 2>/dev/null || echo 'local')
+VERSION_FULL="${BASE_TAG}.$(date +%Y%m%d)"
+
+# Configuration Exports
+export BASE_IMAGE BASE_TAG BASE_DIGEST REPO_OWNER REVISION VERSION_FULL
 export IMAGE_NAME="bazzite-dx-silver-goggles"
 export IMAGE_DESC="Personal DX layer for Dell G15 5520. KDE/NVIDIA — Slim Edition."
 export ARTIFACTHUB_LOGO_URL="https://avatars.githubusercontent.com/u/187439889?s=200&v=4"
-REPO_OWNER="${GITHUB_REPOSITORY_OWNER:-$(git remote get-url origin | sed -E 's/.*[:\/](.*)\/(.*)\.git/\1/')}"
-export REPO_OWNER
 KERNEL_RELEASE=$(uname -r)
 export KERNEL_RELEASE
-VERSION_FULL="${BASE_TAG}.$(date +%Y%m%d)"
-export VERSION_FULL
-REVISION=$(git rev-parse HEAD 2>/dev/null || echo 'local')
-export REVISION
 
 if [[ -n "$BASE_DIGEST" && "$BASE_DIGEST" != "null" ]]; then
 	export IMAGE_VERSION_VAL="${BASE_TAG}@${BASE_DIGEST}"
@@ -32,13 +28,14 @@ else
 	export IMAGE_VERSION_VAL="${BASE_TAG}"
 fi
 
-if [ -z "${BASE_IMAGE}" ] || [ "${BASE_IMAGE}" == "null" ]; then
+[[ -z "${BASE_IMAGE}" || "${BASE_IMAGE}" == "null" ]] && {
 	echo "Error: Image '${TARGET_IMAGE}' not found in image-versions.yaml"
 	exit 1
-fi
+}
 
 echo "Generating build recipe for ${TARGET_IMAGE} (Base: ${BASE_IMAGE}:${IMAGE_VERSION_VAL})..."
 
+# Orchestrate Recipe Transformation
 yq '
   .name = env(IMAGE_NAME) |
   .description = env(IMAGE_DESC) |

@@ -46,13 +46,13 @@ The project uses `just` as a command runner. `bluebuild` CLI and `podman` (or `d
 
 ### Atomic State Policy (Mandatory)
 
-This is an **immutable/atomic host**. Imperative system mutations are strictly forbidden.
+This is an **immutable/atomic host**. Imperative system mutations on the live host are strictly forbidden. All system-level changes must be baked into the image during the build process.
 
-1.  **Static Files:** Place under `files/system/` to be overlaid onto `/`.
-2.  **Flatpak Overrides:** Use `tmpfiles.d` with `L+` symlinks in `files/system/usr/lib/tmpfiles.d/`. Do not use `flatpak override` commands.
-3.  **Global Environment Variables:** Define in `files/system/usr/lib/environment.d/*.conf`.
-4.  **Services:** Enable or mask services via Systemd Presets or the `systemd` module in recipes.
-5.  **Kernel Arguments:** Use the `kargs` module in `recipe.yml` or files in `/usr/lib/bootc/kargs.d/`.
+1.  **Image Transformation:** Build-time scripts (local modules) are authorized for branding, policy enforcement, and complex configurations that cannot be achieved via static file overlays.
+2.  **Static Files:** For simple configuration, place under `files/system/` to be overlaid onto `/`.
+3.  **Flatpak Overrides:** Use `tmpfiles.d` with `L+` symlinks in `files/system/usr/lib/tmpfiles.d/`.
+4.  **Global Environment Variables:** Define in `files/system/usr/lib/environment.d/*.conf`.
+5.  **Services:** Orchestrate via Systemd Presets or the `systemd` module in recipes.
 
 ### Scripting & Tooling
 

@@ -1,161 +1,120 @@
 #!/usr/bin/env bash
+
+# Silver Goggles Integrity Engine v3 (Enterprise Edition)
+# Pattern: Registry-Driven Validation (Contract-over-Implementation)
 set -euo pipefail
 
-# dx-verify: High-Velocity Image Integrity Auditor
-# Reference: https://github.com/ublue-os/main/blob/main/modules/validate/
-# WARNING: Failures here will terminate the build pipeline to prevent non-compliant image publishing.
+# --- Core Configuration ---
+readonly CLR_PASS='\033[0;32m'
+readonly CLR_FAIL='\033[0;31m'
+readonly CLR_WARN='\033[0;33m'
+readonly CLR_RESET='\033[0m'
 
-# --- UI Helpers ---
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly BLUE='\033[0;34m'
-readonly NC='\033[0m'
+# --- Registry: The Image Contract (1:1 Technical Parity) ---
+# Structure: "Provider|AssetPath|Description|Severity(Error/Warn)"
+readonly AUDIT_REGISTRY=(
+	"group|docker|Security Group: Docker|Error"
+	"group|libvirt|Security Group: Libvirt|Error"
+	"group|incus-admin|Security Group: Incus|Error"
+	"group|adbusers|Security Group: ADB|Error"
+	"group|dialout|Security Group: Dialout|Error"
+	"group|input|Security Group: Input|Error"
+	"group|video|Security Group: Video|Error"
+	"group|render|Security Group: Render|Error"
+	"group|plugdev|Security Group: Plugdev|Error"
 
-LogInfo() { printf "%binfo:%b %s\n" "${BLUE}" "${NC}" "$1"; }
-LogSuccess() { printf "%bpass:%b %s\n" "${GREEN}" "${NC}" "$1"; }
-LogError() {
-	printf "%berror:%b %s\n" "${RED}" "${NC}" "$1"
-	exit 1
+	"file|/usr/lib/udev/rules.d/51-android.rules|Asset: Android Rules|Error"
+	"file|/usr/lib/udev/rules.d/99-g15-thermal.rules|Asset: G15 Thermal Rules|Error"
+	"file|/usr/lib/systemd/system/g15-thermal.service|Asset: G15 Thermal Service|Error"
+	"file|/usr/lib/systemd/system/awccd.service|Asset: AWCC Service|Error"
+	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
+	"file|/usr/lib/modules-load.d/acpi_call.conf|Asset: acpi_call Config|Error"
+	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"
+	"file|/usr/lib/systemd/system/bazzite-dx-groups.service|Asset: DX Groups Service|Error"
+
+	"file|/usr/lib/systemd/system/docker.socket|Unit: Docker Socket|Error"
+	"file|/usr/lib/systemd/system/podman.socket|Unit: Podman Socket|Error"
+	"file|/usr/lib/systemd/system-preset/99-dx-flavor.preset|Unit: DX Flavor Preset|Error"
+
+	"target|graphical.target|Policy: Default Graphical Target|Warn"
+
+	"bin|docker|Tool: Docker|Error"
+	"bin|podman|Tool: Podman|Error"
+	"bin|kcli|Tool: KCLI|Error"
+	"bin|bpftop|Tool: bpftop|Error"
+	"bin|cloud-hypervisor|Tool: Cloud-Hypervisor|Error"
+
+	"file|/usr/share/ublue-os/homebrew/cli.Brewfile|Brew: CLI Suite|Error"
+	"file|/usr/share/ublue-os/homebrew/ai-tools.Brewfile|Brew: AI Suite|Error"
+	"file|/usr/share/ublue-os/homebrew/cncf.Brewfile|Brew: CNCF Suite|Error"
+	"file|/usr/share/ublue-os/homebrew/dx-build.Brewfile|Brew: DX Build Suite|Error"
+	"file|/usr/share/ublue-os/homebrew/dx-fonts.Brewfile|Brew: DX Fonts Suite|Error"
+	"file|/usr/share/ublue-os/homebrew/silver-goggles.Brewfile|Brew: Silver Goggles Suite|Error"
+
+	"desktop|/usr/share/applications/input-remapper-gtk.desktop|UX: Input Remapper Visibility|Error"
+)
+
+# --- Providers ---
+
+CheckGroup() {
+	local target="$1"
+	getent group "$target" >/dev/null || grep -rqE "^g $target\b" /usr/lib/sysusers.d/
 }
 
-# --- Domain Auditors ---
+CheckFile() { [[ -f "$1" ]]; }
+CheckBinary() { command -v "$1" >/dev/null; }
+CheckTarget() { [[ -L "/etc/systemd/system/default.target" ]] && [[ $(readlink /etc/systemd/system/default.target) =~ $1 ]]; }
 
-AuditSecurityBaseline() {
-	LogInfo "Domain: Security & Entitlements"
-	local required_groups=("docker" "libvirt" "incus-admin" "adbusers" "dialout" "input" "video" "render" "plugdev")
+# Desktop provider is silent if file is missing (Parity with original behavior)
+CheckDesktop() {
+	if [[ ! -f "$1" ]]; then return 0; fi
+	! grep -qi "NoDisplay=true" "$1"
+}
 
-	for group in "${required_groups[@]}"; do
-		if getent group "$group" >/dev/null || grep -rqE "^g $group\b" /usr/lib/sysusers.d/; then
-			LogSuccess "Security Group '$group' provisioned."
+# --- Engine ---
+
+RunAudit() {
+	local total_failed=0
+	echo "::group::🚀 Executing Silver Goggles Integrity Engine"
+
+	for entry in "${AUDIT_REGISTRY[@]}"; do
+		IFS='|' read -r provider target description severity <<<"$entry"
+		local success=0
+		case "$provider" in
+		group) success=$(CheckGroup "$target" && echo 1 || echo 0) ;;
+		file) success=$(CheckFile "$target" && echo 1 || echo 0) ;;
+		bin) success=$(CheckBinary "$target" && echo 1 || echo 0) ;;
+		target) success=$(CheckTarget "$target" && echo 1 || echo 0) ;;
+		desktop) success=$(CheckDesktop "$target" && echo 1 || echo 0) ;;
+		esac
+
+		if [[ "$success" -eq 1 ]]; then
+			printf "[ %bPASS%b ] %s\n" "$CLR_PASS" "$CLR_RESET" "$description"
 		else
-			LogError "Critical Group '$group' missing."
+			if [[ "$severity" == "Error" ]]; then
+				printf "[ %bFAIL%b ] %s (Target: %s)\n" "$CLR_FAIL" "$CLR_RESET" "$description" "$target"
+				total_failed=$((total_failed + 1))
+			else
+				printf "[ %bWARN%b ] %s (Target: %s)\n" "$CLR_WARN" "$CLR_RESET" "$description" "$target"
+			fi
 		fi
 	done
-}
 
-AuditSystemIntegration() {
-	LogInfo "Domain: Hardware & System Integration"
-	local assets=(
-		"/usr/lib/udev/rules.d/51-android.rules"
-		"/usr/lib/udev/rules.d/99-g15-thermal.rules"
-		"/usr/lib/systemd/system/g15-thermal.service"
-		"/usr/lib/modules-load.d/ip_tables.conf"
-		"/usr/lib/modules-load.d/acpi_call.conf"
-		"/usr/libexec/bazzite-dx-groups"
-		"/usr/lib/systemd/system/bazzite-dx-groups.service"
-	)
-
-	for asset in "${assets[@]}"; do
-		if [[ -f "$asset" ]]; then
-			LogSuccess "Asset '$asset' verified."
-		else
-			LogError "Asset '$asset' missing."
-		fi
-	done
-}
-
-AuditPolicyCompliance() {
-	LogInfo "Domain: Atomic Policy Compliance"
-
-	# Audit critical systemd units
-	local units=(
-		"/usr/lib/systemd/system/docker.socket"
-		"/usr/lib/systemd/system/podman.socket"
-		"/usr/lib/systemd/system-preset/99-dx-flavor.preset"
-	)
-	for unit in "${units[@]}"; do
-		if [[ -f "$unit" ]]; then
-			LogSuccess "Unit '$unit' present."
-		else
-			LogError "Unit '$unit' missing."
-		fi
-	done
-
-	# Ensure default target is graphical for OOTB UI experience
-	if [[ -L "/etc/systemd/system/default.target" ]]; then
-		local target
-		target=$(readlink /etc/systemd/system/default.target)
-		if [[ "$target" =~ graphical.target ]]; then
-			LogSuccess "Default target: Graphical."
-		else
-			LogInfo "Default target: $target (Non-standard)."
-		fi
-	fi
-}
-
-AuditDeveloperToolchain() {
-	LogInfo "Domain: Developer Experience Tooling"
-	local tools=(
-		"/usr/bin/docker"
-		"/usr/bin/podman"
-		"/usr/bin/kcli"
-		"/usr/bin/bpftop"
-		"/usr/bin/cloud-hypervisor"
-	)
-	for tool in "${tools[@]}"; do
-		if [[ -f "$tool" ]]; then
-			LogSuccess "Tool '$tool' verified."
-		else
-			LogError "Tool '$tool' missing."
-		fi
-	done
-}
-
-AuditWorkstationCustomizations() {
-	LogInfo "Domain: Workstation Customizations"
-	local brewfiles=(
-		"cli.Brewfile"
-		"ai-tools.Brewfile"
-		"cncf.Brewfile"
-		"dx-build.Brewfile"
-		"dx-fonts.Brewfile"
-		"silver-goggles.Brewfile"
-	)
-	for file in "${brewfiles[@]}"; do
-		local path="/usr/share/ublue-os/homebrew/$file"
-		if [[ -f "$path" ]]; then
-			LogSuccess "Brewfile '$file' verified."
-		else
-			LogError "Brewfile '$file' missing."
-		fi
-	done
-}
-
-AuditApplicationVisibility() {
-	LogInfo "Domain: User Experience Finalization"
-
-	# Verify critical tools are unhidden
-	local input_remapper="/usr/share/applications/input-remapper-gtk.desktop"
-	if [[ -f "$input_remapper" ]]; then
-		if ! grep -qi "NoDisplay=true" "$input_remapper"; then
-			LogSuccess "Input Remapper visibility verified."
-		else
-			LogError "Input Remapper is still hidden (NoDisplay=true)."
-		fi
-	fi
-}
-
-AuditImagePurity() {
-	LogInfo "Domain: Image Purity & Hygiene"
+	# Hygiene Gate (Informative only, matches original)
 	local residuals
 	residuals=$(find /etc/yum.repos.d/ -maxdepth 1 -name "*.repo" -exec grep -lE "_copr|vscode|docker|home:cloud-hypervisor" {} + || true)
-
 	if [[ -z "$residuals" ]]; then
-		LogSuccess "Repository hygiene verified."
+		printf "[ %bPASS%b ] Image Purity: Repository hygiene verified\n" "$CLR_PASS" "$CLR_RESET"
 	else
-		LogInfo "Residual repositories detected: $residuals"
+		printf "[ %bWARN%b ] Image Purity: Residual repositories detected: %s\n" "$CLR_WARN" "$CLR_RESET" "$residuals"
 	fi
+
+	echo "::endgroup::"
+	[[ "$total_failed" -gt 0 ]] && {
+		echo "❌ Critical Failure: $total_failed integrity violations."
+		exit 1
+	}
+	printf "\n%b✔ Integrity Audit: 100%% COMPLIANT.%b\n" "$CLR_PASS" "$CLR_RESET"
 }
 
-# --- Principal Audit Flow ---
-
-echo "::group::🚀 === Bazzite-DX Integrity Audit ==="
-AuditSecurityBaseline
-AuditSystemIntegration
-AuditPolicyCompliance
-AuditDeveloperToolchain
-AuditWorkstationCustomizations
-AuditApplicationVisibility
-AuditImagePurity
-printf "\n%b✔ Bazzite-DX Integrity: 100%% COMPLIANT.%b\n" "${GREEN}" "${NC}"
-echo "::endgroup::"
+RunAudit

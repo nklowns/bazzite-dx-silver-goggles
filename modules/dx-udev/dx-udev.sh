@@ -1,31 +1,29 @@
 #!/usr/bin/env bash
+
+# Manages hardware provisioning and declarative group requirements.
 set -euo pipefail
 
-# dx-udev: Hardware Provisioning Logic
-# dx-udev: Hardware Provisioning Module
-# Purpose: Manages local hardware access rules and declarative system group requirements.
+readonly RULES_MANIFEST="/usr/lib/udev/rules.d/51-android.rules"
+readonly SYSUSERS_DIR="/usr/lib/sysusers.d"
 
-readonly RULES_SOURCE="/usr/lib/udev/rules.d/51-android.rules"
-readonly SYSUSERS_CONFIG="/usr/lib/sysusers.d/android-udev.conf"
-
-verify_udev_rule_integrity() {
-	# Reference: Local udev rules are provisioned via files/system to ensure offline build reproducibility.
-	if [[ ! -f "$RULES_SOURCE" ]]; then
-		echo "CRITICAL: Hardware rules missing from image overlay."
+VerifyUdevRuleIntegrity() {
+	if [[ ! -f "$RULES_MANIFEST" ]]; then
+		echo "CRITICAL: Hardware manifest '$RULES_MANIFEST' missing."
 		exit 1
 	fi
 }
 
-provision_system_groups() {
-	# Purpose: Create 'adbusers' for rootless hardware access.
-	# Policy: Declarative group management via sysusers.d.
-	cat <<EOF >"$SYSUSERS_CONFIG"
+ProvisionHardwareGroups() {
+	local config="$SYSUSERS_DIR/android-udev.conf"
+	mkdir -p "$SYSUSERS_DIR"
+
+	cat <<EOF >"$config"
 g adbusers - -
 EOF
 }
 
-# Execution Flow
-verify_udev_rule_integrity
-provision_system_groups
-
-echo "OK: Hardware provisioning finalized."
+# --- Execution ---
+echo "::group::🔌 [dx-udev] Provisioning Hardware & Groups..."
+VerifyUdevRuleIntegrity
+ProvisionHardwareGroups
+echo "::endgroup::"

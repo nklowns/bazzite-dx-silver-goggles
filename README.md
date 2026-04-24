@@ -18,30 +18,27 @@
 
 # Architecture & Build Logic
 
-This image follows the **"Personal Customization Layer"** pattern described in [`bazzite_dx_recipe_architecture.md`](../bazzite_dx_recipe_architecture.md). It extends `bazzite-dx` with hardware-specific logic using a fully **declarative BlueBuild** architecture — no `Containerfile`, no `build.sh`.
+This image follows the **"Personal Customization Layer"** pattern. It extends `bazzite-dx` with hardware-specific logic using a **modular BlueBuild** architecture. While the build structure is declarative, specific branding and system policies are encapsulated in **local imperative modules** for maximum flexibility.
 
 ```mermaid
 graph TD
-    A[Bazzite-DX Base<br/>ghcr.io/ublue-os/bazzite-nvidia] --> B[recipes/recipe.yml]
+    A[Bazzite-DX Base] --> B[recipes/recipe.yml]
     B --> C[BlueBuild Modules]
     C --> C1[kargs: Kernel Tuning]
-    C --> C2[files: System Config]
-    C --> C5[justfiles: Modular Recipes]
+    C --> C2[files: Static Overlays]
+    C --> C5[justfiles: Host Recipes]
+    C --> C6[Local Scripts: Encapsulated Logic]
     C --> C3[script: AWCC RPM Install]
-    B --> D[Enterprise Patterns]
-    D --> D1[tmpfiles.d: Atomic Symlinks]
-    D --> D2[environment.d: Global Env]
-    D --> D3[systemd presets: Service Orchestration]
 ```
 
-## Declarative Architecture (BlueBuild)
+## Modular Architecture (BlueBuild)
 
-The entire build is driven by [`recipes/recipe.yml`](recipes/recipe.yml). This replaces the old imperative `Containerfile` + `build.sh` model with a YAML-declared state machine:
+The build is orchestrated by [`recipes/recipe.yml`](recipes/recipe.yml), combining declarative state with targeted script execution:
 
-- **`kargs` module**: Kernel arguments injected via `bootc` at `/usr/lib/bootc/kargs.d/` — the [official bootc pattern](https://containers.github.io/bootc/building/kernel-arguments.html).
-- **`justfiles` module**: Local G15 recipes in `files/justfiles/60-custom.just` are injected into the image as modular `ujust` commands.
-- **`files` module**: Static system configuration from `files/system/` is overlaid onto `/`. Includes `tmpfiles.d`, `environment.d`, `systemd` presets, and Flatpak overrides.
-- **`script` module**: Installs the pre-compiled AWCC RPM (`awcc-dev.rpm`) committed to the repo root. See [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md) for details.
+- **Declarative Modules**: `kargs`, `justfiles`, and `files` manage the static state of the image.
+- **Encapsulated Logic Modules**: Local modules (`dx-flavor`, `dx-hardening`, etc.) perform dynamic transformations (like branding and DM policy) during the build process, ensuring the final image is pre-configured for the Dell G15.
+- **Justfiles**: Local G15 recipes in `files/justfiles/66-silver-goggles.just` are injected into the image as modular `ujust` commands.
+- **Boot-time Tuning**: Kernel arguments are injected via `bootc` — the [official bootc pattern](https://containers.github.io/bootc/building/kernel-arguments.html).
 
 ## Enterprise Declarative Patterns
 
@@ -86,11 +83,11 @@ podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
 
 The `hot-swap-awcc` recipe enables rapid AWCC iteration without a full image rebuild:
 
-1. **Containerized Build**: Compiles from local AWCC source via `rpmbuild` in an ephemeral `fedora:43` container (`just build-awcc <src>`).
+1. **Containerized Build**: Compiles from local AWCC source via `rpmbuild` in an ephemeral Fedora container (version matched to base image).
 2. **Filesystem Unlocking**: Uses `rpm-ostree usroverlay` to temporarily unlock the immutable filesystem.
 3. **Live Application**: Installs via `rpm -Uvh --force` and restarts `awccd.service`.
 
-The same `files/awcc-dev.rpm` used in hot-swap is committed to the repo and installed during the CI image build. See [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md) for the full workflow.
+The same `files/rpm-ostree/awcc-dev.rpm` used in hot-swap is committed to the repo and installed during the CI image build.
 
 ---
 

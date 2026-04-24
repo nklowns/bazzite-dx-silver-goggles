@@ -1,81 +1,87 @@
 #!/usr/bin/env bash
-# Silver Goggles: Hot-Reload Dev Shell (v2 - High Fidelity)
-# Launches an interactive shell using the CURRENT workspace files.
 
-set -uo pipefail # Removido -e para evitar que erros no source fechem o terminal
+# Orchestrates a shadowed dev environment to test "Bling" without host mutation.
+set -uo pipefail
 
-SHELL_TYPE="${1:-bash}"
+readonly SHELL_TYPE="${1:-bash}"
 PROJECT_ROOT=$(pwd)
-TEMP_DEV_DIR=$(mktemp -d -t silver-goggles-dev.XXXXXX)
+readonly PROJECT_ROOT
+SHADOW_ROOT_BASE=$(mktemp -d -t silver-goggles-dev.XXXXXX)
+readonly SHADOW_ROOT_BASE
 
-# Cleanup: remove o diretório temporário quando o script fechar
-trap 'rm -rf "$TEMP_DEV_DIR"' EXIT
+# Lifecycle Hook: Ensure cleanup of shadow root upon exit.
+trap 'rm -rf "$SHADOW_ROOT_BASE"' EXIT
 
-printf "🔥 Launching %s with Silver Goggles Dev Context...\n" "$SHELL_TYPE"
-printf "📂 Workspace: %s\n" "$PROJECT_ROOT"
-printf "🛠️  Shadow Root: %s\n" "$TEMP_DEV_DIR"
+PrepareShadowEnvironment() {
+	local shadow_bling="$SHADOW_ROOT_BASE/silver-goggles"
+	mkdir -p "$shadow_bling"
 
-# 1. Preparar Shadow Root (Arquivos de Bling)
-mkdir -p "$TEMP_DEV_DIR/silver-goggles"
-cp -r "$PROJECT_ROOT/files/system/usr/share/ublue-os/silver-goggles/." "$TEMP_DEV_DIR/silver-goggles/"
+	cp -r "$PROJECT_ROOT/files/system/usr/share/ublue-os/silver-goggles/." "$shadow_bling/"
 
-# 2. Patch: Substituir caminhos de sistema pelo Shadow Root local
-find "$TEMP_DEV_DIR/silver-goggles" -type f -exec sed -i "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" {} +
+	# Redirect asset lookups to the shadow root.
+	find "$shadow_bling" -type f -exec sed -i "s|/usr/share/ublue-os/silver-goggles|$shadow_bling|g" {} +
+}
 
-# 3. Lançar o Shell com isolamento
-case "$SHELL_TYPE" in
-bash)
-	BASHRC_DEV="$TEMP_DEV_DIR/dev.bashrc"
-	# Carrega o bashrc real primeiro
-	[[ -f ~/.bashrc ]] && echo "source ~/.bashrc" >"$BASHRC_DEV"
-	echo "export BLING_ENABLE=1" >>"$BASHRC_DEV"
-	# Injeta o Homebrew local
-	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$BASHRC_DEV"
-	# Injeta o wrapper patcheado
-	sed "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" "$PROJECT_ROOT/files/system/etc/profile.d/95-bazzite-dx-bling.sh" >>"$BASHRC_DEV"
-	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (BASH) Active!'\n" >>"$BASHRC_DEV"
+InjectPatchedScript() {
+	local source_script="$1"
+	local target_rc="$2"
+	local shadow_bling="$SHADOW_ROOT_BASE/silver-goggles"
 
-	# --norc evita carregar /etc/bash.bashrc que poderia causar conflitos
-	bash --norc --rcfile "$BASHRC_DEV" -i
-	;;
-zsh)
-	ZDOTDIR_DEV="$TEMP_DEV_DIR/zsh"
-	mkdir -p "$ZDOTDIR_DEV"
-	cat <<EOF >"$ZDOTDIR_DEV/.zshrc"
-[[ -f ~/.zshrc ]] && source ~/.zshrc
-export BLING_ENABLE=1
-EOF
-	# Injeta o Homebrew local
-	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$ZDOTDIR_DEV/.zshrc"
-	# Injeta o wrapper patcheado
-	sed "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" "$PROJECT_ROOT/files/system/etc/profile.d/95-bazzite-dx-bling.sh" >>"$ZDOTDIR_DEV/.zshrc"
+	sed "s|/usr/share/ublue-os/silver-goggles|$shadow_bling|g" "$source_script" >>"$target_rc"
+}
 
-	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (ZSH) Active!'\n" >>"$ZDOTDIR_DEV/.zshrc"
+LaunchBash() {
+	local rc_file="$SHADOW_ROOT_BASE/dev.bashrc"
 
-	# -d evita rcs globais de sistema
-	ZDOTDIR="$ZDOTDIR_DEV" zsh -d -i
-	;;
-fish)
-	FISH_INIT="$TEMP_DEV_DIR/init.fish"
-	# Gera o comando de inicialização com caminhos patcheados
-	# Primeiro carrega o homebrew local
-	cat "$PROJECT_ROOT/files/system/etc/fish/conf.d/brew.fish" >"$FISH_INIT"
-	# Depois injeta o wrapper patcheado
-	sed "s|/usr/share/ublue-os/silver-goggles|$TEMP_DEV_DIR/silver-goggles|g" "$PROJECT_ROOT/files/system/etc/fish/conf.d/95-bazzite-dx-bling.fish" >>"$FISH_INIT"
+	[[ -f ~/.bashrc ]] && echo "source ~/.bashrc" >"$rc_file"
+	echo "export BLING_ENABLE=1" >>"$rc_file"
+
+	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$rc_file"
+	InjectPatchedScript "$PROJECT_ROOT/files/system/etc/profile.d/95-bazzite-dx-bling.sh" "$rc_file"
+
+	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (BASH) Active!'\n" >>"$rc_file"
+
+	bash --norc --rcfile "$rc_file" -i
+}
+
+LaunchZsh() {
+	local zsh_dir="$SHADOW_ROOT_BASE/zsh"
+	local rc_file="$zsh_dir/.zshrc"
+	mkdir -p "$zsh_dir"
+
+	echo "[[ -f ~/.zshrc ]] && source ~/.zshrc" >"$rc_file"
+	echo "export BLING_ENABLE=1" >>"$rc_file"
+
+	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$rc_file"
+	InjectPatchedScript "$PROJECT_ROOT/files/system/etc/profile.d/95-bazzite-dx-bling.sh" "$rc_file"
+
+	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (ZSH) Active!'\n" >>"$rc_file"
+
+	ZDOTDIR="$zsh_dir" zsh -d -i
+}
+
+LaunchFish() {
+	local init_file="$SHADOW_ROOT_BASE/init.fish"
+
+	cat "$PROJECT_ROOT/files/system/etc/fish/conf.d/brew.fish" >"$init_file"
+	InjectPatchedScript "$PROJECT_ROOT/files/system/etc/fish/conf.d/95-bazzite-dx-bling.fish" "$init_file"
 
 	printf "✨ Silver Goggles Dev-Shell (FISH) Active!\n"
-	# -i força interatividade. -C executa o comando.
-	# Envolvemos em um bloco begin/end para capturar erros sem fechar o shell
-	fish -i -C "
-            if test -f $FISH_INIT
-                source $FISH_INIT
-            else
-                echo '❌ Dev init file not found'
-            end
-        "
-	;;
+	fish -i -C "source $init_file"
+}
+
+# --- Execution ---
+printf "🚀 Bootstrapping %s Dev Environment...\n" "$SHELL_TYPE"
+printf "📂 Source: %s\n" "$PROJECT_ROOT"
+
+PrepareShadowEnvironment
+
+case "$SHELL_TYPE" in
+bash) LaunchBash ;;
+zsh) LaunchZsh ;;
+fish) LaunchFish ;;
 *)
-	printf "❌ Unsupported shell: %s\n" "$SHELL_TYPE"
+	printf "❌ Error: Unsupported shell '%s'\n" "$SHELL_TYPE"
 	exit 1
 	;;
 esac

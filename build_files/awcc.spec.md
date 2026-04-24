@@ -76,7 +76,7 @@ git commit -m "chore(awcc): update to v<versao>"
 
 ## 🏗️ Processo de Build Interno
 
-O `just build-awcc` executa um container `fedora:43` efêmero com:
+O `just build-awcc` executa um container Fedora efêmero (versão sincronizada com a imagem base) com:
 
 1. Instalação das dependências de build (`cmake`, `meson`, `ninja`, libs de sistema)
 2. **Modo local**: adapta o spec para usar source local (sem fetch de URL), empacota em tarball, injeta versão `dev.local`

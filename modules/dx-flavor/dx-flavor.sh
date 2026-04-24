@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
+
+# Orchestrates visual identity, display manager policy, and UX optimizations.
 set -euo pipefail
 
-readonly IMAGE_INFO_PATH="/usr/share/ublue-os/image-info.json"
-readonly OS_RELEASE_PATH="/usr/lib/os-release"
-readonly PRESET_POLICY_PATH="/usr/lib/systemd/system-preset/99-dx-flavor.preset"
+# --- Constants & Paths ---
+readonly IDENTITY_MANIFEST="/usr/share/ublue-os/image-info.json"
+readonly KDE_BRANDING_PATH="/etc/xdg/kcm-about-distrorc"
+readonly KDE_GLOBALS_PATH="/etc/xdg/kdeglobals"
+readonly SYSTEM_PRESET_DIR="/usr/lib/systemd/system-preset"
+readonly PRESET_POLICY_PATH="$SYSTEM_PRESET_DIR/99-dx-flavor.preset"
+readonly BAZAAR_MAIN_CONFIG="/usr/share/ublue-os/bazaar/main.yaml"
+readonly DX_BLOCKLIST_PATH="/usr/share/ublue-os/bazaar/blocklist-dx.yaml"
 
-# --- Policy Dispatcher ---
-
-PublishImageMetadata() {
-	local vendor="${IMAGE_VENDOR:-ublue-os}"
+PublishSystemMetadata() {
 	local name="${IMAGE_NAME:-bazzite-dx}"
+	local vendor="${IMAGE_VENDOR:-nklowns}"
 	local ref="ostree-image-signed:docker://ghcr.io/$vendor/$name"
 	local fedora_version
 	fedora_version=$(awk -F= '/VERSION_ID/ {print $2}' /etc/os-release | tr -d '"')
 
-	# Atomic write to prevent partial configuration during build interruptions
+	# Atomic write to prevent partial configuration during build interruptions.
 	local temp_info
-	temp_info=$(mktemp -p "$(dirname "$IMAGE_INFO_PATH")")
+	temp_info=$(mktemp -p "$(dirname "$IDENTITY_MANIFEST")")
 
 	cat >"$temp_info" <<EOF
 {
@@ -27,29 +32,25 @@ PublishImageMetadata() {
   "fedora-version": "$fedora_version"
 }
 EOF
-	mv "$temp_info" "$IMAGE_INFO_PATH"
+	mv "$temp_info" "$IDENTITY_MANIFEST"
 }
 
 ApplyKdeBranding() {
-	local kde_config="/etc/xdg/kcm-about-distrorc"
-
-	if [[ "$IMAGE_NAME" =~ "gnome" ]] || [[ ! -f "$kde_config" ]]; then
+	if [[ "$IMAGE_NAME" =~ "gnome" ]] || [[ ! -f "$KDE_BRANDING_PATH" ]]; then
 		return 0
 	fi
 
-	sed -i "s|^Website=.*|Website=https://dev.bazzite.gg|" "$kde_config"
+	sed -i "s|^Website=.*|Website=https://dev.bazzite.gg|" "$KDE_BRANDING_PATH"
 	if [[ "$IMAGE_NAME" =~ "nvidia" ]]; then
-		sed -i "s/^Variant=.*/Variant=DX (NVIDIA)/" "$kde_config"
+		sed -i "s/^Variant=.*/Variant=DX (NVIDIA)/" "$KDE_BRANDING_PATH"
 	else
-		sed -i "s/^Variant=.*/Variant=DX/" "$kde_config"
+		sed -i "s/^Variant=.*/Variant=DX/" "$KDE_BRANDING_PATH"
 	fi
 }
 
 EnforceDisplayManagerPolicy() {
-	mkdir -p "$(dirname "$PRESET_POLICY_PATH")"
+	mkdir -p "$SYSTEM_PRESET_DIR"
 
-	# Strategy: Declarative enablement via presets.
-	# We avoid 'systemctl enable' to prevent /etc state drift in the OCI layer.
 	if [[ "$IMAGE_NAME" =~ "gnome" ]]; then
 		echo "enable gdm.service" >"$PRESET_POLICY_PATH"
 		echo "disable sddm.service" >>"$PRESET_POLICY_PATH"
@@ -60,19 +61,8 @@ EnforceDisplayManagerPolicy() {
 	fi
 }
 
-SanitizeKdeInteractiveConfig() {
-	local config="/etc/xdg/kdeglobals"
-	[[ -f "$config" ]] || return 0
-
-	sed -i -E \
-		-e 's/^(action\/switch_user)=false/\1=true/' \
-		-e 's/^(action\/start_new_session)=false/\1=true/' \
-		-e 's/^(action\/lock_screen)=false/\1=true/' \
-		"$config"
-}
-
 ApplyWorkstationLifecyclePolicy() {
-	# Purge handheld-specific artifacts on desktop-oriented flavors
+	# Purge handheld-specific artifacts on desktop-oriented flavors.
 	rm -f /etc/sddm.conf.d/steamos.conf \
 		/etc/sddm.conf.d/virtualkbd.conf \
 		/etc/sddm.conf.d/zz-steamos-autologin.conf
@@ -84,33 +74,34 @@ ApplyWorkstationLifecyclePolicy() {
 	fi
 }
 
+SanitizeKdeInteractiveConfig() {
+	[[ -f "$KDE_GLOBALS_PATH" ]] || return 0
+
+	sed -i -E \
+		-e 's/^(action\/switch_user)=false/\1=true/' \
+		-e 's/^(action\/start_new_session)=false/\1=true/' \
+		-e 's/^(action\/lock_screen)=false/\1=true/' \
+		"$KDE_GLOBALS_PATH"
+}
+
 OptimizeApplicationVisibility() {
-	# Show critical interactive tools hidden by upstream policy
 	local desktop_entry="/usr/share/applications/input-remapper-gtk.desktop"
 	[[ -f "$desktop_entry" ]] && sed -i 's|^NoDisplay=.*|NoDisplay=false|' "$desktop_entry" || true
 }
 
 RegisterBazaarBlocklist() {
-	local bazaar_main="/usr/share/ublue-os/bazaar/main.yaml"
-	local dx_blocklist="/usr/share/ublue-os/bazaar/blocklist-dx.yaml"
+	[[ -f "$BAZAAR_MAIN_CONFIG" ]] && [[ -f "$DX_BLOCKLIST_PATH" ]] || return 0
 
-	[[ -f "$bazaar_main" ]] && [[ -f "$dx_blocklist" ]] || return 0
-
-	# Inject DX blocklist into the Bazaar main orchestration file
-	sed -i 's@override-eol-markings@  - /usr/share/ublue-os/bazaar/blocklist-dx.yaml\noverride-eol-markings@g' "$bazaar_main"
+	sed -i 's@override-eol-markings@  - /usr/share/ublue-os/bazaar/blocklist-dx.yaml\noverride-eol-markings@g' "$BAZAAR_MAIN_CONFIG"
 }
 
-# --- Execution Matrix ---
-
-# Domain: Identity & Metadata
-PublishImageMetadata
+# --- Execution ---
+echo "::group::🚀 [dx-flavor] Orchestrating Image Identity..."
+PublishSystemMetadata
 ApplyKdeBranding
-
-# Domain: System & Service Policy
-RegisterBazaarBlocklist
 EnforceDisplayManagerPolicy
 ApplyWorkstationLifecyclePolicy
-
-# Domain: User Experience Optimization
 SanitizeKdeInteractiveConfig
 OptimizeApplicationVisibility
+RegisterBazaarBlocklist
+echo "::endgroup::"
