@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Personal customization layer for **Bazzite DX** (KDE/NVIDIA, Fedora 43) targeting Dell G15 5520 hardware. Builds a declarative, immutable OCI container image using the [BlueBuild](https://blue-build.org) framework.
+Personal customization layer for **Bazzite DX** (KDE/NVIDIA, Fedora 44) targeting Dell G15 5520 hardware. Builds a declarative, immutable OCI container image using the [BlueBuild](https://blue-build.org) framework.
 
 The central build declaration is `recipes/recipe.yml`. Everything flows from there.
 

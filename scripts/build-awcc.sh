@@ -32,7 +32,7 @@ if [[ -n "${SOURCE_PATH}" ]]; then
 fi
 
 PODMAN="${PODMAN:-podman}"
-FEDORA_VERSION="${FEDORA_VERSION:-43}"
+FEDORA_VERSION="${FEDORA_VERSION:-44}"
 
 echo "Build container: fedora:${FEDORA_VERSION}"
 

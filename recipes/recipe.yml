@@ -10,10 +10,10 @@ image-version: latest # digest managed via image-versions.yaml (updated by Renov
 
 alt-tags:
   - stable
-  - "43"
+  - "44"
 
 labels:
-  org.opencontainers.image.version: "43"
+  org.opencontainers.image.version: "44"
 
 modules:
   - type: files

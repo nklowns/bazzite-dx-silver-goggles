@@ -127,7 +127,7 @@ just act   # Simulates GitHub Actions locally (requires --privileged for buildah
 
 To keep the host clean, run the runner in a container:
 
-1. `distrobox-create --name gha-runner --image fedora:43 --init`.
+1. `distrobox-create --name gha-runner --image fedora:44 --init`.
 2. `distrobox-enter gha-runner`.
 3. Install dependencies (`git`, `podman`, `curl`) and configure the runner manually.
 4. Use `sudo ./svc.sh install/start` to run as a service inside the container.

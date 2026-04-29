@@ -8,6 +8,9 @@ modules:
     kargs:
       - vconsole.keymap=br
       - kvm.nested=1
+      # F44 regression: install-nvidia script that copied modeset.conf to /usr/lib/modprobe.d/
+      # was removed; initramfs loads nvidia_drm without modeset=1 → HDMI dead, 60fps cap
+      - nvidia-drm.modeset=1
 
   # ==========================================
   # LAYER 2: SYSTEM TOOLS & VIRTUALIZATION

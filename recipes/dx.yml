@@ -20,7 +20,7 @@ modules:
 
   - type: rpm-ostree
     repos:
-      - https://download.opensuse.org/repositories/home:/cloud-hypervisor/Fedora_43/home:cloud-hypervisor.repo
+      - https://download.opensuse.org/repositories/home:/cloud-hypervisor/Fedora_Rawhide/home:cloud-hypervisor.repo
     install:
       # --- Cockpit Plugins (Bazzite pre-installed) ---
       - cockpit-bridge # Cockpit: Node monitoring bridge
@@ -47,7 +47,7 @@ modules:
       # - edk2-ovmf # VM: UEFI firmware (Bazzite pre-installed)
       - incus # VM/Container: Next-gen manager
       - incus-agent # VM: Incus guest agent
-      # - libvirt # VM: Virtualization API (Bazzite pre-installed)
+      - libvirt # VM: Virtualization API (removed from bazzite base in F44)
       - libvirt-nss # VM: Name service switch
       - virtiofsd # VM: VirtioFS daemon
       - lxc # Container: Linux Containers
