@@ -20,9 +20,10 @@ if [ "${BLING_ZSH_SOURCED:-0}" = "1" ]; then
 fi
 BLING_ZSH_SOURCED=1
 # Ensure it's not exported to child shells
-export -n BLING_ZSH_SOURCED
+unset -v BLING_ZSH_SOURCED 2>/dev/null; BLING_ZSH_SOURCED=1
 
 # --- Configuration Toggles ---
+# Set these in your private configs before this is sourced to override
 [ -z "${BLUEFIN_SHELL_ENABLE_ATUIN:-}" ] && BLUEFIN_SHELL_ENABLE_ATUIN=1
 [ -z "${BLUEFIN_SHELL_ENABLE_STARSHIP:-}" ] && BLUEFIN_SHELL_ENABLE_STARSHIP=1
 [ -z "${BLUEFIN_SHELL_ENABLE_ZOXIDE:-}" ] && BLUEFIN_SHELL_ENABLE_ZOXIDE=1
@@ -37,6 +38,19 @@ if [ -f "/usr/share/ublue-os/silver-goggles/common-aliases.sh" ]; then
 	. "/usr/share/ublue-os/silver-goggles/common-aliases.sh"
 fi
 
+# --- Mise PATH Setup (Non-interactive safe) ---
+# Ensure Mise shims are in PATH even in non-interactive shells (like SSH commands or IDE tasks).
+# We prepend them to follow the "Inverted PATH Priority" (User-first) standard.
+if [ "${BLUEFIN_SHELL_ENABLE_MISE:-1}" = "1" ]; then
+	MISE_SHIMS_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
+	if [ -d "$MISE_SHIMS_DIR" ]; then
+		case ":${PATH}:" in
+		*:"$MISE_SHIMS_DIR":*) ;;
+		*) export PATH="$MISE_SHIMS_DIR:$PATH" ;;
+		esac
+	fi
+fi
+
 # --- Tool Activation (interactive shells only) ---
 case $- in *i*)
 	# Zsh configuration
@@ -48,16 +62,12 @@ case $- in *i*)
 		eval "$(direnv hook zsh)"
 	fi
 
-	# 2. Mise Runtime Manager (Shims-first for performance)
+	# 2. Mise Runtime Activation (Hooks/Interactive extras)
 	if [ "${BLUEFIN_SHELL_ENABLE_MISE:-1}" = "1" ] && command -v mise >/dev/null; then
-		# Use mise's own logic to find data dir if possible, otherwise default
-		MISE_SHIMS_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
-		[ -d "$MISE_SHIMS_DIR" ] && export PATH="$MISE_SHIMS_DIR:$PATH"
 		if [ "${MISE_ZSH_AUTO_ACTIVATE:-1}" != "0" ]; then
 			eval "$(mise activate zsh)"
 		fi
 	fi
-
 	# 3. Zoxide (Better 'cd')
 	if [ "${BLUEFIN_SHELL_ENABLE_ZOXIDE:-1}" = "1" ] && command -v zoxide >/dev/null; then
 		eval "$(zoxide init zsh)"

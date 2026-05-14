@@ -22,6 +22,20 @@ if test -f /usr/share/ublue-os/silver-goggles/common-aliases.fish
     source /usr/share/ublue-os/silver-goggles/common-aliases.fish
 end
 
+# --- Mise PATH Setup (Non-interactive safe) ---
+# Ensure Mise shims are in PATH even in non-interactive shells (like SSH commands or IDE tasks).
+# We prepend them to follow the "Inverted PATH Priority" (User-first) standard.
+if test "$BLUEFIN_SHELL_ENABLE_MISE" = 1
+    # Use mise's own logic to find data dir if possible, otherwise default
+    set -l mise_data_dir (if set -q MISE_DATA_DIR; echo $MISE_DATA_DIR; else; echo $HOME/.local/share/mise; end)
+    set -l mise_shims $mise_data_dir/shims
+    if test -d $mise_shims
+        if not contains -- $mise_shims $PATH
+            set -gx PATH $mise_shims $PATH
+        end
+    end
+end
+
 # --- Tool Activation (interactive shells only) ---
 # Aliases above are always available. Evals (prompt, hooks, completions)
 # only make sense for humans — skip in scripts and agent-driven subshells.
@@ -32,15 +46,8 @@ if status is-interactive
         direnv hook fish | source
     end
 
-    # 2. Mise (Shims-first for performance)
+    # 2. Mise Runtime Activation (Hooks/Interactive extras)
     if test "$BLUEFIN_SHELL_ENABLE_MISE" = 1; and command -v mise >/dev/null
-        # Use mise's own logic to find data dir if possible, otherwise default
-        set -l mise_data_dir (if set -q MISE_DATA_DIR; echo $MISE_DATA_DIR; else; echo $HOME/.local/share/mise; end)
-        set -l mise_shims $mise_data_dir/shims
-        if test -d $mise_shims
-            set -gx PATH $mise_shims $PATH
-        end
-
         if test "$MISE_FISH_AUTO_ACTIVATE" != 0
             mise activate fish | source
         end

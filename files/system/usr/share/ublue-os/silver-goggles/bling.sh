@@ -14,7 +14,7 @@ if [ "${BLING_SH_SOURCED:-0}" = "1" ]; then
 fi
 BLING_SH_SOURCED=1
 # Ensure it's not exported to child shells (like fish)
-export -n BLING_SH_SOURCED
+unset -v BLING_SH_SOURCED 2>/dev/null; BLING_SH_SOURCED=1
 
 # --- Configuration Toggles ---
 # Set these in your private configs before this is sourced to override
@@ -30,6 +30,31 @@ export -n BLING_SH_SOURCED
 if [ -f /usr/share/ublue-os/silver-goggles/common-aliases.sh ]; then
 	# shellcheck source=/dev/null
 	. /usr/share/ublue-os/silver-goggles/common-aliases.sh
+fi
+
+# --- Cleanup Ghost References ---
+# If PROMPT_COMMAND was inherited but the function is missing, clean it up to avoid errors.
+if [ -n "${BASH_VERSION:-}" ]; then
+	case "${PROMPT_COMMAND-}" in
+	*"_bling_lazy_atuin"*)
+		if ! command -v _bling_lazy_atuin >/dev/null 2>&1; then
+			PROMPT_COMMAND=$(printf '%s' "${PROMPT_COMMAND}" | sed 's/_bling_lazy_atuin; //g; s/_bling_lazy_atuin//g')
+		fi
+		;;
+	esac
+fi
+
+# --- Mise PATH Setup (Non-interactive safe) ---
+# Ensure Mise shims are in PATH even in non-interactive shells (like SSH commands or IDE tasks).
+# We prepend them to follow the "Inverted PATH Priority" (User-first) standard.
+if [ "${BLUEFIN_SHELL_ENABLE_MISE:-1}" = "1" ]; then
+	MISE_SHIMS_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
+	if [ -d "$MISE_SHIMS_DIR" ]; then
+		case ":${PATH}:" in
+		*:"$MISE_SHIMS_DIR":*) ;;
+		*) export PATH="$MISE_SHIMS_DIR:$PATH" ;;
+		esac
+	fi
 fi
 
 # --- Tool Activation (interactive shells only) ---
@@ -59,11 +84,8 @@ case $- in *i*)
 		fi
 	fi
 
-	# 2. Mise Runtime Manager (Shims-first for performance)
+	# 2. Mise Runtime Activation (Hooks/Interactive extras)
 	if [ "${BLUEFIN_SHELL_ENABLE_MISE:-1}" = "1" ] && [ "$(command -v mise)" ]; then
-		# Use mise's own logic to find data dir if possible, otherwise default
-		MISE_SHIMS_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
-		[ -d "$MISE_SHIMS_DIR" ] && export PATH="$MISE_SHIMS_DIR:$PATH"
 		case "${BLING_SHELL}" in
 		bash) [ "${MISE_BASH_AUTO_ACTIVATE:-1}" != "0" ] && eval "$(mise activate bash)" ;;
 		*) eval "$(mise activate "${BLING_SHELL}")" ;;
@@ -106,30 +128,41 @@ case $- in *i*)
 	fi
 
 	# 6. Atuin History Integration (Deferred/Lazy Loading)
-	if [ "${BLUEFIN_SHELL_ENABLE_ATUIN:-1}" = "1" ] && [ "$(command -v atuin)" ]; then
+	if [ "${BLUEFIN_SHELL_ENABLE_ATUIN:-1}" = "1" ]; then
 		if [ "${BLING_SHELL}" = "bash" ]; then
 			_bling_lazy_atuin() {
-				# Use a subshell to avoid polluting environment during initialization
-				eval "$(atuin init bash${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
-				# Removal of self from PROMPT_COMMAND (safe for both string and array)
-				if [ -n "${BASH_VERSION:-}" ]; then
-					# Bash 4.4+ supports array PROMPT_COMMAND, but many systems still use strings
-					case "${PROMPT_COMMAND-}" in
-					*"_bling_lazy_atuin"*)
-						PROMPT_COMMAND=$(printf '%s' "$PROMPT_COMMAND" | sed 's/_bling_lazy_atuin; //g; s/_bling_lazy_atuin//g')
-						;;
-					esac
+				# Use a global guard to ensure it only runs once per shell
+				[ "${_BLING_ATUIN_INITIALIZED:-0}" = "1" ] && return
+				_BLING_ATUIN_INITIALIZED=1
+
+				# Only initialize if atuin is actually available
+				if command -v atuin >/dev/null 2>&1; then
+					eval "$(atuin init bash${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
 				fi
+
+				# Remove self from PROMPT_COMMAND (safe string substitution)
+				PROMPT_COMMAND=$(printf '%s' "${PROMPT_COMMAND}" | sed 's/_bling_lazy_atuin; //g; s/_bling_lazy_atuin//g')
+
+				# Cleanup if it was the only thing in PROMPT_COMMAND
+				[ "$PROMPT_COMMAND" = "; " ] && PROMPT_COMMAND=""
+
 				unset -f _bling_lazy_atuin
 			}
-			# Prepend to PROMPT_COMMAND
-			if [ -z "${PROMPT_COMMAND-}" ]; then
-				PROMPT_COMMAND="_bling_lazy_atuin"
-			else
-				PROMPT_COMMAND="_bling_lazy_atuin; $PROMPT_COMMAND"
-			fi
+			# Prepend to PROMPT_COMMAND only if not already present
+			case "${PROMPT_COMMAND-}" in
+			*"_bling_lazy_atuin"*) ;;
+			*)
+				if [ -z "${PROMPT_COMMAND-}" ]; then
+					PROMPT_COMMAND="_bling_lazy_atuin"
+				else
+					PROMPT_COMMAND="_bling_lazy_atuin; $PROMPT_COMMAND"
+				fi
+				;;
+			esac
 		else
-			eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+			if command -v atuin >/dev/null 2>&1; then
+				eval "$(atuin init "${BLING_SHELL}"${ATUIN_INIT_FLAGS:+ ${ATUIN_INIT_FLAGS}})"
+			fi
 		fi
 	fi
 
