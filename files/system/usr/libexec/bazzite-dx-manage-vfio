@@ -52,7 +52,7 @@ if [[ "$OPTION" =~ "Bind" ]]; then
 
 elif [[ "$OPTION" =~ "Unbind" ]]; then
     echo "Removing VFIO bindings from kernel arguments..."
-    VFIO_IDS_KARG="$(rpm-ostree kargs | sed -E 's/.+(vfio_pci.ids=[^ ]+).*/\1/' | grep vfio_pci.ids || true)"
+    VFIO_IDS_KARG="$(rpm-ostree kargs | grep -o 'vfio_pci.ids=[^ ]*' || true)"
     if [ -n "$VFIO_IDS_KARG" ]; then
         rpm-ostree kargs --delete-if-present="$VFIO_IDS_KARG"
         echo "Binding removed. ${yellow}Reboot required${n} to return GPU to host."

@@ -111,7 +111,7 @@ elif [[ "$OPTION" =~ "Simultaneous" ]]; then
 
 elif [[ "$OPTION" =~ "Exclusive" ]]; then
     echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
-    just manage-vfio-gpu
+    /usr/libexec/bazzite-dx-manage-vfio
 
 elif [[ "$OPTION" =~ "KVMFR" ]]; then
     sudo /usr/libexec/bazzite-dx-kvmfr-setup

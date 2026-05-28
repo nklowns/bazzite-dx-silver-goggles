@@ -74,16 +74,13 @@ if [ ! -f "$QEMU_CONF" ]; then
 	echo "Creating new optimized qemu.conf..."
 	sudo mkdir -p /etc/libvirt
 	sudo bash -c "cat << EOF > $QEMU_CONF
-# Configuração Bazzite-DX Silver-Goggles (Declarative)
-user = \"root\"
-group = \"root\"
-remember_owner = 1
+# Declarative QEMU configuration for Bazzite-DX Silver Goggles
+# Optimized for Looking Glass (KVMFR) and High-Performance Virtualization
 
 cgroup_device_acl = [
     \"/dev/null\", \"/dev/full\", \"/dev/zero\",
     \"/dev/random\", \"/dev/urandom\",
-    \"/dev/ptmx\", \"/dev/kvm\", \"/dev/kqemu\",
-    \"/dev/rtc\",\"/dev/hpet\", \"/dev/sev\",
+    \"/dev/ptmx\", \"/dev/kvm\",
     \"/dev/userfaultfd\", \"/dev/kvmfr0\"
 ]
 EOF"
@@ -105,21 +102,17 @@ sudo semanage fcontext -a -t svirt_tmpfs_t /dev/kvmfr0
 
 echo "Checking for declarative SELinux KVMFR policy..."
 if sudo semodule -l | grep -q "^kvmfr$"; then
-	echo "SELinux kvmfr policy is already loaded declaratively. Skipping local compilation."
+	echo "SELinux kvmfr policy is already loaded. Skipping installation."
+elif [ -f "/usr/share/selinux/packages/kvmfr.pp" ]; then
+	echo "Found pre-compiled SELinux policy in /usr/share/selinux/packages/kvmfr.pp"
+	echo "Installing pre-compiled policy..."
+	sudo semodule -i /usr/share/selinux/packages/kvmfr.pp
 else
 	# Create type enforcement for /dev/kvmfr0 as there is no existing way to access kvmfr using virt context
 	echo "Adding SELinux access rules for /dev/kvmfr0"
-	if [ ! -d "$HOME/.config/selinux_te/mod" ]; then
-		mkdir -p "$HOME/.config/selinux_te/mod"
-	fi
-	if [ ! -d "$HOME/.config/selinux_te/pp" ]; then
-		mkdir -p "$HOME/.config/selinux_te/pp"
-	fi
-	if [ -f "$HOME/.config/selinux_te/kvmfr.te" ]; then
-		echo "Re-creating kvmfr selinux type enforcement rules"
-		rm "$HOME"/.config/selinux_te/kvmfr.te
-	fi
-	bash -c "cat << KVMFR_SELINUX > \"$HOME\"/.config/selinux_te/kvmfr.te
+	tmp_dir="/tmp/kvmfr_selinux_setup"
+	mkdir -p "$tmp_dir/mod" "$tmp_dir/pp"
+	cat << KVMFR_SELINUX > "$tmp_dir/kvmfr.te"
 module kvmfr 1.0;
 require {
     type device_t;
@@ -128,19 +121,20 @@ require {
 }
 #============= svirt_t ==============
 allow svirt_t device_t:chr_file { open read write map };
-KVMFR_SELINUX"
+KVMFR_SELINUX
 
 	# Tell user what type enforcement we made and how it looks like
-	echo "This is the type enforcement we wrote for SELinux and you can find it in \"$HOME\"/.config/selinux_te/kvmfr.te"
+	echo "This is the type enforcement we wrote for SELinux and you can find it in $tmp_dir/kvmfr.te"
 	echo "#======= start of kvmfr.te ======="
-	cat "$HOME/.config/selinux_te/kvmfr.te"
+	cat "$tmp_dir/kvmfr.te"
 	echo "#======== end of kvmfr.te ========"
 	CONFIRM=$(Choose OK)
 
 	# Convert .te a .pp file for semodule
-	checkmodule -M -m -o "$HOME/.config/selinux_te/mod/kvmfr.mod" "$HOME/.config/selinux_te/kvmfr.te"
-	semodule_package -o "$HOME/.config/selinux_te/pp/kvmfr.pp" -m "$HOME/.config/selinux_te/mod/kvmfr.mod"
-	sudo semodule -i "$HOME/.config/selinux_te/pp/kvmfr.pp"
+	checkmodule -M -m -o "$tmp_dir/mod/kvmfr.mod" "$tmp_dir/kvmfr.te"
+	semodule_package -o "$tmp_dir/pp/kvmfr.pp" -m "$tmp_dir/mod/kvmfr.mod"
+	sudo semodule -i "$tmp_dir/pp/kvmfr.pp"
+	rm -rf "$tmp_dir"
 fi
 
 # Load kvmfr module into currently booted system
@@ -159,7 +153,11 @@ echo "you can read how to do that in /etc/modprobe.d/kvmfr.conf"
 Urllink "https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt" "Please read official documentation for kvmfr for how to use it"
 echo ""
 if [ -e "/dev/kvmfr0" ]; then
-	sudo chown "$USER":libvirt /dev/kvmfr0
+	if [ -n "$SUDO_USER" ]; then
+		sudo chown "$SUDO_USER":libvirt /dev/kvmfr0
+	else
+		sudo chown "$USER":libvirt /dev/kvmfr0
+	fi
 	echo "${b}NOTE: You can start using kvmfr right now without rebooting${n}"
 else
 	echo "Please reboot in order to fully load the kvmfr module."
