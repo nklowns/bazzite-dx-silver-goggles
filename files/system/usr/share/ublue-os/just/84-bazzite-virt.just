@@ -34,11 +34,13 @@ setup-virtualization ACTION="":
       echo "  Use 'usbhp-off' to select Disable SPICE USB hot plugging"
       exit 0
     elif [ "$OPTION" == "" ]; then
-      echo "${bold}Virtualization Setup${normal}"
-      echo "NOTE: Enabling Virtualization will install the virt-manager flatpak and set kernel args"
+      echo "${bold}Virtualization Setup & Diagnostics${normal}"
+      echo "NOTE: Enabling Virtualization will install tools and set kernel args."
       OPTION=$(Choose \
-        "Enable Virtualization" \
-        "Disable Virtualization" \
+        "Check Virtualization Readiness (Status)" \
+        "Manage GPU Passthrough (VFIO)" \
+        "Enable Virtualization Core" \
+        "Disable Virtualization Core" \
         "Add $USER to libvirt group" \
         "Enable VFIO drivers" \
         "Disable VFIO drivers" \
@@ -47,7 +49,51 @@ setup-virtualization ACTION="":
         "Disable USB hot plugging" \
       )
     fi
-    if [[ "${OPTION,,}" =~ (^enable[[:space:]]virtualization|virt-on) ]]; then
+
+    if [[ "$OPTION" =~ "Status" ]]; then
+        echo "${bold}--- Virtualization Readiness Report ---${normal}"
+
+        # 1. IOMMU Check
+        if dmesg | grep -i -e IOMMU -e DMAR | grep -q "enabled"; then
+            echo "  [${green}OK${normal}] IOMMU is enabled in kernel."
+        else
+            echo "  [${red}FAIL${normal}] IOMMU not detected. Check BIOS (VT-d/AMD-Vi) and kargs."
+        fi
+
+        # 2. KVMFR Check
+        if [ -c "/dev/kvmfr0" ]; then
+            echo "  [${green}OK${normal}] /dev/kvmfr0 is active."
+            ls -l /dev/kvmfr0 | awk '{print "       Permissions: " $1 " Owner: " $3 " Group: " $4}'
+        else
+            echo "  [${yellow}PENDING${normal}] /dev/kvmfr0 not found. Run 'Enable kvmfr module' and reboot."
+        fi
+
+        # 3. SELinux Check
+        if semodule -l | grep -q "^kvmfr$"; then
+            echo "  [${green}OK${normal}] SELinux KVMFR policy is loaded."
+        else
+            echo "  [${red}FAIL${normal}] SELinux policy missing. Run 'Enable kvmfr module'."
+        fi
+
+        # 4. Group Check
+        if groups | grep -q "libvirt"; then
+            echo "  [${green}OK${normal}] User $USER is in 'libvirt' group."
+        else
+            echo "  [${yellow}PENDING${normal}] $USER NOT in 'libvirt' group. Run 'Add to group'."
+        fi
+
+        # 5. QEMU Conf Check
+        if [ -f "/etc/libvirt/qemu.conf" ] && grep -q "kvmfr0" "/etc/libvirt/qemu.conf"; then
+            echo "  [${green}OK${normal}] QEMU is configured for Looking Glass."
+        else
+            echo "  [${yellow}PENDING${normal}] QEMU ACL missing /dev/kvmfr0."
+        fi
+        echo "---------------------------------------"
+
+    elif [[ "$OPTION" =~ "VFIO" ]]; then
+        just manage-vfio-gpu
+
+    elif [[ "${OPTION,,}" =~ (^enable[[:space:]]virtualization|virt-on|core) ]]; then
         if ! rpm -q virt-manager | grep -P "^virt-manager-" 1>/dev/null; then
           echo "Setting up Virtualization arguments..."
           VIRT_KARGS=$(rpm-ostree kargs)

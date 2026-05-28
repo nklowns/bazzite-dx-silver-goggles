@@ -68,26 +68,35 @@ fi
 
 # Add /dev/kvmfr0 to qemu cgroup device acl list
 echo "Configuring QEMU device ACL..."
-if grep -q "kvmfr0" /etc/libvirt/qemu.conf 2>/dev/null; then
+QEMU_CONF="/etc/libvirt/qemu.conf"
+
+if [ ! -f "$QEMU_CONF" ]; then
+	echo "Creating new optimized qemu.conf..."
+	sudo mkdir -p /etc/libvirt
+	sudo bash -c "cat << EOF > $QEMU_CONF
+# Configuração Bazzite-DX Silver-Goggles (Declarative)
+user = \"root\"
+group = \"root\"
+remember_owner = 1
+
+cgroup_device_acl = [
+    \"/dev/null\", \"/dev/full\", \"/dev/zero\",
+    \"/dev/random\", \"/dev/urandom\",
+    \"/dev/ptmx\", \"/dev/kvm\", \"/dev/kqemu\",
+    \"/dev/rtc\",\"/dev/hpet\", \"/dev/sev\",
+    \"/dev/userfaultfd\", \"/dev/kvmfr0\"
+]
+EOF"
+elif grep -q "kvmfr0" "$QEMU_CONF"; then
 	echo "QEMU already configured for kvmfr0."
 else
-	echo "Adding /dev/kvmfr0 to qemu cgroup_device_acl"
-	# This is a safe fallback if the declarative file isn't being used or was modified
-	sudo perl -0777 -pi -e 's/
-#cgroup_device_acl = \[
-#    "\/dev\/null", "\/dev\/full", "\/dev\/zero",
-#    "\/dev\/random", "\/dev\/urandom",
-#    "\/dev\/ptmx", "\/dev\/kvm",
-#    "\/dev\/userfaultfd"
-#\]
-/
-cgroup_device_acl = \[
-    "\/dev\/null", "\/dev\/full", "\/dev\/zero",
-    "\/dev\/random", "\/dev\/urandom",
-    "\/dev\/ptmx", "\/dev\/kvm",
-    "\/dev\/userfaultfd", "\/dev\/kvmfr0"
-\]
-/' /etc/libvirt/qemu.conf
+	echo "Adding /dev/kvmfr0 to existing qemu.conf..."
+	# If the file exists but doesn't have kvmfr0, we add it to the list
+	# This is a bit safer than the previous massive perl block
+	sudo sed -i 's|/dev/userfaultfd"|/dev/userfaultfd", "/dev/kvmfr0"|' "$QEMU_CONF"
+	# Also handle the case where it might be a clean file with the commented default block
+	sudo sed -i 's|#    "/dev/userfaultfd"|    "/dev/userfaultfd", "/dev/kvmfr0"|' "$QEMU_CONF"
+	sudo sed -i 's|#cgroup_device_acl|cgroup_device_acl|' "$QEMU_CONF"
 fi
 
 # Add SELinux context record for /dev/kvmfr0 (for simplicity we use the same one that was used for the shm)
