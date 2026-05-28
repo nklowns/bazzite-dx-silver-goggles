@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# Setup and configure virtualization and vfio
+
+b="${b:-}"
+n="${n:-}"
+green="${green:-}"
+red="${red:-}"
+yellow="${yellow:-}"
+bold="${bold:-}"
+normal="${normal:-}"
+u="${u:-}"
+
+Urllink() { :; }
+Choose() { :; }
+# shellcheck disable=SC1091
+source /usr/lib/ujust/ujust.sh
+
+ACTION="$1"
+
+if [[ $(id -u) -eq 0 ]]; then
+  echo "Please do not run this command as root"
+  exit 1
+fi
+
+# Check if we are running on a Steam Deck
+if /usr/libexec/hwsupport/valve-hardware; then
+  echo "${red}${b}WARNING${n}: Virtualization is not properly supported on Steam Deck by Valve"
+  echo "Use at your own risk and performance may not be ideal."
+fi
+
+if [ "$(systemctl is-enabled libvirtd.service 2>/dev/null)" == "disabled" ]; then
+  echo "${b}libvirtd${n} service is ${red}disabled${n}!"
+  echo "${green}enabling${n} and starting libvirtd"
+  echo "If virt-manager says libvirtd.sock is not available after a big update, re-run this command."
+  sudo systemctl enable --now libvirtd 2> /dev/null
+  echo "Press ESC if you want to exit and do not need to do anything"
+fi
+
+OPTION="$ACTION"
+if [ "$OPTION" == "help" ]; then
+  echo "Usage: ujust setup-virtualization <option>"
+  echo "  <option>: Specify the quick option to skip the prompt"
+  echo "  Use 'virt-on' to select Enable Virtualization"
+  echo "  Use 'virt-off' to select Disable Virtualization"
+  echo "  Use 'group' to select Add \$USER to libvirt group"
+  echo "  Use 'vfio-on' to select Enable VFIO drivers"
+  echo "  Use 'vfio-off' to select Disable VFIO drivers"
+  echo "  Use 'kvmfr' to select Autocreate Looking-Glass shm"
+  echo "  Use 'usbhp-on' to select Enable SPICE USB hot plugging"
+  echo "  Use 'usbhp-off' to select Disable SPICE USB hot plugging"
+  exit 0
+elif [ "$OPTION" == "" ]; then
+  echo "${bold}Virtualization Setup & Diagnostics${normal}"
+  echo "NOTE: Choose the mode that fits your workflow."
+  OPTION=$(Choose \
+    "Check Virtualization Readiness (Status)" \
+    "Setup Simultaneous Graphics (NVIDIA on Host + VM)" \
+    "Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" \
+    "Enable KVMFR / Looking Glass Support" \
+    "Add $USER to libvirt group" \
+    "Disable All Virtualization Kargs" \
+  )
+fi
+
+if [[ "$OPTION" =~ "Status" ]]; then
+    echo "${bold}--- Virtualization Readiness Report ---${normal}"
+    # 1. IOMMU Check
+    if sudo dmesg | grep -i -e IOMMU -e DMAR | grep -q "enabled"; then
+        echo "  [${green}OK${normal}] IOMMU is enabled in kernel."
+    else
+        echo "  [${red}FAIL${normal}] IOMMU not detected. Check BIOS (VT-d/AMD-Vi) and kargs."
+    fi
+    # 2. KVMFR Check
+    if [ -c "/dev/kvmfr0" ]; then
+        echo "  [${green}OK${normal}] /dev/kvmfr0 is active."
+    else
+        echo "  [${yellow}PENDING${normal}] /dev/kvmfr0 not found."
+    fi
+    # 3. SELinux Check
+    if sudo semodule -l | grep -q "^kvmfr$"; then
+        echo "  [${green}OK${normal}] SELinux policy loaded."
+    else
+        echo "  [${red}FAIL${normal}] SELinux policy missing."
+    fi
+    # 4. Group Check
+    if groups | grep -q "libvirt"; then
+        echo "  [${green}OK${normal}] User in libvirt group."
+    else
+        echo "  [${yellow}PENDING${normal}] User NOT in libvirt group."
+    fi
+    # 5. QEMU Conf Check
+    if [ -f "/etc/libvirt/qemu.conf" ] && grep -q "kvmfr0" "/etc/libvirt/qemu.conf"; then
+        echo "  [${green}OK${normal}] QEMU is configured for Looking Glass."
+    else
+        echo "  [${yellow}PENDING${normal}] QEMU ACL missing /dev/kvmfr0."
+    fi
+    echo "---------------------------------------"
+
+elif [[ "$OPTION" =~ "Simultaneous" ]]; then
+    echo "Enabling Virtualization Core (Safe Mode)..."
+    echo "NVIDIA will remain available for Bazzite/Games."
+    CPU_VENDOR=$(grep "vendor_id" "/proc/cpuinfo" | uniq | awk -F": " '{ print $2 }')
+    VENDOR_KARG="intel_iommu=on"
+    [[ ${CPU_VENDOR} == "AuthenticAMD" ]] && VENDOR_KARG="amd_iommu=on"
+    
+    rpm-ostree kargs \
+        --append-if-missing="${VENDOR_KARG}" \
+        --append-if-missing="iommu=pt" \
+        --append-if-missing="kvm.ignore_msrs=1"
+    echo "${green}Success!${n} Reboot to enable IOMMU infrastructure safely."
+
+elif [[ "$OPTION" =~ "Exclusive" ]]; then
+    echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
+    just manage-vfio-gpu
+
+elif [[ "$OPTION" =~ "KVMFR" ]]; then
+    sudo /usr/libexec/bazzite-dx-kvmfr-setup
+
+elif [[ "$OPTION" =~ "Add" ]]; then
+    if ! grep -q "^libvirt" /etc/group; then
+      grep '^libvirt' /usr/lib/group | sudo tee -a /etc/group > /dev/null
+    fi
+    sudo usermod -aG libvirt "$USER"
+    echo "User added to libvirt. Log out and log in to apply."
+
+elif [[ "$OPTION" =~ "Disable" ]]; then
+    echo "Removing all virtualization kargs..."
+    rpm-ostree kargs \
+        --delete-if-present="intel_iommu=on" \
+        --delete-if-present="amd_iommu=on" \
+        --delete-if-present="iommu=pt" \
+        --delete-if-present="kvm.ignore_msrs=1"
+    echo "Kargs removed. Reboot required."
+fi

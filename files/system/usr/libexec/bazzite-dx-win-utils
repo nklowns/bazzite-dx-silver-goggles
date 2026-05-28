@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Download and prepare essential tools for Windows Guests
+
+b="${b:-}"
+n="${n:-}"
+green="${green:-}"
+yellow="${yellow:-}"
+bold="${bold:-}"
+normal="${normal:-}"
+
+Choose() { :; }
+# shellcheck disable=SC1091
+source /usr/lib/ujust/ujust.sh
+
+echo "${bold}Windows Guest Utility Suite (Bazzite-DX)${normal}"
+echo "This helper provides links and snippets for high-performance Windows VMs."
+echo "----------------------------------------------------------------------"
+
+OPTION=$(Choose \
+  "Download VirtIO Drivers (ISO)" \
+  "Download Looking Glass B7 Host (Windows)" \
+  "Install Looking Glass B7 Client (Linux Host)" \
+  "Download Virtual Display Driver (Idd)" \
+  "Show Libvirt XML Snippets" \
+)
+
+if [[ "$OPTION" =~ "VirtIO" ]]; then
+    echo "Opening download link for latest stable VirtIO drivers..."
+    echo "Link: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso"
+    xdg-open "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso" || true
+
+elif [[ "$OPTION" =~ "Windows" ]]; then
+    echo "Opening Looking Glass B7 Host Setup download..."
+    echo "Note: Ensure you download the 'Host' version for Windows."
+    echo "Link: https://looking-glass.io/downloads"
+    xdg-open "https://looking-glass.io/downloads" || true
+
+elif [[ "$OPTION" =~ "Linux Host" ]]; then
+    echo "${bold}Looking Glass Client Installation (Bazzite Way)${normal}"
+    echo "Since there is no official Flatpak, you have two high-performance options:"
+    echo ""
+    echo "${green}Option A: Layering (Recommended for most)${normal}"
+    echo "Run this command to add the repository and install the client:"
+    echo "------------------------------------------------"
+    echo "sudo wget https://copr.fedorainfracloud.org/coprs/pgaskin/looking-glass-client/repo/fedora-\$(rpm -E %fedora)/pgaskin-looking-glass-client-fedora-\$(rpm -E %fedora).repo -O /etc/yum.repos.d/_copr_pgaskin-looking-glass-client.repo"
+    echo "rpm-ostree install looking-glass-client"
+    echo "------------------------------------------------"
+    echo ""
+    echo "${yellow}Option B: No-Layering (Distrobox)${normal}"
+    echo "Use a Fedora container to compile and run without touching the host:"
+    echo "1. distrobox create --image fedora:latest --name lg-build"
+    echo "2. distrobox enter lg-build -- bash -c \"sudo dnf install -y cmake gcc-c++ binutils-devel ... (see looking-glass.io/docs/B7/build)\""
+    echo ""
+
+elif [[ "$OPTION" =~ "Virtual Display" ]]; then
+    echo "Opening IddSampleDriver (Virtual Display) repository..."
+    echo "Useful if you don't have a physical dummy plug."
+    echo "Link: https://github.com/georgemorgan/IddSampleDriver/releases"
+    xdg-open "https://github.com/georgemorgan/IddSampleDriver/releases" || true
+
+elif [[ "$OPTION" =~ "XML Snippets" ]]; then
+    echo "${bold}1. IVSHMEM (Looking Glass)${normal}"
+    echo "Place this under <devices>:"
+    echo "------------------------------------------------"
+    echo "<shm dev='kvmfr0' size='128'/>"
+    echo "------------------------------------------------"
+    echo ""
+    echo "${bold}2. CPU Passthrough${normal}"
+    echo "<cpu mode='host-passthrough' check='none'/>"
+    echo ""
+    echo "${bold}3. Optimization (Remove Tablet)${normal}"
+    echo "Remove: <input type='tablet' bus='usb'/>"
+    echo "Add: <input type='mouse' bus='virtio'/>"
+    echo "------------------------------------------------"
+fi
