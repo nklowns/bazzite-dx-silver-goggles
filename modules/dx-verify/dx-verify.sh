@@ -28,7 +28,6 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system/g15-thermal.service|Asset: G15 Thermal Service|Error"
 	"file|/usr/lib/systemd/system/awccd.service|Asset: AWCC Service|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
-	"file|/usr/lib/modules-load.d/acpi_call.conf|Asset: acpi_call Config|Error"
 	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"
 	"file|/usr/lib/systemd/system/bazzite-dx-groups.service|Asset: DX Groups Service|Error"
 	"file|/etc/profile.d/brew.sh|Shield: Brew Profile|Error"

@@ -31,7 +31,15 @@ else
 	printf "Database File: %bMissing%b\n" "${RED}" "${NC}"
 fi
 
-# 4. Image Version
+# 4. Native Platform Profile
+if [[ -f "/sys/firmware/acpi/platform_profile" ]]; then
+	PROFILE=$(cat /sys/firmware/acpi/platform_profile)
+	printf "Platform Profile: %bActive (%s)%b\n" "${GREEN}" "$PROFILE" "${NC}"
+else
+	printf "Platform Profile: %bNot Supported / Offline%b\n" "${RED}" "${NC}"
+fi
+
+# 5. Image Version
 if [[ -f "/usr/lib/os-release" ]]; then
 	VERSION=$(grep "VARIANT_ID" /etc/os-release | cut -d= -f2 | tr -d '"')
 	printf "Image Variant: %b%s%b\n" "${BLUE}" "$VERSION" "${NC}"
