@@ -103,6 +103,10 @@ sudo semanage fcontext -a -t svirt_tmpfs_t /dev/kvmfr0
 echo "Checking for declarative SELinux KVMFR policy..."
 if sudo semodule -l | grep -q "^kvmfr$"; then
 	echo "SELinux kvmfr policy is already loaded. Skipping installation."
+elif [ -f "/usr/share/selinux/packages/kvmfr.cil" ]; then
+	echo "Found declarative SELinux CIL policy in /usr/share/selinux/packages/kvmfr.cil"
+	echo "Installing CIL policy..."
+	sudo semodule -i /usr/share/selinux/packages/kvmfr.cil
 elif [ -f "/usr/share/selinux/packages/kvmfr.pp" ]; then
 	echo "Found pre-compiled SELinux policy in /usr/share/selinux/packages/kvmfr.pp"
 	echo "Installing pre-compiled policy..."

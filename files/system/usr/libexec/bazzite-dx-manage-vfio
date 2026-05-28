@@ -31,21 +31,17 @@ fi
 
 if [[ "$OPTION" =~ "Bind" ]]; then
     echo "Searching for NVIDIA GPU IDs..."
-    # Extract the PCI IDs for the NVIDIA VGA and Audio devices
-    NVIDIA_VGA=$(lspci -nn | grep -i "VGA compatible controller.*NVIDIA" | grep -o "\[[0-9a-fA-F]\{4\}:[0-9a-fA-F]\{4\}\]" | tr -d '[]' || true)
-    NVIDIA_AUDIO=$(lspci -nn | grep -i "Audio device.*NVIDIA" | grep -o "\[[0-9a-fA-F]\{4\}:[0-9a-fA-F]\{4\}\]" | tr -d '[]' || true)
+    # Extract all PCI IDs for NVIDIA devices (vendor 10de), which includes VGA, Audio, USB-C, and UCSI
+    NVIDIA_IDS=$(lspci -nn | grep -i "NVIDIA" | grep -o "10de:[0-9a-fA-F]\{4\}" | sort -u | paste -sd, - || true)
 
-    if [ -z "$NVIDIA_VGA" ]; then
+    if [ -z "$NVIDIA_IDS" ]; then
         echo "${red}Error:${n} Could not detect an NVIDIA GPU."
         exit 1
     fi
 
-    VFIO_IDS="$NVIDIA_VGA"
-    if [ -n "$NVIDIA_AUDIO" ]; then
-        VFIO_IDS="$VFIO_IDS,$NVIDIA_AUDIO"
-    fi
+    VFIO_IDS="$NVIDIA_IDS"
 
-    echo "Found NVIDIA IDs: ${green}$VFIO_IDS${n}"
+    echo "Found NVIDIA IDs (including sub-devices): ${green}$VFIO_IDS${n}"
     echo "Appending to kernel arguments..."
     rpm-ostree kargs --append-if-missing="vfio_pci.ids=$VFIO_IDS"
     echo "${yellow}Reboot required${n} to apply GPU binding."
