@@ -5,7 +5,7 @@ BindTo=dev-platform-dell\x2dwmi.device
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/awcc gmode
+ExecStart=/usr/bin/bash -c 'if [ -e /proc/acpi/call ]; then echo "acpi_call found, running AWCC G-mode"; /usr/bin/awcc gmode; elif [ -f /sys/firmware/acpi/platform_profile ]; then echo "acpi_call not found, setting native ACPI platform profile to performance"; echo "performance" > /sys/firmware/acpi/platform_profile; else echo "No thermal configuration interface available"; fi'
 RemainAfterExit=yes
 
 [Install]
