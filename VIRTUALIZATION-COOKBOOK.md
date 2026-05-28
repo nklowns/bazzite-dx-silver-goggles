@@ -50,6 +50,7 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
 4.  **Acesso de Tela:**
     *   **Opção SPICE (Virt-Manager):** Fornece redimensionamento dinâmico automático da tela e compartilhamento de área de transferência (copiar/colar).
     *   **Opção RDP (Recomendado):** Habilite a "Área de Trabalho Remota" na VM e conecte a partir do host Bazzite via **KRDC** ou **Remmina** para obter a taxa de quadros e áudio mais fluidos possíveis.
+    *   **Sunshine & Moonlight (Transmissão do Host):** Como a NVIDIA permanece ativa no Bazzite Host, você pode rodar o **Sunshine** no host Linux para transmitir sua área de trabalho e jogos nativos para dispositivos externos (ex: Steam Deck, smartphones ou TVs) usando o cliente **Moonlight** com codificação por hardware `NVENC` de ultra-baixa latência.
 
 ---
 
@@ -83,6 +84,17 @@ Neste cenário, a **GPU NVIDIA é desvinculada do host Linux e dedicada 100% à 
         rpm-ostree install looking-glass-client
         ```
     *   Inicie a VM e execute no terminal do host: `looking-glass-client`. Use a tecla **Scroll Lock** para capturar/liberar o controle de mouse e teclado.
+
+### 📺 Alternativa de Streaming Sem Looking Glass: Sunshine & Moonlight
+Se você preferir uma alternativa ao Looking Glass que forneça transmissão de áudio e vídeo de baixíssima latência (com suporte a HDR) de forma simplificada, você pode usar a combinação Sunshine + Moonlight:
+1.  **No Windows Guest (VM):**
+    *   Instale o **Sunshine** na VM.
+    *   Nas configurações do Sunshine, force a captura e codificação de vídeo pela GPU NVIDIA via **NVENC** (o consumo de CPU será nulo porque o encoder é integrado de hardware na RTX 3060).
+    *   *Nota:* O **IddSampleDriver** (monitor fantasma) é obrigatório aqui também para forçar a GPU dedicada a instanciar uma tela ativa na qual o Sunshine possa se acoplar.
+2.  **No Bazzite Host:**
+    *   O Bazzite traz o cliente **Moonlight** pré-instalado na imagem padrão (ou disponível no Flathub).
+    *   Abra o Moonlight no host, insira o IP correspondente da VM (`192.168.122.X` ou o IP do Tailscale) e realize o emparelhamento com o Sunshine.
+    *   A partir daí, você poderá transmitir a VM inteira em tela cheia a 60/120 FPS de forma fluida sem precisar gerenciar a memória compartilhada (SHM) do Looking Glass.
 
 ---
 
