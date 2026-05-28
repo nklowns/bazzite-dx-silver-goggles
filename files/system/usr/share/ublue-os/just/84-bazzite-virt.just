@@ -44,6 +44,7 @@ setup-virtualization ACTION="":
         "Add $USER to libvirt group" \
         "Enable VFIO drivers" \
         "Disable VFIO drivers" \
+        "Setup VFIO Hot-Swap Hooks" \
         "Enable kvmfr module" \
         "Enable USB hot plugging" \
         "Disable USB hot plugging" \
@@ -54,7 +55,7 @@ setup-virtualization ACTION="":
         echo "${bold}--- Virtualization Readiness Report ---${normal}"
 
         # 1. IOMMU Check
-        if dmesg | grep -i -e IOMMU -e DMAR | grep -q "enabled"; then
+        if sudo dmesg | grep -i -e IOMMU -e DMAR | grep -q "enabled"; then
             echo "  [${green}OK${normal}] IOMMU is enabled in kernel."
         else
             echo "  [${red}FAIL${normal}] IOMMU not detected. Check BIOS (VT-d/AMD-Vi) and kargs."
@@ -69,7 +70,7 @@ setup-virtualization ACTION="":
         fi
 
         # 3. SELinux Check
-        if semodule -l | grep -q "^kvmfr$"; then
+        if sudo semodule -l | grep -q "^kvmfr$"; then
             echo "  [${green}OK${normal}] SELinux KVMFR policy is loaded."
         else
             echo "  [${red}FAIL${normal}] SELinux policy missing. Run 'Enable kvmfr module'."
@@ -153,10 +154,9 @@ setup-virtualization ACTION="":
         else
           rpm-ostree kargs \
             --append-if-missing="${VENDOR_KARG}" \
-            --append-if-missing="iommu=pt" \
-            --append-if-missing="rd.driver.pre=vfio-pci" \
-            --append-if-missing="vfio_pci.disable_vga=1"
-          echo "VFIO will be enabled on next boot, make sure you enable IOMMU, VT-d or AMD-v in your BIOS!"
+            --append-if-missing="iommu=pt"
+          echo "IOMMU will be enabled on next boot. (NVIDIA remains free for Host by default)."
+          echo "Make sure you enable IOMMU, VT-d or AMD-v in your BIOS!"
           echo "Please understand that since this is such a niche use case, support will be very limited!"
           echo 'Use the command "ls-iommu -grk" to get iommu information about your GPUs, use the "--help" flag for more options'
           echo ""
@@ -214,6 +214,43 @@ setup-virtualization ACTION="":
       fi
     elif [[ "${OPTION,,}" =~ kvmfr ]]; then
       sudo /usr/libexec/bazzite-dx-kvmfr-setup
+    elif [[ "$OPTION" =~ "Hot-Swap" ]]; then
+      echo "${bold}Dynamic VFIO (Hot-Swap) Setup${normal}"
+      echo "${red}${b}WARNING:${n} Dynamic unbinding of the primary NVIDIA GPU on Wayland/KDE is highly experimental."
+      echo "It usually requires stopping the Display Manager (SDDM) completely."
+      echo "----------------------------------------------------------------------"
+      echo "Creating Libvirt Hook directory structure..."
+      sudo mkdir -p /etc/libvirt/hooks/qemu.d
+      
+      if [ ! -f "/etc/libvirt/hooks/qemu" ]; then
+          echo "Installing base QEMU hook script..."
+          sudo bash -c 'cat << EOF > /etc/libvirt/hooks/qemu
+#!/bin/bash
+# Base QEMU Hook for Libvirt
+# Routes events to scripts in /etc/libvirt/hooks/qemu.d/\$GUEST_NAME/\$HOOK_NAME/\$STATE_NAME
+
+GUEST_NAME="\$1"
+HOOK_NAME="\$2"
+STATE_NAME="\$3"
+MISC="\$4"
+
+BASEDIR="/etc/libvirt/hooks/qemu.d"
+
+for script in "\$BASEDIR/\$GUEST_NAME/\$HOOK_NAME/\$STATE_NAME"/*; do
+    if [ -x "\$script" ]; then
+        "\$script" "\$@"
+    fi
+done
+EOF'
+          sudo chmod +x /etc/libvirt/hooks/qemu
+      fi
+      
+      echo "${green}Hook structure created in /etc/libvirt/hooks/qemu.d/${n}"
+      echo "To implement Hot-Swap for a VM named 'win11':"
+      echo "1. Create: /etc/libvirt/hooks/qemu.d/win11/prepare/begin/start.sh"
+      echo "2. Create: /etc/libvirt/hooks/qemu.d/win11/release/end/stop.sh"
+      echo "Note: Search for 'Single GPU Passthrough' guides for exact script contents."
+      
     elif [[ "${OPTION,,}" =~ (^enable[[:space:]]usb|usbhp-on) ]]; then
       echo "Adding udev rule for USB devices"
       sudo bash -c 'cat << USBHP_UDEV > /etc/udev/rules.d/72-usbhp.rules
@@ -299,8 +336,8 @@ manage-vfio-gpu ACTION="":
     #!/usr/bin/bash
     source /usr/lib/ujust/ujust.sh
     echo "${bold}VFIO GPU Passthrough Manager${normal}"
-    echo "This tool binds or unbinds your NVIDIA GPU to the VFIO driver."
-    echo "This is required if you want exclusive VM access to the GPU."
+    echo "${red}${b}WARNING:${n} On Bazzite-NVIDIA laptops, binding the GPU may cause a ${yellow}BLACK SCREEN${n}"
+    echo "if your BIOS is not in 'Hybrid/Optimus' mode or if the OS fails to fallback to Intel/AMD iGPU."
     echo "----------------------------------------------------------------------"
 
     OPTION="{{ ACTION }}"
