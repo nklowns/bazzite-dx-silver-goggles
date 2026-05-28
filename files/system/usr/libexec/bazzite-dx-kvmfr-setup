@@ -31,32 +31,49 @@ if [ "$CONFIRM" == "Cancel" ]; then
 fi
 
 # Add kvmfr modprobe file following upstream documentation
-echo "Setting up kvmfr module so it loads next boot"
-if [ -f "/etc/modprobe.d/kvmfr.conf" ]; then
-	echo "Re-creating dummy kvmfr modprobe file"
-	sudo rm /etc/modprobe.d/kvmfr.conf
-fi
-sudo bash -c 'cat << KVMFR_MODPROBE > /etc/modprobe.d/kvmfr.conf
+echo "Setting up kvmfr module parameters"
+if [ -f "/usr/lib/modprobe.d/kvmfr.conf" ]; then
+	echo "Declarative modprobe config detected in /usr/lib. Skipping /etc override."
+else
+	if [ -f "/etc/modprobe.d/kvmfr.conf" ]; then
+		echo "Re-creating dummy kvmfr modprobe file"
+		sudo rm /etc/modprobe.d/kvmfr.conf
+	fi
+	sudo bash -c 'cat << KVMFR_MODPROBE > /etc/modprobe.d/kvmfr.conf
 # This is a dummy file and changing it does nothing
 # If you want to change the kvmfr static_size_mb
 # Run "rpm-ostree kargs --replace=kvmfr.static_size_mb=oldvalue=newvalue"
 # Default value set by us is 128 which is enough for 4k SDR
 # Find the current value by running "rpm-ostree kargs"
 KVMFR_MODPROBE'
+fi
 
 # Add kvmfr static size karg
-rpm-ostree kargs --append-if-missing="kvmfr.static_size_mb=128"
+if ! rpm-ostree kargs | grep -q "kvmfr.static_size_mb"; then
+	rpm-ostree kargs --append-if-missing="kvmfr.static_size_mb=128"
+else
+	echo "KVMFR static size already set in kernel arguments."
+fi
 
 # Add upstream udev rule for kvmfr, adjusted for fedora systems
-echo "Adding udev rule for /dev/kvmfr0"
-sudo bash -c 'cat << KVMFR_UDEV > /etc/udev/rules.d/99-kvmfr.rules
-SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess"
+echo "Checking for declarative KVMFR configuration..."
+if [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
+	echo "Declarative udev rule detected in /usr/lib. Skipping /etc override."
+else
+	echo "Adding manual udev rule for /dev/kvmfr0 in /etc"
+	sudo bash -c 'cat << KVMFR_UDEV > /etc/udev/rules.d/99-kvmfr.rules
+SUBSYSTEM=="kvmfr", GROUP="libvirt", MODE="0660", TAG+="uaccess"
 KVMFR_UDEV'
+fi
 
 # Add /dev/kvmfr0 to qemu cgroup device acl list
-echo "Adding /dev/kvmfr0 to qemu cgroup_device_acl"
-# This is not ideal and if someone has a better way to do this without perl, you are welcome to change it
-sudo perl -0777 -pi -e 's/
+echo "Configuring QEMU device ACL..."
+if grep -q "kvmfr0" /etc/libvirt/qemu.conf 2>/dev/null; then
+	echo "QEMU already configured for kvmfr0."
+else
+	echo "Adding /dev/kvmfr0 to qemu cgroup_device_acl"
+	# This is a safe fallback if the declarative file isn't being used or was modified
+	sudo perl -0777 -pi -e 's/
 #cgroup_device_acl = \[
 #    "\/dev\/null", "\/dev\/full", "\/dev\/zero",
 #    "\/dev\/random", "\/dev\/urandom",
@@ -71,24 +88,29 @@ cgroup_device_acl = \[
     "\/dev\/userfaultfd", "\/dev\/kvmfr0"
 \]
 /' /etc/libvirt/qemu.conf
+fi
 
 # Add SELinux context record for /dev/kvmfr0 (for simplicity we use the same one that was used for the shm)
 echo "Adding SELinux context record for /dev/kvmfr0"
 sudo semanage fcontext -a -t svirt_tmpfs_t /dev/kvmfr0
 
-# Create type enforcement for /dev/kvmfr0 as there is no existing way to access kvmfr using virt context
-echo "Adding SELinux access rules for /dev/kvmfr0"
-if [ ! -d "$HOME/.config/selinux_te/mod" ]; then
-	mkdir -p "$HOME/.config/selinux_te/mod"
-fi
-if [ ! -d "$HOME/.config/selinux_te/pp" ]; then
-	mkdir -p "$HOME/.config/selinux_te/pp"
-fi
-if [ -f "$HOME/.config/selinux_te/kvmfr.te" ]; then
-	echo "Re-creating kvmfr selinux type enforcement rules"
-	rm "$HOME"/.config/selinux_te/kvmfr.te
-fi
-bash -c "cat << KVMFR_SELINUX > \"$HOME\"/.config/selinux_te/kvmfr.te
+echo "Checking for declarative SELinux KVMFR policy..."
+if sudo semodule -l | grep -q "^kvmfr$"; then
+	echo "SELinux kvmfr policy is already loaded declaratively. Skipping local compilation."
+else
+	# Create type enforcement for /dev/kvmfr0 as there is no existing way to access kvmfr using virt context
+	echo "Adding SELinux access rules for /dev/kvmfr0"
+	if [ ! -d "$HOME/.config/selinux_te/mod" ]; then
+		mkdir -p "$HOME/.config/selinux_te/mod"
+	fi
+	if [ ! -d "$HOME/.config/selinux_te/pp" ]; then
+		mkdir -p "$HOME/.config/selinux_te/pp"
+	fi
+	if [ -f "$HOME/.config/selinux_te/kvmfr.te" ]; then
+		echo "Re-creating kvmfr selinux type enforcement rules"
+		rm "$HOME"/.config/selinux_te/kvmfr.te
+	fi
+	bash -c "cat << KVMFR_SELINUX > \"$HOME\"/.config/selinux_te/kvmfr.te
 module kvmfr 1.0;
 require {
     type device_t;
@@ -99,17 +121,18 @@ require {
 allow svirt_t device_t:chr_file { open read write map };
 KVMFR_SELINUX"
 
-# Tell user what type enforcement we made and how it looks like
-echo "This is the type enforcement we wrote for SELinux and you can find it in \"$HOME\"/.config/selinux_te/kvmfr.te"
-echo "#======= start of kvmfr.te ======="
-cat "$HOME/.config/selinux_te/kvmfr.te"
-echo "#======== end of kvmfr.te ========"
-CONFIRM=$(Choose OK)
+	# Tell user what type enforcement we made and how it looks like
+	echo "This is the type enforcement we wrote for SELinux and you can find it in \"$HOME\"/.config/selinux_te/kvmfr.te"
+	echo "#======= start of kvmfr.te ======="
+	cat "$HOME/.config/selinux_te/kvmfr.te"
+	echo "#======== end of kvmfr.te ========"
+	CONFIRM=$(Choose OK)
 
-# Convert .te a .pp file for semodule
-checkmodule -M -m -o "$HOME/.config/selinux_te/mod/kvmfr.mod" "$HOME/.config/selinux_te/kvmfr.te"
-semodule_package -o "$HOME/.config/selinux_te/pp/kvmfr.pp" -m "$HOME/.config/selinux_te/mod/kvmfr.mod"
-sudo semodule -i "$HOME/.config/selinux_te/pp/kvmfr.pp"
+	# Convert .te a .pp file for semodule
+	checkmodule -M -m -o "$HOME/.config/selinux_te/mod/kvmfr.mod" "$HOME/.config/selinux_te/kvmfr.te"
+	semodule_package -o "$HOME/.config/selinux_te/pp/kvmfr.pp" -m "$HOME/.config/selinux_te/mod/kvmfr.mod"
+	sudo semodule -i "$HOME/.config/selinux_te/pp/kvmfr.pp"
+fi
 
 # Load kvmfr module into currently booted system
 echo "Loading kvmfr module so you do not have to reboot to use it the first time"
@@ -127,7 +150,7 @@ echo "you can read how to do that in /etc/modprobe.d/kvmfr.conf"
 Urllink "https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt" "Please read official documentation for kvmfr for how to use it"
 echo ""
 if [ -e "/dev/kvmfr0" ]; then
-	sudo chown "$USER":qemu /dev/kvmfr0
+	sudo chown "$USER":libvirt /dev/kvmfr0
 	echo "${b}NOTE: You can start using kvmfr right now without rebooting${n}"
 else
 	echo "Please reboot in order to fully load the kvmfr module."

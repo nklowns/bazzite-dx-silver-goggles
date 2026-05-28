@@ -41,6 +41,7 @@ cask "gcloud-cli"                                           # Google Cloud SDK
 
 # --- Personal Workspace (Dotfiles & IDE) ---
 brew "chezmoi"                                              # Personal dotfiles manager
-cask "ublue-os/tap/antigravity-linux"                       # Task assistant
-cask "ublue-os/tap/visual-studio-code-linux"                # Personal IDE configuration
-cask "ublue-os/tap/visual-studio-code-linux@insiders"       # Personal IDE configuration
+cask "ublue-os/tap/antigravity-ide-linux"                   # Antigravity IDE
+cask "ublue-os/tap/antigravity-cli-linux"                   # Antigravity CLI
+cask "ublue-os/tap/visual-studio-code-linux"                # Visual Studio Code IDE
+cask "ublue-os/tap/visual-studio-code-linux@insiders"       # Visual Studio Code Insiders IDE

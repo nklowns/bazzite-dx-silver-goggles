@@ -24,6 +24,9 @@ modules:
   - from-file: dx.yml
   - from-file: silver-goggles.yml
 
+  - type: dx-virt
+    source: local
+
   - type: initramfs
 
   - type: dx-hardening

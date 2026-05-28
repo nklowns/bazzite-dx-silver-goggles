@@ -8,6 +8,15 @@ modules:
     kargs:
       - vconsole.keymap=br
       - kvm.nested=1
+      # High-performance Virtualization & KVMFR
+      - kvm.ignore_msrs=1
+      - kvm.report_ignored_msrs=0
+      - kvmfr.static_size_mb=128
+      # IOMMU & VFIO for GPU Passthrough
+      - intel_iommu=on
+      - iommu=pt
+      - rd.driver.pre=vfio-pci
+      - vfio_pci.disable_vga=1
       # F44 regression: install-nvidia script that copied modeset.conf to /usr/lib/modprobe.d/
       # was removed; initramfs loads nvidia_drm without modeset=1 → HDMI dead, 60fps cap
       - nvidia-drm.modeset=1
@@ -18,6 +27,8 @@ modules:
   - type: rpm-ostree
     install:
       - smbios-utils-python # Dell SMBIOS/BIOS management utilities
+      - checkpolicy # Required for building SELinux policies
+      - policycoreutils # Required for managing SELinux policies
 
   # ==========================================
   # LAYER 3: HARDWARE (DELL G15 / AWCC)

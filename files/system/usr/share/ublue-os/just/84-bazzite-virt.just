@@ -50,9 +50,14 @@ setup-virtualization ACTION="":
     if [[ "${OPTION,,}" =~ (^enable[[:space:]]virtualization|virt-on) ]]; then
         if ! rpm -q virt-manager | grep -P "^virt-manager-" 1>/dev/null; then
           echo "Setting up Virtualization arguments..."
-          rpm-ostree kargs \
-          --append-if-missing="kvm.ignore_msrs=1" \
-          --append-if-missing="kvm.report_ignored_msrs=0"
+          VIRT_KARGS=$(rpm-ostree kargs)
+          if [[ ! "$VIRT_KARGS" =~ "kvm.ignore_msrs=1" ]]; then
+              rpm-ostree kargs \
+              --append-if-missing="kvm.ignore_msrs=1" \
+              --append-if-missing="kvm.report_ignored_msrs=0"
+          else
+              echo "Virtualization kargs already present."
+          fi
           echo "Making sure swtpm will work"
           if [ ! -d "/var/lib/swtpm-localca" ]; then
             sudo mkdir /var/lib/swtpm-localca
@@ -175,4 +180,128 @@ setup-virtualization ACTION="":
         grep '^libvirt' /usr/lib/group | sudo tee -a /etc/group > /dev/null
       fi
       sudo usermod -aG libvirt $USER
+    fi
+
+# Download and prepare essential tools for Windows Guests
+install-windows-utils:
+    #!/usr/bin/bash
+    source /usr/lib/ujust/ujust.sh
+    echo "${bold}Windows Guest Utility Suite (Bazzite-DX)${normal}"
+    echo "This helper provides links and snippets for high-performance Windows VMs."
+    echo "----------------------------------------------------------------------"
+
+    OPTION=$(Choose \
+      "Download VirtIO Drivers (ISO)" \
+      "Download Looking Glass B7 Host (Windows)" \
+      "Install Looking Glass B7 Client (Linux Host)" \
+      "Download Virtual Display Driver (Idd)" \
+      "Show Libvirt XML Snippets" \
+    )
+
+    if [[ "$OPTION" =~ "VirtIO" ]]; then
+        echo "Opening download link for latest stable VirtIO drivers..."
+        echo "Link: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso"
+        xdg-open "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso" || true
+
+    elif [[ "$OPTION" =~ "Windows" ]]; then
+        echo "Opening Looking Glass B7 Host Setup download..."
+        echo "Note: Ensure you download the 'Host' version for Windows."
+        echo "Link: https://looking-glass.io/downloads"
+        xdg-open "https://looking-glass.io/downloads" || true
+
+    elif [[ "$OPTION" =~ "Linux Host" ]]; then
+        echo "${bold}Looking Glass Client Installation (Bazzite Way)${normal}"
+        echo "Since there is no official Flatpak, you have two high-performance options:"
+        echo ""
+        echo "${green}Option A: Layering (Recommended for most)${normal}"
+        echo "Run this command to add the repository and install the client:"
+        echo "------------------------------------------------"
+        echo "sudo wget https://copr.fedorainfracloud.org/coprs/pgaskin/looking-glass-client/repo/fedora-\$(rpm -E %fedora)/pgaskin-looking-glass-client-fedora-\$(rpm -E %fedora).repo -O /etc/yum.repos.d/_copr_pgaskin-looking-glass-client.repo"
+        echo "rpm-ostree install looking-glass-client"
+        echo "------------------------------------------------"
+        echo ""
+        echo "${yellow}Option B: No-Layering (Distrobox)${normal}"
+        echo "Use a Fedora container to compile and run without touching the host:"
+        echo "1. distrobox create --image fedora:latest --name lg-build"
+        echo "2. distrobox enter lg-build -- bash -c \"sudo dnf install -y cmake gcc-c++ binutils-devel ... (see looking-glass.io/docs/B7/build)\""
+        echo ""
+
+    elif [[ "$OPTION" =~ "Virtual Display" ]]; then
+        echo "Opening IddSampleDriver (Virtual Display) repository..."
+        echo "Useful if you don't have a physical dummy plug."
+        echo "Link: https://github.com/georgemorgan/IddSampleDriver/releases"
+        xdg-open "https://github.com/georgemorgan/IddSampleDriver/releases" || true
+
+    elif [[ "$OPTION" =~ "XML Snippets" ]]; then
+        echo "${bold}1. IVSHMEM (Looking Glass)${normal}"
+        echo "Place this under <devices>:"
+        echo "------------------------------------------------"
+        echo "<shm dev='kvmfr0' size='128'/>"
+        echo "------------------------------------------------"
+        echo ""
+        echo "${bold}2. CPU Passthrough${normal}"
+        echo "<cpu mode='host-passthrough' check='none'/>"
+        echo ""
+        echo "${bold}3. Optimization (Remove Tablet)${normal}"
+        echo "Remove: <input type='tablet' bus='usb'/>"
+        echo "Add: <input type='mouse' bus='virtio'/>"
+        echo "------------------------------------------------"
+    fi
+
+# Manage GPU Passthrough (Bind/Unbind NVIDIA GPU to VFIO)
+manage-vfio-gpu ACTION="":
+    #!/usr/bin/bash
+    source /usr/lib/ujust/ujust.sh
+    echo "${bold}VFIO GPU Passthrough Manager${normal}"
+    echo "This tool binds or unbinds your NVIDIA GPU to the VFIO driver."
+    echo "This is required if you want exclusive VM access to the GPU."
+    echo "----------------------------------------------------------------------"
+
+    OPTION="{{ ACTION }}"
+    if [ -z "$OPTION" ]; then
+        OPTION=$(Choose \
+          "Bind NVIDIA GPU to VFIO (Require Reboot)" \
+          "Unbind GPU (Return to Host)" \
+          "Check Current GPU Status" \
+        )
+    fi
+
+    if [[ "$OPTION" =~ "Bind" ]]; then
+        echo "Searching for NVIDIA GPU IDs..."
+        # Extract the PCI IDs for the NVIDIA VGA and Audio devices
+        NVIDIA_VGA=$(lspci -nn | grep -i "VGA compatible controller.*NVIDIA" | grep -o "\[[0-9a-fA-F]\{4\}:[0-9a-fA-F]\{4\}\]" | tr -d '[]' || true)
+        NVIDIA_AUDIO=$(lspci -nn | grep -i "Audio device.*NVIDIA" | grep -o "\[[0-9a-fA-F]\{4\}:[0-9a-fA-F]\{4\}\]" | tr -d '[]' || true)
+
+        if [ -z "$NVIDIA_VGA" ]; then
+            echo "${red}Error:${n} Could not detect an NVIDIA GPU."
+            exit 1
+        fi
+
+        VFIO_IDS="$NVIDIA_VGA"
+        if [ -n "$NVIDIA_AUDIO" ]; then
+            VFIO_IDS="$VFIO_IDS,$NVIDIA_AUDIO"
+        fi
+
+        echo "Found NVIDIA IDs: ${green}$VFIO_IDS${n}"
+        echo "Appending to kernel arguments..."
+        rpm-ostree kargs --append-if-missing="vfio_pci.ids=$VFIO_IDS"
+        echo "${yellow}Reboot required${n} to apply GPU binding."
+
+    elif [[ "$OPTION" =~ "Unbind" ]]; then
+        echo "Removing VFIO bindings from kernel arguments..."
+        VFIO_IDS_KARG="$(rpm-ostree kargs | sed -E 's/.+(vfio_pci.ids=[^ ]+).*/\1/' | grep vfio_pci.ids || true)"
+        if [ -n "$VFIO_IDS_KARG" ]; then
+            rpm-ostree kargs --delete-if-present="$VFIO_IDS_KARG"
+            echo "Binding removed. ${yellow}Reboot required${n} to return GPU to host."
+        else
+            echo "No vfio_pci.ids found in kernel arguments. GPU is likely already attached to the host."
+        fi
+
+    elif [[ "$OPTION" =~ "Check" ]]; then
+        echo "Checking current driver for NVIDIA GPU..."
+        lspci -nnk | grep -iA 3 "NVIDIA" | grep "Kernel driver in use" || echo "GPU not active or found."
+
+        echo ""
+        echo "Current VFIO Kernel Args:"
+        rpm-ostree kargs | grep -o "vfio_pci.ids=[^ ]*" || echo "None"
     fi

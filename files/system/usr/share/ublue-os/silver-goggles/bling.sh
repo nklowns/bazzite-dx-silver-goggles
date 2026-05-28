@@ -14,7 +14,8 @@ if [ "${BLING_SH_SOURCED:-0}" = "1" ]; then
 fi
 BLING_SH_SOURCED=1
 # Ensure it's not exported to child shells (like fish)
-unset -v BLING_SH_SOURCED 2>/dev/null; BLING_SH_SOURCED=1
+unset -v BLING_SH_SOURCED 2>/dev/null
+BLING_SH_SOURCED=1
 
 # --- Configuration Toggles ---
 # Set these in your private configs before this is sourced to override

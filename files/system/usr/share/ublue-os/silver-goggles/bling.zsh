@@ -20,7 +20,8 @@ if [ "${BLING_ZSH_SOURCED:-0}" = "1" ]; then
 fi
 BLING_ZSH_SOURCED=1
 # Ensure it's not exported to child shells
-unset -v BLING_ZSH_SOURCED 2>/dev/null; BLING_ZSH_SOURCED=1
+unset -v BLING_ZSH_SOURCED 2>/dev/null
+BLING_ZSH_SOURCED=1
 
 # --- Configuration Toggles ---
 # Set these in your private configs before this is sourced to override
