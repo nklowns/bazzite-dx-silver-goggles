@@ -62,7 +62,7 @@ if [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
 else
 	echo "Adding manual udev rule for /dev/kvmfr0 in /etc"
 	sudo bash -c 'cat << KVMFR_UDEV > /etc/udev/rules.d/99-kvmfr.rules
-SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess", SECLABEL{selinux}="system_u:object_r:kvm_device_t:s0"
 KVMFR_UDEV'
 fi
 
@@ -96,49 +96,12 @@ else
 	sudo sed -i 's|#cgroup_device_acl|cgroup_device_acl|' "$QEMU_CONF"
 fi
 
-# Add SELinux context record for /dev/kvmfr0 (for simplicity we use the same one that was used for the shm)
+# Add SELinux context record for /dev/kvmfr0
 echo "Adding SELinux context record for /dev/kvmfr0"
-sudo semanage fcontext -a -t svirt_tmpfs_t /dev/kvmfr0
-
-echo "Checking for declarative SELinux KVMFR policy..."
-if sudo semodule -l | grep -q "^kvmfr$"; then
-	echo "SELinux kvmfr policy is already loaded. Skipping installation."
-elif [ -f "/usr/share/selinux/packages/kvmfr.cil" ]; then
-	echo "Found declarative SELinux CIL policy in /usr/share/selinux/packages/kvmfr.cil"
-	echo "Installing CIL policy..."
-	sudo semodule -i /usr/share/selinux/packages/kvmfr.cil
-elif [ -f "/usr/share/selinux/packages/kvmfr.pp" ]; then
-	echo "Found pre-compiled SELinux policy in /usr/share/selinux/packages/kvmfr.pp"
-	echo "Installing pre-compiled policy..."
-	sudo semodule -i /usr/share/selinux/packages/kvmfr.pp
-else
-	# Create type enforcement for /dev/kvmfr0 as there is no existing way to access kvmfr using virt context
-	echo "Adding SELinux access rules for /dev/kvmfr0"
-	tmp_dir="/tmp/kvmfr_selinux_setup"
-	mkdir -p "$tmp_dir/mod" "$tmp_dir/pp"
-	cat << KVMFR_SELINUX > "$tmp_dir/kvmfr.te"
-module kvmfr 1.0;
-require {
-    type device_t;
-    type svirt_t;
-    class chr_file { open read write map };
-}
-#============= svirt_t ==============
-allow svirt_t device_t:chr_file { open read write map };
-KVMFR_SELINUX
-
-	# Tell user what type enforcement we made and how it looks like
-	echo "This is the type enforcement we wrote for SELinux and you can find it in $tmp_dir/kvmfr.te"
-	echo "#======= start of kvmfr.te ======="
-	cat "$tmp_dir/kvmfr.te"
-	echo "#======== end of kvmfr.te ========"
-	CONFIRM=$(Choose OK)
-
-	# Convert .te a .pp file for semodule
-	checkmodule -M -m -o "$tmp_dir/mod/kvmfr.mod" "$tmp_dir/kvmfr.te"
-	semodule_package -o "$tmp_dir/pp/kvmfr.pp" -m "$tmp_dir/mod/kvmfr.mod"
-	sudo semodule -i "$tmp_dir/pp/kvmfr.pp"
-	rm -rf "$tmp_dir"
+sudo semanage fcontext -a -t kvm_device_t /dev/kvmfr0 2>/dev/null || true
+if [ -e "/dev/kvmfr0" ]; then
+	echo "Relabeling /dev/kvmfr0 with restorecon..."
+	sudo restorecon -v /dev/kvmfr0
 fi
 
 # Load kvmfr module into currently booted system

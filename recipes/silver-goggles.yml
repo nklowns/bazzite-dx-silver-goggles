@@ -25,7 +25,6 @@ modules:
   - type: rpm-ostree
     install:
       - smbios-utils-python # Dell SMBIOS/BIOS management utilities
-      - checkpolicy # Required for building SELinux policies
       - policycoreutils # Required for managing SELinux policies
 
   # ==========================================
