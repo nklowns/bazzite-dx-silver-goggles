@@ -43,14 +43,18 @@ if [[ "$OPTION" =~ "Bind" ]]; then
 
     echo "Found NVIDIA IDs (including sub-devices): ${green}$VFIO_IDS${n}"
     echo "Appending to kernel arguments..."
-    rpm-ostree kargs --append-if-missing="vfio_pci.ids=$VFIO_IDS"
+    rpm-ostree kargs \
+        --append-if-missing="vfio_pci.ids=$VFIO_IDS" \
+        --append-if-missing="rd.driver.pre=vfio-pci"
     echo "${yellow}Reboot required${n} to apply GPU binding."
 
 elif [[ "$OPTION" =~ "Unbind" ]]; then
     echo "Removing VFIO bindings from kernel arguments..."
     VFIO_IDS_KARG="$(rpm-ostree kargs | grep -o 'vfio_pci.ids=[^ ]*' || true)"
     if [ -n "$VFIO_IDS_KARG" ]; then
-        rpm-ostree kargs --delete-if-present="$VFIO_IDS_KARG"
+        rpm-ostree kargs \
+            --delete-if-present="$VFIO_IDS_KARG" \
+            --delete-if-present="rd.driver.pre=vfio-pci"
         echo "Binding removed. ${yellow}Reboot required${n} to return GPU to host."
     else
         echo "No vfio_pci.ids found in kernel arguments. GPU is likely already attached to the host."
