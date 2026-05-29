@@ -62,7 +62,7 @@ if [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
 else
 	echo "Adding manual udev rule for /dev/kvmfr0 in /etc"
 	sudo bash -c 'cat << KVMFR_UDEV > /etc/udev/rules.d/99-kvmfr.rules
-SUBSYSTEM=="kvmfr", GROUP="libvirt", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess"
 KVMFR_UDEV'
 fi
 
@@ -158,9 +158,9 @@ Urllink "https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt" "Please read o
 echo ""
 if [ -e "/dev/kvmfr0" ]; then
 	if [ -n "$SUDO_USER" ]; then
-		sudo chown "$SUDO_USER":libvirt /dev/kvmfr0
+		sudo chown "$SUDO_USER":qemu /dev/kvmfr0
 	else
-		sudo chown "$USER":libvirt /dev/kvmfr0
+		sudo chown "$USER":qemu /dev/kvmfr0
 	fi
 	echo "${b}NOTE: You can start using kvmfr right now without rebooting${n}"
 else
