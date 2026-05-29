@@ -66,6 +66,8 @@ Neste cenário, a **GPU NVIDIA é desvinculada do host Linux e dedicada 100% à 
 
 1.  **Isolar a GPU no Host:**
     Execute `ujust setup-virtualization` e escolha a opção **Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)**. Isso adicionará o driver `vfio-pci` às IDs da sua RTX 3060. Reinicie o host.
+    > [!WARNING]
+    > **A BIOS do seu laptop deve estar configurada no modo Híbrido/Optimus** (onde o vídeo principal roda na iGPU Intel). Se você desativar a iGPU e forçar o modo "Somente GPU Dedicada" (NVIDIA dGPU Only / MUX Switch direto) na BIOS do Dell G15 e depois isolar a NVIDIA, o sistema não terá nenhuma GPU ativa no host para carregar a interface gráfica, gerando uma tela preta persistente após o boot.
 2.  **Configurar KVMFR (Looking Glass):**
     Execute `ujust setup-virtualization` e selecione **Enable KVMFR / Looking Glass Support**. O script criará o dispositivo `/dev/kvmfr0` com 128 MB e definirá as regras necessárias do SELinux.
 3.  **Configurar a VM no Virt-Manager:**
@@ -129,6 +131,16 @@ Em vez de configurar servidores Samba/LAN lentos para expor o código-fonte do s
 4. Em **Target Path**, defina uma etiqueta identificadora simples (ex: `dev-workspace`).
 5. Inicie a VM do Windows. No Windows, o serviço de montagem do Virtio-FS (instalado através do `virtio-win-guest-tools.exe`) mapeará automaticamente a pasta como uma unidade de rede local fluida.
 
+> [!IMPORTANT]
+> **Permissões SELinux no Host:**
+> Por padrão, o SELinux no Bazzite impedirá o daemon `virtiofsd` (que roda sob o contexto da máquina virtual) de acessar arquivos no seu diretório `/home`. Para evitar o erro de `Permission Denied` no Windows Guest, você deve rodar os seguintes comandos no terminal do host para autorizar o acesso à pasta compartilhada:
+> ```bash
+> # Permite que processos de VM acessem a pasta de workspace
+> sudo semanage fcontext -a -t svirt_image_t "/var/home/seu-usuario/workspace(/.*)?"
+> # Aplica a alteração de contexto imediatamente
+> sudo restorecon -Rv /var/home/seu-usuario/workspace
+> ```
+
 ### B. Redirecionamento de Dispositivos USB (Spice USB Passthrough)
 Caso necessite expor pen-drives, dongles de autenticação USB ou controladores de hardware de forma dinâmica à VM:
 1. No console do Virt-Manager da VM ativa, acesse a barra de menu superior: **Virtual Machine -> Redirect USB Device**.
@@ -173,9 +185,13 @@ Para remover regras udev e modprobe adicionadas para o Looking Glass:
 ```bash
 sudo rm -f /etc/udev/rules.d/99-kvmfr.rules
 sudo rm -f /etc/modprobe.d/kvmfr.conf
-sudo rm -f /etc/libvirt/qemu.conf
+# Remova a política customizada do SELinux
 sudo semodule -r kvmfr 2>/dev/null || true
 ```
+
+> [!WARNING]
+> **Evite deletar todo o arquivo /etc/libvirt/qemu.conf!**
+> Em vez de apagar o arquivo completamente (o que excluiria todas as opções padrão e outras customizações importantes), edite `/etc/libvirt/qemu.conf` e remova a entrada `"/dev/kvmfr0"` da lista `cgroup_device_acl`. Delete o arquivo com `sudo rm` apenas se tiver certeza de que ele foi criado do zero pelo script e não contém nenhuma outra configuração.
 
 ### C. Desinstalar o Looking Glass Client do Host
 ```bash

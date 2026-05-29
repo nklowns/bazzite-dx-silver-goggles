@@ -65,9 +65,19 @@ ConfigureQemuAcl() {
 	fi
 }
 
+ConfigureSelinux() {
+	if ! semodule -l | grep -q "^kvmfr$"; then
+		echo "Automating Looking Glass SELinux policy installation..."
+		if [ -f "/usr/share/selinux/packages/kvmfr.cil" ]; then
+			semodule -i /usr/share/selinux/packages/kvmfr.cil
+		fi
+	fi
+}
+
 # --- Principal Flow ---
 
 ConfigureQemuAcl
+ConfigureSelinux
 
 if IsStateSynchronized; then
 	exit 0

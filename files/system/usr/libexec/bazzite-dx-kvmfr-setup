@@ -62,7 +62,7 @@ if [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
 else
 	echo "Adding manual udev rule for /dev/kvmfr0 in /etc"
 	sudo bash -c 'cat << KVMFR_UDEV > /etc/udev/rules.d/99-kvmfr.rules
-SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess", SECLABEL{selinux}="system_u:object_r:kvm_device_t:s0"
+SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess"
 KVMFR_UDEV'
 fi
 
@@ -96,12 +96,20 @@ else
 	sudo sed -i 's|#cgroup_device_acl|cgroup_device_acl|' "$QEMU_CONF"
 fi
 
-# Add SELinux context record for /dev/kvmfr0
-echo "Adding SELinux context record for /dev/kvmfr0"
-sudo semanage fcontext -a -t kvm_device_t /dev/kvmfr0 2>/dev/null || true
+# Clean up any manual SELinux context records to ensure it inherits default device_t context
+echo "Ensuring clean SELinux context for /dev/kvmfr0..."
+sudo semanage fcontext -d /dev/kvmfr0 2>/dev/null || true
 if [ -e "/dev/kvmfr0" ]; then
-	echo "Relabeling /dev/kvmfr0 with restorecon..."
+	echo "Restoring default context for /dev/kvmfr0..."
 	sudo restorecon -v /dev/kvmfr0
+fi
+
+# Load SELinux custom policy module if not already loaded
+if ! semodule -l | grep -q "^kvmfr$"; then
+	echo "Installing SELinux custom policy for kvmfr..."
+	if [ -f "/usr/share/selinux/packages/kvmfr.cil" ]; then
+		sudo semodule -i /usr/share/selinux/packages/kvmfr.cil
+	fi
 fi
 
 # Load kvmfr module into currently booted system

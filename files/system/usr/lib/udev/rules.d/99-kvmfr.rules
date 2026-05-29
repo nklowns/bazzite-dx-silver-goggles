@@ -1,1 +1,2 @@
-SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess", SECLABEL{selinux}="system_u:object_r:kvm_device_t:s0"
+SUBSYSTEM=="kvmfr", GROUP="qemu", MODE="0660", TAG+="uaccess"
+
