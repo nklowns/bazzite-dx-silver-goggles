@@ -50,8 +50,8 @@ elif [[ "$OPTION" =~ "Linux Host" ]]; then
 elif [[ "$OPTION" =~ "Virtual Display" ]]; then
     echo "Opening IddSampleDriver (Virtual Display) repository..."
     echo "Useful if you don't have a physical dummy plug."
-    echo "Link: https://github.com/georgemorgan/IddSampleDriver/releases"
-    xdg-open "https://github.com/georgemorgan/IddSampleDriver/releases" || true
+    echo "Link: https://github.com/ge9/IddSampleDriver/releases"
+    xdg-open "https://github.com/ge9/IddSampleDriver/releases" || true
 
 elif [[ "$OPTION" =~ "XML Snippets" ]]; then
     echo "${bold}1. IVSHMEM (Looking Glass)${normal}"
