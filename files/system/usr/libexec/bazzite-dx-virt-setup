@@ -28,11 +28,21 @@ if /usr/libexec/hwsupport/valve-hardware; then
   echo "Use at your own risk and performance may not be ideal."
 fi
 
-if [ "$(systemctl is-enabled libvirtd.service 2>/dev/null)" == "disabled" ]; then
-  echo "${b}libvirtd${n} service is ${red}disabled${n}!"
-  echo "${green}enabling${n} and starting libvirtd"
-  echo "If virt-manager says libvirtd.sock is not available after a big update, re-run this command."
-  sudo systemctl enable --now libvirtd 2> /dev/null
+# Check if libvirt daemon or socket is active (supporting both modular virtqemud and legacy libvirtd)
+VIRT_SERVICE="virtqemud.socket"
+if ! systemctl list-unit-files | grep -q "virtqemud.socket"; then
+  VIRT_SERVICE="libvirtd.service"
+fi
+
+if [ "$(systemctl is-enabled "$VIRT_SERVICE" 2>/dev/null)" == "disabled" ]; then
+  echo "${b}${VIRT_SERVICE}${n} service is ${red}disabled${n}!"
+  echo "${green}enabling${n} and starting ${VIRT_SERVICE}..."
+  echo "If virt-manager says the socket is not available after a big update, re-run this command."
+  sudo systemctl enable --now "$VIRT_SERVICE" 2> /dev/null
+  # For modular setup, also enable helper network, storage and node-dev sockets
+  if [ "$VIRT_SERVICE" == "virtqemud.socket" ]; then
+    sudo systemctl enable --now virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+  fi
   echo "Press ESC if you want to exit and do not need to do anything"
 fi
 
