@@ -74,10 +74,19 @@ ConfigureSelinux() {
 	fi
 }
 
+ConfigureLibvirtNss() {
+	if ! authselect current | grep -q "with-libvirt"; then
+		echo "Automating Libvirt NSS hostname resolution..."
+		authselect enable-feature with-libvirt || true
+		authselect apply-changes || true
+	fi
+}
+
 # --- Principal Flow ---
 
 ConfigureQemuAcl
 ConfigureSelinux
+ConfigureLibvirtNss
 
 if IsStateSynchronized; then
 	exit 0
