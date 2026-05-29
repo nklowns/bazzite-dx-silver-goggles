@@ -53,7 +53,21 @@ PersistStateMarker() {
 	echo "$GROUP_CONFIG_VERSION" >"$STATE_MARKER"
 }
 
+ConfigureQemuAcl() {
+	local qemu_conf="/etc/libvirt/qemu.conf"
+	if [ -f "$qemu_conf" ]; then
+		if ! grep -q "kvmfr0" "$qemu_conf"; then
+			echo "Automating Looking Glass QEMU ACL configuration..."
+			sed -i 's|/dev/userfaultfd"|/dev/userfaultfd", "/dev/kvmfr0"|' "$qemu_conf"
+			sed -i 's|#    "/dev/userfaultfd"|    "/dev/userfaultfd", "/dev/kvmfr0"|' "$qemu_conf"
+			sed -i 's|#cgroup_device_acl|cgroup_device_acl|' "$qemu_conf"
+		fi
+	fi
+}
+
 # --- Principal Flow ---
+
+ConfigureQemuAcl
 
 if IsStateSynchronized; then
 	exit 0
