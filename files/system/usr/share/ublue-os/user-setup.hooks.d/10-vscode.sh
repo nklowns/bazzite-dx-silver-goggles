@@ -16,6 +16,6 @@ EXTENSIONS=(
 if command -v code >/dev/null 2>&1; then
 	echo "Configuring VSCode extensions for DX..."
 	for ext in "${EXTENSIONS[@]}"; do
-		code --install-extension "$ext" --force
+		code --install-extension "$ext" --force || echo "Warning: Failed to install VSCode extension $ext"
 	done
 fi

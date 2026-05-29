@@ -81,7 +81,9 @@ cgroup_device_acl = [
     \"/dev/null\", \"/dev/full\", \"/dev/zero\",
     \"/dev/random\", \"/dev/urandom\",
     \"/dev/ptmx\", \"/dev/kvm\",
-    \"/dev/userfaultfd\", \"/dev/kvmfr0\"
+    \"/dev/rtc\", \"/dev/hpet\",
+    \"/dev/vfio/vfio\", \"/dev/userfaultfd\",
+    \"/dev/kvmfr0\"
 ]
 EOF"
 else
@@ -103,7 +105,9 @@ try:
     "/dev/null", "/dev/full", "/dev/zero",
     "/dev/random", "/dev/urandom",
     "/dev/ptmx", "/dev/kvm",
-    "/dev/userfaultfd", "/dev/kvmfr0"
+    "/dev/rtc", "/dev/hpet",
+    "/dev/vfio/vfio", "/dev/userfaultfd",
+    "/dev/kvmfr0"
 ]"""
     if re.search(pattern, content):
         new_content = re.sub(pattern, replacement, content)
@@ -150,7 +154,17 @@ fi
 
 # Load kvmfr module into currently booted system
 echo "Loading kvmfr module so you do not have to reboot to use it the first time"
-sudo modprobe kvmfr static_size_mb=128
+if ! sudo modprobe kvmfr static_size_mb=128; then
+	echo ""
+	echo "${red:-}${bold:-}ERROR: Failed to load kvmfr kernel module.${normal:-}"
+	if command -v mokutil >/dev/null && mokutil --sb-state 2>/dev/null | grep -q "enabled"; then
+		echo "Secure Boot is enabled. The custom kvmfr module might be unsigned or its signing key is not enrolled."
+		echo "Please run: ${bold:-}ujust enroll-secure-boot-key${normal:-} (password: ${yellow:-}universalblue${normal:-}) and reboot to enroll the key."
+	else
+		echo "Please check 'sudo dmesg | grep kvmfr' for detailed error information."
+	fi
+	echo ""
+fi
 
 # Final message and regenerate initramfs so kvmfr loads next boot
 echo ""

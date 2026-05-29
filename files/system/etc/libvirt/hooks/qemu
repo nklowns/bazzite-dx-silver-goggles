@@ -37,9 +37,10 @@ except Exception:
     pass
 " 2>/dev/null)
 
-	# If runtimeDir was not found in XML, fallback to /run/user/1000
+	# If runtimeDir was not found in XML, fallback to active user runtime directory
 	if [ -z "$RUNTIME_DIR" ]; then
-		RUNTIME_DIR="/run/user/1000"
+		ACTIVE_UID=$(loginctl list-users --no-legend 2>/dev/null | awk '$1 >= 1000 {print $1}' | head -n 1)
+		RUNTIME_DIR="/run/user/${ACTIVE_UID:-1000}"
 	fi
 
 	# Apply/Remove ACL based on state

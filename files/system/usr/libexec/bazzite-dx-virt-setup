@@ -57,7 +57,8 @@ except Exception:
     pass
 " 2>/dev/null)
 	if [ -z "$RUNTIME_DIR" ]; then
-		RUNTIME_DIR="/run/user/1000"
+		ACTIVE_UID=$(loginctl list-users --no-legend 2>/dev/null | awk '$1 >= 1000 {print $1}' | head -n 1)
+		RUNTIME_DIR="/run/user/${ACTIVE_UID:-1000}"
 	fi
 	if [ "$HOOK_NAME" = "prepare" ]; then
 		if [ -d "$RUNTIME_DIR" ]; then
@@ -209,9 +210,9 @@ if [[ "$OPTION" =~ "Status" ]]; then
 elif [[ "$OPTION" =~ "Simultaneous" ]]; then
     echo "Enabling Virtualization Core (Safe Mode)..."
     echo "NVIDIA will remain available for Bazzite/Games."
-    CPU_VENDOR=$(grep "vendor_id" "/proc/cpuinfo" | uniq | awk -F": " '{ print $2 }')
+    CPU_VENDOR=$(grep -m1 "vendor_id" "/proc/cpuinfo" | awk -F: '{print $2}' | xargs)
     VENDOR_KARG="intel_iommu=on"
-    [[ ${CPU_VENDOR} == "AuthenticAMD" ]] && VENDOR_KARG="amd_iommu=on"
+    [[ "${CPU_VENDOR}" == "AuthenticAMD" ]] && VENDOR_KARG="amd_iommu=on"
     
     rpm-ostree kargs \
         --append-if-missing="${VENDOR_KARG}" \

@@ -57,25 +57,35 @@ ConfigureQemuAcl() {
 	local qemu_conf="/etc/libvirt/qemu.conf"
 	if [ -f "$qemu_conf" ]; then
 		echo "Configuring Looking Glass QEMU ACL..."
+		local has_kvmfr=0
+		if [ -f "/etc/udev/rules.d/99-kvmfr.rules" ] || [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
+			has_kvmfr=1
+		fi
 		python3 -c '
 import sys, re
 path = sys.argv[1]
+has_kvmfr = sys.argv[2] == "1"
 try:
     with open(path, "r") as f:
         content = f.read()
     
-    # Check if kvmfr0 is already configured correctly with closed brackets
-    if "kvmfr0" in content and "cgroup_device_acl = [" in content:
-        if re.search(r"cgroup_device_acl\s*=\s*\[[^\]]*\"/dev/kvmfr0\"[^\]]*\]", content):
-            sys.exit(0)
+    devices = [
+        "/dev/null", "/dev/full", "/dev/zero",
+        "/dev/random", "/dev/urandom",
+        "/dev/ptmx", "/dev/kvm",
+        "/dev/rtc", "/dev/hpet",
+        "/dev/vfio/vfio", "/dev/userfaultfd"
+    ]
+    if has_kvmfr:
+        devices.append("/dev/kvmfr0")
+        
+    devices_str = ",\n    ".join(f"\"{d}\"" for d in devices)
+    replacement = f"cgroup_device_acl = [\n    {devices_str}\n]"
+    
+    if replacement in content:
+        sys.exit(0)
             
     pattern = r"#?cgroup_device_acl\s*=\s*\[[^\]]*\]"
-    replacement = """cgroup_device_acl = [
-    "/dev/null", "/dev/full", "/dev/zero",
-    "/dev/random", "/dev/urandom",
-    "/dev/ptmx", "/dev/kvm",
-    "/dev/userfaultfd", "/dev/kvmfr0"
-]"""
     if re.search(pattern, content):
         new_content = re.sub(pattern, replacement, content)
     else:
@@ -87,7 +97,7 @@ try:
 except Exception as e:
     print(f"Error configuring qemu.conf: {e}", file=sys.stderr)
     sys.exit(1)
-' "$qemu_conf"
+' "$qemu_conf" "$has_kvmfr"
 	fi
 }
 
@@ -103,6 +113,10 @@ ConfigureSelinux() {
 		local is_enabled=true
 		if [ "$policy_name" = "pipewire" ]; then
 			if [ ! -f "/etc/ublue/virt-pipewire.enable" ]; then
+				is_enabled=false
+			fi
+		elif [ "$policy_name" = "kvmfr" ]; then
+			if [ ! -f "/etc/udev/rules.d/99-kvmfr.rules" ] && [ ! -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
 				is_enabled=false
 			fi
 		fi
