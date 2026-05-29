@@ -56,6 +56,10 @@ if [ "$OPTION" == "help" ]; then
   echo "  Use 'vfio-on' to select Enable VFIO drivers"
   echo "  Use 'vfio-off' to select Disable VFIO drivers"
   echo "  Use 'kvmfr' to select Autocreate Looking-Glass shm"
+  echo "  Use 'pwaudio-on' to select Enable PipeWire VM Audio"
+  echo "  Use 'pwaudio-off' to select Disable PipeWire VM Audio"
+  echo "  Use 'vfs-workspace-on' to select Setup Virtio-FS Workspace Permissions"
+  echo "  Use 'vfs-workspace-off' to select Remove Virtio-FS Workspace Permissions"
   echo "  Use 'usbhp-on' to select Enable SPICE USB hot plugging"
   echo "  Use 'usbhp-off' to select Disable SPICE USB hot plugging"
   exit 0
@@ -67,6 +71,10 @@ elif [ "$OPTION" == "" ]; then
     "Setup Simultaneous Graphics (NVIDIA on Host + VM)" \
     "Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" \
     "Enable KVMFR / Looking Glass Support" \
+    "Enable PipeWire VM Audio Support (Microphone)" \
+    "Disable PipeWire VM Audio Support (Microphone)" \
+    "Configure Virtio-FS Shared Workspace Directory (SELinux)" \
+    "Remove Virtio-FS Shared Workspace Directory (SELinux)" \
     "Add $USER to libvirt group" \
     "Disable All Virtualization Kargs" \
   )
@@ -86,19 +94,31 @@ if [[ "$OPTION" =~ "Status" ]]; then
     else
         echo "  [${yellow}PENDING${normal}] /dev/kvmfr0 not found."
     fi
-    # 3. SELinux Check
+    # 3. SELinux KVMFR Policy Check
     if sudo semodule -l | grep -q "^kvmfr$"; then
-        echo "  [${green}OK${normal}] SELinux policy loaded."
+        echo "  [${green}OK${normal}] SELinux KVMFR policy loaded."
     else
-        echo "  [${red}FAIL${normal}] SELinux policy missing."
+        echo "  [${red}FAIL${normal}] SELinux KVMFR policy missing."
     fi
-    # 4. Group Check
+    # 4. SELinux PipeWire Policy Check
+    if sudo semodule -l | grep -q "^pipewire$"; then
+        echo "  [${green}OK${normal}] SELinux PipeWire policy loaded."
+    else
+        echo "  [${red}FAIL${normal}] SELinux PipeWire policy missing."
+    fi
+    # 5. QEMU Hook Runner Check
+    if [ -x "/etc/libvirt/hooks/qemu" ]; then
+        echo "  [${green}OK${normal}] QEMU hook runner is active and executable."
+    else
+        echo "  [${red}FAIL${normal}] QEMU hook runner missing or not executable."
+    fi
+    # 6. Group Check
     if groups | grep -q "libvirt"; then
         echo "  [${green}OK${normal}] User in libvirt group."
     else
         echo "  [${yellow}PENDING${normal}] User NOT in libvirt group."
     fi
-    # 5. QEMU Conf Check
+    # 7. QEMU Conf Check
     if [ -f "/etc/libvirt/qemu.conf" ] && grep -q "kvmfr0" "/etc/libvirt/qemu.conf"; then
         echo "  [${green}OK${normal}] QEMU is configured for Looking Glass."
     else
@@ -125,6 +145,46 @@ elif [[ "$OPTION" =~ "Exclusive" ]]; then
 
 elif [[ "$OPTION" =~ "KVMFR" ]]; then
     sudo /usr/libexec/bazzite-dx-kvmfr-setup
+
+elif [[ "${OPTION,,}" =~ "pwaudio-on" || "$OPTION" =~ "Enable PipeWire" ]]; then
+    echo "Enabling PipeWire VM Audio Support..."
+    sudo mkdir -p /etc/ublue
+    sudo touch /etc/ublue/virt-pipewire.enable
+    if [ -f "/usr/share/selinux/packages/pipewire.cil" ]; then
+        echo "Loading SELinux policy for PipeWire..."
+        sudo semodule -i /usr/share/selinux/packages/pipewire.cil
+    fi
+    echo "Restarting virtualization services..."
+    sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+    echo "${green}Success!${n} PipeWire VM Audio Support enabled."
+
+elif [[ "${OPTION,,}" =~ "pwaudio-off" || "$OPTION" =~ "Disable PipeWire" ]]; then
+    echo "Disabling PipeWire VM Audio Support..."
+    sudo rm -f /etc/ublue/virt-pipewire.enable
+    if semodule -l | grep -q "^pipewire$"; then
+        echo "Removing SELinux policy for PipeWire..."
+        sudo semodule -r pipewire
+    fi
+    echo "Restarting virtualization services..."
+    sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+    echo "${green}Success!${n} PipeWire VM Audio Support disabled."
+
+elif [[ "${OPTION,,}" =~ "vfs-workspace-on" || "$OPTION" =~ "Configure Virtio-FS" ]]; then
+    read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
+    WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
+    mkdir -p "$WORKSPACE_PATH"
+    echo "Configurando permissões do SELinux para o diretório: $WORKSPACE_PATH..."
+    sudo semanage fcontext -a -t svirt_image_t "${WORKSPACE_PATH}(/.*)?"
+    sudo restorecon -Rv "$WORKSPACE_PATH"
+    echo "${green}Sucesso!${n} O diretório $WORKSPACE_PATH agora está configurado para acesso via Virtio-FS."
+
+elif [[ "${OPTION,,}" =~ "vfs-workspace-off" || "$OPTION" =~ "Remove Virtio-FS" ]]; then
+    read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
+    WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
+    echo "Removendo permissões do SELinux para o diretório: $WORKSPACE_PATH..."
+    sudo semanage fcontext -d -t svirt_image_t "${WORKSPACE_PATH}(/.*)?" 2>/dev/null || true
+    sudo restorecon -Rv "$WORKSPACE_PATH"
+    echo "${green}Sucesso!${n} Permissões do SELinux para $WORKSPACE_PATH foram removidas."
 
 elif [[ "$OPTION" =~ "Add" ]]; then
     if ! grep -q "^libvirt" /etc/group; then

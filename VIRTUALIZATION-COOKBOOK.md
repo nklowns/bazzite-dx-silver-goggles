@@ -1,6 +1,6 @@
 # 📖 Bazzite-DX Silver-Goggles: Virtualization & Workflow Cookbook
 
-Este guia prático descreve os cenários de configuração, otimização e reversão de Máquinas Virtuais (VMs) no seu Dell G15 5520. Ele está dividido em duas opções arquiteturais: a **Opção A (Padrão Geral)** para fluxos paralelos de desenvolvimento e trabalho sem reiniciar a máquina, e a **Opção B (Opcional/Avançado)** para isolamento físico de GPU usando Passthrough e Looking Glass.
+Este guia prático descreve os cenários de configuração, otimização, alternativas de gerenciamento e reversão de Máquinas Virtuais (VMs) no seu Dell G15 5520. Ele está estruturado para fornecer uma visão abrangente de Developer Experience (DX) em sistemas operacionais atômicos imutáveis baseados em Fedora Silverblue/Bazzite.
 
 ---
 
@@ -46,19 +46,15 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     >    ```
 *   **Tailscale Coexistente:** O Tailscale pode ser executado no host e no guest simultaneamente. A VM aparecerá na sua Tailnet como uma máquina virtualizada própria com IP dedicado, permitindo comunicação de rede segura entre elas.
 
-### 🛠️ Configuração da VM no Virt-Manager:
+### 🛠️ Configuração Básica da VM
 1.  **Habilitar Virtualização Segura (Simultaneous Graphics):**
     Execute `ujust setup-virtualization` e escolha **Setup Simultaneous Graphics (NVIDIA on Host + VM)**. Reinicie o computador.
 2.  **Configuração de Disco e Rede:**
-    *   No Virt-Manager, configure o barramento de disco como **VirtIO SCSI** (I/O de alto desempenho).
+    *   Configure o barramento de disco como **VirtIO SCSI** (I/O de alto desempenho).
     *   Configure o modelo da placa de rede como **virtio**.
     *   Monte a ISO de drivers VirtIO na VM e instale o pacote `virtio-win-guest-tools.exe` para carregar todos os drivers.
 3.  **Ajuste de CPU (XML):**
     Defina o modo de CPU como `<cpu mode='host-passthrough' check='none'/>` e aloque entre 8 a 12 vCPUs. O agendador híbrido do Linux fará a distribuição eficiente de threads entre os P-cores e E-cores do seu i7-12700H.
-4.  **Acesso de Tela:**
-    *   **Opção SPICE (Virt-Manager):** Fornece redimensionamento dinâmico automático da tela e compartilhamento de área de transferência (copiar/colar).
-    *   **Opção RDP (Recomendado):** Habilite a "Área de Trabalho Remota" na VM e conecte a partir do host Bazzite via **KRDC** ou **Remmina** para obter a taxa de quadros e áudio mais fluidos possíveis.
-    *   **Sunshine & Moonlight (Transmissão do Host):** Como a NVIDIA permanece ativa no Bazzite Host, você pode rodar o **Sunshine** no host Linux para transmitir sua área de trabalho e jogos nativos para dispositivos externos (ex: Steam Deck, smartphones ou TVs) usando o cliente **Moonlight** com codificação por hardware `NVENC` de ultra-baixa latência.
 
 ---
 
@@ -68,17 +64,18 @@ Neste cenário, a **GPU NVIDIA é desvinculada do host Linux e dedicada 100% à 
 
 ### Para quem é recomendado:
 *   Quem precisa rodar aplicativos 3D de alta performance ou jogos que exigem aceleração física direta no Windows Virtualizado.
-*   *Nota Crítica:* **Valorant (Vanguard) e Destiny 2 (BattlEye) não rodam em VMs sob nenhuma circunstância** devido ao bloqueio ativo de hypervisors pelo anti-cheat. Tentativas de contornar isso podem acarretar em banimento de conta.
+    > [!CAUTION]
+    > **Nota Crítica de Anti-Cheat:**
+    > Valorant (Vanguard) e Destiny 2 (BattlEye) não rodam em VMs sob nenhuma circunstância devido ao bloqueio ativo de hypervisors pelo anti-cheat. Tentativas de contornar isso podem acarretar em banimento de conta.
 
-### 🛠️ Passo a Passo de Configuração:
-
+### 🛠️ Passo a Passo de Configuração
 1.  **Isolar a GPU no Host:**
     Execute `ujust setup-virtualization` e escolha a opção **Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)**. Isso adicionará o driver `vfio-pci` às IDs da sua RTX 3060. Reinicie o host.
     > [!WARNING]
-    > **A BIOS do seu laptop deve estar configurada no modo Híbrido/Optimus** (onde o vídeo principal roda na iGPU Intel). Se você desativar a iGPU e forçar o modo "Somente GPU Dedicada" (NVIDIA dGPU Only / MUX Switch direto) na BIOS do Dell G15 e depois isolar a NVIDIA, o sistema não terá nenhuma GPU ativa no host para carregar a interface gráfica, gerando uma tela preta persistente após o boot.
+    > **A BIOS do seu laptop deve estar configurada no modo Híbrido/Optimus** (onde o vídeo principal roda na iGPU Intel). Se você desativar a iGPU e forçar o modo "Somente GPU Dedicada" (MUX Switch direto) na BIOS do Dell G15 e depois isolar a NVIDIA, o sistema não terá nenhuma GPU ativa no host para carregar a interface gráfica, gerando uma tela preta persistente após o boot.
 2.  **Configurar KVMFR (Looking Glass):**
     Execute `ujust setup-virtualization` e selecione **Enable KVMFR / Looking Glass Support**. O script criará o dispositivo `/dev/kvmfr0` com 128 MB e definirá as regras necessárias do SELinux.
-3.  **Configurar a VM no Virt-Manager:**
+3.  **Configurar a VM no seu Gerenciador:**
     *   Adicione o hardware PCI correspondente à sua GPU NVIDIA (VGA e Áudio).
     *   Adicione a linha de memória compartilhada KVMFR no XML da VM, logo antes de `</devices>`:
         ```xml
@@ -92,11 +89,11 @@ Neste cenário, a **GPU NVIDIA é desvinculada do host Linux e dedicada 100% à 
     *   Inicie a VM e execute diretamente no terminal do host: `looking-glass-client`. Use a tecla **Scroll Lock** para capturar/liberar o controle de mouse e teclado.
 
 ### 📺 Alternativa de Streaming Sem Looking Glass: Sunshine & Moonlight
-Se você preferir uma alternativa ao Looking Glass que forneça transmissão de áudio e vídeo de baixíssima latência (com suporte a HDR) de forma simplificada, você pode usar a combinação Sunshine + Moonlight:
+Se você preferir uma alternativa ao Looking Glass que forneça transmissão de áudio e vídeo de baixíssima latência (com suporte a HDR) de forma simplificada:
 1.  **No Windows Guest (VM):**
     *   Instale o **Sunshine** na VM.
     *   Nas configurações do Sunshine, force a captura e codificação de vídeo pela GPU NVIDIA via **NVENC** (o consumo de CPU será nulo porque o encoder é integrado de hardware na RTX 3060).
-    *   *Nota:* O **IddSampleDriver** (monitor fantasma) é obrigatório aqui também para forçar a GPU dedicada a instanciar uma tela ativa na qual o Sunshine possa se acoplar.
+    *   O **IddSampleDriver** (monitor fantasma) é obrigatório aqui também para forçar a GPU dedicada a instanciar uma tela ativa na qual o Sunshine possa se acoplar.
 2.  **No Bazzite Host:**
     *   O Bazzite traz o cliente **Moonlight** pré-instalado na imagem padrão (ou disponível no Flathub).
     *   Abra o Moonlight no host, insira o IP correspondente da VM (`192.168.122.X` ou o IP do Tailscale) e realize o emparelhamento com o Sunshine.
@@ -104,9 +101,54 @@ Se você preferir uma alternativa ao Looking Glass que forneça transmissão de 
 
 ---
 
+## 🖥️ Clientes de Console e Controle de Tela (Interfaces de DX)
+
+O ecossistema Fedora Silverblue/Bazzite fornece diferentes ferramentas para interagir com a tela e controlar o ciclo de vida das suas VMs. Escolha a que melhor se adapta ao seu fluxo de trabalho:
+
+### 1. Virt-Manager (Desktop Clássico)
+*   **Descrição:** Interface tradicional baseada em GTK3 empacotada nativamente na sua imagem `bazzite-dx`.
+*   **Melhor Uso:** Configurações iniciais de hardware, gerenciamento de mídias e edição direta de XML.
+*   **Limitações Conhecidas:** A interface gráfica não gerencia diretamente backends modernos como o PipeWire (exige XML manual). Se você editar outras propriedades de áudio via GUI do Virt-Manager após fazer modificações no XML, a interface poderá sobrescrever suas tags customizadas com opções padrões do sistema.
+
+### 2. Cockpit-Machines (Console Web Leve)
+*   **Descrição:** Gerenciador web integrado nativamente nos serviços da imagem. Fica escutando por padrão em `https://localhost:9090` (acesse com suas credenciais do host Linux).
+*   **Benefícios Reais:**
+    *   **Consumo de Recursos Zero:** Não necessita manter uma janela de aplicativo de desktop pesada aberta.
+    *   **Modularidade Atômica:** Permite ligar, desligar, pausar, gerenciar conexões de rede NAT e monitorar o uso de CPU/RAM da VM direto no navegador.
+    *   **Consoles Integrados:** Fornece consoles gráficos VNC e seriais leves direto na aba da web.
+*   **Como Garantir que Está Ativo:**
+    ```bash
+    sudo systemctl enable --now cockpit.socket
+    ```
+
+### 3. Remote-Viewer / Virt-Viewer (Focado em SPICE)
+*   **Descrição:** Aplicativo leve voltado exclusivamente para renderizar a janela de vídeo SPICE/VNC da VM, sem as opções pesadas de gerenciamento de disco e rede do Virt-Manager.
+*   **Benefícios Reais:**
+    *   Ideal para criar atalhos rápidos de terminal ou lançadores no seu menu de aplicativos (ex: `remote-viewer spice://127.0.0.1:5900`).
+    *   **O Truque do `--wait`:** Ao rodar `virt-viewer -c qemu:///system --direct --wait "nome-da-vm"`, o visualizador ficará aguardando em segundo plano e abrirá a janela de vídeo automaticamente no milissegundo em que a VM for iniciada (ótimo para parear com scripts de automação de boot).
+
+### 4. RDP (KRDC / Remmina)
+*   **Descrição:** Cliente de Área de Trabalho Remota nativo da Microsoft rodando sobre rede virtualizada.
+*   **Benefícios Reais:** Excelente redimensionamento dinâmico de áudio e vídeo em conexões NAT comuns.
+*   **Limitação Crítica:** **Falha imediatamente** ao ativar VPNs estritas como Netskope na VM Guest, pois o tráfego da LAN TCP/IP local com o Host é bloqueado pelo túnel corporativo. Nesse estado, você deve retornar para o SPICE (Virt-Manager/Remote-Viewer) ou Looking Glass.
+
+### 5. Virsh CLI (A Alternativa Definitiva de Terminal)
+*   **Descrição:** Utilitário de linha de comando nativo do libvirt (`virsh`) para gerenciar todo o ciclo de vida do hypervisor.
+*   **Benefícios Reais:**
+    *   **Controle Total via Teclado:** Excelente para automações locais, SSH sem interface gráfica e diagnóstico.
+    *   **Comandos Essenciais de DX:**
+        *   *Listar VMs:* `virsh list --all`
+        *   *Iniciar VM:* `virsh start <nome-da-vm>`
+        *   *Desligar graciosamente:* `virsh shutdown <nome-da-vm>`
+        *   *Forçar desligamento (Puxar da tomada):* `virsh destroy <nome-da-vm>`
+        *   *Editar XML no editor padrão (Vim/Nano):* `virsh edit <nome-da-vm>`
+        *   *Configurar Boot Automático:* `virsh autostart <nome-da-vm>` (ou `--disable` para reverter)
+
+---
+
 ## ⚙️ Ajustes Finos Comuns de VM (Edição de XML)
 
-Independente da opção escolhida, selecione a sua VM no Virt-Manager, acesse os detalhes, vá em *Preferences -> General* e marque a opção **Enable XML editing**. Aplique estas otimizações para refinar a experiência do Windows Guest:
+Selecione a sua VM no Virt-Manager, acesse os detalhes, vá em *Preferences -> General* e marque a opção **Enable XML editing**. Aplique estas otimizações para refinar a experiência do Windows Guest:
 
 ### 1. Cursor de Baixa Latência (Mouse VirtIO)
 Por padrão, o QEMU emula um dispositivo de tablet USB absoluto para gerenciar o cursor, o que introduz lag notável. Para remover o lag do mouse, procure pela linha:
@@ -126,7 +168,7 @@ Substitua a tag `<cpu>` correspondente por:
 Isso garante a exposição completa do conjunto de instruções do i7-12700H, eliminando perda de desempenho por tradução de instruções.
 
 ### 3. CPU Pinning para Arquitetura Híbrida (Intel Core i7-12700H)
-O i7-12700H possui 6 P-cores (threads 0-11) e 8 E-cores (threads 12-19). Por padrão, o agendador do Linux não distingue quais threads da VM executam tarefas de alto desempenho daquelas que são auxiliares de I/O, distribuindo-as de forma aleatória. Se um vCPU da VM for agendado em um E-core sob estresse, a performance sofrerá quedas bruscas de desempenho (micro-stuttering).
+O i7-12700H possui 6 P-cores (threads 0-11) e 8 E-cores (threads 12-19). Por padrão, o agendador do Linux não distingue quais threads da VM executam tarefas de alto desempenho daquelas que são auxiliares de I/O, distribuindo-as de forma aleatória. Se um vCPU da VM for agendado em um E-core sob estresse, a performance sofrerá quedas brutcas de desempenho (micro-stuttering).
 Para obter desempenho estável, defina a contagem estática de vCPUs e configure o bloco `<cputune>` (inserido logo abaixo de `</vcpu>`) para fixar vCPUs em P-cores e as tarefas do emulador/I/O em E-cores:
 ```xml
 <vcpu placement='static'>8</vcpu>
@@ -166,37 +208,202 @@ Muitos aplicativos de segurança corporativos, softwares CAD e drivers bloqueiam
   <vmport state='off'/>
 </features>
 ```
+
 ---
 
-## 🔌 Recursos Adicionais de Produtividade (DX)
+## 🔌 Recursos Avançados e Integrações de Produtividade (DX)
 
-Para tornar o seu fluxo de desenvolvimento o mais completo e flexível possível, você pode incorporar os seguintes recursos à sua VM a partir do Virt-Manager:
+Para tornar o seu fluxo de desenvolvimento o mais completo e flexível possível, incorpore estes recursos de integração avançados entre o Bazzite Host e a sua VM Guest:
 
 ### A. Compartilhamento de Pastas Host-Guest (Virtio-FS)
-Em vez de configurar servidores Samba/LAN lentos para expor o código-fonte do seu projeto à VM Windows, utilize o **Virtio-FS** para mapear pastas do host Bazzite a taxas de transferência quase nativas:
-1. Com a VM desligada no Virt-Manager, clique em *Add Hardware -> Filesystem*.
-2. Defina o Driver como `virtiofs`.
-3. Em **Source Path**, coloque o caminho do diretório no host Linux (ex: `/var/home/seu-usuario/workspace`).
-4. Em **Target Path**, defina uma etiqueta identificadora simples (ex: `dev-workspace`).
-5. Inicie a VM do Windows. No Windows, o serviço de montagem do Virtio-FS (instalado através do `virtio-win-guest-tools.exe`) mapeará automaticamente a pasta como uma unidade de rede local fluida.
 
-> [!IMPORTANT]
-> **Permissões SELinux no Host:**
-> Por padrão, o SELinux no Bazzite impedirá o daemon `virtiofsd` (que roda sob o contexto da máquina virtual) de acessar arquivos no seu diretório `/home`. Para evitar o erro de `Permission Denied` no Windows Guest, você deve rodar os seguintes comandos no terminal do host para autorizar o acesso à pasta compartilhada:
-> ```bash
-> # Permite que processos de VM acessem a pasta de workspace
-> sudo semanage fcontext -a -t svirt_image_t "/var/home/seu-usuario/workspace(/.*)?"
-> # Aplica a alteração de contexto imediatamente
-> sudo restorecon -Rv /var/home/seu-usuario/workspace
-> ```
+Em vez de configurar servidores Samba/LAN lentos para expor o código-fonte do seu projeto à VM Windows, utilize o **Virtio-FS** para mapear pastas do host Bazzite a taxas de transferência quase nativas (memória mapeada direta, ultrapassando 3 GB/s de E/S de disco):
 
-### B. Redirecionamento de Dispositivos USB (Spice USB Passthrough)
+#### 🛠️ Guia de Implementação Passo a Passo
+
+##### Passo 1: Preparar o diretório no Host (Bazzite)
+1. Crie o diretório do seu workspace no Host (ex: `mkdir -p ~/workspace`).
+2. Aplique a permissão do SELinux usando a nossa ferramenta rápida:
+   ```bash
+   ujust setup-virtualization vfs-workspace-on
+   ```
+   *(Ou digite o caminho `/var/home/seu-usuario/workspace` quando solicitado).*
+   
+   > [!NOTE]
+   > **Como isso funciona no SELinux?**
+   > O script atribui a política de segurança `svirt_image_t` para o diretório. Caso queira reverter manualmente ou limpar o contexto do SELinux no diretório futuramente, basta rodar o atalho `ujust setup-virtualization vfs-workspace-off`.
+
+##### Passo 2: Habilitar Memória Compartilhada e Adicionar o Filesystem
+1. Com a VM Windows desligada, acesse as propriedades de hardware dela no Virt-Manager.
+2. **Habilitar Memória Compartilhada (Obrigatório para o Virtio-FS funcionar):**
+   *   Vá em **Memory** nos detalhes de hardware da VM.
+   *   Marque a caixa **"Enable shared memory"** (ou "Habilitar memória compartilhada").
+   *   *Alternativa via XML:* Caso prefira editar o XML diretamente, ative a edição de XML nas preferências do Virt-Manager, acesse a aba **XML**, e adicione o bloco abaixo logo no início (como filho direto da tag `<domain>`):
+       ```xml
+       <memoryBacking>
+         <source type='memfd'/>
+         <access mode='shared'/>
+       </memoryBacking>
+       ```
+3. Clique em **Add Hardware** -> **Filesystem**.
+4. Configure os campos:
+   *   **Type:** `mount`
+   *   **Driver:** `virtiofs`
+   *   **Source Path:** `/var/home/seu-usuario/workspace`
+   *   **Target Path:** `dev-workspace` (esta é a tag de identificação que o Windows lerá)
+5. Clique em Apply e ligue a VM. *(Se você esquecer de ativar a memória compartilhada no passo 2, a VM falhará ao iniciar).*
+
+##### Passo 3: Configurar os Drivers no Windows Guest
+O Windows precisa do proxy de sistemas de arquivos em espaço de usuário (WinFsp) e do driver do VirtIO-FS para ler o dispositivo PCI.
+1.  **Instalar o WinFsp:**
+    *   No Windows Guest, baixe e instale a versão estável mais recente do **WinFsp** (Windows File System Proxy): [github.com/winfsp/winfsp](https://github.com/winfsp/winfsp).
+2.  **Instalar o Driver do VirtIO-FS:**
+    *   Abra o **Gerenciador de Dispositivos** (`devmgmt.msc`).
+    *   Em "Outros Dispositivos", você verá um dispositivo com aviso (ex: "Mass Storage Controller" ou similar, correspondente ao barramento do Virtio-FS).
+    *   Clique com o botão direito -> **Atualizar Driver** -> **Procurar drivers no meu computador** e aponte para a unidade de CD/DVD onde está montada a ISO `virtio-win` (geralmente sob a pasta `viofs\w11\amd64` ou similar).
+3.  **Habilitar o Serviço do VirtIO-FS:**
+    *   Se você utilizou o instalador `virtio-win-guest-tools.exe` da ISO, o serviço `VirtioFsSvc` já estará registrado.
+    *   Se precisar registrar manualmente, abra o Prompt de Comando (CMD) como **Administrador** e execute:
+        ```cmd
+        sc.exe create VirtioFsSvc binpath= "C:\Program Files\Virtio-Win\VioFS\virtiofs.exe" start= auto depend= "WinFsp.Launcher/VirtioFsDrv" DisplayName= "Virtio FS Service"
+        ```
+    *   Abra o gerenciador de serviços (`services.msc`), localize **VirtIO-FS Service**, mude a inicialização para **Automático** e clique em **Iniciar (Start)**.
+    *   *Dica de Escrita:* Se o disco relatar erro de escrita ("Write Protection" ou "Permission Denied") sob usuários comuns do Windows, abra o `services.msc`, acesse as **Propriedades** do **VirtIO-FS Service** -> aba **Log On** (Logon) -> selecione **This account** (Esta conta) e insira as credenciais do seu usuário do Windows local em vez de rodar como `LocalSystem`. Reinicie o serviço.
+4.  O diretório compartilhado aparecerá no seu Windows Explorer como uma unidade de disco mapeada (geralmente sob a letra **`Z:`** correspondente à tag `dev-workspace`).
+
+---
+
+#### 💡 Cenário Avançado: Desenvolvimento Híbrido com Código e VPN Isolados no Guest (ex: Netskope) e IDE/Docker no Host
+
+Muitos ambientes corporativos exigem o uso de VPNs estritas (como o **Netskope**) rodando diretamente em um ambiente Windows (Guest) para compliance e acesso a repositórios Git internos e redes privadas. Essas VPNs costumam forçar políticas que **bloqueiam qualquer tráfego de rede local (LAN/Subnet local)**, impedindo o uso de compartilhamentos de rede baseados em TCP/IP (como Samba/SMB, SSHFS, RDP local).
+
+##### A Solução Arquitetural: Virtio-FS
+Como o **Virtio-FS funciona via canal de hardware virtual direto (barramento PCI e filas de memória compartilhada do QEMU)**, ele ignora completamente a pilha de rede TCP/IP do Windows Guest. Portanto, **mesmo com o Netskope VPN ativo e bloqueando toda a LAN, o compartilhamento de arquivos via Virtio-FS continua funcionando com 100% de performance e estabilidade!**
+
+Isso viabiliza o melhor dos dois mundos:
+1.  **Host Linux (Bazzite):** Onde reside o código fisicamente (ex: `/var/home/seu-usuario/workspace/seu-projeto`). Você roda suas IDEs (VS Code, JetBrains), containers Docker e ferramentas de compilação locais diretamente no Linux Host com **desempenho de E/S nativo de 100%** (zero overhead de virtualização para desenvolvimento ativo).
+2.  **Guest Windows (VM):** Onde roda o cliente **Netskope VPN** conectado à rede corporativa. Você usa o Windows Guest apenas para executar os comandos do **Git** (pull, push, clone), que acessam os servidores de código corporativos através do túnel da VPN e gravam as alterações diretamente no disco compartilhado `Z:\` (mapeado ao seu diretório local do Host).
+
+##### Configurar o Git no Windows Guest (Resolução de "Dubious Ownership")
+Como os arquivos pertencem fisicamente ao seu usuário do Linux (UID `1000`) e estão sendo acessados pelo Git rodando no Windows Guest, o Git do Windows disparará um bloqueio de segurança contra "propriedade duvidosa" (`fatal: detected dubious ownership in repository`).
+Para resolver isso de forma simples e segura:
+1.  Abra o Git Bash (ou terminal de sua preferência) no Windows Guest.
+2.  Desative a verificação de propriedade para a unidade compartilhada (ou globalmente na VM, já que esta VM é isolada e dedicada apenas ao seu trabalho):
+    ```bash
+    git config --global --add safe.directory '*'
+    ```
+3.  Agora, no terminal do Windows, navegue até `Z:\` (sua pasta compartilhada) e clone o repositório através do Netskope VPN:
+    ```cmd
+    cd /z
+    git clone git@github.com:seu-org/seu-projeto.git
+    ```
+4.  Pronto! Os arquivos serão clonados na rede do trabalho usando o Git no Windows Guest, mas serão salvos fisicamente na sua pasta local do Host Linux.
+
+##### Fluxo de Trabalho Diário
+*   **Para Codificar (Host):** Abra a IDE no Bazzite, aponte para `~/workspace/seu-projeto`. Use suas ferramentas locais, Docker containers locais, compiladores etc., rodando nativamente na CPU e disco do host.
+*   **Para controle de versão (Guest):** Quando quiser commitar ou baixar alterações do trabalho, simplesmente use o Git no Windows Guest (ex: via Git Bash ou GUI do Git no Windows) sob a VPN ativa. O Git sincronizará os arquivos na rede e atualizará as alterações na pasta compartilhada instantaneamente.
+
+---
+
+### B. Gerenciamento de Roteamento de Áudio e Microfone (PipeWire Nativo)
+
+Para usar o microfone no Linux (Host) e no Windows (Guest) ao mesmo tempo, **não utilize o passthrough físico de USB** (pois ele remove o dispositivo do host). Em vez disso, utilize o backend nativo do PipeWire integrado no QEMU/libvirt. Isso permite que a VM atue como um cliente de áudio comum no grafo do PipeWire.
+
+#### 1. Configurando o XML da VM
+Edite o XML da VM (habilite a edição de XML nas preferências do Virt-Manager) e substitua ou adicione os elementos abaixo dentro da tag `<devices>`:
+```xml
+<sound model='ich9'>
+  <audio id='1'/>
+</sound>
+<audio id='1' type='pipewire' runtimeDir='/run/user/1000'>
+  <input name='guest-in' streamName='Guest Mic' latency='15000'/>
+  <output name='guest-out' streamName='Guest Output' latency='15000'/>
+</audio>
+```
+> [!NOTE]
+> *   **`runtimeDir`**: Ajuste o `1000` se o UID do seu usuário no host for diferente (verifique executando `id -u` no terminal do host).
+> *   **`latency`**: O valor de `15000` microsegundos (15ms) previne estalos no áudio. Se houver desync ou engasgos, aumente levemente para `20000` ou `30000`.
+
+#### 2. Automação de Permissões e Segurança (DX Integrado no Silver-Goggles)
+Por padrão, o QEMU executa sob o usuário do sistema `qemu`, e o SELinux bloqueia o acesso à pasta temporária do seu usuário local (`/run/user/1000/pipewire-0`). 
+
+A boa notícia é que **você não precisa fazer nenhuma configuração de ganchos ou compilação manual de SELinux**. O seu sistema `bazzite-dx-silver-goggles` traz essa automação como um recurso **opcional e totalmente reversível**:
+*   **Ativação Simplificada (ujust):** Para ativar o recurso, execute `ujust setup-virtualization` no terminal do host e escolha **`Enable PipeWire VM Audio Support (Microphone)`** (ou use o atalho rápido `ujust setup-virtualization pwaudio-on`).
+*   **Reversão Completa:** Se desejar desativar e reverter todas as alterações de segurança e ganchos, execute `ujust setup-virtualization` e escolha **`Disable PipeWire VM Audio Support (Microphone)`** (ou use o atalho rápido `ujust setup-virtualization pwaudio-off`). Isso limpará o arquivo de controle e descarregará a política do SELinux imediatamente.
+*   **Como Funciona por Baixo dos Panos:**
+    *   **Gancho Automático (Libvirt Hook):** Se ativado, o script de gancho global da imagem `/etc/libvirt/hooks/qemu` analisa o XML de qualquer VM que você iniciar. Se ele detectar a tag `<audio type='pipewire'>`, ele automaticamente concede permissão temporária de leitura/escrita (`setfacl`) no socket do PipeWire do usuário ativo ao iniciar a VM, e remove a permissão quando ela é desligada.
+    *   **Política SELinux Declarativa:** O atalho instala/ativa a política de segurança `/usr/share/selinux/packages/pipewire.cil` (que é mantida no boot pelo serviço `bazzite-dx-groups.service` se ativada) autorizando o domínio da VM (`svirt_t`) a se comunicar com o socket de tempo de execução temporário do usuário host (`user_tmp_t`) e o daemon do PipeWire.
+
+> [!TIP]
+> Se você preferir rodar a VM de forma totalmente isolada sob o contexto do seu próprio usuário local (eliminando barreiras de permissão a nível de arquitetura de sistema), você pode optar por se conectar a `qemu:///session` (Sessão do Usuário) em vez de `qemu:///system` no Virt-Manager, embora isso mude a forma de gerenciar redes de ponte (bridges) e propriedade de discos virtuais.
+
+#### 3. Gerenciamento de Roteamento de Áudio
+Instale o **qpwgraph** ou **Helvum** (via Flatpak/Software Center no Bazzite). Quando a VM estiver ligada, você verá as portas de áudio virtuais `Guest Mic` (entrada) e `Guest Output` (saída) da sua VM. Você pode arrastar conexões visuais para ligar o microfone físico à entrada da VM, mantendo-o conectado em paralelo com seus aplicativos do host (Discord, OBS, etc.).
+
+---
+
+### C. Compartilhamento de Câmera/Webcam Simultâneo e Contorno de VPN
+
+Passar a webcam por USB físico desvincula o hardware do Linux. Para usar a mesma webcam simultaneamente no Bazzite e no Windows Guest, você deve manter o dispositivo no Host e transmitir a captura de imagem por rede virtual de baixa latência para a VM.
+
+#### 💡 O Pulo do Gato: Contornando o Bloqueio do Netskope com Duas Placas de Rede (NICs)
+VPNs corporativas estritas normalmente sequestram o gateway de rede padrão e bloqueiam tráfego local da sub-rede para evitar exfiltração de dados, o que impossibilita a transmissão de rede de vídeo (NDI/RTSP) ou conexões locais.
+Para contornar isso no Virt-Manager:
+1.  Com a VM desligada, adicione duas interfaces de rede:
+    *   **NIC 1 (NAT - padrão `virbr0`):** Usada para tráfego corporativo e internet geral da VM. É nela que a VPN Netskope atuará.
+    *   **NIC 2 (Host-Only / Rede Local Isolada):** Crie uma rede privada virtual estática apenas entre Host (ex: `192.168.100.1`) e Guest (ex: `192.168.100.2`), sem definir um gateway padrão para esta interface no Windows.
+2.  Direcione o tráfego do RDP e da webcam virtualizada (NDI/RTSP) exclusivamente pela **NIC 2**. A VPN Netskope ignorará essa placa por ela ser de escopo puramente local e não possuir rota de saída de internet, mantendo a transmissão ativa!
+
+---
+
+#### Método 1: NDI (Interface de Vídeo Profissional e Baixa Latência)
+Este é o método mais recomendado, pois o Windows reconhece o fluxo de rede diretamente como uma webcam real sem requerer softwares adicionais complexos na VM.
+1.  **No Bazzite (Host):**
+    *   Abra o **OBS Studio** (pré-instalado ou instale via Flatpak).
+    *   Instale o plugin DistroAV (antigo obs-ndi) do OBS para Flatpak:
+        ```bash
+        flatpak install flathub com.obsproject.Studio.Plugin.DistroAV
+        ```
+    *   No OBS, adicione sua webcam física como uma fonte na cena (**Dispositivo de captura de vídeo (V4L2)**).
+    *   Acesse **Ferramentas > DistroAV Output Settings** (ou NDI Output Settings) no OBS, ative o **Main Output** e dê o nome de `Host-Webcam`.
+    *   *Nota:* Com isso, você pode capturar a imagem no OBS do host, usar o OBS Virtual Camera para aplicativos do host Linux, e transmitir a webcam via rede simultaneamente.
+2.  **No Windows (Guest):**
+    *   Baixe e instale a suíte gratuita **NDI Tools** no Windows.
+    *   Abra o utilitário **NDI Webcam Input** (ele iniciará minimizado na bandeja do sistema).
+    *   Clique com o botão direito no ícone do NDI Webcam na bandeja, localize o seu host Linux na lista (direcionado pelo IP da NIC 2, se sob VPN) e selecione a fonte `Host-Webcam`.
+    *   Em qualquer aplicativo da VM (Zoom, Teams, Discord), selecione **NDI Webcam** como dispositivo de vídeo.
+
+#### Método 2: FFmpeg + MediaMTX + RTSP (Leve via Terminal/CLI)
+Se você não quer ter a interface gráfica do OBS aberta no host o tempo todo:
+1.  **No Bazzite (Host):**
+    *   Inicie o servidor de vídeo MediaMTX usando Podman:
+        ```bash
+        podman run --name mediamtx --rm -d --network=host aler9/rtsp-simple-server
+        ```
+    *   Inicie a transmissão da sua webcam `/dev/video0` para o servidor local sem fazer re-encode de vídeo (consumo nulo de CPU):
+        ```bash
+        ffmpeg -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate 30 -i /dev/video0 -c:v copy -f rtsp rtsp://127.0.0.1:8554/webcam
+        ```
+2.  **No Windows (Guest):**
+    *   Instale o **OBS Studio** na VM Windows.
+    *   Adicione uma **Fonte de Mídia (Media Source)**, desmarque "Arquivo Local" e coloque a URL de entrada (apontando para a NIC 2 do Host): `rtsp://192.168.100.1:8554/webcam`.
+    *   Clique em **Iniciar Câmera Virtual** (Start Virtual Camera) no painel do OBS do Windows.
+    *   Selecione a **OBS Virtual Camera** nos seus programas do Windows.
+
+---
+
+### D. Redirecionamento de Dispositivos USB (Spice USB Passthrough)
 Caso necessite expor pen-drives, dongles de autenticação USB ou controladores de hardware de forma dinâmica à VM:
 1. No console do Virt-Manager da VM ativa, acesse a barra de menu superior: **Virtual Machine -> Redirect USB Device**.
 2. Uma lista de dispositivos físicos USB conectados ao seu Dell G15 será exibida.
 3. Marque o dispositivo desejado. Ele será desvinculado do host Bazzite e plugado de forma lógica na VM do Windows instantaneamente. Desmarque para retornar ao Linux.
+   > [!WARNING]
+   > **Limitação no Flatpak:**
+   > Se o seu Virt-Manager for executado em container isolado Flatpak, o redirecionamento dinâmico por SPICE falhará por bloqueio do sandbox sobre os daemons PolicyKit/udev do host. Nesse caso, realize o **Static USB Passthrough** clicando em *Add Hardware -> USB Host Device* no Virt-Manager com a VM desligada, vinculando a porta física do notebook diretamente à VM.
 
-### C. Aceleração 3D Virtualizada para VMs Linux (VirGL / Venus)
+---
+
+### E. Aceleração 3D Virtualizada para VMs Linux (VirGL / Venus)
 Se você precisar iniciar uma VM de testes Linux (como uma distribuição Ubuntu ou Fedora de desenvolvimento) no Virt-Manager:
 *   Você **não** precisa de Passthrough de GPU física para obter aceleração gráfica de janelas e renderização 3D.
 *   Nas propriedades de tela da VM Linux no Virt-Manager, acesse a placa gráfica (**Video**), defina o modelo como `virtio` e marque a opção **3D Acceleration**.

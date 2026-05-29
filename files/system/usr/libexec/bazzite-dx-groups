@@ -92,26 +92,46 @@ except Exception as e:
 }
 
 ConfigureSelinux() {
-	local policy_file="/usr/share/selinux/packages/kvmfr.cil"
-	local checksum_file="/etc/ublue/kvmfr-policy.checksum"
-	
-	if [ -f "$policy_file" ]; then
-		local current_checksum
-		current_checksum=$(sha256sum "$policy_file" | cut -d' ' -f1)
+	# Loop through all declarative CIL policies in the system image
+	for policy_path in /usr/share/selinux/packages/*.cil; do
+		[ -f "$policy_path" ] || continue
+		local policy_name
+		policy_name=$(basename "$policy_path" .cil)
+		local checksum_file="/etc/ublue/${policy_name}-policy.checksum"
 		
-		local stored_checksum=""
-		if [ -f "$checksum_file" ]; then
-			stored_checksum=$(cat "$checksum_file")
-		fi
-		
-		if [ "$current_checksum" != "$stored_checksum" ] || ! semodule -l | grep -q "^kvmfr$"; then
-			echo "Installing/updating Looking Glass SELinux policy..."
-			if semodule -i "$policy_file"; then
-				mkdir -p "$(dirname "$checksum_file")"
-				echo "$current_checksum" > "$checksum_file"
+		# Check if the policy is optional and enabled
+		local is_enabled=true
+		if [ "$policy_name" = "pipewire" ]; then
+			if [ ! -f "/etc/ublue/virt-pipewire.enable" ]; then
+				is_enabled=false
 			fi
 		fi
-	fi
+
+		if [ "$is_enabled" = "true" ]; then
+			local current_checksum
+			current_checksum=$(sha256sum "$policy_path" | cut -d' ' -f1)
+			
+			local stored_checksum=""
+			if [ -f "$checksum_file" ]; then
+				stored_checksum=$(cat "$checksum_file")
+			fi
+			
+			if [ "$current_checksum" != "$stored_checksum" ] || ! semodule -l | grep -q "^${policy_name}$"; then
+				echo "Installing/updating SELinux custom policy for ${policy_name}..."
+				if semodule -i "$policy_path"; then
+					mkdir -p "$(dirname "$checksum_file")"
+					echo "$current_checksum" > "$checksum_file"
+				fi
+			fi
+		else
+			# If policy is loaded but the feature is disabled, unload it
+			if semodule -l | grep -q "^${policy_name}$"; then
+				echo "Removing disabled SELinux custom policy for ${policy_name}..."
+				semodule -r "${policy_name}" || true
+				rm -f "$checksum_file"
+			fi
+		fi
+	done
 }
 
 ConfigureLibvirtNss() {
