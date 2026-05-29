@@ -125,6 +125,25 @@ Substitua a tag `<cpu>` correspondente por:
 ```
 Isso garante a exposição completa do conjunto de instruções do i7-12700H, eliminando perda de desempenho por tradução de instruções.
 
+### 3. CPU Pinning para Arquitetura Híbrida (Intel Core i7-12700H)
+O i7-12700H possui 6 P-cores (threads 0-11) e 8 E-cores (threads 12-19). Por padrão, o agendador do Linux não distingue quais threads da VM executam tarefas de alto desempenho daquelas que são auxiliares de I/O, distribuindo-as de forma aleatória. Se um vCPU da VM for agendado em um E-core sob estresse, a performance sofrerá quedas bruscas de desempenho (micro-stuttering).
+Para obter desempenho estável, defina a contagem estática de vCPUs e configure o bloco `<cputune>` (inserido logo abaixo de `</vcpu>`) para fixar vCPUs em P-cores e as tarefas do emulador/I/O em E-cores:
+```xml
+<vcpu placement='static'>8</vcpu>
+<cputune>
+  <!-- Fixa os vCPUs 0 a 7 nos threads de P-cores (Cores 1 a 4) do host -->
+  <vcpupin vcpu='0' cpuset='2-3'/>
+  <vcpupin vcpu='1' cpuset='2-3'/>
+  <vcpupin vcpu='2' cpuset='4-5'/>
+  <vcpupin vcpu='3' cpuset='4-5'/>
+  <vcpupin vcpu='4' cpuset='6-7'/>
+  <vcpupin vcpu='5' cpuset='6-7'/>
+  <vcpupin vcpu='6' cpuset='8-9'/>
+  <vcpupin vcpu='7' cpuset='8-9'/>
+  <!-- Isola as tarefas de emulação e I/O do QEMU nos E-cores do host -->
+  <emulatorpin cpuset='12-15'/>
+</cputune>
+```
 ---
 
 ## 🔌 Recursos Adicionais de Produtividade (DX)
