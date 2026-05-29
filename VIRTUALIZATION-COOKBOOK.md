@@ -144,6 +144,28 @@ Para obter desempenho estável, defina a contagem estática de vCPUs e configure
   <emulatorpin cpuset='12-15'/>
 </cputune>
 ```
+
+### 4. Ocultação de Hypervisor (Evasão de Detecção de VM)
+Muitos aplicativos de segurança corporativos, softwares CAD e drivers bloqueiam sua execução ou exibem erros se detectarem que estão rodando dentro de uma máquina virtual. Para ocultar a assinatura do KVM/QEMU e mascarar o Hyper-V, substitua ou ajuste o bloco `<features>` do XML pelo seguinte modelo:
+```xml
+<features>
+  <acpi/>
+  <apic/>
+  <hyperv mode='custom'>
+    <relaxed state='on'/>
+    <vapic state='on'/>
+    <spinlocks state='on' retries='8191'/>
+    <!-- Mascara a ID do Hyper-V para uma assinatura genérica de desktop -->
+    <vendor_id state='on' value='1234567890ab'/>
+  </hyperv>
+  <kvm>
+    <!-- Oculta a assinatura do KVM para o Windows Guest -->
+    <hidden state='on'/>
+  </kvm>
+  <!-- Desativa a porta de console do VMPort para impedir detecção por software -->
+  <vmport state='off'/>
+</features>
+```
 ---
 
 ## 🔌 Recursos Adicionais de Produtividade (DX)
