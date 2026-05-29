@@ -109,6 +109,10 @@ modules:
         - podman.socket
         - uupd.timer
         - input-remapper.service
+        - virtqemud.socket
+        - virtnetworkd.socket
+        - virtstoraged.socket
+        - virtnodedevd.socket
     user:
       enabled:
         - ublue-user-setup.service # https://github.com/ublue-os/packages/blob/main/packages/ublue-setup-services/src/user-services/ublue-user-setup.service
