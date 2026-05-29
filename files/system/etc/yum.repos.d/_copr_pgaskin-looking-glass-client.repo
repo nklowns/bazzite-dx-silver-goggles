@@ -1,0 +1,10 @@
+[copr:copr.fedorainfracloud.org:pgaskin:looking-glass-client]
+name=Copr repo for looking-glass-client owned by pgaskin
+baseurl=https://download.copr.fedorainfracloud.org/results/pgaskin/looking-glass-client/fedora-$releasever-$basearch/
+type=rpm-md
+skip_if_unavailable=True
+gpgcheck=1
+gpgkey=https://download.copr.fedorainfracloud.org/results/pgaskin/looking-glass-client/pubkey.gpg
+repo_gpgcheck=0
+enabled=1
+enabled_metadata=1

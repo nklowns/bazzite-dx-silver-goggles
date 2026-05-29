@@ -78,12 +78,8 @@ Neste cenário, a **GPU NVIDIA é desvinculada do host Linux e dedicada 100% à 
     *   Instale o driver oficial da NVIDIA GeForce e o aplicativo **Looking Glass Host**.
     *   **Monitor Fantasma Virtual:** Instale o `IddSampleDriver` no Windows caso você não possua uma tela física ou dongle HDMI fisicamente conectado às saídas ligadas diretamente à RTX 3060. Isso é vital para forçar a GPU dedicada a instanciar um framebuffer ativo para a cópia do Looking Glass.
 5.  **Instalação e Uso do Cliente (Bazzite Host):**
-    *   Instale o cliente do Looking Glass:
-        ```bash
-        sudo wget https://copr.fedorainfracloud.org/coprs/pgaskin/looking-glass-client/repo/fedora-$(rpm -E %fedora)/pgaskin-looking-glass-client-fedora-$(rpm -E %fedora).repo -O /etc/yum.repos.d/_copr_pgaskin-looking-glass-client.repo
-        rpm-ostree install looking-glass-client
-        ```
-    *   Inicie a VM e execute no terminal do host: `looking-glass-client`. Use a tecla **Scroll Lock** para capturar/liberar o controle de mouse e teclado.
+    *   O cliente do Looking Glass já vem **pré-instalado nativamente** na imagem de fábrica `bazzite-dx-silver-goggles`. Não é necessário adicionar repositórios COPR ou empilhar pacotes no host.
+    *   Inicie a VM e execute diretamente no terminal do host: `looking-glass-client`. Use a tecla **Scroll Lock** para capturar/liberar o controle de mouse e teclado.
 
 ### 📺 Alternativa de Streaming Sem Looking Glass: Sunshine & Moonlight
 Se você preferir uma alternativa ao Looking Glass que forneça transmissão de áudio e vídeo de baixíssima latência (com suporte a HDR) de forma simplificada, você pode usar a combinação Sunshine + Moonlight:
