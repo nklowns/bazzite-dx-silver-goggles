@@ -70,17 +70,39 @@ jobs:
 
       - name: Maximize build space
         if: inputs.platform != 'arm64'
-        uses: ublue-os/remove-unwanted-software@cc0becac701cf642c8f0a6613bbdaf5dc36b259e # v9
+        uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6 # master
         with:
           extra-squeeze: true
 
-      - name: Mount BTRFS for podman storage
+      - name: Mount BTRFS loopback for podman storage
         if: inputs.platform != 'arm64'
-        uses: ublue-os/container-storage-action@dc1f4c8f17b672069e921f001132f7cf98a423a6 # main
         continue-on-error: true
-        with:
-          target-dir: /var/lib/containers
-          mount-opts: compress-force=zstd:2
+        run: |
+          set -xe
+          sudo apt-get update && sudo apt-get install -y btrfs-progs
+          sudo modprobe btrfs || true
+          TARGET_DIR="/var/lib/containers"
+          LOOPBACK_DIR="/mnt/btrfs_loopbacks"
+          LOOPBACK_FILE="${LOOPBACK_DIR}/containers.img"
+          sudo mkdir -p "${TARGET_DIR}"
+          sudo mkdir -p "${LOOPBACK_DIR}"
+          AVAILABLE_SPACE=$(df -B1 / | awk 'NR==2 {print $4}' || echo "0")
+          echo "Available space on /: $((AVAILABLE_SPACE / 1024 / 1024 / 1024)) GB"
+          LOOPBACK_SIZE=$((AVAILABLE_SPACE * 85 / 100))
+          # Fallback to 50GB if parsed size is less than 10GB
+          if [ -z "${AVAILABLE_SPACE}" ] || [ "${LOOPBACK_SIZE}" -lt $((10 * 1024 * 1024 * 1024)) ]; then
+            echo "Warning: df parsed space is invalid or too small. Falling back to 50 GB."
+            LOOPBACK_SIZE=$((50 * 1024 * 1024 * 1024))
+          fi
+          MAX_SIZE=$((70 * 1024 * 1024 * 1024))
+          if [ "${LOOPBACK_SIZE}" -gt "${MAX_SIZE}" ]; then
+            LOOPBACK_SIZE=${MAX_SIZE}
+          fi
+          echo "Creating loopback file of size: $((LOOPBACK_SIZE / 1024 / 1024 / 1024)) GB"
+          sudo truncate -s "${LOOPBACK_SIZE}" "${LOOPBACK_FILE}"
+          sudo mkfs.btrfs -f "${LOOPBACK_FILE}"
+          sudo systemd-mount "${LOOPBACK_FILE}" "${TARGET_DIR}" --options="compress-force=zstd:2,discard=async"
+          df -h "${TARGET_DIR}"
 
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
