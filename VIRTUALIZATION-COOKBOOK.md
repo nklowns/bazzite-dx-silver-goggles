@@ -167,13 +167,33 @@ Se você precisa da interface de tela nativa da VM, mas não quer configurar ser
     ```
 *   **DX do Desenvolvedor:** O Libvirt criará um túnel SSH criptografado seguro sobre a rede do Tailscale de forma transparente, roteando os pacotes gráficos SPICE do Host para a janela do seu cliente local com latência mínima.
 
-### 3. Acesso CLI às VMs Guest (SSH ProxyJump)
-Se a VM Guest estiver rodando uma VPN corporativa estrita (como Netskope) que sequestra a conexão e impossibilita que ela se conecte à sua Tailnet pessoal:
-*   **Acesso Remoto (ProxyJump):** Utilize o Host Bazzite na Tailnet como ponto de salto seguro para acessar o SSH interno da VM (na subrede NAT/Host-Only do Libvirt):
+### 3. Acesso CLI às VMs Guest (SSH ProxyJump & Resolução de Nomes libvirt-nss)
+O seu sistema `bazzite-dx-silver-goggles` configura automaticamente no boot a resolução de nomes via **`libvirt-nss`** (através da automação do [bazzite-dx-groups.service](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/lib/systemd/system/bazzite-dx-groups.service)). Isso significa que o Host Bazzite consegue resolver o IP de qualquer VM na rede NAT local usando apenas o hostname da VM (ex: `ssh developer@nome-da-vm`).
+
+Para acessar o SSH de qualquer VM remotamente via Tailscale utilizando essa facilidade, sem precisar descobrir o IP interno da VM:
+
+*   **Acesso Direto via ProxyJump:**
     ```bash
-    ssh -J seu-usuario@<IP-Tailscale-do-Host> usuario-da-vm@<IP-Interno-da-VM-Guest>
+    ssh -J seu-usuario@<IP-Tailscale-do-Host> usuario-da-vm@<nome-da-vm>
     ```
-    *Exemplo:* `ssh -J cloud@100.64.12.34 developer@192.168.122.150`
+    *Exemplo:* `ssh -J cloud@100.64.12.34 developer@windows-vm`
+*   **Superpoder de DX: Automatizando no SSH Config do seu Laptop Remoto:**
+    Você pode adicionar a seguinte configuração no seu arquivo `~/.ssh/config` local no seu laptop de viagem:
+    ```text
+    # Proxy para acessar qualquer VM QEMU do Host principal por nome
+    Host host-vm-*
+      ProxyJump seu-usuario-host@<IP-Tailscale-do-Host>
+    
+    # Mapeamento da VM do Windows de Desenvolvimento
+    Host host-vm-windows
+      User developer
+      HostName windows-vm  # Nome resolvido pelo nss_libvirt no Host Bazzite
+    ```
+    Agora, de qualquer lugar do mundo conectado ao Tailscale, basta executar diretamente:
+    ```bash
+    ssh host-vm-windows
+    ```
+    O SSH do seu laptop pulará automaticamente para o Host Bazzite, que por sua vez utilizará o `libvirt-nss` para obter o IP dinâmico da VM e abrirá o terminal seguro de forma transparente.
 
 ### 4. Área de Trabalho Remota (RDP) para Windows Guest sob VPN
 Se o RDP do Windows Guest for bloqueado por conta de políticas de roteamento da VPN interna da VM:
