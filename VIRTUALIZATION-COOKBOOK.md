@@ -604,6 +604,9 @@ Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e 
 | **KVMFR / Looking Glass** | `ujust setup-virtualization kvmfr-on` | `ujust setup-virtualization kvmfr-off` |
 | **Console Web Cockpit** | `sudo systemctl enable --now cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
 | **Grupo de Usuário Libvirt** | `ujust setup-virtualization group` | `sudo gpasswd -d $USER libvirt` |
+| **RDP Relay no Host (VPN Bypass)** | `sudo firewall-cmd --zone=external --add-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` | `sudo firewall-cmd --zone=external --remove-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` |
+| **Incus Subnet Routing (Tailscale)** | `tailscale up --advertise-routes=10.0.25.0/24 --accept-routes` *(Aprovar no admin web)* | `tailscale up --advertise-routes="" --accept-routes` |
+| **Incus API REST (Acesso Remoto)** | `incus config set core.https_address <IP-Tailscale-do-Host>:8443` | `incus config unset core.https_address` |
 | **Desativar Todos os Kargs** | — | `ujust setup-virtualization` (e escolher *Disable All Virtualization Kargs*) |
 
 ---
