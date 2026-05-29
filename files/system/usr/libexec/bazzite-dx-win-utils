@@ -36,20 +36,15 @@ elif [[ "$OPTION" =~ "Windows" ]]; then
     xdg-open "https://looking-glass.io/downloads" || true
 
 elif [[ "$OPTION" =~ "Linux Host" ]]; then
-    echo "${bold}Looking Glass Client Installation (Bazzite Way)${normal}"
-    echo "Since there is no official Flatpak, you have two high-performance options:"
+    echo "${bold}Looking Glass Client Status:${normal}"
+    echo "Looking Glass Client is ${green}pre-installed${normal} directly in the Bazzite-DX Silver Goggles system image!"
+    echo "No manual layering or compilation is required on the host."
     echo ""
-    echo "${green}Option A: Layering (Recommended for most)${normal}"
-    echo "Run this command to add the repository and install the client:"
+    echo "To launch the client, simply open a terminal on your host and run:"
     echo "------------------------------------------------"
-    echo "sudo wget https://copr.fedorainfracloud.org/coprs/pgaskin/looking-glass-client/repo/fedora-\$(rpm -E %fedora)/pgaskin-looking-glass-client-fedora-\$(rpm -E %fedora).repo -O /etc/yum.repos.d/_copr_pgaskin-looking-glass-client.repo"
-    echo "rpm-ostree install looking-glass-client"
+    echo "looking-glass-client"
     echo "------------------------------------------------"
-    echo ""
-    echo "${yellow}Option B: No-Layering (Distrobox)${normal}"
-    echo "Use a Fedora container to compile and run without touching the host:"
-    echo "1. distrobox create --image fedora:latest --name lg-build"
-    echo "2. distrobox enter lg-build -- bash -c \"sudo dnf install -y cmake gcc-c++ binutils-devel ... (see looking-glass.io/docs/B7/build)\""
+    echo "Use the ${bold}Scroll Lock${normal} key to capture and release mouse/keyboard input."
     echo ""
 
 elif [[ "$OPTION" =~ "Virtual Display" ]]; then
