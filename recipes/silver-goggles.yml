@@ -7,7 +7,7 @@ modules:
   - type: kargs
     kargs:
       - vconsole.keymap=br
-      - kvm.nested=1
+      - kvm_intel.nested=1
       # High-performance Virtualization & KVMFR
       - kvm.ignore_msrs=1
       - kvm.report_ignored_msrs=0
