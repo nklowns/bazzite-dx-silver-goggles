@@ -36,6 +36,14 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
 
 ### 🔌 Integração de Rede (Docker & Tailscale)
 *   **Docker no Host:** Por padrão, a VM Windows fica na rede NAT `192.168.122.0/24`. O host atua no IP **`192.168.122.1`**. Você pode acessar serviços expostos pelo Docker no host a partir da VM usando `http://192.168.122.1:PORTA`.
+    > [!IMPORTANT]
+    > **Ajustes de Bind e Firewall:**
+    > 1. Para que o serviço no Docker seja alcançável pela VM, ele deve estar escutando na interface de rede correta (ex: bind em `0.0.0.0` ou explicitamente no gateway, e não apenas em `127.0.0.1`).
+    > 2. O `firewalld` ativo no Bazzite bloqueia conexões vindas da rede de virtualização (`virbr0`) por padrão. Para liberar o tráfego de rede da VM para serviços no host, adicione a interface da rede virtual à zona confiável do firewall:
+    >    ```bash
+    >    sudo firewall-cmd --zone=trusted --add-interface=virbr0 --permanent
+    >    sudo firewall-cmd --reload
+    >    ```
 *   **Tailscale Coexistente:** O Tailscale pode ser executado no host e no guest simultaneamente. A VM aparecerá na sua Tailnet como uma máquina virtualizada própria com IP dedicado, permitindo comunicação de rede segura entre elas.
 
 ### 🛠️ Configuração da VM no Virt-Manager:
