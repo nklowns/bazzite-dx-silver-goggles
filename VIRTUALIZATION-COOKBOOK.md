@@ -196,13 +196,21 @@ Para acessar o SSH de qualquer VM remotamente via Tailscale utilizando essa faci
     O SSH do seu laptop pulará automaticamente para o Host Bazzite, que por sua vez utilizará o `libvirt-nss` para obter o IP dinâmico da VM e abrirá o terminal seguro de forma transparente.
 
 ### 4. Área de Trabalho Remota (RDP) para Windows Guest sob VPN
-Se o RDP do Windows Guest for bloqueado por conta de políticas de roteamento da VPN interna da VM:
-1.  **Habilitar o RDP Relay no Host:** Configure o firewall do Host Bazzite para repassar conexões da porta `3389` vindas da Tailnet para a interface Host-Only (**NIC 2**, ex: IP da VM `192.168.100.2`), que contorna a VPN:
+Se o RDP do Windows Guest for bloqueado por conta de políticas de roteamento da VPN interna da VM, você possui duas alternativas de DX:
+
+*   **Opção A: RDP Relay via Firewall no Host (Persistente - Requer Sudo):**
+    Configure o firewall do Host Bazzite para repassar conexões da porta `3389` vindas da Tailnet para a interface Host-Only (**NIC 2**, ex: IP da VM `192.168.100.2`), que contorna a VPN:
     ```bash
     sudo firewall-cmd --zone=external --add-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent
     sudo firewall-cmd --reload
     ```
-2.  **Acesso Remoto:** Em seu cliente RDP local, conecte-se no IP do Host Bazzite da Tailnet: `<IP-Tailscale-do-Host>:3389`.
+    Em seu cliente RDP local no laptop de viagem, conecte-se direto no IP do Host Bazzite da Tailnet: `<IP-Tailscale-do-Host>:3389`.
+*   **Opção B: Túnel SSH local (Temporário - Rootless):**
+    Se você não quer alterar as regras do firewall do host de forma fixa, pode mapear uma porta local do seu laptop diretamente para a VM através da conexão SSH sobre a Tailscale:
+    ```bash
+    ssh -L 33890:192.168.100.2:3389 seu-usuario@<IP-Tailscale-do-Host>
+    ```
+    Agora, basta conectar o seu cliente RDP local em `localhost:33890`. O tráfego RDP será encapsulado de forma criptografada pelo SSH, contornando a VPN da VM. Para desfazer, basta fechar o terminal do SSH.
 
 ---
 
@@ -304,6 +312,43 @@ Se você estiver viajando e quiser gerenciar ou entrar no console das suas VMs d
         incus console desktop-principal:dev-vm --type=vga
         ```
         *(O Incus encapsulará o stream gráfico SPICE por TLS da API diretamente para a janela local do seu laptop de viagem).*
+
+---
+
+### ⚡ Alternativas de Motores VMM (kcli & cloud-hypervisor)
+
+Embora o Libvirt/QEMU e o Incus sejam os gerenciadores de virtualização recomendados para o dia a dia, o seu sistema `bazzite-dx-silver-goggles` traz instalados por padrão outros motores alternativos focados em cenários de orquestração ágil (DX) e computação em nuvem leve:
+
+
+#### 1. kcli (Kvm Client - Orquestração Ágil de VMs)
+O **`kcli`** é uma ferramenta CLI em Python pré-instalada que permite provisionar, clonar e destruir VMs usando imagens oficiais de nuvem (cloud-init) com comandos simples de uma única linha, eliminando toda a configuração manual de XMLs.
+*   **Como usar (Criar e iniciar uma VM Fedora Cloud em segundos):**
+    ```bash
+    # Baixar a imagem cloud-init do Fedora
+    kcli download image fedora39
+    # Criar e iniciar a VM com recursos específicos
+    kcli create vm -i fedora39 -c 2 -m 2048 dev-fedora-vm
+    # Acessar via SSH imediatamente (o kcli gerencia as chaves SSH locais do host)
+    kcli ssh dev-fedora-vm
+    ```
+*   **Como Reverter (Remover a VM e seus recursos):**
+    ```bash
+    kcli delete vm dev-fedora-vm -y
+    ```
+
+#### 2. cloud-hypervisor (Rust-native VMM para Nuvem com Latência Zero)
+O **`cloud-hypervisor`** é um monitor de máquina virtual baseado em Rust projetado especificamente para nuvens híbridas e workloads modernos. Ele remove a emulação de hardware antigo do QEMU (IDE, disquetes, etc.) para inicializar kernels Linux compilados diretamente em milissegundos.
+*   **Como usar (Iniciar uma VM leve de terminal):**
+    ```bash
+    # Inicia a VM a partir de um kernel compilado e disco virtual do host
+    cloud-hypervisor \
+        --kernel ./hypervisor-vmlinux \
+        --disk path=./rootfs.raw \
+        --cpus boot=2 \
+        --memory size=1024M \
+        --net "tap=tap0"
+    ```
+*   **Como Reverter:** Encerre o processo executando Ctrl+C no terminal da VM ou finalize o PID do processo correspondente.
 
 ---
 
@@ -605,8 +650,11 @@ Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e 
 | **Console Web Cockpit** | `sudo systemctl enable --now cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
 | **Grupo de Usuário Libvirt** | `ujust setup-virtualization group` | `sudo gpasswd -d $USER libvirt` |
 | **RDP Relay no Host (VPN Bypass)** | `sudo firewall-cmd --zone=external --add-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` | `sudo firewall-cmd --zone=external --remove-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` |
+| **Túnel SSH para RDP (Rootless)** | `ssh -L 33890:192.168.100.2:3389 seu-usuario@<IP-Tailscale-do-Host>` | Encerrar a sessão SSH no terminal do cliente local |
 | **Incus Subnet Routing (Tailscale)** | `tailscale up --advertise-routes=10.0.25.0/24 --accept-routes` *(Aprovar no admin web)* | `tailscale up --advertise-routes="" --accept-routes` |
 | **Incus API REST (Acesso Remoto)** | `incus config set core.https_address <IP-Tailscale-do-Host>:8443` | `incus config unset core.https_address` |
+| **VM via kcli (Orquestração)** | `kcli create vm -i fedora39 -c 2 -m 2048 dev-fedora-vm` | `kcli delete vm dev-fedora-vm -y` |
+| **VM via cloud-hypervisor** | `cloud-hypervisor --kernel ./vmlinux --disk path=./rootfs.raw ...` | Encerrar o processo (Ctrl+C ou `killall cloud-hypervisor`) |
 | **Desativar Todos os Kargs** | — | `ujust setup-virtualization` (e escolher *Disable All Virtualization Kargs*) |
 
 ---
