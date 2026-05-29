@@ -197,3 +197,44 @@ Se alguma atualização da imagem gerou instabilidade operacional na sua camada 
     ```bash
     just rebase-official
     ```
+
+---
+
+## 🔍 Diagnóstico e Resolução de Problemas: Erro de Permissão no Daemon QEMU
+
+Se ao tentar rodar o `virt-manager` ou iniciar suas conexões você receber o erro:
+`Failed to connect socket to '/var/run/libvirt/virtqemud-sock': No such file or directory`
+ou logs do `virtqemud.service` indicando `invalid argument: Failed to parse user 'qemu'`, siga as instruções de diagnóstico abaixo.
+
+### 🏛️ Análise Crítica: Por que esse problema ocorre?
+Nos sistemas baseados em Fedora Atomic (ostree-like), a imagem é declarativa e imutável para a árvore `/usr`, mas o diretório `/etc` é um overlay persistente com escrita direta. 
+1. Durante atualizações ou rebases, o ostree executa um merge de 3 vias (3-way merge) para mesclar as alterações de configuração no `/etc`.
+2. Às vezes, este merge gera inconsistências locais nos bancos de dados de usuários e grupos (especialmente no `/etc/gshadow` e `/etc/group`), por exemplo, adicionando uma referência de grupo sem adicionar o respectivo usuário correspondente.
+3. O `systemd-sysusers` (responsável por instanciar dinamicamente usuários e grupos do sistema no boot a partir de `/usr/lib/sysusers.d/*.conf`) falha de forma fatal ao encontrar qualquer inconsistência, como a existência parcial de um grupo/membro no `/etc/gshadow` que não está no `/etc/group`. Isso interrompe a criação do usuário `qemu` (e de outros como `clevis`, `dhcpcd` etc.), travando os daemons de virtualização que dependem deles.
+4. **Por que não pode ser 100% declarativo?** O sistema de build (BlueBuild) define a configuração da imagem no repositório de forma declarativa (incluindo pacotes e arquivos sob `/usr/lib/sysusers.d`), mas ele não pode sobrescrever de forma arbitrária o estado persistente do `/etc` do cliente para não violar dados de login locais. Portanto, em caso de inconsistência de arquivos de credenciais locais, uma correção manual ou via scripts de runtime é requerida.
+
+### 🛠️ Resolução da Inconsistência no Host (Passo a Passo)
+
+1. **Corrija as inconsistências de grupos:**
+   Execute a ferramenta de checagem no terminal do host:
+   ```bash
+   sudo grpck
+   ```
+   *O utilitário detectará as discrepâncias entre `/etc/group` e `/etc/gshadow` (incluindo o grupo órfão `qemu`). Responda **sim (y)** para que ele remova as entradas redundantes ou limpe as inconsistências.*
+
+2. **Force a criação do usuário `qemu`:**
+   Execute manualmente o processador do `sysusers` sem passar pelas verificações de estado do `systemd`:
+   ```bash
+   sudo systemd-sysusers
+   ```
+
+3. **Verifique se o usuário foi registrado:**
+   ```bash
+   getent passwd qemu
+   ```
+   *Deve retornar os dados do usuário, por exemplo:* `qemu:x:107:107:qemu user:/:/usr/sbin/nologin`
+
+4. **Reinicie os sockets e daemons de virtualização:**
+   ```bash
+   sudo systemctl restart virtqemud.socket virtqemud.service
+   ```
