@@ -92,10 +92,24 @@ except Exception as e:
 }
 
 ConfigureSelinux() {
-	if ! semodule -l | grep -q "^kvmfr$"; then
-		echo "Automating Looking Glass SELinux policy installation..."
-		if [ -f "/usr/share/selinux/packages/kvmfr.cil" ]; then
-			semodule -i /usr/share/selinux/packages/kvmfr.cil
+	local policy_file="/usr/share/selinux/packages/kvmfr.cil"
+	local checksum_file="/etc/ublue/kvmfr-policy.checksum"
+	
+	if [ -f "$policy_file" ]; then
+		local current_checksum
+		current_checksum=$(sha256sum "$policy_file" | cut -d' ' -f1)
+		
+		local stored_checksum=""
+		if [ -f "$checksum_file" ]; then
+			stored_checksum=$(cat "$checksum_file")
+		fi
+		
+		if [ "$current_checksum" != "$stored_checksum" ] || ! semodule -l | grep -q "^kvmfr$"; then
+			echo "Installing/updating Looking Glass SELinux policy..."
+			if semodule -i "$policy_file"; then
+				mkdir -p "$(dirname "$checksum_file")"
+				echo "$current_checksum" > "$checksum_file"
+			fi
 		fi
 	fi
 }

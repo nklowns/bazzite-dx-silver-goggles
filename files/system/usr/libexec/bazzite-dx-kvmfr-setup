@@ -127,11 +127,24 @@ if [ -e "/dev/kvmfr0" ]; then
 	sudo restorecon -v /dev/kvmfr0
 fi
 
-# Load SELinux custom policy module if not already loaded
-if ! semodule -l | grep -q "^kvmfr$"; then
-	echo "Installing SELinux custom policy for kvmfr..."
-	if [ -f "/usr/share/selinux/packages/kvmfr.cil" ]; then
-		sudo semodule -i /usr/share/selinux/packages/kvmfr.cil
+# Load SELinux custom policy module and update checksum
+POLICY_FILE="/usr/share/selinux/packages/kvmfr.cil"
+CHECKSUM_FILE="/etc/ublue/kvmfr-policy.checksum"
+
+if [ -f "$POLICY_FILE" ]; then
+	CURRENT_CHECKSUM=$(sha256sum "$POLICY_FILE" | cut -d' ' -f1)
+	
+	STORED_CHECKSUM=""
+	if [ -f "$CHECKSUM_FILE" ]; then
+		STORED_CHECKSUM=$(cat "$CHECKSUM_FILE")
+	fi
+	
+	if [ "$CURRENT_CHECKSUM" != "$STORED_CHECKSUM" ] || ! semodule -l | grep -q "^kvmfr$"; then
+		echo "Installing/updating SELinux custom policy for kvmfr..."
+		if sudo semodule -i "$POLICY_FILE"; then
+			sudo mkdir -p "$(dirname "$CHECKSUM_FILE")"
+			echo "$CURRENT_CHECKSUM" | sudo tee "$CHECKSUM_FILE" > /dev/null
+		fi
 	fi
 fi
 
