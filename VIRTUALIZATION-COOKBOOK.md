@@ -165,20 +165,18 @@ Se o sistema apresentar tela preta após ativar a Opção B, selecione a implant
 ```bash
 ujust setup-virtualization
 ```
-Escolha a opção **Disable All Virtualization Kargs**.
+Escolha a opção **Disable All Virtualization Kargs** (caso queira desativar toda a infraestrutura de IOMMU) ou gerencie o VFIO para desvincular a GPU.
 
-*Ou faça manualmente via terminal:*
+*Para liberar a GPU e retornar à Opção A manualmente via terminal (preservando IOMMU e virtualização):*
+1. Descubra o argumento de ID exato atualmente configurado:
 ```bash
-rpm-ostree kargs \
-  --delete-if-present="intel_iommu=on" \
-  --delete-if-present="amd_iommu=on" \
-  --delete-if-present="iommu=pt" \
-  --delete-if-present="kvm.ignore_msrs=1" \
-  --delete-if-present="kvm.report_ignored_msrs=0" \
-  --delete-if-present="kvmfr.static_size_mb=128" \
-  --delete-if-present="vfio_pci.ids="
+rpm-ostree kargs | grep -o 'vfio_pci.ids=[^ ]*'
 ```
-E reinicie o host. A GPU voltará a pertencer ao Bazzite.
+2. Remova o argumento retornado (ex: `vfio_pci.ids=10de:2504,10de:2204`):
+```bash
+rpm-ostree kargs --delete-if-present="vfio_pci.ids=SUAS_IDS_AQUI"
+```
+E reinicie o host. A GPU voltará a pertencer ao Bazzite (Opção A).
 
 ### B. Limpar Configurações Locais e udev do KVMFR
 Para remover regras udev e modprobe adicionadas para o Looking Glass:
