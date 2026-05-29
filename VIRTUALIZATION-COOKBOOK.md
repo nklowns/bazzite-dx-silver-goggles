@@ -411,6 +411,24 @@ Se você precisar iniciar uma VM de testes Linux (como uma distribuição Ubuntu
 
 ---
 
+## ⚙️ Tabela de Recursos Opcionais (Ativação & Reversão de DX)
+
+O seu sistema operacional `bazzite-dx-silver-goggles` foi projetado sob o princípio da **reversibilidade**. Toda e qualquer alteração realizada no sistema para fins de virtualização pode ser ativada e desativada através de comandos rápidos e sem risco de corrupção do host.
+
+Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e desligar cada recurso opcional:
+
+| Recurso Opcional | Comando de Ativação / Instalação | Comando de Reversão / Desinstalação |
+| :--- | :--- | :--- |
+| **Áudio PipeWire (Microfone)** | `ujust setup-virtualization pwaudio-on` | `ujust setup-virtualization pwaudio-off` |
+| **Pasta Virtio-FS (SELinux)** | `ujust setup-virtualization vfs-workspace-on` | `ujust setup-virtualization vfs-workspace-off` |
+| **Isolar GPU NVIDIA (VFIO)** | `ujust setup-virtualization vfio-on` | `ujust setup-virtualization vfio-off` |
+| **KVMFR / Looking Glass** | `ujust setup-virtualization kvmfr-on` | `ujust setup-virtualization kvmfr-off` |
+| **Console Web Cockpit** | `sudo systemctl enable --now cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
+| **Grupo de Usuário Libvirt** | `ujust setup-virtualization group` | `sudo gpasswd -d $USER libvirt` |
+| **Desativar Todos os Kargs** | — | `ujust setup-virtualization` (e escolher *Disable All Virtualization Kargs*) |
+
+---
+
 ## 🔄 Mecanismos de Reversão (Como desfazer as alterações)
 
 > [!WARNING]

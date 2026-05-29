@@ -55,7 +55,8 @@ if [ "$OPTION" == "help" ]; then
   echo "  Use 'group' to select Add \$USER to libvirt group"
   echo "  Use 'vfio-on' to select Enable VFIO drivers"
   echo "  Use 'vfio-off' to select Disable VFIO drivers"
-  echo "  Use 'kvmfr' to select Autocreate Looking-Glass shm"
+  echo "  Use 'kvmfr-on' to select Enable Looking Glass Support"
+  echo "  Use 'kvmfr-off' to select Disable Looking Glass Support"
   echo "  Use 'pwaudio-on' to select Enable PipeWire VM Audio"
   echo "  Use 'pwaudio-off' to select Disable PipeWire VM Audio"
   echo "  Use 'vfs-workspace-on' to select Setup Virtio-FS Workspace Permissions"
@@ -71,6 +72,7 @@ elif [ "$OPTION" == "" ]; then
     "Setup Simultaneous Graphics (NVIDIA on Host + VM)" \
     "Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" \
     "Enable KVMFR / Looking Glass Support" \
+    "Disable KVMFR / Looking Glass Support" \
     "Enable PipeWire VM Audio Support (Microphone)" \
     "Disable PipeWire VM Audio Support (Microphone)" \
     "Configure Virtio-FS Shared Workspace Directory (SELinux)" \
@@ -143,8 +145,55 @@ elif [[ "$OPTION" =~ "Exclusive" ]]; then
     echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
     /usr/libexec/bazzite-dx-manage-vfio
 
-elif [[ "$OPTION" =~ "KVMFR" ]]; then
+elif [[ "${OPTION,,}" =~ "kvmfr-on" || "$OPTION" =~ "Enable KVMFR" || "$OPTION" == "kvmfr" ]]; then
     sudo /usr/libexec/bazzite-dx-kvmfr-setup
+
+elif [[ "${OPTION,,}" =~ "kvmfr-off" || "$OPTION" =~ "Disable KVMFR" ]]; then
+    echo "Disabling KVMFR / Looking Glass Support..."
+    sudo rm -f /etc/udev/rules.d/99-kvmfr.rules
+    sudo rm -f /etc/modprobe.d/kvmfr.conf
+    
+    # Remove kernel argument
+    if rpm-ostree kargs | grep -q "kvmfr.static_size_mb"; then
+        echo "Removing static size kernel argument..."
+        # Extract dynamic karg to ensure we delete the correct value
+        KVMFR_KARG=$(rpm-ostree kargs | grep -o 'kvmfr.static_size_mb=[^ ]*' || true)
+        if [ -n "$KVMFR_KARG" ]; then
+            rpm-ostree kargs --delete-if-present="$KVMFR_KARG"
+        fi
+    fi
+    
+    # Remove SELinux policy
+    if semodule -l | grep -q "^kvmfr$"; then
+        echo "Removing SELinux policy for kvmfr..."
+        sudo semodule -r kvmfr
+        sudo rm -f /etc/ublue/kvmfr-policy.checksum
+    fi
+    
+    # Remove from qemu.conf cgroup list if present
+    QEMU_CONF="/etc/libvirt/qemu.conf"
+    if [ -f "$QEMU_CONF" ]; then
+        echo "Removing /dev/kvmfr0 from qemu.conf device ACL..."
+        sudo python3 -c '
+import sys, re
+path = sys.argv[1]
+try:
+    with open(path, "r") as f:
+        content = f.read()
+    if "/dev/kvmfr0" in content:
+        content = content.replace(", \"/dev/kvmfr0\"", "").replace(", \"/dev/kvmfr0\"", "")
+        content = content.replace(",\"/dev/kvmfr0\"", "")
+        content = re.sub(r"\"/dev/kvmfr0\"\s*,?", "", content)
+        with open(path, "w") as f:
+            f.write(content)
+        print("qemu.conf updated.")
+except Exception as e:
+    print(f"Error: {e}")
+' "$QEMU_CONF"
+    fi
+    echo "Restarting virtualization services..."
+    sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+    echo "${green}Success!${n} KVMFR / Looking Glass Support disabled."
 
 elif [[ "${OPTION,,}" =~ "pwaudio-on" || "$OPTION" =~ "Enable PipeWire" ]]; then
     echo "Enabling PipeWire VM Audio Support..."
