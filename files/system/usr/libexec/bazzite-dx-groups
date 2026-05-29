@@ -56,12 +56,38 @@ PersistStateMarker() {
 ConfigureQemuAcl() {
 	local qemu_conf="/etc/libvirt/qemu.conf"
 	if [ -f "$qemu_conf" ]; then
-		if ! grep -q "kvmfr0" "$qemu_conf"; then
-			echo "Automating Looking Glass QEMU ACL configuration..."
-			sed -i 's|/dev/userfaultfd"|/dev/userfaultfd", "/dev/kvmfr0"|' "$qemu_conf"
-			sed -i 's|#    "/dev/userfaultfd"|    "/dev/userfaultfd", "/dev/kvmfr0"|' "$qemu_conf"
-			sed -i 's|#cgroup_device_acl|cgroup_device_acl|' "$qemu_conf"
-		fi
+		echo "Configuring Looking Glass QEMU ACL..."
+		python3 -c '
+import sys, re
+path = sys.argv[1]
+try:
+    with open(path, "r") as f:
+        content = f.read()
+    
+    # Check if kvmfr0 is already configured correctly with closed brackets
+    if "kvmfr0" in content and "cgroup_device_acl = [" in content:
+        if re.search(r"cgroup_device_acl\s*=\s*\[[^\]]*\"/dev/kvmfr0\"[^\]]*\]", content):
+            sys.exit(0)
+            
+    pattern = r"#?cgroup_device_acl\s*=\s*\[[^\]]*\]"
+    replacement = """cgroup_device_acl = [
+    "/dev/null", "/dev/full", "/dev/zero",
+    "/dev/random", "/dev/urandom",
+    "/dev/ptmx", "/dev/kvm",
+    "/dev/userfaultfd", "/dev/kvmfr0"
+]"""
+    if re.search(pattern, content):
+        new_content = re.sub(pattern, replacement, content)
+    else:
+        new_content = content + "\n" + replacement + "\n"
+        
+    with open(path, "w") as f:
+        f.write(new_content)
+    print("qemu.conf configured successfully.")
+except Exception as e:
+    print(f"Error configuring qemu.conf: {e}", file=sys.stderr)
+    sys.exit(1)
+' "$qemu_conf"
 	fi
 }
 

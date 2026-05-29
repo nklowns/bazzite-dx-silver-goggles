@@ -84,16 +84,39 @@ cgroup_device_acl = [
     \"/dev/userfaultfd\", \"/dev/kvmfr0\"
 ]
 EOF"
-elif grep -q "kvmfr0" "$QEMU_CONF"; then
-	echo "QEMU already configured for kvmfr0."
 else
-	echo "Adding /dev/kvmfr0 to existing qemu.conf..."
-	# If the file exists but doesn't have kvmfr0, we add it to the list
-	# This is a bit safer than the previous massive perl block
-	sudo sed -i 's|/dev/userfaultfd"|/dev/userfaultfd", "/dev/kvmfr0"|' "$QEMU_CONF"
-	# Also handle the case where it might be a clean file with the commented default block
-	sudo sed -i 's|#    "/dev/userfaultfd"|    "/dev/userfaultfd", "/dev/kvmfr0"|' "$QEMU_CONF"
-	sudo sed -i 's|#cgroup_device_acl|cgroup_device_acl|' "$QEMU_CONF"
+	echo "Configuring /etc/libvirt/qemu.conf..."
+	sudo python3 -c '
+import sys, re
+path = sys.argv[1]
+try:
+    with open(path, "r") as f:
+        content = f.read()
+    
+    # Check if kvmfr0 is already configured correctly with closed brackets
+    if "kvmfr0" in content and "cgroup_device_acl = [" in content:
+        if re.search(r"cgroup_device_acl\s*=\s*\[[^\]]*\"/dev/kvmfr0\"[^\]]*\]", content):
+            sys.exit(0)
+            
+    pattern = r"#?cgroup_device_acl\s*=\s*\[[^\]]*\]"
+    replacement = """cgroup_device_acl = [
+    "/dev/null", "/dev/full", "/dev/zero",
+    "/dev/random", "/dev/urandom",
+    "/dev/ptmx", "/dev/kvm",
+    "/dev/userfaultfd", "/dev/kvmfr0"
+]"""
+    if re.search(pattern, content):
+        new_content = re.sub(pattern, replacement, content)
+    else:
+        new_content = content + "\n" + replacement + "\n"
+        
+    with open(path, "w") as f:
+        f.write(new_content)
+    print("qemu.conf configured successfully.")
+except Exception as e:
+    print(f"Error configuring qemu.conf: {e}", file=sys.stderr)
+    sys.exit(1)
+' "$QEMU_CONF"
 fi
 
 # Clean up any manual SELinux context records to ensure it inherits default device_t context
