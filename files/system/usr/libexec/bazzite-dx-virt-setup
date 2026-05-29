@@ -15,6 +15,84 @@ Choose() { :; }
 # shellcheck disable=SC1091
 source /usr/lib/ujust/ujust.sh
 
+EnsureQEMUHook() {
+  local needs_install=0
+  if [ ! -x "/etc/libvirt/hooks/qemu" ]; then
+    needs_install=1
+  elif ! grep -q "virt-pipewire.enable" "/etc/libvirt/hooks/qemu"; then
+    echo "Existing QEMU hook runner lacks PipeWire support. Upgrading..."
+    needs_install=1
+  fi
+
+  if [ "$needs_install" -eq 1 ]; then
+    echo "Configuring QEMU hook runner in /etc/libvirt/hooks/qemu..."
+    sudo mkdir -p /etc/libvirt/hooks
+    if [ -f "/usr/etc/libvirt/hooks/qemu" ]; then
+      sudo cp -f /usr/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+    elif [ -f "/usr/share/ublue-os/etc/libvirt/hooks/qemu" ]; then
+      sudo cp -f /usr/share/ublue-os/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+    else
+      # Fallback to write the script inline if not found
+      sudo tee /etc/libvirt/hooks/qemu > /dev/null << 'EOF'
+#!/usr/bin/env bash
+# Fallback QEMU hook runner
+GUEST_NAME="$1"
+HOOK_NAME="$2"
+STATE_NAME="$3"
+BASEDIR="$(dirname "$0")"
+HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+STDIN=$(cat)
+
+if [ -f "/etc/ublue/virt-pipewire.enable" ] && echo "$STDIN" | grep -qE "type='pipewire'|type=\"pipewire\""; then
+	RUNTIME_DIR=$(echo "$STDIN" | python3 -c "
+import sys, xml.etree.ElementTree as ET
+try:
+    root = ET.fromstring(sys.stdin.read())
+    for elem in root.iter():
+        local_name = elem.tag.split('}')[-1]
+        if local_name == 'audio' and elem.get('type') == 'pipewire':
+            print(elem.get('runtimeDir', ''))
+            break
+except Exception:
+    pass
+" 2>/dev/null)
+	if [ -z "$RUNTIME_DIR" ]; then
+		RUNTIME_DIR="/run/user/1000"
+	fi
+	if [ "$HOOK_NAME" = "prepare" ]; then
+		if [ -d "$RUNTIME_DIR" ]; then
+			setfacl -m u:qemu:x "$RUNTIME_DIR" 2>/dev/null || true
+			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
+				setfacl -m u:qemu:rw "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
+			fi
+		fi
+	elif [ "$HOOK_NAME" = "release" ]; then
+		if [ -d "$RUNTIME_DIR" ]; then
+			setfacl -x u:qemu "$RUNTIME_DIR" 2>/dev/null || true
+			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
+				setfacl -x u:qemu "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
+			fi
+		fi
+	fi
+fi
+
+set -e
+if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
+	"$HOOKPATH" "$@" <<<"$STDIN"
+elif [ -d "$HOOKPATH" ]; then
+	while read -r file; do
+		if [ -n "$file" ]; then
+			"$file" "$@" <<<"$STDIN"
+		fi
+	done <<<"$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print)"
+fi
+EOF
+    fi
+    sudo chmod +x /etc/libvirt/hooks/qemu
+    echo "QEMU hook runner installed/upgraded successfully."
+  fi
+}
+
 ACTION="$1"
 
 if [[ $(id -u) -eq 0 ]]; then
@@ -146,6 +224,7 @@ elif [[ "$OPTION" =~ "Exclusive" ]]; then
     /usr/libexec/bazzite-dx-manage-vfio
 
 elif [[ "${OPTION,,}" =~ "kvmfr-on" || "$OPTION" =~ "Enable KVMFR" || "$OPTION" == "kvmfr" ]]; then
+    EnsureQEMUHook
     sudo /usr/libexec/bazzite-dx-kvmfr-setup
 
 elif [[ "${OPTION,,}" =~ "kvmfr-off" || "$OPTION" =~ "Disable KVMFR" ]]; then
@@ -164,7 +243,7 @@ elif [[ "${OPTION,,}" =~ "kvmfr-off" || "$OPTION" =~ "Disable KVMFR" ]]; then
     fi
     
     # Remove SELinux policy
-    if semodule -l | grep -q "^kvmfr$"; then
+    if sudo semodule -l | grep -q "^kvmfr$"; then
         echo "Removing SELinux policy for kvmfr..."
         sudo semodule -r kvmfr
         sudo rm -f /etc/ublue/kvmfr-policy.checksum
@@ -197,6 +276,7 @@ except Exception as e:
 
 elif [[ "${OPTION,,}" =~ "pwaudio-on" || "$OPTION" =~ "Enable PipeWire" ]]; then
     echo "Enabling PipeWire VM Audio Support..."
+    EnsureQEMUHook
     sudo mkdir -p /etc/ublue
     sudo touch /etc/ublue/virt-pipewire.enable
     if [ -f "/usr/share/selinux/packages/pipewire.cil" ]; then
@@ -210,7 +290,7 @@ elif [[ "${OPTION,,}" =~ "pwaudio-on" || "$OPTION" =~ "Enable PipeWire" ]]; then
 elif [[ "${OPTION,,}" =~ "pwaudio-off" || "$OPTION" =~ "Disable PipeWire" ]]; then
     echo "Disabling PipeWire VM Audio Support..."
     sudo rm -f /etc/ublue/virt-pipewire.enable
-    if semodule -l | grep -q "^pipewire$"; then
+    if sudo semodule -l | grep -q "^pipewire$"; then
         echo "Removing SELinux policy for PipeWire..."
         sudo semodule -r pipewire
     fi
@@ -221,17 +301,35 @@ elif [[ "${OPTION,,}" =~ "pwaudio-off" || "$OPTION" =~ "Disable PipeWire" ]]; th
 elif [[ "${OPTION,,}" =~ "vfs-workspace-on" || "$OPTION" =~ "Configure Virtio-FS" ]]; then
     read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
     WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
+    # Strip trailing slash if present to avoid double slashes in regex
+    WORKSPACE_PATH="${WORKSPACE_PATH%/}"
     mkdir -p "$WORKSPACE_PATH"
+    
+    # Resolve /home to /var/home to avoid SELinux equivalence rule conflicts on OSTree systems
+    SEMANAGE_PATH="$WORKSPACE_PATH"
+    if [[ "$SEMANAGE_PATH" =~ ^/home/ ]]; then
+        SEMANAGE_PATH="/var/home${SEMANAGE_PATH#/home}"
+    fi
+
     echo "Configurando permissões do SELinux para o diretório: $WORKSPACE_PATH..."
-    sudo semanage fcontext -a -t svirt_image_t "${WORKSPACE_PATH}(/.*)?"
+    sudo semanage fcontext -a -t svirt_image_t "${SEMANAGE_PATH}(/.*)?"
     sudo restorecon -Rv "$WORKSPACE_PATH"
     echo "${green}Sucesso!${n} O diretório $WORKSPACE_PATH agora está configurado para acesso via Virtio-FS."
 
 elif [[ "${OPTION,,}" =~ "vfs-workspace-off" || "$OPTION" =~ "Remove Virtio-FS" ]]; then
     read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
     WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
+    # Strip trailing slash if present
+    WORKSPACE_PATH="${WORKSPACE_PATH%/}"
+    
+    # Resolve /home to /var/home for SELinux path equivalence
+    SEMANAGE_PATH="$WORKSPACE_PATH"
+    if [[ "$SEMANAGE_PATH" =~ ^/home/ ]]; then
+        SEMANAGE_PATH="/var/home${SEMANAGE_PATH#/home}"
+    fi
+
     echo "Removendo permissões do SELinux para o diretório: $WORKSPACE_PATH..."
-    sudo semanage fcontext -d -t svirt_image_t "${WORKSPACE_PATH}(/.*)?" 2>/dev/null || true
+    sudo semanage fcontext -d -t svirt_image_t "${SEMANAGE_PATH}(/.*)?" 2>/dev/null || true
     sudo restorecon -Rv "$WORKSPACE_PATH"
     echo "${green}Sucesso!${n} Permissões do SELinux para $WORKSPACE_PATH foram removidas."
 

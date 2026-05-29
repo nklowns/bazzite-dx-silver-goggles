@@ -76,48 +76,78 @@ elif [[ "$OPTION" =~ "Hot-Swap" ]]; then
     echo "Creating Libvirt Hook directory structure..."
     sudo mkdir -p /etc/libvirt/hooks/qemu.d
     
-    if [ ! -f "/etc/libvirt/hooks/qemu" ]; then
-        echo "Installing base QEMU hook script..."
-        HOOK_SCRIPT=$(cat << 'EOF'
-#!/usr/bin/env bash
-#
-# Author: SharkWipf
-#
-# Copy this file to /etc/libvirt/hooks, make sure it's called "qemu".
-# After this file is installed, restart libvirt.
-# From now on, you can easily add per-guest qemu hooks.
-# Add your hooks in /etc/libvirt/hooks/qemu.d/vm_name/hook_name/state_name.
-# For a list of available hooks, please refer to https://www.libvirt.org/hooks.html
-#
+    needs_install=0
+    if [ ! -x "/etc/libvirt/hooks/qemu" ]; then
+        needs_install=1
+    elif ! grep -q "virt-pipewire.enable" "/etc/libvirt/hooks/qemu"; then
+        echo "Existing QEMU hook runner lacks PipeWire support. Upgrading..."
+        needs_install=1
+    fi
 
+    if [ "$needs_install" -eq 1 ]; then
+        echo "Installing base QEMU hook script..."
+        if [ -f "/usr/etc/libvirt/hooks/qemu" ]; then
+            sudo cp -f /usr/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+        elif [ -f "/usr/share/ublue-os/etc/libvirt/hooks/qemu" ]; then
+            sudo cp -f /usr/share/ublue-os/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+        else
+            sudo tee /etc/libvirt/hooks/qemu > /dev/null << 'EOF'
+#!/usr/bin/env bash
+# Fallback QEMU hook runner
 GUEST_NAME="$1"
 HOOK_NAME="$2"
 STATE_NAME="$3"
-# MISC="${@:4}" # MISC appears unused. Verify use (or export if used externally).
-
 BASEDIR="$(dirname "$0")"
-
 HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+STDIN=$(cat)
 
-STDIN=$(cat) # Buffer the entirety of stdin so we can pass it on to other scripts. Moderately bad idea, but if the Rust folks can do it so can I.
+if [ -f "/etc/ublue/virt-pipewire.enable" ] && echo "$STDIN" | grep -qE "type='pipewire'|type=\"pipewire\""; then
+	RUNTIME_DIR=$(echo "$STDIN" | python3 -c "
+import sys, xml.etree.ElementTree as ET
+try:
+    root = ET.fromstring(sys.stdin.read())
+    for elem in root.iter():
+        local_name = elem.tag.split('}')[-1]
+        if local_name == 'audio' and elem.get('type') == 'pipewire':
+            print(elem.get('runtimeDir', ''))
+            break
+except Exception:
+    pass
+" 2>/dev/null)
+	if [ -z "$RUNTIME_DIR" ]; then
+		RUNTIME_DIR="/run/user/1000"
+	fi
+	if [ "$HOOK_NAME" = "prepare" ]; then
+		if [ -d "$RUNTIME_DIR" ]; then
+			setfacl -m u:qemu:x "$RUNTIME_DIR" 2>/dev/null || true
+			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
+				setfacl -m u:qemu:rw "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
+			fi
+		fi
+	elif [ "$HOOK_NAME" = "release" ]; then
+		if [ -d "$RUNTIME_DIR" ]; then
+			setfacl -x u:qemu "$RUNTIME_DIR" 2>/dev/null || true
+			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
+				setfacl -x u:qemu "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
+			fi
+		fi
+	fi
+fi
 
-set -e # If a script exits with an error, we should as well.
-
-# check if it's a non-empty executable file
+set -e
 if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
-	"$HOOKPATH" "$@" <<<"$STDIN" # Call the hook with all our arguments and a copy of stdin.
+	"$HOOKPATH" "$@" <<<"$STDIN"
 elif [ -d "$HOOKPATH" ]; then
 	while read -r file; do
-		# check for null string
 		if [ -n "$file" ]; then
-			"$file" "$@" <<<"$STDIN" # Call each hook with all our arguments and a copy of stdin.
+			"$file" "$@" <<<"$STDIN"
 		fi
 	done <<<"$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print)"
 fi
 EOF
-)
-        echo "$HOOK_SCRIPT" | sudo tee /etc/libvirt/hooks/qemu > /dev/null
+        fi
         sudo chmod +x /etc/libvirt/hooks/qemu
+        echo "QEMU hook runner installed/upgraded successfully."
     fi
     
     echo "${green}Hook structure created in /etc/libvirt/hooks/qemu.d/${n}"

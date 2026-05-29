@@ -1,14 +1,4 @@
 (block pipewire
-    (require
-        (type svirt_t)
-        (type user_tmp_t)
-        (type unconfined_t)
-        (type user_t)
-        (type initrc_t)
-        (class dir (search))
-        (class sock_file (write))
-        (class unix_stream_socket (connectto))
-    )
     (allow svirt_t user_tmp_t (dir (search)))
     (allow svirt_t user_tmp_t (sock_file (write)))
     (allow svirt_t unconfined_t (unix_stream_socket (connectto)))
