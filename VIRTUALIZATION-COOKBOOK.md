@@ -113,11 +113,12 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     >     4. **Contornando a tela "Vamos conectar você a uma rede" (OOBE):**
     >        Como o Windows 11 não possui o driver de rede VirtIO (`NetKVM`) nativo e bloqueia o avanço da instalação sem internet, pressione **Shift + F10** (ou **Fn + Shift + F10** em laptops como o Dell G15) na tela de rede para abrir o Prompt de Comando (CMD) e escolha um dos caminhos:
     >        *   **Caminho A: Carregar o Driver de Rede Dinamicamente (Recomendado se deseja usar conta Microsoft)**
-    >            No Prompt de Comando, identifique a letra da unidade do CD-ROM dos drivers VirtIO (normalmente `D:` ou `E:`) e instale o driver de rede executando:
+    >            Como o XML possui dois dispositivos CD-ROM, o Windows montará o instalador do Windows em **`D:`** e o disco de drivers VirtIO em **`E:`**.
+    >            No Prompt de Comando, confirme listando o conteúdo da unidade `E:` executando `dir E:` (você deverá ver pastas como `NetKVM` e `vioscsi`). Instale o driver executando:
     >            ```cmd
-    >            pnputil /add-driver D:\NetKVM\w11\amd64\*.inf /install
+    >            pnputil /add-driver E:\NetKVM\w11\amd64\*.inf /install
     >            ```
-    >            *(Substitua `D:` pela letra correta caso seja diferente. A placa de rede virtual será reconhecida na hora e a internet funcionará de imediato).*
+    >            *(Substitua `E:` pela letra da unidade correspondente caso o Windows tenha mapeado de forma diferente).*
     >        *   **Caminho B: Burlar a exigência de Internet (BypassNRO - Criar conta local)**
     >            No Prompt de Comando, digite o comando abaixo e aperte Enter:
     >            ```cmd
