@@ -140,9 +140,22 @@ if [ "$OPTION" == "help" ]; then
   echo "  Use 'pwaudio-off' to select Disable PipeWire VM Audio"
   echo "  Use 'vfs-workspace-on' to select Setup Virtio-FS Workspace Permissions"
   echo "  Use 'vfs-workspace-off' to select Remove Virtio-FS Workspace Permissions"
-  echo "  Use 'usbhp-on' to select Enable SPICE USB hot plugging"
-  echo "  Use 'usbhp-off' to select Disable SPICE USB hot plugging"
   exit 0
+elif [ -n "$OPTION" ]; then
+  # Map CLI shortcut actions to their corresponding menu text
+  case "${OPTION,,}" in
+    virt-on)      OPTION="Setup Simultaneous Graphics (NVIDIA on Host + VM)" ;;
+    virt-off)     OPTION="Disable All Virtualization Kargs" ;;
+    group)        OPTION="Add $USER to libvirt group" ;;
+    vfio-on)      OPTION="Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" ;;
+    vfio-off)     OPTION="Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" ;;
+    kvmfr-on)     OPTION="Enable KVMFR / Looking Glass Support" ;;
+    kvmfr-off)    OPTION="Disable KVMFR / Looking Glass Support" ;;
+    pwaudio-on)   OPTION="Enable PipeWire VM Audio Support (Microphone)" ;;
+    pwaudio-off)  OPTION="Disable PipeWire VM Audio Support (Microphone)" ;;
+    vfs-workspace-on)  OPTION="Configure Virtio-FS Shared Workspace Directory (SELinux)" ;;
+    vfs-workspace-off) OPTION="Remove Virtio-FS Shared Workspace Directory (SELinux)" ;;
+  esac
 elif [ "$OPTION" == "" ]; then
   echo "${bold}Virtualization Setup & Diagnostics${normal}"
   echo "NOTE: Choose the mode that fits your workflow."
@@ -222,7 +235,13 @@ elif [[ "$OPTION" =~ "Simultaneous" ]]; then
 
 elif [[ "$OPTION" =~ "Exclusive" ]]; then
     echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
-    /usr/libexec/bazzite-dx-manage-vfio
+    vfio_action=""
+    if [[ "${ACTION,,}" == "vfio-on" ]]; then
+        vfio_action="Bind"
+    elif [[ "${ACTION,,}" == "vfio-off" ]]; then
+        vfio_action="Unbind"
+    fi
+    /usr/libexec/bazzite-dx-manage-vfio "$vfio_action"
 
 elif [[ "${OPTION,,}" =~ "kvmfr-on" || "$OPTION" =~ "Enable KVMFR" || "$OPTION" == "kvmfr" ]]; then
     EnsureQEMUHook

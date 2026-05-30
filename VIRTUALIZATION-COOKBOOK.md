@@ -55,6 +55,71 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     *   Configure o barramento de disco como **VirtIO SCSI** (I/O de alto desempenho).
     *   Configure o modelo da placa de rede como **virtio**.
     *   Monte a ISO de drivers VirtIO na VM e instale o pacote `virtio-win-guest-tools.exe` para carregar todos os drivers.
+
+    > [!CAUTION]
+    > **Atenção aos Discos Existentes (Perigo de Corrupção):**
+    > Se você deseja reutilizar a instalação do Windows de uma VM antiga (ex: `Niara-windows.25H2.26200.6584`) nesta nova VM (`win11`), **nunca aponte duas definições de VMs ativas para o mesmo arquivo de imagem física `.qcow2`**. Isso causará corrupção de dados catastrófica se ambas forem iniciadas.
+    > 
+    > Para resolver o erro `Cannot access storage file '/var/lib/libvirt/images/windows-clone.qcow2' (No such file or directory)`, siga uma das estratégias abaixo:
+    >
+    > *   **Estratégia A: Substituição Completa (Recomendado, sem consumo extra de disco)**
+    >     Se você não precisa mais da definição da VM antiga:
+    >     1. Mova o disco para o novo caminho esperado pelo template:
+    >        ```bash
+    >        sudo mv "/var/lib/libvirt/images/Niara-windows.25H2.26200.6584.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
+    >        ```
+    >     2. Corrija o proprietário do arquivo para o usuário `qemu` do hypervisor:
+    >        ```bash
+    >        sudo chown qemu:qemu /var/lib/libvirt/images/windows-clone.qcow2
+    >        ```
+    >     3. Delete a definição antiga do libvirt para evitar conflitos (o disco já foi movido e está seguro):
+    >        ```bash
+    >        virsh -c qemu:///system undefine Niara-windows.25H2.26200.6584
+    >        ```
+    >
+    > *   **Estratégia B: Clone Copy-on-Write (CoW) Instantâneo (Preserva o original como backup)**
+    >     Se você deseja manter a VM antiga intocada, mas criar a nova a partir dela de forma imediata:
+    >     1. Crie uma imagem de clone fina vinculada à original:
+    >        ```bash
+    >        sudo qemu-img create -f qcow2 -F qcow2 -b "/var/lib/libvirt/images/Niara-windows.25H2.26200.6584.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
+    >        ```
+    >     2. Corrija a propriedade do clone:
+    >        ```bash
+    >        sudo chown qemu:qemu /var/lib/libvirt/images/windows-clone.qcow2
+    >        ```
+    >        *(Importante: A VM original nunca mais deve ser iniciada ou modificada, caso contrário o clone CoW perderá integridade e será corrompido).*
+    >
+    > *   **Estratégia C: Cópia Completa Independente (Mais segura, consome espaço duplo)**
+    >     1. Copie o arquivo de disco fisicamente:
+    >        ```bash
+    >        sudo cp "/var/lib/libvirt/images/Niara-windows.25H2.26200.6584.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
+    >        ```
+    >     2. Corrija a propriedade do clone:
+    >        ```bash
+    >        sudo chown qemu:qemu /var/lib/libvirt/images/windows-clone.qcow2
+    >        ```
+    >
+    > *   **Estratégia D: Criar do Zero (Instalação Limpa / Fresh Install)**
+    >     Se você prefere criar um disco totalmente limpo do zero e instalar o Windows usando a ISO:
+    >     1. Crie um novo arquivo de disco virtual `.qcow2` vazio (ex: de 100 GB):
+    >        ```bash
+    >        sudo qemu-img create -f qcow2 /var/lib/libvirt/images/windows-clone.qcow2 100G
+    >        ```
+    >     2. Mude o proprietário para o usuário do hypervisor (`qemu:qemu`):
+    >        ```bash
+    >        sudo chown qemu:qemu /var/lib/libvirt/images/windows-clone.qcow2
+    >        ```
+    >     3. Inicie a VM. Ela dará boot pela ISO do instalador do Windows. Quando a instalação pedir pelo disco e não listar nenhum, selecione "Carregar Driver" e aponte para a unidade correspondente do CD-ROM do VirtIO (geralmente sob `vioscsi\w11\amd64`) para carregar o driver `vioscsi` (VirtIO SCSI).
+    >
+    > 💡 **Nota de Especialista sobre Btrfs, Performance (No CoW) e TRIM:**
+    > Como o Bazzite utiliza o sistema de arquivos **Btrfs** por padrão no `/var`, o diretório de imagens do libvirt (`/var/lib/libvirt/images`) vem pré-configurado de fábrica com o atributo de sistema **`nodatacow`** (No Copy-on-Write, identificado pela flag `C` em comandos `lsattr`).
+    > * **Por que isso é crítico?** Arquivos de VM (como `.qcow2`) sofrem gravações aleatórias constantes. O comportamento padrão CoW do Btrfs fragmentaria o arquivo rapidamente, degradando a performance de E/S. O atributo `+C` garante que as gravações ocorram in-place no arquivo existente.
+    > * **Como novos arquivos herdam isso?** Novos arquivos criados dentro do diretório `/var/lib/libvirt/images` herdam o atributo `+C` automaticamente na criação, contanto que o diretório pai já o possua.
+    > * **Sincronia com o TRIM:** A combinação do atributo `nodatacow` no host com o barramento `virtio-scsi` e a tag `discard="unmap"` no XML permite que o Windows execute comandos de TRIM livremente. Você pode disparar a limpeza de blocos órfãos no Windows via PowerShell com:
+    >   ```powershell
+    >   Optimize-Volume -DriveLetter C -ReTrim -Verbose
+    >   ```
+    >   Isso transformará os blocos liberados em "holes" (arquivo esparso) no host, reduzindo o consumo de espaço físico no seu SSD físico imediatamente.
 3.  **Ajuste de CPU (XML):**
     Defina o modo de CPU como `<cpu mode='host-passthrough' check='none'/>` e aloque entre 8 a 12 vCPUs. O agendador híbrido do Linux fará a distribuição eficiente de threads entre os P-cores e E-cores do seu i7-12700H.
 
@@ -157,6 +222,10 @@ O ecossistema Fedora Silverblue/Bazzite fornece diferentes ferramentas para inte
         *   *Forçar desligamento (Puxar da tomada):* `virsh destroy <nome-da-vm>`
         *   *Editar XML no editor padrão (Vim/Nano):* `virsh edit <nome-da-vm>`
         *   *Configurar Boot Automático:* `virsh autostart <nome-da-vm>` (ou `--disable` para reverter)
+        *   *Definir/Importar VM a partir de XML:* `virsh define <caminho-do-arquivo.xml>`
+        *   *Remover definição da VM (deletando NVRAM UEFI de boot):* `virsh undefine <nome-da-vm> --nvram`
+            > [!NOTE]
+            > O parâmetro `--nvram` é obrigatório para remover VMs UEFI que possuam chaves de Secure Boot e TPM associadas, prevenindo arquivos órfãos em `/var/lib/libvirt/qemu/nvram/` e permitindo que o libvirt gere um novo arquivo de NVRAM limpo quando a VM for redefinida.
 
 ---
 
@@ -654,7 +723,7 @@ O seu sistema operacional `bazzite-dx-silver-goggles` foi projetado sob o princ�
 Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e desligar cada recurso opcional:
 
 | Recurso Opcional | Comando de Ativação / Instalação | Comando de Reversão / Desinstalação |
-| :--- | :--- | :--- |
+| **Virtualização Core (IOMMU)** | `ujust setup-virtualization virt-on` | `ujust setup-virtualization virt-off` |
 | **Áudio PipeWire (Microfone)** | `ujust setup-virtualization pwaudio-on` | `ujust setup-virtualization pwaudio-off` |
 | **Pasta Virtio-FS (SELinux)** | `ujust setup-virtualization vfs-workspace-on` | `ujust setup-virtualization vfs-workspace-off` |
 | **Isolar GPU NVIDIA (VFIO)** | `ujust setup-virtualization vfio-on` | `ujust setup-virtualization vfio-off` |
@@ -667,7 +736,7 @@ Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e 
 | **Incus API REST (Acesso Remoto)** | `incus config set core.https_address <IP-Tailscale-do-Host>:8443` | `incus config unset core.https_address` |
 | **VM via kcli (Orquestração)** | `kcli create vm -i fedora39 -c 2 -m 2048 dev-fedora-vm` | `kcli delete vm dev-fedora-vm -y` |
 | **VM via cloud-hypervisor** | `cloud-hypervisor --kernel ./vmlinux --disk path=./rootfs.raw ...` | Encerrar o processo (Ctrl+C ou `killall cloud-hypervisor`) |
-| **Desativar Todos os Kargs** | — | `ujust setup-virtualization` (e escolher *Disable All Virtualization Kargs*) |
+| **Desativar Todos os Kargs** | — | `ujust setup-virtualization virt-off` |
 
 ---
 
@@ -708,10 +777,15 @@ sudo semodule -r kvmfr 2>/dev/null || true
 > Em vez de apagar o arquivo completamente (o que excluiria todas as opções padrão e outras customizações importantes), edite `/etc/libvirt/qemu.conf` e remova a entrada `"/dev/kvmfr0"` da lista `cgroup_device_acl`. Delete o arquivo com `sudo rm` apenas se tiver certeza de que ele foi criado do zero pelo script e não contém nenhuma outra configuração.
 
 ### C. Desinstalar o Looking Glass Client do Host
-```bash
-sudo rm -f /etc/yum.repos.d/_copr_pgaskin-looking-glass-client.repo
-rpm-ostree uninstall looking-glass-client
-```
+Como o `looking-glass-client` já vem pré-instalado como um pacote base embutido na imagem `bazzite-dx-silver-goggles` (declarado em [recipes/silver-goggles.yml](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/recipes/silver-goggles.yml#L29)), você não pode desinstalá-lo no host via `rpm-ostree uninstall`.
+
+Para removê-lo de forma declarativa e definitiva da imagem:
+1. Remova a linha `- looking-glass-client` sob a seção de pacotes em [recipes/silver-goggles.yml](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/recipes/silver-goggles.yml#L29).
+2. Recompile a imagem localmente e aplique no seu host:
+   ```bash
+   just build
+   just rebase-local
+   ```
 
 ### D. Reverter Estado da Imagem do Sistema (OSTree Rollback)
 Se alguma atualização da imagem gerou instabilidade operacional na sua camada customizada `silver-goggles`, utilize os comandos de rollback nativos do repositório:
