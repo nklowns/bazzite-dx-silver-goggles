@@ -1,6 +1,6 @@
 <domain type="kvm">
   <name>win11</name>
-  <uuid>e414adaa-99d8-4142-96a3-b3b6c592215d</uuid>
+
   <metadata>
     <libosinfo:libosinfo xmlns:libosinfo="http://libosinfo.org/xmlns/libvirt/domain/1.0">
       <libosinfo:os id="http://microsoft.com/win/11"/>
@@ -85,7 +85,7 @@
     <controller type="pci" model="pcie-root-port"/>
     <disk type="file" device="disk">
       <driver name="qemu" type="qcow2" discard="unmap"/>
-      <source file="/var/lib/libvirt/images/Niara-windows.25H2.26200.6584.qcow2"/>
+      <source file="/var/lib/libvirt/images/windows-clone.qcow2"/>
       <target dev="sda" bus="scsi"/>
       <address type="drive" controller="0" bus="0" target="0" unit="0"/>
     </disk>
@@ -105,12 +105,11 @@
     </disk>
     <filesystem type="mount" accessmode="passthrough">
       <driver type="virtiofs"/>
-      <source dir="/var/home/cloud/workspace"/>
+      <source dir="/var/home/cloud/dev/comeia/niara"/>
       <target dir="dev-workspace"/>
     </filesystem>
     <interface type="network">
       <source network="default"/>
-      <mac address="52:54:00:8e:39:68"/>
       <model type="virtio"/>
     </interface>
     <console type="pty"/>
@@ -124,6 +123,9 @@
     </tpm>
     <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
       <image compression="off"/>
+    </graphics>
+    <graphics type="vnc" port="-1" autoport="yes" listen="127.0.0.1">
+      <listen type="address" address="127.0.0.1"/>
     </graphics>
     <sound model="ich9">
       <audio id="1"/>

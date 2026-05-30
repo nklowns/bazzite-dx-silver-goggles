@@ -118,6 +118,18 @@ O ecossistema Fedora Silverblue/Bazzite fornece diferentes ferramentas para inte
     *   **Consumo de Recursos Zero:** Não necessita manter uma janela de aplicativo de desktop pesada aberta.
     *   **Modularidade Atômica:** Permite ligar, desligar, pausar, gerenciar conexões de rede NAT e monitorar o uso de CPU/RAM da VM direto no navegador.
     *   **Consoles Integrados:** Fornece consoles gráficos VNC e seriais leves direto na aba da web.
+        > [!IMPORTANT]
+        > **Resolução de "SPICE graphical console that can not be shown here":**
+        > O Cockpit-Machines não suporta nativamente a renderização direta do protocolo SPICE no navegador. Para permitir o acesso gráfico no navegador (via Cockpit) e manter o suporte a recursos avançados (clipboard dinâmico, redimensionamento automático) no Virt-Manager (via SPICE), configure **ambos os dispositivos gráficos simultaneamente no XML da VM**:
+        > ```xml
+        > <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
+        >   <image compression="off"/>
+        > </graphics>
+        > <graphics type="vnc" port="-1" autoport="yes" listen="127.0.0.1">
+        >   <listen type="address" address="127.0.0.1"/>
+        > </graphics>
+        > ```
+        > Ao escutar em `127.0.0.1`, o VNC permanece restrito e seguro contra acessos diretos da rede, mas o Cockpit (que roda no Host) consegue se conectar localmente a ele e renderizar a tela como HTML5/WebSockets remotamente.
 *   **Como Garantir que Está Ativo:**
     ```bash
     sudo systemctl enable --now cockpit.socket
