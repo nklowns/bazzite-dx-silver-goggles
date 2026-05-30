@@ -113,12 +113,15 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     >     4. **Contornando a tela "Vamos conectar você a uma rede" (OOBE):**
     >        Como o Windows 11 não possui o driver de rede VirtIO (`NetKVM`) nativo e bloqueia o avanço da instalação sem internet, pressione **Shift + F10** (ou **Fn + Shift + F10** em laptops como o Dell G15) na tela de rede para abrir o Prompt de Comando (CMD) e escolha um dos caminhos:
     >        *   **Caminho A: Carregar o Driver de Rede Dinamicamente (Recomendado se deseja usar conta Microsoft)**
-    >            Como o XML possui dois dispositivos CD-ROM, o Windows montará o instalador do Windows em **`D:`** e o disco de drivers VirtIO em **`E:`**.
-    >            No Prompt de Comando, confirme listando o conteúdo da unidade `E:` executando `dir E:` (você deverá ver pastas como `NetKVM` e `vioscsi`). Instale o driver executando:
+    >            Como o Windows pode mapear os volumes de forma diferente, identifique a letra da unidade de CD-ROM do VirtIO executando no Prompt de Comando (CMD):
     >            ```cmd
-    >            pnputil /add-driver E:\NetKVM\w11\amd64\*.inf /install
+    >            echo list volume | diskpart
     >            ```
-    >            *(Substitua `E:` pela letra da unidade correspondente caso o Windows tenha mapeado de forma diferente).*
+    >            Localize a letra do volume rotulado como `virtio-win` (por exemplo, `E:`). Em seguida, instale o driver de rede apontando diretamente para o arquivo `.inf` específico:
+    >            ```cmd
+    >            pnputil /add-driver E:\NetKVM\w11\amd64\netkvm.inf /install
+    >            ```
+    >            *(Substitua `E:` pela letra real identificada pelo diskpart. Caso o comando relate arquivo ausente, execute `dir E:\NetKVM` para confirmar que a unidade de drivers foi acessada corretamente).*
     >        *   **Caminho B: Burlar a exigência de Internet (BypassNRO - Criar conta local)**
     >            No Prompt de Comando, digite o comando abaixo e aperte Enter:
     >            ```cmd
