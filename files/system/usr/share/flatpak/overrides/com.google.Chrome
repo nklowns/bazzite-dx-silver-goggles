@@ -1,2 +1,6 @@
+[Context]
+filesystems=xdg-download;xdg-desktop;
+
 [Environment]
 CHROME_EXTRA_FLAGS=--ozone-platform-hint=auto --enable-features=TouchpadOverscrollHistoryNavigation,WaylandWindowDecorations --disable-gpu-compositing
+

@@ -32,7 +32,7 @@ brew "llm"                                          # Streamlined CLI for OpenAI
 brew "llmfit"                                       # Advanced quantization tools
 brew "whisper-cpp"                                  # High-performance speech-to-text
 brew "gemini-cli"                                   # Google's multimodal interface
-brew "ublue-os/tap/antigravity-cli-linux"           # Google's antigravity CLI interface
+cask "ublue-os/tap/antigravity-cli-linux"           # Google's antigravity CLI interface
 brew "kimi-cli"                                     # DeepSearch-capable CLI integration
 brew "mistral-vibe"                                 # CLI for Mistral AI models
 brew "qwen-code"                                    # Specialized Qwen code completion CLI

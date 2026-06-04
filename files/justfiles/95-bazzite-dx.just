@@ -118,6 +118,15 @@ setup-default-brew flavor="" action="":
         case $ACTION in
             install)
                 echo "🚀 Activating bundle: $(basename $FILE)..."
+                # Trust taps declared in the Brewfile before bundle installation
+                if command -v brew >/dev/null && [[ -f "$FILE" ]]; then
+                    echo "🛡️ Trusting taps declared in $(basename $FILE)..."
+                    while read -r tap; do
+                        if [ -n "$tap" ]; then
+                            brew trust "$tap" || true
+                        fi
+                    done < <(grep -E '^tap "' "$FILE" | sed -E 's/tap "([^"]+)".*/\1/')
+                fi
                 brew bundle --file="$FILE"
                 ;;
             check)

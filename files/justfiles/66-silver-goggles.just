@@ -43,6 +43,15 @@ setup-personal-suite action="":
             echo "🚀 Provisioning: Silver-Goggles Personal Suite..."
             # Ensure ElyPrism remote is present (it's not on Flathub)
             flatpak remote-add --user --if-not-exists elyprismlauncher https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref || true
+            # Trust taps declared in the Brewfile before bundle installation
+            if command -v brew >/dev/null; then
+                echo "🛡️ Trusting taps declared in silver-goggles.Brewfile..."
+                while read -r tap; do
+                    if [ -n "$tap" ]; then
+                        brew trust "$tap" || true
+                    fi
+                done < <(grep -E '^tap "' "/usr/share/ublue-os/homebrew/silver-goggles.Brewfile" | sed -E 's/tap "([^"]+)".*/\1/')
+            fi
             brew bundle --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
             ;;
         check)
@@ -59,3 +68,21 @@ setup-personal-suite action="":
             ;;
     esac
     echo "Done! The Silver-Goggles experience is ready."
+
+# 🛡️ Trust all currently configured and third-party Homebrew taps (Resolves trust warnings)
+[group('Setup')]
+brew-trust-taps:
+    #!/usr/bin/env bash
+    set -e
+    if ! command -v brew >/dev/null; then
+        echo "Homebrew is not installed or not in PATH."
+        exit 1
+    fi
+    echo "🛡️ Trusting all third-party Homebrew taps..."
+    brew tap | grep -vE '^(homebrew/)' | while read -r tap; do
+        if [[ -n "$tap" ]]; then
+            echo "Trusting tap: $tap"
+            brew trust "$tap" || true
+        fi
+    done
+    echo "Done! Homebrew taps trusted successfully."
