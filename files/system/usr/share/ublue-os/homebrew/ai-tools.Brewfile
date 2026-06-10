@@ -6,6 +6,7 @@ tap "ublue-os/tap"                                  # For Goose
 tap "ublue-os/experimental-tap"                     # For Antigravity
 tap "charmbracelet/tap"                             # For Crush
 tap "anomalyco/tap"                                 # For Opencode
+tap "rtk-ai/tap"                                    # For RTK
 
 # --- Core AI Agents ---
 cask "claude-code@latest"                           # Anthropic's official terminal agent
@@ -27,6 +28,7 @@ flatpak "ai.jan.Jan"                                # The open source desktop LL
 flatpak "com.jeffser.Alpaca"                        # Local LLM chat GUI (Ollama compatible)
 
 # --- AI CLI Utilities ---
+brew "rtk-ai/tap/rtk"                               # Token-saving proxy for AI agents
 brew "aichat"                                       # Interactive chat in the terminal
 brew "llm"                                          # Streamlined CLI for OpenAI/Anthropic/Local
 brew "llmfit"                                       # Advanced quantization tools
