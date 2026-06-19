@@ -48,7 +48,6 @@
       <tlbflush state="on"/>
       <ipi state="on"/>
       <evmcs state="on"/>
-      <avic state="on"/>
     </hyperv>
     <kvm>
       <hidden state="on"/>
@@ -62,6 +61,7 @@
     <timer name="pit" tickpolicy="delay"/>
     <timer name="hpet" present="no"/>
     <timer name="hypervclock" present="yes"/>
+    <timer name="tsc" present="yes" mode="native"/>
   </clock>
   <pm>
     <suspend-to-mem enabled="no"/>
@@ -93,23 +93,23 @@
       <target dev="sda" bus="scsi"/>
       <address type="drive" controller="0" bus="0" target="0" unit="0"/>
     </disk>
+    <!-- Windows 11 ISO: attach during install, remove <source> after -->
     <disk type="file" device="cdrom">
       <driver name="qemu" type="raw"/>
-      <source file="/var/home/cloud/dev/Virtual Machines/pt-br_windows_11_consumer_editions_version_25h2_x64_dvd_d4d3cf4d.iso"/>
       <target dev="sdb" bus="sata"/>
       <readonly/>
       <address type="drive" controller="0" bus="0" target="0" unit="1"/>
     </disk>
+    <!-- VirtIO drivers ISO: attach during install, remove <source> after -->
     <disk type="file" device="cdrom">
       <driver name="qemu" type="raw"/>
-      <source file="/var/home/cloud/dev/Virtual Machines/virtio-win-0.1.285.iso"/>
       <target dev="sdc" bus="sata"/>
       <readonly/>
       <address type="drive" controller="0" bus="0" target="0" unit="2"/>
     </disk>
     <filesystem type="mount" accessmode="passthrough">
       <driver type="virtiofs"/>
-      <source dir="/var/home/cloud/dev/comeia/niara"/>
+      <source dir="/var/home/YOUR_USER/workspace"/>
       <target dir="dev-workspace"/>
     </filesystem>
     <interface type="network">

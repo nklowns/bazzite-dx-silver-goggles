@@ -14,85 +14,8 @@ Urllink() { :; }
 Choose() { :; }
 # shellcheck disable=SC1091
 source /usr/lib/ujust/ujust.sh
-
-EnsureQEMUHook() {
-  local needs_install=0
-  if [ ! -x "/etc/libvirt/hooks/qemu" ]; then
-    needs_install=1
-  elif ! grep -q "virt-pipewire.enable" "/etc/libvirt/hooks/qemu"; then
-    echo "Existing QEMU hook runner lacks PipeWire support. Upgrading..."
-    needs_install=1
-  fi
-
-  if [ "$needs_install" -eq 1 ]; then
-    echo "Configuring QEMU hook runner in /etc/libvirt/hooks/qemu..."
-    sudo mkdir -p /etc/libvirt/hooks
-    if [ -f "/usr/etc/libvirt/hooks/qemu" ]; then
-      sudo cp -f /usr/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
-    elif [ -f "/usr/share/ublue-os/etc/libvirt/hooks/qemu" ]; then
-      sudo cp -f /usr/share/ublue-os/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
-    else
-      # Fallback to write the script inline if not found
-      sudo tee /etc/libvirt/hooks/qemu > /dev/null << 'EOF'
-#!/usr/bin/env bash
-# Fallback QEMU hook runner
-GUEST_NAME="$1"
-HOOK_NAME="$2"
-STATE_NAME="$3"
-BASEDIR="$(dirname "$0")"
-HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
-STDIN=$(cat)
-
-if [ -f "/etc/ublue/virt-pipewire.enable" ] && echo "$STDIN" | grep -qE "type='pipewire'|type=\"pipewire\""; then
-	RUNTIME_DIR=$(echo "$STDIN" | python3 -c "
-import sys, xml.etree.ElementTree as ET
-try:
-    root = ET.fromstring(sys.stdin.read())
-    for elem in root.iter():
-        local_name = elem.tag.split('}')[-1]
-        if local_name == 'audio' and elem.get('type') == 'pipewire':
-            print(elem.get('runtimeDir', ''))
-            break
-except Exception:
-    pass
-" 2>/dev/null)
-	if [ -z "$RUNTIME_DIR" ]; then
-		ACTIVE_UID=$(loginctl list-users --no-legend 2>/dev/null | awk '$1 >= 1000 {print $1}' | head -n 1)
-		RUNTIME_DIR="/run/user/${ACTIVE_UID:-1000}"
-	fi
-	if [ "$HOOK_NAME" = "prepare" ]; then
-		if [ -d "$RUNTIME_DIR" ]; then
-			setfacl -m u:qemu:x "$RUNTIME_DIR" 2>/dev/null || true
-			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
-				setfacl -m u:qemu:rw "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
-			fi
-		fi
-	elif [ "$HOOK_NAME" = "release" ]; then
-		if [ -d "$RUNTIME_DIR" ]; then
-			setfacl -x u:qemu "$RUNTIME_DIR" 2>/dev/null || true
-			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
-				setfacl -x u:qemu "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
-			fi
-		fi
-	fi
-fi
-
-set -e
-if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
-	"$HOOKPATH" "$@" <<<"$STDIN"
-elif [ -d "$HOOKPATH" ]; then
-	while read -r file; do
-		if [ -n "$file" ]; then
-			"$file" "$@" <<<"$STDIN"
-		fi
-	done <<<"$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print)"
-fi
-EOF
-    fi
-    sudo chmod +x /etc/libvirt/hooks/qemu
-    echo "QEMU hook runner installed/upgraded successfully."
-  fi
-}
+# shellcheck disable=SC1091
+source /usr/libexec/bazzite-dx-virt-lib
 
 ACTION="$1"
 
@@ -234,11 +157,12 @@ elif [[ "$OPTION" =~ "Simultaneous" ]]; then
     echo "${green}Success!${n} Reboot to enable IOMMU infrastructure safely."
 
 elif [[ "$OPTION" =~ "Exclusive" ]]; then
-    echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
     vfio_action=""
     if [[ "${ACTION,,}" == "vfio-on" ]]; then
+        echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
         vfio_action="Bind"
     elif [[ "${ACTION,,}" == "vfio-off" ]]; then
+        echo "Restoring NVIDIA to Bazzite host..."
         vfio_action="Unbind"
     fi
     /usr/libexec/bazzite-dx-manage-vfio "$vfio_action"
@@ -249,26 +173,38 @@ elif [[ "${OPTION,,}" =~ "kvmfr-on" || "$OPTION" =~ "Enable KVMFR" || "$OPTION" 
 
 elif [[ "${OPTION,,}" =~ "kvmfr-off" || "$OPTION" =~ "Disable KVMFR" ]]; then
     echo "Disabling KVMFR / Looking Glass Support..."
-    sudo rm -f /etc/udev/rules.d/99-kvmfr.rules
+
+    # Restore declarative opt-out masks so /usr/lib/ assets are neutralised on next boot.
+    # Empty modules-load.d mask → systemd-modules-load skips kvmfr.
+    # /dev/null udev mask → udev skips /usr/lib/udev/rules.d/99-kvmfr.rules.
+    echo "Restoring opt-out masks..."
+    sudo install -Dm644 /dev/null /etc/modules-load.d/kvmfr.conf
+    sudo ln -sf /dev/null /etc/udev/rules.d/99-kvmfr.rules
     sudo rm -f /etc/modprobe.d/kvmfr.conf
-    
+
+    # Unload the module from the running kernel (best-effort; may fail if a VM is active)
+    if lsmod | grep -q "^kvmfr "; then
+        echo "Unloading kvmfr module..."
+        sudo modprobe -r kvmfr 2>/dev/null || \
+            echo "${yellow}Note:${n} kvmfr in use — will be disabled on next reboot."
+    fi
+
     # Remove kernel argument
     if rpm-ostree kargs | grep -q "kvmfr.static_size_mb"; then
-        echo "Removing static size kernel argument..."
-        # Extract dynamic karg to ensure we delete the correct value
+        echo "Removing kvmfr karg..."
         KVMFR_KARG=$(rpm-ostree kargs | grep -o 'kvmfr.static_size_mb=[^ ]*' || true)
         if [ -n "$KVMFR_KARG" ]; then
             rpm-ostree kargs --delete-if-present="$KVMFR_KARG"
         fi
     fi
-    
+
     # Remove SELinux policy
     if sudo semodule -l | grep -q "^kvmfr$"; then
-        echo "Removing SELinux policy for kvmfr..."
+        echo "Removing kvmfr SELinux policy..."
         sudo semodule -r kvmfr
         sudo rm -f /etc/ublue/kvmfr-policy.checksum
     fi
-    
+
     # Remove from qemu.conf cgroup list if present
     QEMU_CONF="/etc/libvirt/qemu.conf"
     if [ -f "$QEMU_CONF" ]; then
@@ -292,7 +228,7 @@ except Exception as e:
     fi
     echo "Restarting virtualization services..."
     sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
-    echo "${green}Success!${n} KVMFR / Looking Glass Support disabled."
+    echo "${green}Success!${n} KVMFR / Looking Glass Support disabled. Reboot to complete."
 
 elif [[ "${OPTION,,}" =~ "pwaudio-on" || "$OPTION" =~ "Enable PipeWire" ]]; then
     echo "Enabling PipeWire VM Audio Support..."
@@ -366,6 +302,14 @@ elif [[ "$OPTION" =~ "Disable" ]]; then
         --delete-if-present="intel_iommu=on" \
         --delete-if-present="amd_iommu=on" \
         --delete-if-present="iommu=pt" \
-        --delete-if-present="kvm.ignore_msrs=1"
+        --delete-if-present="kvm.ignore_msrs=1" \
+        --delete-if-present="kvm.report_ignored_msrs=0" \
+        --delete-if-present="kvm_intel.nested=1"
+    # Note: kvmfr.static_size_mb is baked via /usr/lib/modprobe.d/kvmfr.conf — karg
+    # removal reduces to the modprobe default but does NOT unload the module.
+    KVMFR_KARG=$(rpm-ostree kargs | grep -o 'kvmfr.static_size_mb=[^ ]*' || true)
+    if [ -n "$KVMFR_KARG" ]; then
+        rpm-ostree kargs --delete-if-present="$KVMFR_KARG"
+    fi
     echo "Kargs removed. Reboot required."
 fi

@@ -49,8 +49,17 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     > **Conflitos com VPNs Corporativas:** Se a VM Guest ativar uma VPN estrita (como Netskope), o adaptador virtual do Tailscale dentro do guest perderá a conexão e as rotas. Nesse cenário, o Tailscale deve rodar **apenas no Host**. Para acessar a VM remotamente, use a técnica de **RDP Relay no Host** e conexões pela rede Host-Only, conforme detalhado no [Cenário Avançado (Desenvolvimento Híbrido Remoto)](#-cenario-avancado-desenvolvimento-hibrido-com-codigo-e-vpn-isolados-no-guest-ex-netskope-e-idedocker-no-host).
 
 ### 🛠️ Configuração Básica da VM
-1.  **Habilitar Virtualização Segura (Simultaneous Graphics):**
-    Execute `ujust setup-virtualization` e escolha **Setup Simultaneous Graphics (NVIDIA on Host + VM)**. Reinicie o computador.
+1.  **Verificar Infraestrutura de Virtualização (IOMMU):**
+    Na imagem `bazzite-dx-silver-goggles`, os kargs `intel_iommu=on`, `iommu=pt` e `kvm.ignore_msrs=1` já vêm **baked no build da imagem** via `silver-goggles.yml`. Nenhum passo manual de habilitação é necessário. Para desabilitá-los, `ujust setup-virtualization virt-off` usa `rpm-ostree kargs --delete-if-present`, que funciona mesmo em kargs baked — o OSTree mantém a remoção através de updates.
+
+    Para confirmar que IOMMU está ativo no sistema atual:
+    ```bash
+    ujust setup-virtualization  # escolha "Check Virtualization Readiness (Status)"
+    # ou diretamente:
+    sudo dmesg | grep -i -e IOMMU -e DMAR | grep -i enabled
+    ```
+    > [!NOTE]
+    > O comando `ujust setup-virtualization` → **Setup Simultaneous Graphics** ainda existe para compatibilidade (ex: rebases sobre outras imagens sem os kargs baked). Nesta imagem, ele retornará "already present" e não fará nada.
 2.  **Configuração de Disco e Rede:**
     *   Configure o barramento de disco como **VirtIO SCSI** (I/O de alto desempenho).
     *   Configure o modelo da placa de rede como **virtio**.
@@ -159,12 +168,21 @@ Neste cenário, a **GPU NVIDIA é desvinculada do host Linux e dedicada 100% à 
     > [!WARNING]
     > **A BIOS do seu laptop deve estar configurada no modo Híbrido/Optimus** (onde o vídeo principal roda na iGPU Intel). Se você desativar a iGPU e forçar o modo "Somente GPU Dedicada" (MUX Switch direto) na BIOS do Dell G15 e depois isolar a NVIDIA, o sistema não terá nenhuma GPU ativa no host para carregar a interface gráfica, gerando uma tela preta persistente após o boot.
 2.  **Configurar KVMFR (Looking Glass):**
-    Execute `ujust setup-virtualization` e selecione **Enable KVMFR / Looking Glass Support**. O script criará o dispositivo `/dev/kvmfr0` com 128 MB e definirá as regras necessárias do SELinux.
+    Execute `ujust setup-virtualization` e selecione **Enable KVMFR / Looking Glass Support**. O script remove as masks de opt-out, adiciona o karg `kvmfr.static_size_mb=128` e carrega o módulo ao vivo (sem reboot necessário na primeira ativação).
+
+    > [!NOTE]
+    > **KVMFR é totalmente opt-in e reversível.** Por padrão a imagem não carrega o módulo kvmfr nem cria `/dev/kvmfr0`. `kvmfr-off` restaura o estado desabilitado via masking declarativo de systemd (`/etc/modules-load.d/kvmfr.conf` vazio e `/etc/udev/rules.d/99-kvmfr.rules → /dev/null`) e remove o karg. Persiste através de atualizações da imagem graças ao merge de 3 vias do OSTree.
+    >
+    > **Nota de migração (upgrade de imagem anterior):** Se você fez rebase de uma versão do silver-goggles onde o kvmfr estava baked por padrão, o OSTree irá adicionar os novos mask files ao seu `/etc/` durante o upgrade, desabilitando o KVMFR. Re-execute `ujust setup-virtualization kvmfr-on` após o primeiro boot da nova imagem.
+
 3.  **Configurar a VM no seu Gerenciador:**
     *   Adicione o hardware PCI correspondente à sua GPU NVIDIA (VGA e Áudio).
-    *   Adicione a linha de memória compartilhada KVMFR no XML da VM, logo antes de `</devices>`:
+    *   Adicione o dispositivo de memória compartilhada KVMFR no XML da VM, logo antes de `</devices>`:
         ```xml
-        <shm dev='kvmfr0' size='128'/>
+        <shmem name='looking-glass'>
+          <model type='ivshmem-plain'/>
+          <size unit='M'>128</size>
+        </shmem>
         ```
 4.  **Instalação dos Softwares (Windows Guest):**
     *   Instale o driver oficial da NVIDIA GeForce e o aplicativo **Looking Glass Host**.
@@ -214,9 +232,12 @@ O ecossistema Fedora Silverblue/Bazzite fornece diferentes ferramentas para inte
         > ```
         > Ao escutar em `127.0.0.1`, o VNC permanece restrito e seguro contra acessos diretos da rede, mas o Cockpit (que roda no Host) consegue se conectar localmente a ele e renderizar a tela como HTML5/WebSockets remotamente.
 *   **Como Garantir que Está Ativo:**
+    O `cockpit.socket` já vem habilitado por padrão nesta imagem (declarado em `dx.yml`). Para verificar:
     ```bash
-    sudo systemctl enable --now cockpit.socket
+    systemctl is-active cockpit.socket   # deve retornar "active"
+    systemctl is-enabled cockpit.socket  # deve retornar "enabled"
     ```
+    Se por algum motivo estiver desativado: `sudo systemctl enable --now cockpit.socket`
 
 ### 3. Remote-Viewer / Virt-Viewer (Focado em SPICE)
 *   **Descrição:** Aplicativo leve voltado exclusivamente para renderizar a janela de vídeo SPICE/VNC da VM, sem as opções pesadas de gerenciamento de disco e rede do Virt-Manager.
@@ -424,9 +445,9 @@ O **`kcli`** é uma ferramenta CLI em Python pré-instalada que permite provisio
 *   **Como usar (Criar e iniciar uma VM Fedora Cloud em segundos):**
     ```bash
     # Baixar a imagem cloud-init do Fedora
-    kcli download image fedora39
+    kcli download image fedora41
     # Criar e iniciar a VM com recursos específicos
-    kcli create vm -i fedora39 -c 2 -m 2048 dev-fedora-vm
+    kcli create vm -i fedora41 -c 2 -m 2048 dev-fedora-vm
     # Acessar via SSH imediatamente (o kcli gerencia as chaves SSH locais do host)
     kcli ssh dev-fedora-vm
     ```
@@ -492,8 +513,13 @@ Para obter desempenho estável, defina a contagem estática de vCPUs e configure
 </cputune>
 ```
 
-### 4. Ocultação de Hypervisor (Evasão de Detecção de VM)
-Muitos aplicativos de segurança corporativos, softwares CAD e drivers bloqueiam sua execução ou exibem erros se detectarem que estão rodando dentro de uma máquina virtual. Para ocultar a assinatura do KVM/QEMU e mascarar o Hyper-V, substitua ou ajuste o bloco `<features>` do XML pelo seguinte modelo:
+### 4. Features Block para Windows (Hyper-V Enlightenments + Ocultação de Hypervisor)
+
+Este bloco cobre dois objetivos: (a) ativar enlightenments do Hyper-V para melhor performance e menor uso de CPU no Windows; (b) ocultar a assinatura do KVM/QEMU para aplicativos que bloqueiam VMs detectadas.
+
+> [!IMPORTANT]
+> **`<smm state='on'/>` é obrigatório para Windows 11.** Sem SMM habilitado, o Secure Boot não funciona mesmo que o firmware `<feature enabled="yes" name="secure-boot"/>` esteja declarado no bloco `<os>`. O Windows 11 requer Secure Boot para instalar — omitir SMM quebra a instalação silenciosamente.
+
 ```xml
 <features>
   <acpi/>
@@ -502,16 +528,38 @@ Muitos aplicativos de segurança corporativos, softwares CAD e drivers bloqueiam
     <relaxed state='on'/>
     <vapic state='on'/>
     <spinlocks state='on' retries='8191'/>
+    <vpindex state='on'/>
+    <runtime state='on'/>
+    <synic state='on'/>
+    <stimer state='on'/>
     <!-- Mascara a ID do Hyper-V para uma assinatura genérica de desktop -->
     <vendor_id state='on' value='1234567890ab'/>
+    <frequencies state='on'/>
+    <tlbflush state='on'/>
+    <ipi state='on'/>
+    <!-- evmcs: Intel-only (Enlightened VMX Entry/Exit para nested Hyper-V) -->
+    <evmcs state='on'/>
   </hyperv>
   <kvm>
     <!-- Oculta a assinatura do KVM para o Windows Guest -->
     <hidden state='on'/>
   </kvm>
+  <!-- SMM obrigatório para Secure Boot + TPM 2.0 no Windows 11 -->
+  <smm state='on'/>
   <!-- Desativa a porta de console do VMPort para impedir detecção por software -->
   <vmport state='off'/>
 </features>
+```
+
+**Clock otimizado para Windows (reduz micro-stutter em jogos):**
+```xml
+<clock offset='localtime'>
+  <timer name='rtc' tickpolicy='catchup'/>
+  <timer name='pit' tickpolicy='delay'/>
+  <timer name='hpet' present='no'/>
+  <timer name='hypervclock' present='yes'/>
+  <timer name='tsc' present='yes' mode='native'/>
+</clock>
 ```
 
 ---
@@ -745,14 +793,14 @@ Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e 
 | **Áudio PipeWire (Microfone)** | `ujust setup-virtualization pwaudio-on` | `ujust setup-virtualization pwaudio-off` |
 | **Pasta Virtio-FS (SELinux)** | `ujust setup-virtualization vfs-workspace-on` | `ujust setup-virtualization vfs-workspace-off` |
 | **Isolar GPU NVIDIA (VFIO)** | `ujust setup-virtualization vfio-on` | `ujust setup-virtualization vfio-off` |
-| **KVMFR / Looking Glass** | `ujust setup-virtualization kvmfr-on` | `ujust setup-virtualization kvmfr-off` |
-| **Console Web Cockpit** | `sudo systemctl enable --now cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
+| **KVMFR / Looking Glass** | `ujust setup-virtualization kvmfr-on` | `ujust setup-virtualization kvmfr-off` — totalmente reversível via masking |
+| **Console Web Cockpit** | Já habilitado por padrão (`cockpit.socket` em `dx.yml`) — verificar: `systemctl is-active cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
 | **Grupo de Usuário Libvirt** | `ujust setup-virtualization group` | `sudo gpasswd -d $USER libvirt` |
 | **RDP Relay no Host (VPN Bypass)** | `sudo firewall-cmd --zone=external --add-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` | `sudo firewall-cmd --zone=external --remove-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` |
 | **Túnel SSH para RDP (Rootless)** | `ssh -L 33890:192.168.100.2:3389 seu-usuario@<IP-Tailscale-do-Host>` | Encerrar a sessão SSH no terminal do cliente local |
 | **Incus Subnet Routing (Tailscale)** | `tailscale up --advertise-routes=10.0.25.0/24 --accept-routes` *(Aprovar no admin web)* | `tailscale up --advertise-routes="" --accept-routes` |
 | **Incus API REST (Acesso Remoto)** | `incus config set core.https_address <IP-Tailscale-do-Host>:8443` | `incus config unset core.https_address` |
-| **VM via kcli (Orquestração)** | `kcli create vm -i fedora39 -c 2 -m 2048 dev-fedora-vm` | `kcli delete vm dev-fedora-vm -y` |
+| **VM via kcli (Orquestração)** | `kcli create vm -i fedora41 -c 2 -m 2048 dev-fedora-vm` | `kcli delete vm dev-fedora-vm -y` |
 | **VM via cloud-hypervisor** | `cloud-hypervisor --kernel ./vmlinux --disk path=./rootfs.raw ...` | Encerrar o processo (Ctrl+C ou `killall cloud-hypervisor`) |
 | **Desativar Todos os Kargs** | — | `ujust setup-virtualization virt-off` |
 
@@ -782,13 +830,16 @@ rpm-ostree kargs --delete-if-present="vfio_pci.ids=SUAS_IDS_AQUI"
 E reinicie o host. A GPU voltará a pertencer ao Bazzite (Opção A).
 
 ### B. Limpar Configurações Locais e udev do KVMFR
-Para remover regras udev e modprobe adicionadas para o Looking Glass:
+Para remover sobreposições locais do Looking Glass:
 ```bash
 sudo rm -f /etc/udev/rules.d/99-kvmfr.rules
 sudo rm -f /etc/modprobe.d/kvmfr.conf
 # Remova a política customizada do SELinux
 sudo semodule -r kvmfr 2>/dev/null || true
 ```
+
+> [!NOTE]
+> O procedimento preferido é `ujust setup-virtualization kvmfr-off`, que faz tudo automaticamente: restaura os masks de opt-out (`/etc/modules-load.d/kvmfr.conf` e `/etc/udev/rules.d/99-kvmfr.rules → /dev/null`), remove o karg, descarrega o módulo ao vivo e remove a política SELinux. Os comandos manuais acima são úteis apenas para diagnóstico ou recovery.
 
 > [!WARNING]
 > **Evite deletar todo o arquivo /etc/libvirt/qemu.conf!**

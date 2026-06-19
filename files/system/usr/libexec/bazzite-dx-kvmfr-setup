@@ -30,6 +30,13 @@ if [ "$CONFIRM" == "Cancel" ]; then
 	exit 0
 fi
 
+# Remove opt-out masks so the module and udev rule become active on next boot.
+# The image ships /etc/modules-load.d/kvmfr.conf (empty) and
+# /etc/udev/rules.d/99-kvmfr.rules -> /dev/null as disabled-by-default masks.
+echo "Removing kvmfr opt-out masks..."
+sudo rm -f /etc/modules-load.d/kvmfr.conf
+sudo rm -f /etc/udev/rules.d/99-kvmfr.rules
+
 # Add kvmfr modprobe file following upstream documentation
 echo "Setting up kvmfr module parameters"
 if [ -f "/usr/lib/modprobe.d/kvmfr.conf" ]; then
@@ -152,9 +159,12 @@ if [ -f "$POLICY_FILE" ]; then
 	fi
 fi
 
-# Load kvmfr module into currently booted system
+# Load kvmfr module into currently booted system — match the karg value so
+# the live device size agrees with what future boots will use.
+KVMFR_SIZE=$(rpm-ostree kargs 2>/dev/null | grep -o 'kvmfr.static_size_mb=[^ ]*' | cut -d= -f2)
+KVMFR_SIZE="${KVMFR_SIZE:-128}"
 echo "Loading kvmfr module so you do not have to reboot to use it the first time"
-if ! sudo modprobe kvmfr static_size_mb=128; then
+if ! sudo modprobe kvmfr static_size_mb="$KVMFR_SIZE"; then
 	echo ""
 	echo "${red:-}${bold:-}ERROR: Failed to load kvmfr kernel module.${normal:-}"
 	if command -v mokutil >/dev/null && mokutil --sb-state 2>/dev/null | grep -q "enabled"; then

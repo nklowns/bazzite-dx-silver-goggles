@@ -11,7 +11,7 @@ modules:
       # High-performance Virtualization & KVMFR
       - kvm.ignore_msrs=1
       - kvm.report_ignored_msrs=0
-      - kvmfr.static_size_mb=128
+      # kvmfr.static_size_mb is NOT baked; kvmfr is opt-in via ujust setup-virtualization kvmfr-on
       # IOMMU & VFIO for GPU Passthrough
       - intel_iommu=on
       - iommu=pt

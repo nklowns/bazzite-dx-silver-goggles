@@ -45,7 +45,10 @@ GrantDeveloperEntitlements() {
 			fi
 		done
 	done
-	return $provisioned_count
+	# Return 0 (success) only when at least one user was provisioned.
+	# Returning non-zero prevents PersistStateMarker from being called on
+	# first-boot race conditions where no wheel member exists yet (OOBE not complete).
+	return $(( provisioned_count > 0 ? 0 : 1 ))
 }
 
 PersistStateMarker() {
@@ -58,7 +61,11 @@ ConfigureQemuAcl() {
 	if [ -f "$qemu_conf" ]; then
 		echo "Configuring Looking Glass QEMU ACL..."
 		local has_kvmfr=0
-		if [ -f "/etc/udev/rules.d/99-kvmfr.rules" ] || [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
+		local _kvmfr_udev="/etc/udev/rules.d/99-kvmfr.rules"
+		# A /dev/null symlink in /etc/ is the declarative opt-out mask.
+		if [ -L "$_kvmfr_udev" ] && [ "$(readlink "$_kvmfr_udev" 2>/dev/null)" = "/dev/null" ]; then
+			has_kvmfr=0  # explicitly masked
+		elif [ -f "$_kvmfr_udev" ] || [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
 			has_kvmfr=1
 		fi
 		python3 -c '
@@ -116,7 +123,9 @@ ConfigureSelinux() {
 				is_enabled=false
 			fi
 		elif [ "$policy_name" = "kvmfr" ]; then
-			if [ ! -f "/etc/udev/rules.d/99-kvmfr.rules" ] && [ ! -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
+			# Masked (/dev/null symlink in /etc/) = kvmfr opt-out; skip SELinux policy.
+			if [ -L "/etc/udev/rules.d/99-kvmfr.rules" ] && \
+			   [ "$(readlink /etc/udev/rules.d/99-kvmfr.rules 2>/dev/null)" = "/dev/null" ]; then
 				is_enabled=false
 			fi
 		fi

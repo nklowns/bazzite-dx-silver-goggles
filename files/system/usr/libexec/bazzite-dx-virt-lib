@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Shared library for bazzite-dx virtualization scripts.
+# Source this file; do not execute directly.
+
+# Installs or upgrades the libvirt QEMU hook runner to /etc/libvirt/hooks/qemu.
+# The shipped hook at /usr/etc/libvirt/hooks/qemu (or /usr/share/ublue-os/...) is
+# the canonical version; this falls back to an inline heredoc if neither is present.
+EnsureQEMUHook() {
+  local needs_install=0
+  if [ ! -x "/etc/libvirt/hooks/qemu" ]; then
+    needs_install=1
+  elif ! grep -q "virt-pipewire.enable" "/etc/libvirt/hooks/qemu"; then
+    echo "Existing QEMU hook runner lacks PipeWire support. Upgrading..."
+    needs_install=1
+  fi
+
+  if [ "$needs_install" -eq 1 ]; then
+    echo "Configuring QEMU hook runner in /etc/libvirt/hooks/qemu..."
+    sudo mkdir -p /etc/libvirt/hooks
+    if [ -f "/usr/etc/libvirt/hooks/qemu" ]; then
+      sudo cp -f /usr/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+    elif [ -f "/usr/share/ublue-os/etc/libvirt/hooks/qemu" ]; then
+      sudo cp -f /usr/share/ublue-os/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+    else
+      # Fallback: write hook inline when shipped copy not found
+      sudo tee /etc/libvirt/hooks/qemu > /dev/null << 'EOF'
+#!/usr/bin/env bash
+GUEST_NAME="$1"
+HOOK_NAME="$2"
+STATE_NAME="$3"
+BASEDIR="$(dirname "$0")"
+HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+STDIN=$(cat)
+
+if [ -f "/etc/ublue/virt-pipewire.enable" ] && echo "$STDIN" | grep -qE "type='pipewire'|type=\"pipewire\""; then
+	RUNTIME_DIR=$(echo "$STDIN" | python3 -c "
+import sys, xml.etree.ElementTree as ET
+try:
+    root = ET.fromstring(sys.stdin.read())
+    for elem in root.iter():
+        local_name = elem.tag.split('}')[-1]
+        if local_name == 'audio' and elem.get('type') == 'pipewire':
+            print(elem.get('runtimeDir', ''))
+            break
+except Exception:
+    pass
+" 2>/dev/null)
+	if [ -z "$RUNTIME_DIR" ]; then
+		ACTIVE_UID=$(loginctl list-users --no-legend 2>/dev/null | awk '$1 >= 1000 {print $1}' | head -n 1)
+		RUNTIME_DIR="/run/user/${ACTIVE_UID:-1000}"
+	fi
+	if [ "$HOOK_NAME" = "prepare" ]; then
+		if [ -d "$RUNTIME_DIR" ]; then
+			setfacl -m u:qemu:x "$RUNTIME_DIR" 2>/dev/null || true
+			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
+				setfacl -m u:qemu:rw "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
+			fi
+		fi
+	elif [ "$HOOK_NAME" = "release" ]; then
+		if [ -d "$RUNTIME_DIR" ]; then
+			setfacl -x u:qemu "$RUNTIME_DIR" 2>/dev/null || true
+			if [ -S "$RUNTIME_DIR/pipewire-0" ]; then
+				setfacl -x u:qemu "$RUNTIME_DIR/pipewire-0" 2>/dev/null || true
+			fi
+		fi
+	fi
+fi
+
+set -e
+if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
+	"$HOOKPATH" "$@" <<<"$STDIN"
+elif [ -d "$HOOKPATH" ]; then
+	while read -r file; do
+		if [ -n "$file" ]; then
+			"$file" "$@" <<<"$STDIN"
+		fi
+	done <<<"$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print)"
+fi
+EOF
+    fi
+    sudo chmod +x /etc/libvirt/hooks/qemu
+    echo "QEMU hook runner installed/upgraded successfully."
+  fi
+}

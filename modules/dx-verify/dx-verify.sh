@@ -29,6 +29,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system/awccd.service|Asset: AWCC Service|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
 	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"
+	"file|/usr/libexec/bazzite-dx-virt-lib|Asset: Virt Shared Library|Error"
 	"file|/usr/lib/systemd/system/bazzite-dx-groups.service|Asset: DX Groups Service|Error"
 	"file|/etc/profile.d/brew.sh|Shield: Brew Profile|Error"
 	"file|/etc/profile.d/brew-bash-completion.sh|Shield: Brew Completion|Error"
@@ -50,6 +51,20 @@ readonly AUDIT_REGISTRY=(
 	"bin|kcli|Tool: KCLI|Error"
 	"bin|bpftop|Tool: bpftop|Error"
 	"bin|cloud-hypervisor|Tool: Cloud-Hypervisor|Error"
+	"bin|looking-glass-client|Tool: Looking Glass Client|Error"
+	"bin|g15-status|Tool: G15 Status|Error"
+	"bin|bling-check|Tool: Bling Check|Error"
+
+	"file|/usr/libexec/bazzite-dx-virt-setup|Asset: Virt Setup Script|Error"
+	"file|/usr/libexec/bazzite-dx-manage-vfio|Asset: VFIO Manager|Error"
+	"file|/usr/libexec/bazzite-dx-kvmfr-setup|Asset: KVMFR Setup|Error"
+	"file|/usr/libexec/bazzite-dx-win-utils|Asset: Win Guest Utils|Error"
+	"file|/usr/lib/udev/rules.d/99-kvmfr.rules|Asset: KVMFR Udev Rules|Error"
+	"file|/usr/lib/modules-load.d/kvmfr.conf|Asset: KVMFR Module Config|Error"
+	"file|/etc/udev/rules.d/99-kvmfr.rules|Mask: KVMFR Udev (opt-out default)|Error"
+	"file|/etc/modules-load.d/kvmfr.conf|Mask: KVMFR Autoload (opt-out default)|Error"
+	"file|/usr/share/selinux/packages/kvmfr.cil|Asset: SELinux KVMFR Policy|Error"
+	"file|/usr/share/selinux/packages/pipewire.cil|Asset: SELinux PipeWire Policy|Error"
 
 	"file|/usr/share/ublue-os/homebrew/cli.Brewfile|Brew: CLI Suite|Error"
 	"file|/usr/share/ublue-os/homebrew/ai-tools.Brewfile|Brew: AI Suite|Error"
@@ -68,7 +83,7 @@ CheckGroup() {
 	getent group "$target" >/dev/null || grep -rqE "^g $target\b" /usr/lib/sysusers.d/
 }
 
-CheckFile() { [[ -f "$1" ]]; }
+CheckFile() { [[ -e "$1" ]] || [[ -L "$1" ]]; }  # -e follows symlinks; -L catches dangling ones
 CheckBinary() { command -v "$1" >/dev/null; }
 CheckTarget() { [[ -L "/etc/systemd/system/default.target" ]] && [[ $(readlink /etc/systemd/system/default.target) =~ $1 ]]; }
 
