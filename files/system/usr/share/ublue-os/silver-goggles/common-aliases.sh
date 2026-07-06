@@ -1,4 +1,5 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # Bazzite-DX Silver Goggles: Common Aliases & Config
 # Shared between Bash, Zsh and Fish.
 # Located in: /usr/share/ublue-os/silver-goggles/common-aliases.sh
@@ -62,9 +63,32 @@ fi
 [ "$(command -v helm)" ] && alias h='helm'
 # </helm>
 
-# --- Project Specific Fixes ---
-
 # Obsidian CLI Fix: Symlink the socket from the Flatpak sandbox to the expected host location
 if [ "$(command -v obsidian)" ]; then
 	alias obsidian='ln -sf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock" "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.obsidian-cli.sock" 2>/dev/null; command obsidian'
 fi
+
+# --- Modern Bling Integrations & Aliases ---
+
+# <yazi>
+if [ "$(command -v yazi)" ]; then
+	alias y='yazi'
+	yy() {
+		local tmp
+		tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+		yazi "$@" --cwd-file="$tmp"
+		if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+			builtin cd -- "$cwd" || return
+		fi
+		rm -f -- "$tmp"
+	}
+fi
+# </yazi>
+
+# <delta>
+if [ "$(command -v delta)" ]; then
+	export GIT_PAGER="delta"
+fi
+# </delta>
+
+
