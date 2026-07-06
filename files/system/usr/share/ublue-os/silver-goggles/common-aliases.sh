@@ -68,27 +68,32 @@ if [ "$(command -v obsidian)" ]; then
 	alias obsidian='ln -sf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock" "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.obsidian-cli.sock" 2>/dev/null; command obsidian'
 fi
 
-# --- Modern Bling Integrations & Aliases ---
+# Only configure host-specific aliases and environments on the host (not inside containers/distrobox)
+if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 
-# <yazi>
-if [ "$(command -v yazi)" ]; then
-	alias y='yazi'
-	yy() {
-		local tmp
-		tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
-		yazi "$@" --cwd-file="$tmp"
-		if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-			builtin cd -- "$cwd" || return
-		fi
-		rm -f -- "$tmp"
-	}
-fi
-# </yazi>
+	# --- Modern Bling Integrations & Aliases ---
 
-# <delta>
-if [ "$(command -v delta)" ]; then
-	export GIT_PAGER="delta"
+	# <yazi>
+	if [ "$(command -v yazi)" ]; then
+		alias y='yazi'
+		yy() {
+			local tmp
+			tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+			yazi "$@" --cwd-file="$tmp"
+			if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+				builtin cd -- "$cwd" || return
+			fi
+			rm -f -- "$tmp"
+		}
+	fi
+	# </yazi>
+
+	# <delta>
+	if [ "$(command -v delta)" ]; then
+		export GIT_PAGER="delta"
+	fi
+	# </delta>
+
 fi
-# </delta>
 
 

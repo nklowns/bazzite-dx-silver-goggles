@@ -66,29 +66,34 @@ if command -v obsidian >/dev/null
     alias obsidian='ln -sf (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /run/user/(id -u))/.flatpak/md.obsidian.Obsidian/xdg-run/.obsidian-cli.sock (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /run/user/(id -u))/.obsidian-cli.sock 2>/dev/null; command obsidian'
 end
 
-# --- Modern Bling Integrations & Aliases ---
+# Only configure host-specific aliases and environments on the host (not inside containers/distrobox)
+if not test -f /run/.containerenv; and not test -f /.dockerenv
 
-# <yazi>
-if command -v yazi >/dev/null
-    alias y='yazi'
-    function yy
-        set -l tmp (mktemp -t "yazi-cwd.XXXXXX")
-        yazi $argv --cwd-file=$tmp
-        if test -f $tmp
-            set -l cwd (cat $tmp)
-            if test -n "$cwd"; and test "$cwd" != "$PWD"
-                builtin cd $cwd
+    # --- Modern Bling Integrations & Aliases ---
+
+    # <yazi>
+    if command -v yazi >/dev/null
+        alias y='yazi'
+        function yy
+            set -l tmp (mktemp -t "yazi-cwd.XXXXXX")
+            yazi $argv --cwd-file=$tmp
+            if test -f $tmp
+                set -l cwd (cat $tmp)
+                if test -n "$cwd"; and test "$cwd" != "$PWD"
+                    builtin cd $cwd
+                end
+                rm -f $tmp
             end
-            rm -f $tmp
         end
     end
-end
-# </yazi>
+    # </yazi>
 
-# <delta>
-if command -v delta >/dev/null
-    set -gx GIT_PAGER delta
+    # <delta>
+    if command -v delta >/dev/null
+        set -gx GIT_PAGER delta
+    end
+    # </delta>
+
 end
-# </delta>
 
 
