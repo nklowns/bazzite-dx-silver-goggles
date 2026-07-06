@@ -9,12 +9,10 @@ modules:
       cleanup: true
       copr:
         - karmab/kcli
-        - gmaglione/podman-bootc
         - ublue-os/packages
     install:
       packages:
         - kcli
-        - podman-bootc
         - ublue-setup-services
         - ublue-os-libvirt-workarounds
 
@@ -60,6 +58,7 @@ modules:
       - crun-wasm # Container: OCI runtime for Wasm
       - virt-manager # VM: Desktop manager
       - virt-v2v # VM: V2V conversion
+      - guestfs-tools # VM: guestfish and disk image utilities
       - virt-viewer # VM: Graphical console
 
       # --- OS-Level Observability (eBPF & Trace Core) ---
@@ -78,6 +77,9 @@ modules:
       - tiptop # System: Performance monitor
       - trace-cmd # System: Ftrace interface
       # - udica # SELinux: Container policy generator (Bazzite pre-installed)
+      - wireshark-cli # Network: tshark protocol analyzer
+      - nmap # Network: Port scanner and host prober
+      - powertop # System: Intel/AMD battery and power profiler
 
       # --- Host Integration & Peripheral Bridges ---
       # - android-tools # Mobile: ADB & Fastboot

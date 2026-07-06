@@ -9,6 +9,8 @@ tap "k0sproject/tap"                         # For K0s
 tap "robscott/tap"                           # For kube-capacity
 tap "dapr/tap"                               # For Dapr CLI
 tap "kdash-rs/kdash"                         # For kdash
+tap "Starlexxx/tap"                          # For lazy-k8s
+
 
 # --- Virtualization & Infrastructure Management ---
 brew "opentofu"                              # Open-source Terraform alternative
@@ -51,7 +53,8 @@ brew "kubectl-cnpg"                          # CLI for CloudNativePG (PostgreSQL
 
 # --- UX, Dashboards & API Testing ---
 brew "k9s"                                   # Premium terminal UI for K8s
-brew "kdash-rs/kdash/kdash"                   # Fast and simple dashboard for K8s
+brew "kdash-rs/kdash/kdash"                  # Fast and simple dashboard for K8s
+brew "Starlexxx/tap/lazy-k8s"                # Keyboard-driven Kubernetes TUI
 brew "cmctl"                                 # Cert-manager control utility
 brew "k8sgpt"                                # AI-powered Kubernetes diagnostics
 flatpak "app.freelens.Freelens"              # Professional K8s IDE
@@ -85,4 +88,10 @@ brew "k0sproject/tap/k0sctl"                 # Zero-dependency K8s installer
 
 # --- Databases ---
 brew "libpq"                                 # PostgreSQL client library
+brew "posting"                               # Posting: TUI HTTP/REST client
+brew "harlequin"                             # Harlequin: SQL IDE TUI
+brew "lazysql"                               # Lazysql: Database TUI manager
 flatpak "io.dbeaver.DBeaverCommunity"        # Universal Database Manager
+flatpak "org.dbgate.DbGate"                  # DbGate: Smart and lightweight database client
+flatpak "com.redis.RedisInsight"             # RedisInsight: Visual Redis database client
+flatpak "org.sqlitebrowser.sqlitebrowser"    # DB4S: DB Browser for SQLite GUI

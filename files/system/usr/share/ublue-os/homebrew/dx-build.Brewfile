@@ -19,3 +19,6 @@ brew "swiftformat"  # Swift code quality: Formatter
 # --- Performance & Benchmarking ---
 brew "scc"          # Sloc, Cloc and Code: Extremely fast code counter
 brew "hyperfine"    # Dev: Statistical benchmarking tool
+
+# --- Process Orchestration ---
+brew "mprocs"       # Run multiple development processes in a single TUI

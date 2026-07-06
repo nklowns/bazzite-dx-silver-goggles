@@ -33,11 +33,14 @@ brew "aichat"                                       # Interactive chat in the te
 brew "llm"                                          # Streamlined CLI for OpenAI/Anthropic/Local
 brew "llmfit"                                       # Advanced quantization tools
 brew "whisper-cpp"                                  # High-performance speech-to-text
-brew "gemini-cli"                                   # Google's multimodal interface
 cask "ublue-os/tap/antigravity-cli-linux"           # Google's antigravity CLI interface
 brew "kimi-cli"                                     # DeepSearch-capable CLI integration
 brew "mistral-vibe"                                 # CLI for Mistral AI models
 brew "qwen-code"                                    # Specialized Qwen code completion CLI
+brew "fabric"                                       # Fabric: Prompt patterns CLI runner
+
 
 # --- Agentic Shells & Engines ---
 brew "aider"                                        # CLI pair programming agent
+brew "gptme"                                        # Gptme: Local-first agentic shell
+brew "openclaw-cli"                                 # OpenClaw: Local AI gateway interface
