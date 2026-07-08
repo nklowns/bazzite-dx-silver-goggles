@@ -86,3 +86,23 @@ brew-trust-taps:
         fi
     done
     echo "Done! Homebrew taps trusted successfully."
+
+# ==============================================================================
+# GROUP 4: Hardware & Input
+# ==============================================================================
+
+# Toggle laptop's built-in keyboard (enable/disable/toggle/status)
+[group('Hardware')]
+toggle-keyboard state="toggle":
+    #!/usr/bin/env bash
+    CMD="/usr/bin/udev-keyboard-handler"
+    if [[ ! -x "$CMD" && -x "/usr/local/bin/udev-keyboard-handler" ]]; then
+        CMD="/usr/local/bin/udev-keyboard-handler"
+    fi
+
+    if [[ ! -x "$CMD" ]]; then
+        echo "Error: Keyboard handler script not found in /usr/bin or /usr/local/bin."
+        exit 1
+    fi
+
+    "$CMD" "{{ state }}"
