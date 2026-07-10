@@ -17,8 +17,11 @@
     },
     {
         "key": "ctrl+e",
-        "command": "-workbench.action.quickOpen",
-        "when": "terminalFocus"
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u0005"
+        }
     },
     {
         "key": "ctrl+enter",
@@ -30,33 +33,51 @@
     },
     {
         "key": "ctrl+g",
-        "command": "-workbench.action.gotoLine",
-        "when": "terminalFocus"
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u0007"
+        }
     },
     {
         "key": "ctrl+n",
-        "command": "-workbench.action.files.newUntitledFile",
-        "when": "terminalFocus"
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u000e"
+        }
     },
     {
         "key": "ctrl+p",
-        "command": "-workbench.action.quickOpen",
-        "when": "terminalFocus"
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u0010"
+        }
     },
     {
         "key": "ctrl+r",
-        "command": "-workbench.action.openRecent",
-        "when": "terminalFocus"
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u0012"
+        }
     },
     {
         "key": "ctrl+t",
-        "command": "-workbench.action.showAllSymbols",
-        "when": "terminalFocus"
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u0014"
+        }
     },
     {
         "key": "ctrl+w",
-        "command": "-workbench.action.closeActiveEditor",
-        "when": "terminalFocus"
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u0017"
+        }
     },
     {
         "key": "shift+alt+z",
