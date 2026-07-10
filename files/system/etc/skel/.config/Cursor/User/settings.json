@@ -5,8 +5,8 @@
   "update.mode": "none",
 
   "terminal.integrated.env.linux": {
-    "EDITOR": "antigravity-ide --wait",
-    "VISUAL": "antigravity-ide --wait"
+    "EDITOR": "cursor --wait",
+    "VISUAL": "cursor --wait"
   },
 
   "terminal.integrated.defaultProfile.linux": "fish",

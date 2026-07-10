@@ -4,6 +4,11 @@
 
   "update.mode": "none",
 
+  "terminal.integrated.env.linux": {
+    "EDITOR": "code --wait",
+    "VISUAL": "code --wait"
+  },
+
   "terminal.integrated.defaultProfile.linux": "fish",
   "terminal.integrated.profiles.linux": {
     "bash": {

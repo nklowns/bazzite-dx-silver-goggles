@@ -41,6 +41,60 @@ end
 # only make sense for humans — skip in scripts and agent-driven subshells.
 if status is-interactive
 
+    # --- VS Code / VS Code Insiders / Cursor / Antigravity IDE Integration ---
+    if test "$TERM_PROGRAM" = "vscode"; or set -q VSCODE_GIT_ASKPASS_NODE
+        if not test -f /run/.containerenv; and not test -f /.dockerenv
+            switch "$EDITOR"
+                case "" "*nano*" "*vi" "*vim"
+                    set -l _detected_editor ""
+                    for _var in "$VSCODE_GIT_ASKPASS_NODE" "$GIT_ASKPASS" "$TERM_PROGRAM_VERSION"
+                        if string match -q "*code-insiders*" "$_var"
+                            set _detected_editor "code-insiders"
+                            break
+                        elif string match -q "*cursor*" "$_var"
+                            set _detected_editor "cursor"
+                            break
+                        elif string match -q "*antigravity-ide*" "$_var"
+                            set _detected_editor "antigravity-ide"
+                            break
+                        elif string match -q "*code*" "$_var"
+                            set _detected_editor "code"
+                            break
+                        end
+                    end
+
+                    if test -z "$_detected_editor"
+                        set -l _pid $fish_pid
+                        while test "$_pid" -gt 1
+                            set -l _cmd (ps -p "$_pid" -o comm= 2>/dev/null)
+                            if string match -q "*code-insiders*" "$_cmd"
+                                set _detected_editor "code-insiders"
+                                break
+                            elif string match -q "*cursor*" "$_cmd"
+                                set _detected_editor "cursor"
+                                break
+                            elif string match -q "*antigravity-ide*" "$_cmd"
+                                set _detected_editor "antigravity-ide"
+                                break
+                            elif string match -q "*code*" "$_cmd"
+                                set _detected_editor "code"
+                                break
+                            end
+                            set _pid (ps -p "$_pid" -o ppid= 2>/dev/null | string trim)
+                            if test -z "$_pid"
+                                break
+                            end
+                        end
+                    end
+
+                    if test -n "$_detected_editor"; and command -v "$_detected_editor" >/dev/null 2>&1
+                        set -gx EDITOR "$_detected_editor --wait"
+                        set -gx VISUAL "$_detected_editor --wait"
+                    end
+            end
+        end
+    end
+
     # 1. Initialize direnv
     if test "$BLUEFIN_SHELL_ENABLE_DIRENV" = 1; and command -v direnv >/dev/null
         direnv hook fish | source
