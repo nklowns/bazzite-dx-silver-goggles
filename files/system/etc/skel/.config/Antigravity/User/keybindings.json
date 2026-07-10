@@ -1,21 +1,5 @@
 [
     {
-        "key": "shift+alt+z",
-        "command": "workbench.action.terminal.sendSequence",
-        "when": "terminalFocus",
-        "args": {
-            "text": "\u001b[122;4u"
-        }
-    },
-    {
-        "key": "shift+cmd+z",
-        "command": "workbench.action.terminal.sendSequence",
-        "when": "terminalFocus",
-        "args": {
-            "text": "\u001b[122;10u"
-        }
-    },
-    {
         "key": "alt+z",
         "command": "workbench.action.terminal.sendSequence",
         "when": "terminalFocus",
@@ -32,11 +16,62 @@
         }
     },
     {
+        "key": "ctrl+e",
+        "command": "-workbench.action.quickOpen",
+        "when": "terminalFocus"
+    },
+    {
         "key": "ctrl+enter",
         "command": "workbench.action.terminal.sendSequence",
         "when": "terminalFocus",
         "args": {
             "text": "\\\r\n"
+        }
+    },
+    {
+        "key": "ctrl+g",
+        "command": "-workbench.action.gotoLine",
+        "when": "terminalFocus"
+    },
+    {
+        "key": "ctrl+n",
+        "command": "-workbench.action.files.newUntitledFile",
+        "when": "terminalFocus"
+    },
+    {
+        "key": "ctrl+p",
+        "command": "-workbench.action.quickOpen",
+        "when": "terminalFocus"
+    },
+    {
+        "key": "ctrl+r",
+        "command": "-workbench.action.openRecent",
+        "when": "terminalFocus"
+    },
+    {
+        "key": "ctrl+t",
+        "command": "-workbench.action.showAllSymbols",
+        "when": "terminalFocus"
+    },
+    {
+        "key": "ctrl+w",
+        "command": "-workbench.action.closeActiveEditor",
+        "when": "terminalFocus"
+    },
+    {
+        "key": "shift+alt+z",
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u001b[122;4u"
+        }
+    },
+    {
+        "key": "shift+cmd+z",
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u001b[122;10u"
         }
     },
     {
