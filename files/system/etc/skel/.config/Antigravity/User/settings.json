@@ -19,6 +19,11 @@
     },
     "fish": {
       "path": "fish"
-    }
+    },
+    "tmux": {
+      "path": "tmux",
+      "args": ["new-session", "-A", "-s", "${workspaceFolderBasename}"],
+      "icon": "terminal-tmux",
+    },
   }
 }
