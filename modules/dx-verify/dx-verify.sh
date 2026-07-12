@@ -74,6 +74,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/ublue-os/homebrew/silver-goggles.Brewfile|Brew: Silver Goggles Suite|Error"
 
 	"desktop|/usr/share/applications/input-remapper-gtk.desktop|UX: Input Remapper Visibility|Error"
+
+	"content|/usr/share/ublue-os/bazaar/main.yaml::blocklist-dx.yaml|Policy: Bazaar DX Blocklist Registered|Error"
 )
 
 # --- Providers ---
@@ -83,9 +85,15 @@ CheckGroup() {
 	getent group "$target" >/dev/null || grep -rqE "^g $target\b" /usr/lib/sysusers.d/
 }
 
-CheckFile() { [[ -e "$1" ]] || [[ -L "$1" ]]; }  # -e follows symlinks; -L catches dangling ones
+CheckFile() { [[ -e "$1" ]] || [[ -L "$1" ]]; } # -e follows symlinks; -L catches dangling ones
 CheckBinary() { command -v "$1" >/dev/null; }
 CheckTarget() { [[ -L "/etc/systemd/system/default.target" ]] && [[ $(readlink /etc/systemd/system/default.target) =~ $1 ]]; }
+
+# Content provider: target is "path::pattern"; passes when pattern found in file
+CheckContent() {
+	local path="${1%%::*}" pattern="${1#*::}"
+	[[ -f "$path" ]] && grep -q "$pattern" "$path"
+}
 
 # Desktop provider is silent if file is missing (Parity with original behavior)
 CheckDesktop() {
@@ -107,6 +115,7 @@ RunAudit() {
 		file) success=$(CheckFile "$target" && echo 1 || echo 0) ;;
 		bin) success=$(CheckBinary "$target" && echo 1 || echo 0) ;;
 		target) success=$(CheckTarget "$target" && echo 1 || echo 0) ;;
+		content) success=$(CheckContent "$target" && echo 1 || echo 0) ;;
 		desktop) success=$(CheckDesktop "$target" && echo 1 || echo 0) ;;
 		esac
 

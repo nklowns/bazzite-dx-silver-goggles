@@ -23,7 +23,7 @@ flatpak "net.retrodeck.retrodeck"                           # All-in-one emulati
 flatpak "com.heroicgameslauncher.hgl"                       # Epic/GOG/Amazon games launcher
 flatpak "io.github.Faugus.faugus-launcher"                  # Specialized game launcher
 flatpak "io.github.unknownskl.greenlight"                   # Xbox Cloud Gaming/Cloud Stream
-flatpak "io.github.elyprismlauncher.ElyPrismLauncher"       # Xbox Cloud Gaming/Cloud Stream
+flatpak "io.github.elyprismlauncher.ElyPrismLauncher", remote: "https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref" # PineconeMC (ex-ElyPrismLauncher): Prism fork with Ely.by auth — own repo, not on Flathub
 flatpak "org.vinegarhq.Sober"                               # Specialized game launcher
 
 # --- Taps (Trusted Sources) ---

@@ -114,6 +114,7 @@ setup-default-brew flavor="" action="":
         *)     echo "Unknown flavor: $FLAVOR"; exit 1 ;;
     esac
 
+    OVERALL_RC=0
     for FILE in "${FILES[@]}"; do
         case $ACTION in
             install)
@@ -127,7 +128,42 @@ setup-default-brew flavor="" action="":
                         fi
                     done < <(grep -E '^tap "' "$FILE" | sed -E 's/tap "([^"]+)".*/\1/')
                 fi
-                brew bundle --file="$FILE"
+                # brew bundle aborts the whole bundle if a single fetch fails
+                # (e.g. upstream re-uploaded a cask artifact → checksum drift).
+                # Fall back to per-entry installs so one broken package cannot
+                # block the rest; report the casualties at the end.
+                if ! brew bundle --file="$FILE"; then
+                    echo "⚠️ Bundle aborted — retrying entries individually to isolate the breakage..."
+                    FAILED=()
+                    while read -r kind name; do
+                        case $kind in
+                            brew)
+                                brew list --formula "${name##*/}" &>/dev/null ||
+                                    brew install --formula "$name" ||
+                                    FAILED+=("formula: $name")
+                                ;;
+                            cask)
+                                brew list --cask "${name##*/}" &>/dev/null ||
+                                    brew install --cask "$name" ||
+                                    FAILED+=("cask: $name (may be macOS-only or upstream checksum drift)")
+                                ;;
+                            flatpak)
+                                # No hardcoded remote: entries may live outside flathub
+                                # (e.g. flatpakref-based remotes); let flatpak resolve.
+                                flatpak info "$name" &>/dev/null ||
+                                    flatpak install -y "$name" ||
+                                    FAILED+=("flatpak: $name (remote may need setup — check Brewfile remote: option)")
+                                ;;
+                        esac
+                    done < <(grep -E '^(brew|cask|flatpak) "' "$FILE" | sed -E 's/^(brew|cask|flatpak) "([^"]+)".*/\1 \2/')
+                    if [ "${#FAILED[@]}" -gt 0 ]; then
+                        echo "❌ Entries still failing in $(basename $FILE):"
+                        printf '   %s\n' "${FAILED[@]}"
+                        OVERALL_RC=1
+                    else
+                        echo "✅ All entries recovered individually."
+                    fi
+                fi
                 ;;
             check)
                 echo "🔍 Checking status: $(basename $FILE)..."
@@ -140,6 +176,10 @@ setup-default-brew flavor="" action="":
         esac
     done
 
+    if [ "$OVERALL_RC" -ne 0 ]; then
+        echo "Done with failures — the $FLAVOR experience (action: $ACTION) is partially ready. See ❌ above."
+        exit "$OVERALL_RC"
+    fi
     echo "Done! The $FLAVOR experience (action: $ACTION) is ready."
 
 # Monitor eBPF Performance (Requires sudo)

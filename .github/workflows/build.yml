@@ -31,6 +31,9 @@ jobs:
       - name: Install Just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
 
+      - name: Install shell interpreters for syntax checks
+        run: sudo apt-get update -q && sudo apt-get install -qy zsh fish
+
       - name: Install blue-build CLI
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
@@ -48,11 +51,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        recipe:
-          - recipe.yml
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7

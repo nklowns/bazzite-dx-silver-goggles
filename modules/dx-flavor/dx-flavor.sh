@@ -42,7 +42,8 @@ ApplyKdeBranding() {
 	fi
 
 	sed -i "s|^Website=.*|Website=https://dev.bazzite.gg|" "$KDE_BRANDING_PATH"
-	if [[ "$IMAGE_NAME" =~ "nvidia" ]]; then
+	# IMAGE_NAME (bazzite-dx-silver-goggles) carries no flavor hint; the base image does.
+	if [[ "$IMAGE_NAME" =~ "nvidia" ]] || [[ "${BASE_IMAGE:-}" =~ "nvidia" ]]; then
 		sed -i "s/^Variant=.*/Variant=DX (NVIDIA)/" "$KDE_BRANDING_PATH"
 	else
 		sed -i "s/^Variant=.*/Variant=DX/" "$KDE_BRANDING_PATH"
@@ -93,7 +94,19 @@ OptimizeApplicationVisibility() {
 RegisterBazaarBlocklist() {
 	[[ -f "$BAZAAR_MAIN_CONFIG" ]] && [[ -f "$DX_BLOCKLIST_PATH" ]] || return 0
 
+	# The sed below anchors on this upstream key; if bazzite renames it the
+	# substitution becomes a silent no-op. Fail the build instead.
+	if ! grep -q "override-eol-markings" "$BAZAAR_MAIN_CONFIG"; then
+		echo "CRITICAL: anchor 'override-eol-markings' missing from $BAZAAR_MAIN_CONFIG — blocklist injection would silently no-op."
+		exit 1
+	fi
+
 	sed -i 's@override-eol-markings@  - /usr/share/ublue-os/bazaar/blocklist-dx.yaml\noverride-eol-markings@g' "$BAZAAR_MAIN_CONFIG"
+
+	if ! grep -q "$DX_BLOCKLIST_PATH" "$BAZAAR_MAIN_CONFIG"; then
+		echo "CRITICAL: blocklist registration failed — $DX_BLOCKLIST_PATH not present in $BAZAAR_MAIN_CONFIG after injection."
+		exit 1
+	fi
 }
 
 # --- Execution ---

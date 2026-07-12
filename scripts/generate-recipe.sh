@@ -19,7 +19,18 @@ export BASE_IMAGE BASE_TAG BASE_DIGEST REPO_OWNER REVISION VERSION_FULL
 export IMAGE_NAME="bazzite-dx-silver-goggles"
 export IMAGE_DESC="Personal DX layer for Dell G15 5520. KDE/NVIDIA — Slim Edition."
 export ARTIFACTHUB_LOGO_URL="https://avatars.githubusercontent.com/u/187439889?s=200&v=4"
-KERNEL_RELEASE=$(uname -r)
+# ostree.linux must describe the kernel shipped in the image, not the build host.
+# Inherit it from the pinned base image; fall back to the label being omitted.
+KERNEL_RELEASE=""
+if command -v skopeo >/dev/null 2>&1; then
+	if [[ -n "$BASE_DIGEST" && "$BASE_DIGEST" != "null" ]]; then
+		KERNEL_RELEASE=$(skopeo inspect --format '{{ index .Labels "ostree.linux" }}' \
+			"docker://${BASE_IMAGE}@${BASE_DIGEST}" 2>/dev/null || true)
+	else
+		KERNEL_RELEASE=$(skopeo inspect --format '{{ index .Labels "ostree.linux" }}' \
+			"docker://${BASE_IMAGE}:${BASE_TAG}" 2>/dev/null || true)
+	fi
+fi
 export KERNEL_RELEASE
 
 if [[ -n "$BASE_DIGEST" && "$BASE_DIGEST" != "null" ]]; then
@@ -52,7 +63,6 @@ yq -i "
   .labels.\"io.artifacthub.package.deprecated\" = \"false\" |
   .labels.\"io.artifacthub.package.prerelease\" = \"false\" |
   .labels.\"containers.bootc\" = \"1\" |
-  .labels.\"ostree.linux\" = env(KERNEL_RELEASE) |
   .labels.\"org.opencontainers.image.vendor\" = env(REPO_OWNER) |
   .labels.\"org.opencontainers.image.licenses\" = \"Apache-2.0\" |
   .labels.\"org.opencontainers.image.source\" = \"https://github.com/\" + env(REPO_OWNER) + \"/bazzite-dx-silver-goggles\" |
@@ -61,3 +71,9 @@ yq -i "
   .labels.\"org.opencontainers.image.version\" = env(VERSION_FULL) |
   .labels.\"org.opencontainers.image.revision\" = env(REVISION)
 " recipes/build-recipe.yml
+
+if [[ -n "$KERNEL_RELEASE" ]]; then
+	yq -i '.labels."ostree.linux" = env(KERNEL_RELEASE)' recipes/build-recipe.yml
+else
+	echo "Warning: could not resolve base image kernel; omitting ostree.linux label."
+fi

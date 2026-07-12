@@ -94,8 +94,9 @@ flatpak "com.github.Murmele.Gittyup"    # Gittyup: Graphical Git client and hist
 brew "ast-grep"                         # Tree-sitter based semantic search
 brew "sem-cli"                          # Semantic Diff: Binary for AST-based structural diffs
 brew "difftastic"                       # Logic-based syntax diffing
-flatpak "org.gnome.Meld"                # Meld: Visual diff and merge tool
+flatpak "org.gnome.meld"                # Meld: Visual diff and merge tool
 brew "shellcheck"                       # Linter for shell scripts
+brew "shfmt"                            # Formatter for shell scripts (pairs with shellcheck)
 brew "vale"                             # Documentation: The professional prose linter
 brew "trash-cli"                        # Command-line interface to the freedesktop.org trashcan
 brew "valkyrie00/bbrew/bbrew"           # Fast Brew search and preview

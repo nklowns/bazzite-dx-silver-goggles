@@ -70,7 +70,6 @@ recipe.yml              ← Entry point (declarative orchestration)
 | `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
-| `files/system/usr/lib/bootc/kargs.d/` | Kernel arguments (IOMMU, KVM, VFIO, Bluetooth) |
 | `files/system/etc/modules-load.d/` | Kernel module loading (acpi_call) |
 | `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 95-bazzite-dx.just), injected via the `justfiles` module |
 | `files/rpm-ostree/` | Pre-compiled RPMs committed to git (awcc-dev.rpm) |

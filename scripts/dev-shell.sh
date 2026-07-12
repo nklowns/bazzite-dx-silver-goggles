@@ -16,7 +16,7 @@ PrepareShadowEnvironment() {
 	local shadow_bling="$SHADOW_ROOT_BASE/silver-goggles"
 	mkdir -p "$shadow_bling"
 
-	cp -r "$PROJECT_ROOT/files/system/usr/share/ublue-os/silver-goggles/." "$shadow_bling/"
+	cp -R "$PROJECT_ROOT/files/system/usr/share/ublue-os/silver-goggles/." "$shadow_bling/"
 
 	# Redirect asset lookups to the shadow root.
 	find "$shadow_bling" -type f -exec sed -i "s|/usr/share/ublue-os/silver-goggles|$shadow_bling|g" {} +
