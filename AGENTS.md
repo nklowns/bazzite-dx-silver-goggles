@@ -1,143 +1,177 @@
-# Bazzite-DX-Silver-Goggles AI Agent Guide
+# Bazzite-DX-Silver-Goggles — AI Agent Guide
 
-This repository is a **Personal Customization Layer** for Bazzite DX, specifically optimized for Dell G15 (5520) hardware. The entire build is driven by [`recipes/recipe.yml`](recipes/recipe.yml) following the **BlueBuild** declarative architecture.
+Single source of truth for AI agents in this repository (`CLAUDE.md` and `GEMINI.md` are symlinks to this file).
 
-## 📐 Project Role: Personal Customization
+Personal customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 44. Builds a declarative, immutable OCI container image with the [BlueBuild](https://blue-build.org) framework.
 
-Focus on hardware-specific tweaks (Dell G15) and "state integrity" logic. Use the `[Silver Goggles]` prefix for agent-created issues or messages.
+- **Base image**: `ghcr.io/ublue-os/bazzite-nvidia` — DX tooling is applied by this repo's own `recipes/dx.yml`, following `bazzite-dx` patterns.
+- **Entry point**: `recipes/recipe.yml`. Everything flows from there.
+- Use the `[Silver Goggles]` prefix for agent-created issues or messages.
+
+## 🛠️ Commands
+
+```bash
+just check          # Validate: Just syntax + bluebuild validate + ShellCheck
+just build          # Compile image via BlueBuild (requires podman/docker)
+just rebase-local   # Apply built image to running system (reboot required)
+just rollback-local # Undo last rebase (reboot required)
+just rebase-official # Return to upstream Bazzite image (reboot required)
+
+just lint           # ShellCheck all scripts
+just format         # shfmt all scripts
+just clean          # Remove build artifacts
+
+just build-awcc                    # Build stable AWCC RPM (version matched to base image)
+just build-awcc /path/to/AWCC      # Build dev AWCC RPM from local source
+just hot-swap-awcc /path/to/AWCC   # Build + apply AWCC live (no reboot)
+just uninstall-awcc                # Revert hot-swap (live, rpm-ostree apply-live --reset)
+
+just status         # Image config, local images, tooling versions
+just g15-status     # Dell G15 hardware health check
+just act            # Simulate GitHub Actions locally (requires --privileged for buildah)
+```
+
+Requirements: `just`, `podman` (or `docker`), `bluebuild` CLI. Install the CLI if missing:
+```bash
+podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
+```
+
+## 🏗️ Architecture
+
+### Modular Hybrid Build Model
+
+```
+recipe.yml              ← Entry point (declarative orchestration)
+├── files module        ← Overlays files/system/ onto /
+├── dx.yml              ← EXTENSIONS: Cockpit, Docker, Libvirt, eBPF tools, fonts
+│   └── local modules   ← Encapsulated logic: dx-flavor (branding/policy), dx-udev
+├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, AWCC RPM (rpm-ostree), thermald mask
+├── initramfs module
+├── dx-verify           ← System integrity auditor (custom module in modules/)
+├── os-release          ← OCI metadata
+└── signing             ← cosign
+```
+
+`recipes/build-recipe.yml` is **generated** by `scripts/generate-recipe.sh` at CI time — never edit it manually.
+
+### Expert Monolith Layers
+
+1. **CORE** — Fedora/uBlue base modules (`bazzite-nvidia` upstream).
+2. **EXTENSIONS** — extra packages and repos (`dx.yml`).
+3. **TUNING** — kernel and performance optimization (native `kargs` module).
+4. **HARDWARE** — Dell G15 customization (AWCC, dGPU, services).
+5. **IDENTITY** — visual identity and branding.
+
+### Key Directories
+
+| Path | Purpose |
+|------|---------|
+| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, generated `build-recipe.yml`) |
+| `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
+| `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
+| `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
+| `files/system/usr/lib/bootc/kargs.d/` | Kernel arguments (IOMMU, KVM, VFIO, Bluetooth) |
+| `files/system/etc/modules-load.d/` | Kernel module loading (acpi_call) |
+| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 95-bazzite-dx.just), injected via the `justfiles` module |
+| `files/rpm-ostree/` | Pre-compiled RPMs committed to git (awcc-dev.rpm) |
+| `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |
+| `build_files/` | AWCC RPM specs (stable: `awcc.spec`; dev fork: `awcc.dev.spec`) |
+| `just/` | Modular Just recipe files (build, dev, maint, status) |
+| `scripts/` | Utility/generation scripts (`generate-recipe.sh`) |
+| `disk_config/` | Bootc Image Builder (BIB) configs for QCOW2/ISO output |
+| `image-versions.yaml` | Pins the base image digest (updated by Renovate PRs; consumed by `generate-recipe.sh`) |
+
+**Justfile split**: root `Justfile` = development tasks (build, rebase, lint, AWCC); `files/justfiles/66-silver-goggles.just` = modular host-side `ujust` recipes.
 
 ## 🛡️ Atomic State Policy (MANDATORY)
 
-To maintain enterprise-grade quality on an atomic host, follow these rules:
+Immutable/atomic host — imperative system mutations on the live host are forbidden. Everything is baked into the image at build time.
 
-1. **Declarative Overrides**: NEVER use `sudo cp` or manual `flatpak override` commands in scripts.
-   - Use `tmpfiles.d` with the **`L+` (Symlink with overwrite)** pattern to link override files from `/usr/share/flatpak/overrides/` to `/var/lib/flatpak/overrides/`.
-2. **Global Environment**: Use `files/system/usr/lib/environment.d/*.conf` for system-wide environment variables.
-3. **Service Orchestration**:
-   - **Enable/Mask Services**: Declared in `recipe.yml` via the `systemd` module OR generated via **Local Modules** during the build process (e.g., `dx-flavor` generating presets).
-   - As a reference, `thermald.service` is masked (AWCC compat) and `systemd-udev-settle.service` is masked (VFIO/IOMMU stability).
-4. **Boot Logic**: Kernel arguments are declared via the `kargs` module, with additional tuning performed by local modules if necessary.
-5. **Static Files**: All system configuration goes under `files/system/`, injected by the `files` module in `recipe.yml`.
+1. **Static files** go under `files/system/` (the `files` module overlays them onto `/`). Never mutate `/etc` directly.
+2. **Flatpak overrides**: NEVER use `flatpak override` or `sudo cp` in scripts. Use `tmpfiles.d` with the **`L+` (symlink with overwrite)** pattern linking `/usr/share/flatpak/overrides/` → `/var/lib/flatpak/overrides/`.
+3. **Global env vars** go in `files/system/usr/lib/environment.d/*.conf`. Never `export` in profile scripts.
+4. **Service enable/mask** is declared via the `systemd` module in `recipe.yml` OR generated by local modules at build time (e.g., `dx-flavor` presets). Reference: `thermald.service` masked (AWCC compat), `systemd-udev-settle.service` masked (VFIO/IOMMU stability). Do not add preset files manually.
+5. **Kernel args** go via the `kargs` module (plus local-module tuning if needed). Never use imperative boot scripts.
+6. **Image transformation**: build-time scripts (local modules) are the authorized escape hatch for branding, policy enforcement, and config that static overlays can't express.
 
----
+### Scripting Conventions
 
-## 📚 MCP Context7 Knowledge Strategy
+- Shell scripts must pass `shellcheck` (`just lint`); format with `shfmt` (`just format`).
+- Custom BlueBuild modules follow the pattern in `modules/` and should include an integrity check where possible (see `dx-verify`).
 
-Use these libraries for BlueBuild patterns and templates:
+## ⚙️ AWCC RPM Workflow
 
-- `blue-build.org/reference`: Technical reference for build logic.
-- `blue-build.org/learn`: Tutorials and educational material for BlueBuild.
-- `blue-build.org/how-to`: Practical guides for specific build tasks.
-- `/blue-build/modules`: Reusable components for the image.
-- `/ublue-os/image-template`: The foundation of this repository's structure.
-- `/ublue-os/bazzite-dx`: The immediate upstream base of this image.
+`files/rpm-ostree/awcc-dev.rpm` is committed to the repo and installed at image build time via the `rpm-ostree` module.
 
----
-
-## 🛠️ Development Lifecycle
-
-### 1. Build & Apply Patterns
-
-- **Standard Build**: `just build` → `just rebase-local` (requires reboot).
-- **AWCC (Stable Upstream)**: `just build-awcc` → `git add -f files/rpm-ostree/awcc-dev.rpm && git commit`.
-- **AWCC (Local Dev)**: `just build-awcc /path/to/AWCC-source` (compiles from local source, matches Fedora version).
-- **Hot-Swap (AWCC)**: `just hot-swap-awcc <path>` (build + apply RPM live, no reboot).
-- **Full validate**: `just check` (syntax + shellcheck + integrity audit).
-
-### 2. AWCC RPM Workflow
-
-The AWCC RPM (`files/rpm-ostree/awcc-dev.rpm`) is committed to the repo and installed at build time via the `rpm-ostree` module.
-
-| Command | Spec Used | Source |
+| Command | Spec used | Source |
 |---|---|---|
-| `just build-awcc` | `awcc.spec` (default) | Downloads tarball from `tr1xem/AWCC` |
-| `AWCC_SPEC=awcc.dev.spec just build-awcc <src>` | `awcc.dev.spec` | Local source from `nklowns/AWCC` fork |
+| `just build-awcc` | `awcc.spec` (default) | Downloads tarball from `tr1xem/AWCC`, version synced with base image |
+| `AWCC_SPEC=awcc.dev.spec just build-awcc <src>` | `awcc.dev.spec` | Local source from `nklowns/AWCC` fork (pinned commit) |
 
-See [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md) for the full workflow.
+After rebuilding, commit the RPM: `git add -f files/rpm-ostree/awcc-dev.rpm && git commit`.
+Rapid iteration: `just hot-swap-awcc <path>` (live apply, no reboot); revert with `just uninstall-awcc`.
+Full workflow: [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md).
 
-### 3. Working with Forks & Branch Overrides
+## 🔀 Testing Forks & Branch Overrides
 
-If testing a fork of `bazzite-dx` as base image:
+To test a fork of the base image:
+1. Edit `base-image` in `recipes/recipe.yml` (e.g., `ghcr.io/nklowns/bazzite-dx-nvidia:latest`).
+2. `just build`.
+3. Revert after testing.
 
-1. Edit `base-image` in `recipes/recipe.yml` to `ghcr.io/nklowns/bazzite-dx-nvidia:latest`.
-2. Run `just build`.
-3. Revert the change after testing.
+## 🚀 CI/CD & Deployment
 
----
+`.github/workflows/build.yml` on push to main:
+1. **check** job — `just check` (lint + validate).
+2. **bluebuild** job — builds, signs (cosign), and pushes to `ghcr.io/nklowns/bazzite-dx-silver-goggles`.
 
-## 🏗️ Repository Architecture
+`.github/workflows/build-disk.yml` — manual workflow for QCOW2/ISO disk images via BIB.
 
-```
-recipes/recipe.yml          ← Central build declaration (BlueBuild)
-files/
-  system/                   ← Static files overlaid onto / (via files module)
-    usr/lib/
-      environment.d/        ← Global env vars (CHROME_EXTRA_FLAGS, etc.)
-      tmpfiles.d/           ← Atomic symlinks (L+ pattern)
-    etc/modules-load.d/     ← Kernel module loading (acpi_call)
-  rpm-ostree/
-    awcc-dev.rpm            ← Pre-compiled AWCC binary (committed to git)
-build_files/
-  awcc.spec                 ← Stable RPM spec (tr1xem/AWCC)
-  awcc.dev.spec             ← Dev RPM spec (nklowns/AWCC fork, specific commit)
+Rebase a system to the published image:
+```bash
+rpm-ostree rebase ostree-image-signed:docker://ghcr.io/nklowns/bazzite-dx-silver-goggles:latest
 ```
 
-**Justfile Split**:
-- Root `Justfile`: Development tasks (build, rebase, lint, AWCC).
-- `files/justfiles/66-silver-goggles.just`: Modular host-side recipes (ujust). Injected via the `justfiles` module.
-
----
-
-## 🏗️ Estratificação Expert Monolith
-O Silver Goggles adota a estrutura de camadas (Layers) para máxima clareza e declaratividade:
-
-1.  **CORE**: Fundação Federada (Módulos base Fedora/uBlue).
-2.  **EXTENSIONS**: Pacotes e Repositórios extras (Bazzite-DX).
-3.  **TUNING**: Otimizações de Kernel e Performance (Módulo `kargs` nativo).
-4.  **HARDWARE**: Customizações Dell G15 (AWCC, dGPU, Services).
-5.  **IDENTITY**: Identidade Visual e Branding.
-
----
-
-## 🏁 Safety & Reversal (Rollback)
-
-- **Undo System Rebase**: `just rollback-local` (reboot required).
-- **Return to Official Image**: `just rebase-official` (reboot required).
-- **Undo AWCC Hot-Swap**: `just uninstall-awcc` (live transient removal via `rpm-ostree apply-live --reset`).
-
----
-
-## 🚀 CI/CD & Local Runner Strategy
-
-### 1. Local Build
+### Local Build
 
 ```bash
-# Requires: bluebuild CLI
-# Install: podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
 just build 2>&1 | tee output/build.log
 ```
 
-### 2. Local GHA Testing (`act`)
+### Local GHA Testing (`act`)
 
 ```bash
 just act   # Simulates GitHub Actions locally (requires --privileged for buildah)
 ```
 
-### 3. Self-Hosted Runner (Distrobox)
+### Self-Hosted Runner (Distrobox)
 
-To keep the host clean, run the runner in a container:
+Keep the host clean — run the runner in a container:
+1. `distrobox-create --name gha-runner --image fedora:44 --init`
+2. `distrobox-enter gha-runner`
+3. Install deps (`git`, `podman`, `curl`) and configure the runner manually.
+4. `sudo ./svc.sh install/start` to run as a service inside the container.
 
-1. `distrobox-create --name gha-runner --image fedora:44 --init`.
-2. `distrobox-enter gha-runner`.
-3. Install dependencies (`git`, `podman`, `curl`) and configure the runner manually.
-4. Use `sudo ./svc.sh install/start` to run as a service inside the container.
+## 🏁 Safety & Rollback
 
----
+- **Undo system rebase**: `just rollback-local` (reboot required).
+- **Return to official image**: `just rebase-official` (reboot required).
+- **Undo AWCC hot-swap**: `just uninstall-awcc` (live transient removal via `rpm-ostree apply-live --reset`).
 
-## 🧠 System State & Lifecycle
+## 🧠 System State Identification
 
-Use `rpm-ostree status` to identify your current deployment:
+`rpm-ostree status` deployment markers:
+- **● Signed** — production state (rebased from `ghcr.io/nklowns/bazzite-dx-silver-goggles`).
+- **● Unverified** — local testing state (rebased from `localhost/`).
+- **LocalPackages** — active hot-swap on top of the base image.
 
-- **● Signed**: Production state (rebased from `ghcr.io/nklowns/bazzite-dx-silver-goggles`).
-- **● Unverified**: Local testing state (rebased from `localhost/`).
-- **LocalPackages**: Active Hot-Swap on top of base image.
+## 📚 BlueBuild Reference (Context7 MCP)
+
+- `blue-build.org/reference` — technical reference for build logic.
+- `blue-build.org/learn` — tutorials and educational material.
+- `blue-build.org/how-to` — practical guides for specific build tasks.
+- `/blue-build/modules` — reusable module catalog.
+- `/ublue-os/image-template` — foundation of this repository's structure.
+- `/ublue-os/bazzite-dx` — upstream DX patterns reference.
+
+For grep-level lookups of upstream implementations, prefer the local clones in `../ublue-os/` and `../blue-build/` (see workspace `AGENTS.md`).
