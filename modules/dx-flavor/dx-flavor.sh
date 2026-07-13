@@ -83,6 +83,8 @@ SanitizeKdeInteractiveConfig() {
 		-e 's/^(action\/switch_user)=false/\1=true/' \
 		-e 's/^(action\/start_new_session)=false/\1=true/' \
 		-e 's/^(action\/lock_screen)=false/\1=true/' \
+		-e 's/^(kcm_sddm\.desktop)=false/\1=true/' \
+		-e 's/^(kcm_plymouth\.desktop)=false/\1=true/' \
 		"$KDE_GLOBALS_PATH"
 }
 

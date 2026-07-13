@@ -35,6 +35,7 @@ modules:
       # --- Container & Virtualization Engines ---
       - moby-engine # Container: Native Fedora Docker Engine
       - containerd # Container: Runtime for Moby/Docker
+      - runc # Container: CLI tool for spawning and running containers (required by Docker)
       - docker-cli # Container: Native Docker CLI
       - docker-buildx # Container: Buildx plugin (Parity)
       - docker-compose # Container: Native Compose v2 (Fedora)

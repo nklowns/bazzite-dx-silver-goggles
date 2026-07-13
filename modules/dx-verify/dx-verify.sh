@@ -43,6 +43,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system/docker.socket|Unit: Docker Socket|Error"
 	"file|/usr/lib/systemd/system/podman.socket|Unit: Podman Socket|Error"
 	"file|/usr/lib/systemd/system-preset/99-dx-flavor.preset|Unit: DX Flavor Preset|Error"
+	"file|/etc/systemd/resolved.conf.d/00-amyos-dns.conf|Policy: DNS-over-TLS Config|Error"
+	"file|/usr/lib/NetworkManager/conf.d/00-amyos-random-mac.conf|Policy: NM MAC Randomization|Error"
 
 	"target|graphical.target|Policy: Default Graphical Target|Warn"
 
@@ -131,13 +133,14 @@ RunAudit() {
 		fi
 	done
 
-	# Hygiene Gate (Informative only, matches original)
+	# Hygiene Gate (Enforced build safety check)
 	local residuals
 	residuals=$(find /etc/yum.repos.d/ -maxdepth 1 -name "*.repo" -exec grep -lE "_copr|vscode|docker|home:cloud-hypervisor" {} + || true)
 	if [[ -z "$residuals" ]]; then
 		printf "[ %bPASS%b ] Image Purity: Repository hygiene verified\n" "$CLR_PASS" "$CLR_RESET"
 	else
-		printf "[ %bWARN%b ] Image Purity: Residual repositories detected: %s\n" "$CLR_WARN" "$CLR_RESET" "$residuals"
+		printf "[ %bFAIL%b ] Image Purity: Residual active repositories detected: %s\n" "$CLR_FAIL" "$CLR_RESET" "$residuals"
+		total_failed=$((total_failed + 1))
 	fi
 
 	echo "::endgroup::"
