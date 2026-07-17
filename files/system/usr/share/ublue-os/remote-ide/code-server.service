@@ -1,0 +1,12 @@
+[Unit]
+Description=code-server (browser IDE, tailnet-only via tailscale serve)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/linuxbrew/.linuxbrew/bin/code-server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

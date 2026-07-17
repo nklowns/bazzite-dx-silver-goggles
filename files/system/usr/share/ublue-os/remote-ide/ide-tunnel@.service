@@ -1,0 +1,13 @@
+[Unit]
+Description=VS Code family Remote Tunnel (%i)
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/ide-tunnel/%i.env
+ExecStart=/bin/bash -c 'exec "$IDE_BINARY" tunnel --accept-server-license-terms --name "$TUNNEL_NAME"'
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

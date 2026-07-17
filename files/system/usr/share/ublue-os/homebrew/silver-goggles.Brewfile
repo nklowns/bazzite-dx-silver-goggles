@@ -45,3 +45,6 @@ cask "ublue-os/tap/antigravity-ide-linux"                   # Antigravity IDE
 cask "ublue-os/tap/antigravity-cli-linux"                   # Antigravity CLI
 cask "ublue-os/tap/visual-studio-code-linux"                # Visual Studio Code IDE
 cask "ublue-os/tap/visual-studio-code-linux@insiders"       # Visual Studio Code Insiders IDE
+
+# --- Remote IDE Access (Tailscale-only, opt-in via `ujust remote-ide-setup`) ---
+brew "code-server"                                          # Browser-based Code-OSS IDE (Open VSX)

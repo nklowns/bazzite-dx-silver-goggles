@@ -22,6 +22,7 @@ readonly AUDIT_REGISTRY=(
 	"group|video|Security Group: Video|Error"
 	"group|render|Security Group: Render|Error"
 	"group|plugdev|Security Group: Plugdev|Error"
+	"group|usershares|Security Group: Usershares|Error"
 
 	"file|/usr/lib/udev/rules.d/51-android.rules|Asset: Android Rules|Error"
 	"file|/usr/lib/udev/rules.d/99-g15-thermal.rules|Asset: G15 Thermal Rules|Error"
@@ -39,6 +40,13 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/environment.d/bazzite-dx.conf|Policy: DX Environment Defaults|Error"
 	"file|/usr/lib/environment.d/homebrew.conf|Policy: Homebrew System Environment|Error"
 	"file|/usr/share/ublue-os/user-setup.hooks.d/40-bazzite-dx-env.sh|UX: Mise Shims Env Hook|Error"
+
+	"file|/usr/share/ublue-os/remote-ide/code-server.service|Asset: Remote IDE code-server Unit|Error"
+	"file|/usr/share/ublue-os/remote-ide/code-server-config.yaml.tmpl|Asset: Remote IDE code-server Config Template|Error"
+	"file|/usr/share/ublue-os/remote-ide/ide-tunnel@.service|Asset: Remote IDE Tunnel Templated Unit|Error"
+	"file|/usr/share/ublue-os/remote-ide/ide-tunnel-code.env|Asset: Remote IDE Tunnel Env (code)|Error"
+	"file|/usr/share/ublue-os/remote-ide/ide-tunnel-code-insiders.env|Asset: Remote IDE Tunnel Env (code-insiders)|Error"
+	"file|/usr/share/ublue-os/remote-ide/ide-tunnel-antigravity.env|Asset: Remote IDE Tunnel Env (antigravity, pending upstream fix)|Warn"
 
 	"file|/usr/lib/systemd/system/docker.socket|Unit: Docker Socket|Error"
 	"file|/usr/lib/systemd/system/podman.socket|Unit: Podman Socket|Error"
