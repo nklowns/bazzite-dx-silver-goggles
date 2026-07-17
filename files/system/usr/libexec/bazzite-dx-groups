@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly GROUP_CONFIG_VERSION=1
+readonly GROUP_CONFIG_VERSION=2
 readonly STATE_MARKER="/etc/ublue/dx-groups"
 readonly SYSTEM_GROUPS=(
 	"docker"
@@ -13,6 +13,7 @@ readonly SYSTEM_GROUPS=(
 	"render"
 	"plugdev"
 	"adbusers"
+	"usershares"
 )
 
 # --- Group Provisioner Logic ---
@@ -165,11 +166,30 @@ ConfigureLibvirtNss() {
 	fi
 }
 
+ConfigureSambaSelinux() {
+	if getsebool samba_enable_home_dirs 2>/dev/null | grep -q "off$"; then
+		echo "Enabling SELinux samba_enable_home_dirs boolean..."
+		setsebool -P samba_enable_home_dirs on || true
+	fi
+}
+
+ConfigureFirewall() {
+	if command -v firewall-cmd >/dev/null; then
+		if ! firewall-cmd --zone=trusted --query-interface=tailscale0 >/dev/null 2>&1; then
+			echo "Adding tailscale0 interface to trusted firewall zone..."
+			firewall-cmd --permanent --zone=trusted --add-interface=tailscale0 || true
+			firewall-cmd --reload || true
+		fi
+	fi
+}
+
 # --- Principal Flow ---
 
 ConfigureQemuAcl
 ConfigureSelinux
 ConfigureLibvirtNss
+ConfigureSambaSelinux
+ConfigureFirewall
 
 if IsStateSynchronized; then
 	exit 0
