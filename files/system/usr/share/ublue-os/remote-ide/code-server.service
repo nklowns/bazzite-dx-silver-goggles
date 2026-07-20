@@ -8,5 +8,18 @@ ExecStart=/home/linuxbrew/.linuxbrew/bin/code-server
 Restart=on-failure
 RestartSec=5
 
+# Kernel/hardware-tampering lockdown only. Deliberately no NoNewPrivileges,
+# RestrictNamespaces, ProtectControlGroups, ProtectSystem/ProtectHome, or
+# MemoryDenyWriteExecute: this unit's terminal is the daily-driver dev shell
+# (sudo, distrobox, podman) and hosts a Node/V8 process — those directives
+# would break that, not just harden it.
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictRealtime=true
+
 [Install]
 WantedBy=default.target
