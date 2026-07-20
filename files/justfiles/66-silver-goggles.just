@@ -173,6 +173,7 @@ remote-ide-setup:
     echo ""
     echo "code-server ready at: https://$DNS_NAME"
     echo "Next: run 'ujust remote-ide-tunnel code' (or code-insiders) to log in and enable a tunnel."
+    echo "If typing still feels off for your layout, prefer 'ujust remote-ide-tunnel code' — the desktop client isn't subject to browser layout detection."
 
 # Log into GitHub and enable a VS Code family Remote Tunnel (code, code-insiders; antigravity pending upstream fix)
 [group('Remote IDE')]
