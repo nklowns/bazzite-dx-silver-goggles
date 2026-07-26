@@ -27,13 +27,23 @@ ExecStart=/usr/bin/flatpak run org.fcast.Receiver
 Restart=on-failure
 RestartSec=5
 
-# Kernel/hardware-tampering lockdown only. The flatpak sandbox does the heavy lifting
-# here (see /usr/share/flatpak/overrides/org.fcast.Receiver); adding ProtectSystem or
-# RestrictNamespaces on top would break bwrap, not harden it.
+# The flatpak sandbox does the heavy lifting here (see
+# /usr/share/flatpak/overrides/org.fcast.Receiver), so this only adds directives that do
+# not fight bwrap.
+#
+# ProtectKernelTunables and ProtectKernelLogs are deliberately ABSENT, and this is not
+# caution -- it was measured. Both mask parts of /proc (/proc/sys read-only,
+# /proc/kmsg inaccessible), and the kernel refuses to let an unprivileged user namespace
+# mount a fresh procfs while the visible /proc is partially masked. bwrap must do exactly
+# that, so the unit failed on every start with:
+#     bwrap: Can't mount proc on /newroot/proc: Operation not permitted
+#     error: ldconfig failed, exit status 256
+# and Restart=on-failure turned it into a loop. Removing just those two made the unit
+# come up and bind 46899. ProtectSystem, ProtectHome and RestrictNamespaces are absent
+# for the same family of reasons. uxplay.service keeps them all because it execs a plain
+# binary with no nested sandbox.
 ProtectClock=true
 ProtectHostname=true
-ProtectKernelLogs=true
-ProtectKernelTunables=true
 LockPersonality=true
 RestrictRealtime=true
 
