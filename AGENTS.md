@@ -124,12 +124,20 @@ architectural — **not** a configuration gap:
 | iOS audio | `shairport-sync` (system unit, disabled) | mDNS | ❌ never |
 | media casting | FCast flatpaks (`ujust fcast-setup`) | mDNS **or manual IP** | ✅ TCP 46899 |
 | Android screen + audio | `scrcpy` (`ujust android-mirror <host>`) | ADB over TCP | ✅ |
-| input/clipboard/files | KDE Connect (`ujust kdeconnect-tailnet-add <host>`) | broadcast **or manual IP** | ✅ |
+| input/clipboard/files | KDE Connect (`ujust kdeconnect-tailnet-add <host>`) | broadcast **or manual IP** | ✅ Android · ❌ iOS |
 | iOS files/apps | `libimobiledevice-utils`, `ifuse`, `ideviceinstaller` | USB (usbmuxd) | ⚠️ USB only |
 
 **Do not try to make AirPlay or Miracast work over Tailscale.** Tailscale carries no
 multicast/broadcast, and the iOS AirPlay picker offers no manual-address entry. The tailnet-capable
 tools above are tailnet-capable precisely because a hostname can be typed by hand.
+
+**KDE Connect over the tailnet is Android-only in practice.** A custom device is only an extra
+unicast destination for the UDP identity packet; the phone must then dial TCP 1716 back. Measured
+here with an iPhone: 1716 on its tailnet address answered over Wi-Fi but returned connection
+*refused* on cellular — packets arriving, nothing listening — while `tailscale ping` answered in
+155ms through the carrier. Android holds the socket via a persistent foreground service; iOS does
+not. For iOS file transfer use `tailscale file cp` (Taildrop), which needs no listener on either
+side. When triaging: *refused* is a phone-side problem, *timeout* is a routing/firewall one.
 
 Conventions this layer follows:
 - The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
