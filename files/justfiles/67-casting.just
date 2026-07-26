@@ -156,12 +156,40 @@ fcast-off:
     systemctl --user disable --now fcast-receiver.service 2>/dev/null || true
     echo "FCast receiver disabled. The flatpak itself is left installed."
 
+# Pair this host with an Android device's wireless debugging (once per device)
+[group('Casting')]
+android-pair host port:
+    #!/usr/bin/env bash
+    set -e
+    if ! command -v adb >/dev/null 2>&1; then
+        echo "adb not found. Run 'ujust setup-personal-suite install' first."
+        exit 1
+    fi
+
+    TARGET="{{ host }}"
+    if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
+        RESOLVED=$(tailscale ip -4 "{{ host }}" 2>/dev/null | head -1 || true)
+        [[ -n "$RESOLVED" ]] && { TARGET="$RESOLVED"; echo "Resolved '{{ host }}' to $TARGET"; }
+    fi
+
+    echo "On the device: Developer options -> Wireless debugging -> Pair device with pairing code."
+    echo "That screen shows an address and a SIX-DIGIT code. The pairing port it shows is NOT the"
+    echo "same port used for connecting afterwards -- both are random, and the pairing one only"
+    echo "exists while that dialog is open."
+    echo ""
+    adb pair "$TARGET:{{ port }}"
+    echo ""
+    echo "Paired. Now bring the mirror up with:"
+    echo "    ujust android-mirror {{ host }} <connect-port>"
+    echo "Take <connect-port> from the main Wireless debugging screen (\"IP address & Port\")."
+
 # Mirror an Android screen here via scrcpy — over the tailnet with a host, or over USB without
 [group('Casting')]
-android-mirror host="":
+android-mirror host="" port="":
     #!/usr/bin/env bash
     set -e
     HOST="{{ host }}"
+    PORT="{{ port }}"
 
     for tool in adb scrcpy; do
         if ! command -v "$tool" >/dev/null 2>&1; then
@@ -185,16 +213,41 @@ android-mirror host="":
         fi
     fi
 
-    echo "Connecting ADB to $TARGET:5555 ..."
-    if ! adb connect "$TARGET:5555"; then
+    # Port handling is the whole difficulty here. Android 11+ "Wireless debugging" listens on a
+    # RANDOM port that changes every time the toggle is flipped -- 5555 only applies to the older
+    # `adb tcpip 5555` flow, and assuming it gets "Connection refused". adb can discover the real
+    # port over mDNS (`adb mdns services` -> _adb-tls-connect._tcp), but mDNS does not cross the
+    # tailnet, so a remote device's port has to be read off its screen and passed in.
+    if [[ -z "$PORT" ]]; then
+        echo "No port given; trying mDNS discovery (works on the LAN only)..."
+        PORT=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect/ {split($3, a, ":"); print a[2]; exit}')
+        if [[ -n "$PORT" ]]; then
+            echo "Discovered wireless-debugging port $PORT"
+        else
+            PORT=5555
+            echo "Nothing on mDNS; falling back to 5555 (the 'adb tcpip 5555' flow)."
+        fi
+    fi
+
+    echo "Connecting ADB to $TARGET:$PORT ..."
+    if ! adb connect "$TARGET:$PORT"; then
         echo ""
-        echo "Connect failed. On the Android device: Developer options -> Wireless debugging -> on."
-        echo "First time only, pair with the 6-digit code it shows:"
-        echo "    adb pair $TARGET:<pairing-port>"
+        echo "Connect failed. Read the error precisely, the two cases differ:"
+        echo "  'Connection refused'  -> nothing listening on that port. Wireless debugging is off,"
+        echo "                           or the port rotated. Re-read it on the device."
+        echo "  'failed to connect'   -> the TCP connection worked but the TLS handshake did not:"
+        echo "                           this host is not paired yet. Run 'ujust android-pair"
+        echo "                           $HOST <pairing-port>' first."
         exit 1
     fi
 
-    exec scrcpy --tcpip="$TARGET:5555"
+    # Once connected, this makes the device listen on a STABLE 5555 until it reboots, so later
+    # sessions need no port hunting -- worth doing for a device used remotely.
+    echo ""
+    echo "Tip: run 'adb -s $TARGET:$PORT tcpip 5555' to pin a stable port that survives toggling"
+    echo "wireless debugging (but not a reboot). Then 'ujust android-mirror $HOST 5555' just works."
+    echo ""
+    exec scrcpy --tcpip="$TARGET:$PORT"
 
 # Register a device with KDE Connect by tailnet address (its discovery broadcast does not cross the tailnet)
 [group('Casting')]
