@@ -155,6 +155,19 @@ carrier, not the local network — confirmed by a distinct IPv6 prefix and a via
 46899 at its tailnet address returned the FCast protocol greeting `{"version":3}` plus keepalive
 pings, byte-identical to the on-LAN result.
 
+**ADB works at tailnet addresses, but the port is the catch.** Verified against an SM-A307GT
+(Android 11): `adb pair` and `adb connect` both succeeded against its tailnet address, `adb shell`
+returned real output, and the socket was `100.108.150.113:34988 -> 100.115.193.18:38124`. Two
+things that cost time if unknown:
+- Android 11+ Wireless debugging listens on a **random port that rotates on every toggle** — 5555
+  belongs to the older `adb tcpip 5555` flow and gives "Connection refused" otherwise. `adb mdns
+  services` finds the real port on the LAN but never across the tailnet, so a remote device's port
+  must be read off its screen. Running `adb tcpip 5555` after connecting pins a stable port that
+  survives toggling (not a reboot).
+- Pairing and connecting use **different random ports**, and the pairing one exists only while its
+  dialog is open. "Connection refused" means nothing is listening; "failed to connect" means the
+  TCP connection worked and the TLS handshake did not, i.e. this host is not paired.
+
 Conventions this layer follows:
 - The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
   `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `dx.yml`'s
