@@ -3,6 +3,11 @@
 # Format: one option per line, WITHOUT the leading "-" of the command-line flag.
 # Installed to ~/.config/uxplayrc by `ujust airplay-setup` (never overwritten).
 # Full reference: `man uxplay` or `uxplay -h`.
+#
+# IMPORTANT: only lines whose FIRST character is "#" are comments. read_config_file()
+# in uxplay.cpp splits every other line on whitespace and turns each token into an
+# argv entry, so a trailing "# ..." would be parsed as option arguments. Keep every
+# comment on its own line.
 
 n Silver Goggles
 
@@ -10,8 +15,8 @@ n Silver Goggles
 # UxPlay picks ports at random, which no firewall rule can anticipate.
 p
 
-# Client authentication. `pin` shows a 4-digit code on the terminal for every new
-# client; `reg` persists authenticated clients to ~/.uxplay.register so trusted
+# Client authentication. "pin" shows a 4-digit code on the terminal for every new
+# client; "reg" persists authenticated clients to ~/.uxplay.register so trusted
 # devices are not re-prompted. Dropping both makes any host on the LAN able to
 # mirror onto this screen unprompted.
 pin
@@ -21,9 +26,10 @@ reg
 vs waylandsink
 as pipewiresink
 
-# NVDEC h264 decoding on the RTX 3060, via the GStreamer `nvcodec` plugin
-# (gstreamer1-plugins-bad-free + libcuda). Comment out to fall back to decodebin's
-# own choice, or use `vd avdec_h264` to force software decoding.
+# NVDEC h264 decoding on the RTX 3060, via the GStreamer "nvcodec" plugin
+# (gstreamer1-plugins-bad-free + libcuda). If mirroring shows a black window or the
+# pipeline fails to link, comment this out first — decodebin then picks the decoder
+# itself, and "vd avdec_h264" forces software decoding.
 vd nvh264dec
 
 # Inhibit the screensaver while UxPlay runs, over the org.freedesktop.ScreenSaver
