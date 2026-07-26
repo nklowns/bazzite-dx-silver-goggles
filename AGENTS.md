@@ -133,11 +133,27 @@ tools above are tailnet-capable precisely because a hostname can be typed by han
 
 **KDE Connect over the tailnet is Android-only in practice.** A custom device is only an extra
 unicast destination for the UDP identity packet; the phone must then dial TCP 1716 back. Measured
-here with an iPhone: 1716 on its tailnet address answered over Wi-Fi but returned connection
-*refused* on cellular — packets arriving, nothing listening — while `tailscale ping` answered in
-155ms through the carrier. Android holds the socket via a persistent foreground service; iOS does
-not. For iOS file transfer use `tailscale file cp` (Taildrop), which needs no listener on either
-side. When triaging: *refused* is a phone-side problem, *timeout* is a routing/firewall one.
+here with both phones on the same tailnet, off Wi-Fi, same probe: the Android answered on 1716 and
+established a link at tailnet addresses (`100.108.150.113:1716 <- 100.115.193.18:60774`), while the
+iPhone returned connection *refused* — packets arriving, nothing listening — with `tailscale ping`
+answering fine through the carrier. Android holds the socket via a persistent foreground service;
+iOS does not. For iOS file transfer use `tailscale file cp` (Taildrop), which needs no listener on
+either side.
+
+Two traps when verifying any of this:
+- *refused* is a phone-side problem (nothing listening); *timeout* is a routing/firewall one. They
+  look alike from the desk and point at opposite halves of the stack.
+- A **stale link masks a working tailnet link.** kdeconnectd keeps reporting a device reachable at
+  its previous LAN address through a socket whose peer is gone — TCP notices nothing without
+  traffic or keepalives, so `ss` still shows `ESTAB`. `--refresh` does not fix it; only restarting
+  `app-org.kde.kdeconnect.daemon@autostart.service` drops the links and forces re-discovery, which
+  is why `kdeconnect-tailnet-add` does exactly that. Also note `kdeconnect-cli` prints "via LAN"
+  even for a tailnet link, because that is the backend's name, not the path.
+
+**FCast over the tailnet is verified end-to-end.** With the Android on cellular (routed through the
+carrier, not the local network — confirmed by a distinct IPv6 prefix and a via-gateway route), TCP
+46899 at its tailnet address returned the FCast protocol greeting `{"version":3}` plus keepalive
+pings, byte-identical to the on-LAN result.
 
 Conventions this layer follows:
 - The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,

@@ -251,6 +251,21 @@ kdeconnect-tailnet-add host:
         --method org.freedesktop.DBus.Properties.Set "$IFACE" customDevices "<$LIST>" >/dev/null
 
     echo "Added $TARGET to the KDE Connect custom device list."
+
+    # A --refresh alone is not enough when the device has just changed networks.
+    # kdeconnectd holds the previous link and keeps reporting the device reachable at
+    # its old address through a socket whose peer is gone -- TCP does not notice a
+    # vanished peer without traffic or keepalives, so `ss` still shows ESTAB and the
+    # daemon never dials the new unicast destination. Measured here: with the phone off
+    # Wi-Fi, the stale 192.168.x link stayed "reachable" until the daemon was restarted,
+    # at which point the tailnet link established immediately. Restarting drops every
+    # link and forces re-discovery.
+    UNIT="app-org.kde.kdeconnect.daemon@autostart.service"
+    if systemctl --user is-active --quiet "$UNIT" 2>/dev/null; then
+        echo "Restarting kdeconnectd to drop stale links..."
+        systemctl --user restart "$UNIT" || true
+        sleep 5
+    fi
     kdeconnect-cli --refresh >/dev/null 2>&1 || true
     echo ""
     echo "How this works, so the next step is not a mystery: a custom device is only an"
@@ -258,13 +273,16 @@ kdeconnect-tailnet-add host:
     echo "refresh or network change. The phone must then dial TCP 1716 back here, so the"
     echo "app on the phone has to be awake to receive that datagram."
     echo ""
-    echo "Measured on this host with an iPhone: on Wi-Fi, TCP 1716 on the phone's tailnet"
-    echo "address answered; on cellular it returned connection REFUSED, meaning packets"
-    echo "arrived and nothing was listening. The tailnet itself was fine (tailscale ping"
-    echo "answered in 155ms through the carrier). Android keeps a persistent foreground"
-    echo "service and holds that socket; iOS does not, so treat KDE Connect over the"
-    echo "tailnet as an Android feature. For iOS file transfer, 'tailscale file cp'"
-    echo "(Taildrop) works without either app listening on anything."
+    echo "Measured on this host, same tailnet, same probe, opposite results. Android on"
+    echo "cellular: TCP 1716 answered and the link established at tailnet addresses"
+    echo "(100.x:1716 <- 100.x:60774 in ss). iPhone on cellular: connection REFUSED,"
+    echo "meaning packets arrived and nothing was listening, while tailscale ping answered"
+    echo "through the carrier. Android holds the socket via a persistent foreground"
+    echo "service; iOS does not. So this is an Android feature -- for iOS file transfer,"
+    echo "'tailscale file cp' (Taildrop) needs no listener on either side."
+    echo ""
+    echo "Note the display is misleading: kdeconnect-cli labels the link 'via LAN' even"
+    echo "over the tailnet, because LanLinkProvider is the backend name, not the path."
     echo ""
     echo "Diagnosing: connection REFUSED means the app is not listening (a phone-side"
     echo "problem); a TIMEOUT means packets are not arriving (a routing or firewall one)."
