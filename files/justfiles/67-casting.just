@@ -220,6 +220,17 @@ kdeconnect-tailnet-add host:
         fi
     fi
 
+    # KDE Connect's LanLinkProvider::getBroadcastAddresses() builds each custom entry
+    # with QHostAddress(QString). A hostname yields a null address, which it drops with
+    # only a qCWarning -- the entry would sit in the config looking correct and do
+    # nothing. Refuse anything that is not a dotted-quad IPv4 literal.
+    if [[ ! "$TARGET" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        echo "'$TARGET' is not an IPv4 literal, and KDE Connect silently ignores custom"
+        echo "devices that are not. Pass a tailnet IP, or a peer hostname that"
+        echo "'tailscale ip -4 <host>' can resolve."
+        exit 1
+    fi
+
     CURRENT=$(gdbus call --session --dest "$DEST" --object-path "$OBJ" \
         --method org.freedesktop.DBus.Properties.Get "$IFACE" customDevices)
 
@@ -241,9 +252,17 @@ kdeconnect-tailnet-add host:
 
     echo "Added $TARGET to the KDE Connect custom device list."
     kdeconnect-cli --refresh >/dev/null 2>&1 || true
-    echo "Now pair from either side:"
-    echo "    kdeconnect-cli --list-available"
-    echo "    kdeconnect-cli --pair --device <id>"
+    echo ""
+    echo "How this works, so the next step is not a mystery: a custom device is only an"
+    echo "extra UNICAST destination for the UDP identity packet the desktop sends on"
+    echo "refresh or network change. The phone must then dial TCP 1716 back here. So the"
+    echo "app on the phone has to be awake to receive that datagram -- a backgrounded"
+    echo "mobile app will leave a listening socket open while never processing it, which"
+    echo "looks identical to a firewall problem and is not one."
+    echo ""
+    echo "Open KDE Connect on the device, then:"
+    echo "    kdeconnect-cli --refresh && kdeconnect-cli --list-available"
+    echo "    kdeconnect-cli --pair --device <id>   # only if not already paired"
 
 # Bind the staged firewalld service definitions to the active zones (only needed off FedoraWorkstation)
 [group('Casting')]
