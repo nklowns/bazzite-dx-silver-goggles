@@ -1,0 +1,4 @@
+# FCast Sender: casts local media to a receiver, so it needs to read the media
+# directories — read-only, and nothing else under home.
+[Context]
+filesystems=!home;xdg-videos:ro;xdg-music:ro;xdg-pictures:ro;xdg-download:ro;

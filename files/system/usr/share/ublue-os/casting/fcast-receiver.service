@@ -1,0 +1,52 @@
+[Unit]
+Description=FCast media receiver (tailnet-capable — senders may connect by MagicDNS name)
+Documentation=https://fcast.org https://github.com/futo-org/fcast
+# Flatpak GUI app, so it needs a compositor that is actually serving — not merely a
+# graphical-session.target marked active. See the long-form explanation in
+# /usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh:
+# plasma-kwin_wayland.service reports active well before the compositor accepts
+# clients on NVIDIA/prime.
+#
+# Requisite= (not Requires=/Wants=) so this never starts graphical-session.target
+# itself: under the user lingering this host enables for the remote-IDE units, that
+# would spawn a standalone compositor at boot and take the DRM device from the real
+# login session.
+After=graphical-session.target plasma-kwin_wayland.service
+Requisite=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# Poll for the Wayland socket instead of trusting unit-active. A socket test activates
+# nothing, unlike a D-Bus property read.
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY:-wayland-0}" ] && exit 0; sleep 1; done; echo "wayland socket not ready after 30s" >&2; exit 1'
+TimeoutStartSec=45
+# Listens on TCP 46899, already reachable on tailscale0 (trusted zone) and on the LAN
+# (the FedoraWorkstation zone opens 1025-65535).
+ExecStart=/usr/bin/flatpak run org.fcast.Receiver
+Restart=on-failure
+RestartSec=5
+
+# The flatpak sandbox does the heavy lifting here (see
+# /usr/share/flatpak/overrides/org.fcast.Receiver), so this only adds directives that do
+# not fight bwrap.
+#
+# ProtectKernelTunables and ProtectKernelLogs are deliberately ABSENT, and this is not
+# caution -- it was measured. Both mask parts of /proc (/proc/sys read-only,
+# /proc/kmsg inaccessible), and the kernel refuses to let an unprivileged user namespace
+# mount a fresh procfs while the visible /proc is partially masked. bwrap must do exactly
+# that, so the unit failed on every start with:
+#     bwrap: Can't mount proc on /newroot/proc: Operation not permitted
+#     error: ldconfig failed, exit status 256
+# and Restart=on-failure turned it into a loop. Removing just those two made the unit
+# come up and bind 46899. ProtectSystem, ProtectHome and RestrictNamespaces are absent
+# for the same family of reasons. uxplay.service keeps them all because it execs a plain
+# binary with no nested sandbox.
+ProtectClock=true
+ProtectHostname=true
+LockPersonality=true
+RestrictRealtime=true
+
+[Install]
+# graphical-session.target, never default.target — see uxplay.service for why.
+WantedBy=graphical-session.target

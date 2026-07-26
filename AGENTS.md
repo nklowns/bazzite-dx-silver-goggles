@@ -46,6 +46,7 @@ recipe.yml              ← Entry point (declarative orchestration)
 ├── dx.yml              ← EXTENSIONS: Cockpit, Docker, Libvirt, eBPF tools, fonts
 │   └── local modules   ← Encapsulated logic: dx-flavor (branding/policy), dx-udev
 ├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, AWCC RPM (rpm-ostree), thermald mask
+├── casting.yml         ← CASTING: AirPlay/FCast/scrcpy receivers + iOS bridges (opt-in via ujust)
 ├── initramfs module
 ├── dx-verify           ← System integrity auditor (custom module in modules/)
 ├── os-release          ← OCI metadata
@@ -66,12 +67,13 @@ recipe.yml              ← Entry point (declarative orchestration)
 
 | Path | Purpose |
 |------|---------|
-| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, generated `build-recipe.yml`) |
+| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, `casting.yml`, generated `build-recipe.yml`) |
 | `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
 | `files/system/etc/modules-load.d/` | Kernel module loading (acpi_call) |
-| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 95-bazzite-dx.just), injected via the `justfiles` module |
+| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 95-bazzite-dx.just), injected via the `justfiles` module |
+| `files/system/usr/share/ublue-os/casting/` | Staged casting assets (user units + `uxplayrc.tmpl`), wired into `$HOME` by `ujust` on request |
 | `files/rpm-ostree/` | Pre-compiled RPMs committed to git (awcc-dev.rpm) |
 | `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |
 | `build_files/` | AWCC RPM specs (stable: `awcc.spec`; dev fork: `awcc.dev.spec`) |
@@ -110,6 +112,89 @@ Immutable/atomic host — imperative system mutations on the live host are forbi
 After rebuilding, commit the RPM: `git add -f files/rpm-ostree/awcc-dev.rpm && git commit`.
 Rapid iteration: `just hot-swap-awcc <path>` (live apply, no reboot); revert with `just uninstall-awcc`.
 Full workflow: [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md).
+
+## 📱 Casting & Mobile Bridge (`recipes/casting.yml`)
+
+Receives screen/media from iOS and Android. Split by discovery mechanism, and the split is
+architectural — **not** a configuration gap:
+
+| Path | Tool | Discovery | Tailnet |
+|---|---|---|---|
+| iOS/macOS screen + audio | `uxplay` (`ujust airplay-setup`) | mDNS | ❌ never |
+| iOS audio | `shairport-sync` (system unit, disabled) | mDNS | ❌ never |
+| media casting | FCast flatpaks (`ujust fcast-setup`) | mDNS **or manual IP** | ✅ TCP 46899 |
+| Android screen + audio | `scrcpy` (`ujust android-mirror <host>`) | ADB over TCP | ✅ |
+| input/clipboard/files | KDE Connect (`ujust kdeconnect-tailnet-add <host>`) | broadcast **or manual IP** | ✅ Android · ❌ iOS |
+| iOS files/apps | `libimobiledevice-utils`, `ifuse`, `ideviceinstaller` | USB (usbmuxd) | ⚠️ USB only |
+
+**Do not try to make AirPlay or Miracast work over Tailscale.** Tailscale carries no
+multicast/broadcast, and the iOS AirPlay picker offers no manual-address entry. The tailnet-capable
+tools above are tailnet-capable precisely because a hostname can be typed by hand.
+
+**KDE Connect over the tailnet is Android-only in practice.** A custom device is only an extra
+unicast destination for the UDP identity packet; the phone must then dial TCP 1716 back. Measured
+here with both phones on the same tailnet, off Wi-Fi, same probe: the Android answered on 1716 and
+established a link at tailnet addresses (`100.108.150.113:1716 <- 100.115.193.18:60774`), while the
+iPhone returned connection *refused* — packets arriving, nothing listening — with `tailscale ping`
+answering fine through the carrier. Android holds the socket via a persistent foreground service;
+iOS does not. For iOS file transfer use `tailscale file cp` (Taildrop), which needs no listener on
+either side.
+
+Two traps when verifying any of this:
+- *refused* is a phone-side problem (nothing listening); *timeout* is a routing/firewall one. They
+  look alike from the desk and point at opposite halves of the stack.
+- A **stale link masks a working tailnet link.** kdeconnectd keeps reporting a device reachable at
+  its previous LAN address through a socket whose peer is gone — TCP notices nothing without
+  traffic or keepalives, so `ss` still shows `ESTAB`. `--refresh` does not fix it; only restarting
+  `app-org.kde.kdeconnect.daemon@autostart.service` drops the links and forces re-discovery, which
+  is why `kdeconnect-tailnet-add` does exactly that. Also note `kdeconnect-cli` prints "via LAN"
+  even for a tailnet link, because that is the backend's name, not the path.
+
+**FCast over the tailnet is verified end-to-end.** With the Android on cellular (routed through the
+carrier, not the local network — confirmed by a distinct IPv6 prefix and a via-gateway route), TCP
+46899 at its tailnet address returned the FCast protocol greeting `{"version":3}` plus keepalive
+pings, byte-identical to the on-LAN result.
+
+**scrcpy over the tailnet works, and the port is the catch.** Verified against an SM-A307GT
+(Android 11): `adb pair` and `adb connect` both succeeded against its tailnet address, `adb shell`
+returned real output, the socket was `100.108.150.113:34988 -> 100.115.193.18:38124`, and
+`scrcpy --tcpip=<tailnet-ip>:<port>` — the exact form `android-mirror` uses — mirrored the screen.
+Two things that cost time if unknown:
+- Android 11+ Wireless debugging listens on a **random port that rotates on every toggle** — 5555
+  belongs to the older `adb tcpip 5555` flow and gives "Connection refused" otherwise. `adb mdns
+  services` finds the real port on the LAN but never across the tailnet, so a remote device's port
+  must be read off its screen. Running `adb tcpip 5555` after connecting pins a stable port that
+  survives toggling (not a reboot).
+- Pairing and connecting use **different random ports**, and the pairing one exists only while its
+  dialog is open. "Connection refused" means nothing is listening; "failed to connect" means the
+  TCP connection worked and the TLS handshake did not, i.e. this host is not paired.
+
+Conventions this layer follows:
+- The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
+  `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `dx.yml`'s
+  "Host Integration & Peripheral Bridges" section (a pointer comment remains there).
+- Both user units follow the graphical-session pattern proven by
+  `files/system/usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh`:
+  `After=graphical-session.target plasma-kwin_wayland.service`, `Requisite=` (never
+  `Wants=`/`Requires=`, which would spawn a standalone compositor at boot under user
+  lingering and steal the DRM device from the real login session),
+  `WantedBy=graphical-session.target` (never `default.target`), and an `ExecStartPre`
+  that polls for the Wayland socket instead of trusting unit-active — on NVIDIA/prime
+  `plasma-kwin_wayland.service` reports active 20-30s before the compositor serves
+  clients. A socket test is used rather than `busctl get-property`, which would
+  resurrect the portal and kwin as a side effect of asking.
+- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; assets are staged
+  read-only in `/usr/share/ublue-os/casting/` and `67-casting.just` installs them into
+  `~/.config/systemd/user` on request — same pattern as `remote-ide-setup`.
+- UxPlay ships `pin` + `reg` in `uxplayrc.tmpl`: no receiver accepts an anonymous client.
+- `files/system/usr/lib/firewalld/services/{uxplay,fcast}.xml` are definitions only, bound to no
+  zone. The default `FedoraWorkstation` zone already opens `1025-65535/tcp+udp` and `tailscale0`
+  sits in `trusted`, so `ujust casting-firewall` is a no-op there and says so.
+- `adb` comes from the `android-platform-tools` **cask** in `cli.Brewfile` (Homebrew 6.x installs
+  casks on Linux). The Fedora `android-tools` RPM stays commented out in `dx.yml` on purpose —
+  enabling it would put a second `adb` in `PATH`.
+- `nqptp` is absent from Fedora, so `shairport-sync` is AirPlay **1** only. UxPlay's audio-only
+  mode (`-async`) covers AirPlay 2 ALAC.
 
 ## 🔀 Testing Forks & Branch Overrides
 

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UxPlay AirPlay 2 receiver, using the "legacy" fixed ports selected by the bare `-p`
+  option (see /usr/share/ublue-os/casting/uxplayrc.tmpl). Discovery itself rides on
+  mDNS (UDP 5353), which the `mdns` built-in service covers.
+
+  This definition is NOT bound to any zone by the image. The default
+  FedoraWorkstation zone already opens 1025-65535/tcp+udp, so it is redundant there —
+  it exists so `ujust casting-firewall` has something to bind if the active zone is
+  changed to one that does not blanket-open the high ports.
+-->
+<service>
+  <short>UxPlay</short>
+  <description>AirPlay 2 mirroring and audio receiver (UxPlay), legacy fixed port set.</description>
+  <port protocol="tcp" port="7000"/>
+  <port protocol="tcp" port="7001"/>
+  <port protocol="tcp" port="7100"/>
+  <port protocol="udp" port="6000"/>
+  <port protocol="udp" port="6001"/>
+  <port protocol="udp" port="7011"/>
+  <port protocol="udp" port="5353"/>
+</service>

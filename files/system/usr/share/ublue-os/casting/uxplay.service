@@ -1,0 +1,50 @@
+[Unit]
+Description=UxPlay AirPlay 2 mirroring receiver (LAN-only — mDNS does not cross the tailnet)
+Documentation=man:uxplay(1) https://github.com/antimof/UxPlay
+# Same graphical-session race documented at length in
+# /usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh:
+# on NVIDIA/prime, plasma-kwin_wayland.service is reported active 20-30s before the
+# compositor is actually serving clients, and graphical-session.target goes active
+# earlier still. uxplay's waylandsink would fail to connect and the unit would just
+# thrash on Restart=. So: order after kwin AND poll for the socket below.
+#
+# Requisite= (not Requires=/Wants=) is deliberate: it fails if the target is not
+# already active, and never starts it. Wants= here would pull up a standalone Plasma
+# compositor at boot under user lingering (enabled on this host for the remote-IDE
+# units), grabbing the DRM device before the real login session's compositor.
+After=graphical-session.target plasma-kwin_wayland.service
+Requisite=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# Wait for a usable Wayland socket rather than trusting unit-active. A plain socket
+# test activates nothing — unlike `busctl get-property`, which would resurrect the
+# portal and kwin as a side effect of asking.
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY:-wayland-0}" ] && exit 0; sleep 1; done; echo "wayland socket not ready after 30s" >&2; exit 1'
+TimeoutStartSec=45
+# Options come from ~/.config/uxplayrc (staged from
+# /usr/share/ublue-os/casting/uxplayrc.tmpl by `ujust airplay-setup`).
+ExecStart=/usr/bin/uxplay
+Restart=on-failure
+RestartSec=5
+
+# Kernel/hardware-tampering lockdown. Unlike code-server.service, this unit hosts no
+# dev shell (no sudo/distrobox/podman), so NoNewPrivileges is safe to keep here.
+# Still deliberately absent: RestrictNamespaces, ProtectSystem/ProtectHome and
+# MemoryDenyWriteExecute — uxplay needs /dev/dri, the PipeWire and Avahi sockets, and
+# a JIT-capable GStreamer pipeline.
+NoNewPrivileges=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictRealtime=true
+
+[Install]
+# graphical-session.target, never default.target: the latter fires at boot under user
+# lingering with no real login, so the unit would attempt, fail fast, and never be
+# retried once a genuine session appears.
+WantedBy=graphical-session.target

@@ -22,6 +22,7 @@ modules:
         destination: /
 
   - from-file: dx.yml
+  - from-file: casting.yml
   - from-file: silver-goggles.yml
 
   - type: initramfs

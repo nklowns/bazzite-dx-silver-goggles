@@ -83,16 +83,15 @@ modules:
       - powertop # System: Intel/AMD battery and power profiler
 
       # --- Host Integration & Peripheral Bridges ---
-      # - android-tools # Mobile: ADB & Fastboot
+      # Mobile (iOS/Android) bridges live in casting.yml, alongside the wireless receivers
+      # that share their purpose: usbmuxd, libimobiledevice-utils, ifuse, ideviceinstaller.
       # - dbus-x11 # OS: X11 bridge (Bazzite pre-installed)
       - flatpak-builder # Build: Host-level sandbox tools
       - git-subtree # VCS: Subtree management
       - git-svn # VCS: Legacy Subversion bridge
       # - intentrace # eBPF: Syscall intent observability
       # - kubearmor # Security: BPF-LSM runtime enforcement
-      - libimobiledevice-utils # Mobile: iOS utilities
       # - libvfio # GPU: Mediated device orchestration
-      - usbmuxd # Mobile: iOS bridge
       # - usecomputer # AI: GUI automation/Wayland bridge
       - util-linux-script # Terminal: Recording tools
       - waypipe # OS: Wayland network transparency
