@@ -1,0 +1,36 @@
+# UxPlay defaults — Silver Goggles (KDE Wayland / Dell G15 5520, RTX 3060)
+#
+# Format: one option per line, WITHOUT the leading "-" of the command-line flag.
+# Installed to ~/.config/uxplayrc by `ujust airplay-setup` (never overwritten).
+# Full reference: `man uxplay` or `uxplay -h`.
+
+n Silver Goggles
+
+# Fixed "legacy" ports (TCP 7100,7000,7001 / UDP 6000,6001,7011). Without this,
+# UxPlay picks ports at random, which no firewall rule can anticipate.
+p
+
+# Client authentication. `pin` shows a 4-digit code on the terminal for every new
+# client; `reg` persists authenticated clients to ~/.uxplay.register so trusted
+# devices are not re-prompted. Dropping both makes any host on the LAN able to
+# mirror onto this screen unprompted.
+pin
+reg
+
+# Wayland compositor + PipeWire audio (both confirmed present in the base image).
+vs waylandsink
+as pipewiresink
+
+# NVDEC h264 decoding on the RTX 3060, via the GStreamer `nvcodec` plugin
+# (gstreamer1-plugins-bad-free + libcuda). Comment out to fall back to decodebin's
+# own choice, or use `vd avdec_h264` to force software decoding.
+vd nvh264dec
+
+# Inhibit the screensaver while UxPlay runs, over the org.freedesktop.ScreenSaver
+# D-Bus service. Upstream notes this may not take effect on Wayland.
+scrsv 2
+
+# Uncomment for pure screen mirroring (second-monitor / webcam use): drops
+# timestamp-based A/V sync for lower latency. Leave commented when mirroring
+# video that needs audio kept in sync.
+# vsync no

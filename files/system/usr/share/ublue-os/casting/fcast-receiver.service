@@ -1,0 +1,26 @@
+[Unit]
+Description=FCast media receiver (tailnet-capable — senders may connect by MagicDNS name)
+Documentation=https://fcast.org https://github.com/futo-org/fcast
+# Flatpak GUI app: needs a compositor. Listens on TCP 46899, which is already reachable
+# on tailscale0 (trusted zone) and on the LAN (FedoraWorkstation zone opens 1025-65535).
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/flatpak run org.fcast.Receiver
+Restart=on-failure
+RestartSec=5
+
+# Kernel/hardware-tampering lockdown only. The flatpak sandbox does the heavy lifting
+# here (see /usr/share/flatpak/overrides/org.fcast.Receiver); adding ProtectSystem or
+# RestrictNamespaces on top would break bwrap, not harden it.
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,49 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+#
+# CASTING & MOBILE BRIDGE LAYER
+#
+# Receive screen/media from iOS and Android clients. Two discovery regimes, and the
+# difference is architectural, not a configuration gap:
+#
+#   * mDNS/L2 (LAN-only)   — AirPlay (uxplay, shairport-sync). Tailscale carries no
+#                            multicast/broadcast, and the iOS AirPlay picker only lists
+#                            mDNS-discovered receivers (no manual IP entry). These will
+#                            never work across the tailnet. Do not try to "fix" this.
+#   * direct IP (tailnet)  — FCast (TCP 46899) and scrcpy (ADB over TCP). Both accept a
+#                            hostname typed by hand, so both traverse the tailnet.
+#                            `tailscale0` already sits in firewalld's `trusted` zone
+#                            (see files/system/usr/libexec/bazzite-dx-groups).
+#
+# Nothing here is enabled at boot: the image only stages assets under
+# /usr/share/ublue-os/casting/, and `ujust` (67-casting.just) wires them into the user
+# session on demand. Receivers listen on the network, so they are opt-in by design.
+modules:
+  # ==========================================
+  # LAYER 1: WIRELESS RECEIVERS
+  # ==========================================
+  - type: rpm-ostree
+    install:
+      - uxplay # AirPlay 2 mirror + audio receiver (LAN-only; needs a graphical session)
+      - shairport-sync # AirPlay audio receiver — AirPlay 1 only: nqptp is absent from Fedora
+
+  # ==========================================
+  # LAYER 2: WIRED DEVICE BRIDGES (iOS / Android)
+  # ==========================================
+  # Consolidated here from dx.yml so the whole mobile surface lives in one layer.
+  - type: rpm-ostree
+    install:
+      - usbmuxd # iOS: USB multiplexing daemon — every libimobiledevice tool talks through it
+      - libimobiledevice-utils # iOS: idevicescreenshot, idevicesyslog, idevicebackup2, idevice_id…
+      - ifuse # iOS: mount the device filesystem (DCIM, app sandboxes) over FUSE
+      - ideviceinstaller # iOS: list/install/remove .ipa packages over usbmuxd
+      # - android-tools # Android: ADB & Fastboot. Deliberately NOT installed — `adb` already
+      #                 # comes from the android-platform-tools cask in cli.Brewfile, and a
+      #                 # second adb in PATH is a debugging trap, not redundancy.
+
+  # ==========================================
+  # LAYER 3: CUSTOMIZATIONS (ujust surface)
+  # ==========================================
+  - type: justfiles
+    include:
+      - 67-casting.just

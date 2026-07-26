@@ -46,6 +46,7 @@ recipe.yml              ← Entry point (declarative orchestration)
 ├── dx.yml              ← EXTENSIONS: Cockpit, Docker, Libvirt, eBPF tools, fonts
 │   └── local modules   ← Encapsulated logic: dx-flavor (branding/policy), dx-udev
 ├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, AWCC RPM (rpm-ostree), thermald mask
+├── casting.yml         ← CASTING: AirPlay/FCast/scrcpy receivers + iOS bridges (opt-in via ujust)
 ├── initramfs module
 ├── dx-verify           ← System integrity auditor (custom module in modules/)
 ├── os-release          ← OCI metadata
@@ -66,12 +67,13 @@ recipe.yml              ← Entry point (declarative orchestration)
 
 | Path | Purpose |
 |------|---------|
-| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, generated `build-recipe.yml`) |
+| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, `casting.yml`, generated `build-recipe.yml`) |
 | `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
 | `files/system/etc/modules-load.d/` | Kernel module loading (acpi_call) |
-| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 95-bazzite-dx.just), injected via the `justfiles` module |
+| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 95-bazzite-dx.just), injected via the `justfiles` module |
+| `files/system/usr/share/ublue-os/casting/` | Staged casting assets (user units + `uxplayrc.tmpl`), wired into `$HOME` by `ujust` on request |
 | `files/rpm-ostree/` | Pre-compiled RPMs committed to git (awcc-dev.rpm) |
 | `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |
 | `build_files/` | AWCC RPM specs (stable: `awcc.spec`; dev fork: `awcc.dev.spec`) |
@@ -110,6 +112,41 @@ Immutable/atomic host — imperative system mutations on the live host are forbi
 After rebuilding, commit the RPM: `git add -f files/rpm-ostree/awcc-dev.rpm && git commit`.
 Rapid iteration: `just hot-swap-awcc <path>` (live apply, no reboot); revert with `just uninstall-awcc`.
 Full workflow: [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md).
+
+## 📱 Casting & Mobile Bridge (`recipes/casting.yml`)
+
+Receives screen/media from iOS and Android. Split by discovery mechanism, and the split is
+architectural — **not** a configuration gap:
+
+| Path | Tool | Discovery | Tailnet |
+|---|---|---|---|
+| iOS/macOS screen + audio | `uxplay` (`ujust airplay-setup`) | mDNS | ❌ never |
+| iOS audio | `shairport-sync` (system unit, disabled) | mDNS | ❌ never |
+| media casting | FCast flatpaks (`ujust fcast-setup`) | mDNS **or manual IP** | ✅ TCP 46899 |
+| Android screen + audio | `scrcpy` (`ujust android-mirror <host>`) | ADB over TCP | ✅ |
+| input/clipboard/files | KDE Connect (`ujust kdeconnect-tailnet-add <host>`) | broadcast **or manual IP** | ✅ |
+| iOS files/apps | `libimobiledevice-utils`, `ifuse`, `ideviceinstaller` | USB (usbmuxd) | ⚠️ USB only |
+
+**Do not try to make AirPlay or Miracast work over Tailscale.** Tailscale carries no
+multicast/broadcast, and the iOS AirPlay picker offers no manual-address entry. The tailnet-capable
+tools above are tailnet-capable precisely because a hostname can be typed by hand.
+
+Conventions this layer follows:
+- The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
+  `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `dx.yml`'s
+  "Host Integration & Peripheral Bridges" section (a pointer comment remains there).
+- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; assets are staged
+  read-only in `/usr/share/ublue-os/casting/` and `67-casting.just` installs them into
+  `~/.config/systemd/user` on request — same pattern as `remote-ide-setup`.
+- UxPlay ships `pin` + `reg` in `uxplayrc.tmpl`: no receiver accepts an anonymous client.
+- `files/system/usr/lib/firewalld/services/{uxplay,fcast}.xml` are definitions only, bound to no
+  zone. The default `FedoraWorkstation` zone already opens `1025-65535/tcp+udp` and `tailscale0`
+  sits in `trusted`, so `ujust casting-firewall` is a no-op there and says so.
+- `adb` comes from the `android-platform-tools` **cask** in `cli.Brewfile` (Homebrew 6.x installs
+  casks on Linux). The Fedora `android-tools` RPM stays commented out in `dx.yml` on purpose —
+  enabling it would put a second `adb` in `PATH`.
+- `nqptp` is absent from Fedora, so `shairport-sync` is AirPlay **1** only. UxPlay's audio-only
+  mode (`-async`) covers AirPlay 2 ALAC.
 
 ## 🔀 Testing Forks & Branch Overrides
 

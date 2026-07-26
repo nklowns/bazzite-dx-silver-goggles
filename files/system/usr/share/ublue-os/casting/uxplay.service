@@ -1,0 +1,31 @@
+[Unit]
+Description=UxPlay AirPlay 2 mirroring receiver (LAN-only — mDNS does not cross the tailnet)
+Documentation=man:uxplay(1) https://github.com/antimof/UxPlay
+# Needs a compositor for waylandsink and Avahi for the DNS-SD announcement.
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# Options come from ~/.config/uxplayrc (staged from
+# /usr/share/ublue-os/casting/uxplayrc.tmpl by `ujust airplay-setup`).
+ExecStart=/usr/bin/uxplay
+Restart=on-failure
+RestartSec=5
+
+# Kernel/hardware-tampering lockdown. Unlike code-server.service, this unit hosts no
+# dev shell (no sudo/distrobox/podman), so NoNewPrivileges is safe to keep here.
+# Still deliberately absent: RestrictNamespaces, ProtectSystem/ProtectHome and
+# MemoryDenyWriteExecute — uxplay needs /dev/dri, the PipeWire and Avahi sockets, and
+# a JIT-capable GStreamer pipeline.
+NoNewPrivileges=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,4 @@
+# FCast Receiver: plays media from URLs handed to it by a sender over TCP 46899.
+# It never needs to read this machine's files, so home stays out of the sandbox.
+[Context]
+filesystems=!home;

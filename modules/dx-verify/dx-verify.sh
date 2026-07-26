@@ -74,6 +74,20 @@ readonly AUDIT_REGISTRY=(
 	"bin|looking-glass-client|Tool: Looking Glass Client|Error"
 	"bin|g15-status|Tool: G15 Status|Error"
 	"bin|bling-check|Tool: Bling Check|Error"
+	"bin|uxplay|Tool: UxPlay AirPlay Receiver|Error"
+	"bin|shairport-sync|Tool: Shairport Sync (AirPlay audio)|Error"
+	"bin|usbmuxd|Tool: iOS USB Multiplex Daemon|Error"
+	"bin|idevice_id|Tool: iOS Device Utilities|Error"
+	"bin|ifuse|Tool: iOS FUSE Mount|Error"
+	"bin|ideviceinstaller|Tool: iOS App Installer|Error"
+
+	"file|/usr/share/ublue-os/casting/uxplay.service|Asset: Casting UxPlay Unit|Error"
+	"file|/usr/share/ublue-os/casting/uxplayrc.tmpl|Asset: Casting UxPlay Config Template|Error"
+	"file|/usr/share/ublue-os/casting/fcast-receiver.service|Asset: Casting FCast Receiver Unit|Error"
+	"file|/usr/share/flatpak/overrides/org.fcast.Receiver|Policy: FCast Receiver Flatpak Override|Error"
+	"file|/usr/share/flatpak/overrides/org.fcast.Sender|Policy: FCast Sender Flatpak Override|Error"
+	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"
+	"file|/usr/lib/firewalld/services/fcast.xml|Asset: Firewalld FCast Service Def|Error"
 
 	"file|/usr/libexec/bazzite-dx-virt-setup|Asset: Virt Setup Script|Error"
 	"file|/usr/libexec/bazzite-dx-manage-vfio|Asset: VFIO Manager|Error"
@@ -96,6 +110,7 @@ readonly AUDIT_REGISTRY=(
 	"desktop|/usr/share/applications/input-remapper-gtk.desktop|UX: Input Remapper Visibility|Error"
 
 	"content|/usr/share/ublue-os/bazaar/main.yaml::blocklist-dx.yaml|Policy: Bazaar DX Blocklist Registered|Error"
+	"content|/usr/lib/modules-load.d/ip_tables.conf::br_netfilter|Policy: Bridge Netfilter Autoload (docker egress)|Error"
 )
 
 # --- Providers ---

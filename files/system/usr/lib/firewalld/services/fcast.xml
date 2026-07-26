@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FCast receiver. TCP 46899 is the protocol's default listener; 46898 is the
+  WebSocket variant used by browser senders. UDP 5353 covers the optional mDNS
+  announcement — senders may also connect by hostname typed in by hand, which is
+  what makes FCast work across the tailnet.
+
+  Not bound to any zone by the image (same reasoning as uxplay.xml): the default
+  FedoraWorkstation zone already opens 1025-65535, and tailscale0 lives in the
+  `trusted` zone.
+-->
+<service>
+  <short>FCast</short>
+  <description>FCast media receiver — open protocol for casting audio/video to this host.</description>
+  <port protocol="tcp" port="46899"/>
+  <port protocol="tcp" port="46898"/>
+  <port protocol="udp" port="5353"/>
+</service>
