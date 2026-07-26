@@ -135,6 +135,16 @@ Conventions this layer follows:
 - The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
   `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `dx.yml`'s
   "Host Integration & Peripheral Bridges" section (a pointer comment remains there).
+- Both user units follow the graphical-session pattern proven by
+  `files/system/usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh`:
+  `After=graphical-session.target plasma-kwin_wayland.service`, `Requisite=` (never
+  `Wants=`/`Requires=`, which would spawn a standalone compositor at boot under user
+  lingering and steal the DRM device from the real login session),
+  `WantedBy=graphical-session.target` (never `default.target`), and an `ExecStartPre`
+  that polls for the Wayland socket instead of trusting unit-active — on NVIDIA/prime
+  `plasma-kwin_wayland.service` reports active 20-30s before the compositor serves
+  clients. A socket test is used rather than `busctl get-property`, which would
+  resurrect the portal and kwin as a side effect of asking.
 - Nothing is enabled at boot. `casting.yml` declares no `systemd` module; assets are staged
   read-only in `/usr/share/ublue-os/casting/` and `67-casting.just` installs them into
   `~/.config/systemd/user` on request — same pattern as `remote-ide-setup`.
