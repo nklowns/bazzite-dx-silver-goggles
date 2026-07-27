@@ -25,8 +25,6 @@ readonly AUDIT_REGISTRY=(
 	"group|usershares|Security Group: Usershares|Error"
 
 	"file|/usr/lib/udev/rules.d/51-android.rules|Asset: Android Rules|Error"
-	"file|/usr/lib/udev/rules.d/99-g15-thermal.rules|Asset: G15 Thermal Rules|Error"
-	"file|/usr/lib/systemd/system/g15-thermal.service|Asset: G15 Thermal Service|Error"
 	"file|/usr/lib/systemd/system/awccd.service|Asset: AWCC Service|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
 	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"

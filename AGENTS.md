@@ -129,6 +129,44 @@ After rebuilding, commit the RPM: `git add -f files/rpm-ostree/awcc-dev.rpm && g
 Rapid iteration: `just hot-swap-awcc <path>` (live apply, no reboot); revert with `just uninstall-awcc`.
 Full workflow: [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md).
 
+### 🌡️ Thermal: use the in-tree interface, not `acpi_call`
+
+**`acpi_call` does not exist on this image and is not worth chasing.** It is out-of-tree, absent
+from the kernel tree (`modinfo acpi_call` → not found), and absent from every uBlue akmods set —
+this image ships 20+ kmods (xone, v4l2loopback, openrazer, kvmfr, evdi, framework-laptop…) and no
+`acpi_call`, with zero references to it anywhere in the `ublue-os/` clones. AWCC drives G-mode by
+writing raw ACPI through `pkexec` to `/proc/acpi/call`
+(`dell_related/AWCC/src/AcpiUtils.cpp:208-216`, `Daemon.cpp:234`), so **the app's G-mode and fan
+controls are silently no-ops here.** Building an akmod for it would mean tracking the custom `-ogc`
+kernel across every bump, with signing, for a feature the kernel already provides.
+
+The in-tree replacement is already loaded and covers everything AWCC wants:
+
+| Surface | Path | Measured |
+|---|---|---|
+| Thermal profiles | `/sys/class/platform-profile/platform-profile-0` (`name=alienware-wmi`, `DRIVER=alienware-wmi-wmax`) | `low-power quiet balanced balanced-performance performance custom` |
+| Per-fan boost + telemetry | `/sys/class/hwmon/hwmon*` where `name=alienware_wmi` | `fan1/2_input,max,min`, `fan1/2_boost`, `temp1/2_input` (CPU/GPU) |
+
+`performance` ⇒ `fan_boost=100`; `balanced` ⇒ `fan_boost=0` (fans stop entirely at ~48 °C idle);
+writing `fan1_boost=60` under `balanced` spun the CPU fan to 3316 RPM with the GPU fan still at 0.
+That *is* G-mode, upstreamed. **`tuned`/`tuned-ppd` own this in userspace** (they serve
+`net.hadess.PowerProfiles`, KDE powerdevil is a client) and they *follow* `platform_profile`:
+writing `balanced` to the sysfs node flipped `tuned-adm active` to `balanced-bazzite` on its own.
+So use `tuned-adm profile …`, the KDE power widget, or that sysfs node — never a boot-time script
+racing the daemon.
+
+**`g15-thermal.service` and `99-g15-thermal.rules` were deleted for exactly that reason**, and the
+reason is worth keeping written down because it inverts the obvious reading. The unit looked
+harmless — its `acpi_call` branch was dead, so it fell through to
+`echo performance > /sys/firmware/acpi/platform_profile`, which reads as redundant. It was not:
+`tuned-adm recommend` returns **balanced** on this hardware, tuned then followed the unit's write
+up to `throughput-performance-bazzite`, and `alienware-wmi` mapped that to `fan_boost=100`. Net
+effect: the laptop idled at ~4100-4784 RPM on both fans at 48-53 °C, permanently, caused by the
+very unit meant to "trigger G-mode". Its trigger path was broken too — the rule's second line
+matched `SUBSYSTEM=="platform", DRIVER=="alienware-wmi"` while the real device is `SUBSYSTEM=wmi`,
+`DRIVER=alienware-wmi-wmax`, and `BindTo=dev-platform-dell\x2dwmi.device` named a nonexistent
+device unit, so systemd stopped the oneshot in the same second it finished.
+
 ## 📱 Casting & Mobile Bridge (`recipes/casting.yml`)
 
 Receives screen/media from iOS and Android. Split by discovery mechanism, and the split is

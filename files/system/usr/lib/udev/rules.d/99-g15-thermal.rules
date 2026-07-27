@@ -1,3 +1,0 @@
-# [Silver Goggles] Trigger systemd service instead of running binary directly
-ACTION=="add", SUBSYSTEM=="platform", DRIVER=="dell-smbios", TAG+="systemd", ENV{SYSTEMD_WANTS}+="g15-thermal.service"
-ACTION=="add", SUBSYSTEM=="platform", DRIVER=="alienware-wmi", TAG+="systemd", ENV{SYSTEMD_WANTS}+="g15-thermal.service"
