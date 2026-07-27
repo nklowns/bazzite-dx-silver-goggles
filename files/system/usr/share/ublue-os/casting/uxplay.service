@@ -25,7 +25,14 @@ ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -S "${XDG_RUNTIME_DIR}/${W
 TimeoutStartSec=45
 # Options come from ~/.config/uxplayrc (staged from
 # /usr/share/ublue-os/casting/uxplayrc.tmpl by `ujust airplay-setup`).
-ExecStart=/usr/bin/uxplay
+#
+# stdbuf is load-bearing, not cosmetic. uxplay only calls setbuf(stdout, NULL) under
+# _WIN32, so on Linux glibc gives stdout a full 4K buffer whenever it is not a tty —
+# which it never is under systemd. The pairing pin is printed to stdout, so without
+# line buffering it sits in that buffer and only reaches the journal when the process
+# exits: the user sees "Client Authentication Failure (client proof not validated)"
+# because the pin they were supposed to type was never displayed.
+ExecStart=/usr/bin/stdbuf -oL -eL /usr/bin/uxplay
 Restart=on-failure
 RestartSec=5
 

@@ -20,18 +20,28 @@ casting-status:
     CASTING_DIR="/usr/share/ublue-os/casting"
 
     echo "== Receivers (user session) =="
+    # `systemctl is-active` already prints the state on stdout and exits non-zero for
+    # anything but "active", so a `|| echo ...` fallback prints BOTH. Capture with
+    # `|| true` and substitute only when the output is genuinely empty.
     for unit in uxplay fcast-receiver; do
+        case "$unit" in
+            uxplay) setup_recipe="airplay-setup" ;;
+            fcast-receiver) setup_recipe="fcast-setup" ;;
+        esac
         if [[ -f "$HOME/.config/systemd/user/$unit.service" ]]; then
-            printf "%-16s %s\n" "$unit" "$(systemctl --user is-active "$unit.service" 2>/dev/null || echo inactive)"
+            STATE=$(systemctl --user is-active "$unit.service" 2>/dev/null || true)
+            printf "%-16s %s\n" "$unit" "${STATE:-unknown}"
         else
-            printf "%-16s %s\n" "$unit" "not installed (ujust ${unit/fcast-receiver/fcast}-setup)"
+            printf "%-16s %s\n" "$unit" "not staged (ujust ${setup_recipe})"
         fi
     done
-    printf "%-16s %s\n" "shairport-sync" "$(systemctl is-active shairport-sync.service 2>/dev/null || echo 'inactive (system unit, AirPlay 1 only)')"
+    SHAIRPORT=$(systemctl is-active shairport-sync.service 2>/dev/null || true)
+    printf "%-16s %s\n" "shairport-sync" "${SHAIRPORT:-unknown} (system unit, AirPlay 1 only)"
 
     echo ""
     echo "== Discovery =="
-    printf "%-16s %s\n" "avahi-daemon" "$(systemctl is-active avahi-daemon.service 2>/dev/null || echo inactive)"
+    AVAHI=$(systemctl is-active avahi-daemon.service 2>/dev/null || true)
+    printf "%-16s %s\n" "avahi-daemon" "${AVAHI:-unknown}"
     printf "%-16s %s\n" "firewall zone" "$(firewall-cmd --get-default-zone 2>/dev/null || echo unknown)"
 
     echo ""

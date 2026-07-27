@@ -187,6 +187,31 @@ Conventions this layer follows:
   read-only in `/usr/share/ublue-os/casting/` and `67-casting.just` installs them into
   `~/.config/systemd/user` on request — same pattern as `remote-ide-setup`.
 - UxPlay ships `pin` + `reg` in `uxplayrc.tmpl`: no receiver accepts an anonymous client.
+- **`vs xvimagesink`, not `waylandsink`** — the single hardest-won line in `uxplayrc.tmpl`.
+  Measured against one iPhone on KDE Wayland / RTX 3060: `waylandsink` renders correct geometry
+  with the content shredded into displaced horizontal bands, and `GST_DEBUG=2` names the cause —
+  `<videodmabufpool0> no caps in config` (`gstvideopool.c:226`), a dmabuf pool negotiated without
+  caps, hence a wrong stride. `glimagesink` opens a window and renders nothing. `xvimagesink`
+  (XWayland, system memory, no dmabuf negotiation) is correct. **The decoder is not involved:** the
+  corruption was byte-for-byte the same under `nvh264dec` and under software `avdec`, and the
+  journal carried no decoder error in either case — which is also why "comment out `vd nvh264dec`"
+  is not a valid isolation step here (decodebin re-selects nvcodec on its own; only the `avdec`
+  option forces software). Re-test `waylandsink` after GStreamer updates.
+- **Three UxPlay traps, all found only at runtime, all fixed in-tree:**
+  - `read_config_file()` splits every non-`#` line into argv entries. It *does* honour `'` and `"`
+    as item delimiters, so any value with a space must be quoted — unquoted `n Silver Goggles`
+    becomes three entries and uxplay exits with `unknown option Goggles`. The template also carries
+    `nh`, without which the advertised name is `Silver Goggles@bazzite.drake-ayu.ts.net`.
+  - `ExecStart` wraps uxplay in `stdbuf -oL -eL`, and that is load-bearing. uxplay only calls
+    `setbuf(stdout, NULL)` under `_WIN32`, so on Linux glibc fully buffers stdout whenever it is not
+    a tty — always, under systemd. The pairing pin goes to stdout, so unbuffered it reaches the
+    journal only when the process exits: the observed symptom was `*** ERROR: Client Authentication
+    Failure (client proof not validated)` on the phone side, because the pin the user was supposed
+    to type had never been displayed. Verified end-to-end after the fix: pin printed live, iPhone
+    (`iPhone14,5`, `AirPlay/950.7.1`) paired and registered, `raop_rtp_mirror starting mirroring`.
+- `casting-status` captures `systemctl is-active` with `|| true`, never `|| echo <fallback>`:
+  `is-active` already prints the state on stdout *and* exits non-zero for anything but active, so a
+  fallback prints both strings on one line.
 - `files/system/usr/lib/firewalld/services/{uxplay,fcast}.xml` are definitions only, bound to no
   zone. The default `FedoraWorkstation` zone already opens `1025-65535/tcp+udp` and `tailscale0`
   sits in `trusted`, so `ujust casting-firewall` is a no-op there and says so.
