@@ -3,7 +3,7 @@
 # CASTING & MOBILE BRIDGE
 #
 # Two discovery regimes, and the split is architectural:
-#   * AirPlay (uxplay, shairport-sync) rides on mDNS/L2. Tailscale carries no
+#   * AirPlay (uxplay) rides on mDNS/L2. Tailscale carries no
 #     multicast and the iOS AirPlay picker has no manual-IP entry, so these are
 #     LAN-only. Permanently.
 #   * FCast (TCP 46899), scrcpy (ADB over TCP) and KDE Connect all accept a
@@ -20,9 +20,6 @@ casting-status:
     CASTING_DIR="/usr/share/ublue-os/casting"
 
     echo "== Receivers (user session) =="
-    # `systemctl is-active` already prints the state on stdout and exits non-zero for
-    # anything but "active", so a `|| echo ...` fallback prints BOTH. Capture with
-    # `|| true` and substitute only when the output is genuinely empty.
     # Both units ship in /usr/lib/systemd/user/, so "is the file there" is no longer a
     # question worth asking — it always is. What distinguishes "never set up" from "set up
     # and stopped" is now the enablement state, so report both. is-enabled behaves like
@@ -47,8 +44,6 @@ casting-status:
         esac
         printf "%-16s %-10s %s\n" "$unit" "${STATE:-unknown}" "$SUFFIX"
     done
-    SHAIRPORT=$(systemctl is-active shairport-sync.service 2>/dev/null || true)
-    printf "%-16s %s\n" "shairport-sync" "${SHAIRPORT:-unknown} (system unit, AirPlay 1 only)"
 
     # Count flatpak instances, not just the unit. FCast Receiver is not single-instance and
     # app-menu launches live in their own scopes, so the unit can read "inactive" while three

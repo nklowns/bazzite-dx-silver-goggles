@@ -175,7 +175,6 @@ architectural — **not** a configuration gap:
 | Path | Tool | Discovery | Tailnet |
 |---|---|---|---|
 | iOS/macOS screen + audio | `uxplay` (`ujust airplay-setup`) | mDNS | ❌ never |
-| iOS audio | `shairport-sync` (system unit, disabled) | mDNS | ❌ never |
 | media casting | FCast flatpaks (`ujust fcast-setup`) | mDNS **or manual IP** | ✅ TCP 46899 |
 | Android screen + audio | `scrcpy` (`ujust android-mirror <host>`) | ADB over TCP | ✅ |
 | input/clipboard/files | KDE Connect (`ujust kdeconnect-tailnet-add <host>`) | broadcast **or manual IP** | ✅ Android · ❌ iOS |
@@ -277,15 +276,21 @@ Conventions this layer follows:
   (os error 98)` — on the `main-async-worker` thread, so *the thread* dies and the process does
   not. B's window stays up with no listener behind it and reports **"Your device isn't connected
   to a network"**, which points at the network and means the exact opposite. Compounding it,
-  `Slint: Failed to create system tray icon: 0` on KDE Wayland: closing the window neither quits
-  the app nor leaves a tray handle, so a windowless instance keeps the port invisibly and the
-  only way back in — the app menu — produces case B. Hence three in-tree decisions:
-  `Restart=no` on the unit (closing a GUI window is intent, not failure), `ExecStartPre=-flatpak
-  kill` so `systemctl restart` is authoritative, and `fcast-setup` using `restart` rather than
+  `Slint: Failed to create system tray icon: 0` on KDE Wayland, so there is no tray handle to
+  reach a running copy by, and the only way back in — the app menu — produces case B. Three
+  copies were found alive in their own `app-flatpak-org.fcast.Receiver-*.scope` while the unit
+  read `inactive`; **why they survived is not established** — a healthy instance under the unit
+  later exited on its own with `Result=success`, status 0, so a plain window close does appear to
+  quit a *working* copy. Treat "closing the window leaves it running" as unverified; the port
+  conflict and the missing tray are the measured parts. Hence three in-tree decisions:
+  `Restart=no` on the unit (a GUI app exiting 0 is intent, not failure — note that no respawn was
+  ever observed here, so `on-failure` was not the cause of the duplicate windows and an earlier
+  commit message overstated that), `ExecStartPre=-flatpak kill` so `systemctl restart` is
+  authoritative over an app-menu copy, and `fcast-setup` using `restart` rather than
   `enable --now` — enabled at login it would hold 46899 before the desktop appears and turn every
   menu launch into the broken window. `fcast-off` kills stray flatpak instances too, since
-  app-menu copies run in their own `app-flatpak-org.fcast.Receiver-*.scope` that systemd never
-  owned; `casting-status` prints the instance count for the same reason.
+  app-menu copies run in scopes systemd never owned; `casting-status` prints the instance count
+  for the same reason.
 - `casting-status` captures `systemctl is-active` with `|| true`, never `|| echo <fallback>`:
   `is-active` already prints the state on stdout *and* exits non-zero for anything but active, so a
   fallback prints both strings on one line.
@@ -295,8 +300,19 @@ Conventions this layer follows:
 - `adb` comes from the `android-platform-tools` **cask** in `cli.Brewfile` (Homebrew 6.x installs
   casks on Linux). The Fedora `android-tools` RPM stays commented out in `dx.yml` on purpose —
   enabling it would put a second `adb` in `PATH`.
-- `nqptp` is absent from Fedora, so `shairport-sync` is AirPlay **1** only. UxPlay's audio-only
-  mode (`-async`) covers AirPlay 2 ALAC.
+- **`shairport-sync` was shipped and then removed — do not add it back without reading this.**
+  `nqptp` is absent from Fedora, so it is AirPlay **1** only, while UxPlay's audio-only mode
+  (`-async`) already covers AirPlay 2 ALAC *with* pin auth. It was finally exercised before being
+  dropped, and it worked, which is not the same as being acceptable: it advertised
+  `_raop._tcp` on port 5000 with **`pw=false`** — an anonymous receiver any host on the LAN can
+  push audio to, in direct contradiction of the pin-or-nothing rule the rest of this layer
+  follows. It also advertised as `…@Bazzite.drake-ayu.ts`, leaking the tailnet hostname into LAN
+  mDNS (the same defect `nh` fixes for UxPlay), and it published on every interface including
+  `docker0`, `br-*` and container veths. Its unit was `disabled`, so none of that was live — but a
+  receiver that is one `systemctl start` away from anonymous LAN audio is not worth carrying for a
+  protocol generation UxPlay already serves. Re-adding it means shipping an
+  `/etc/shairport-sync.conf` with a password, a fixed name and `interface = "wlan0"` — the stock
+  config in the image has every block empty.
 
 ## 🔀 Testing Forks & Branch Overrides
 

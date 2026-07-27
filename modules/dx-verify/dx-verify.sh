@@ -73,7 +73,6 @@ readonly AUDIT_REGISTRY=(
 	"bin|g15-status|Tool: G15 Status|Error"
 	"bin|bling-check|Tool: Bling Check|Error"
 	"bin|uxplay|Tool: UxPlay AirPlay Receiver|Error"
-	"bin|shairport-sync|Tool: Shairport Sync (AirPlay audio)|Error"
 	"bin|usbmuxd|Tool: iOS USB Multiplex Daemon|Error"
 	"bin|idevice_id|Tool: iOS Device Utilities|Error"
 	"bin|ifuse|Tool: iOS FUSE Mount|Error"

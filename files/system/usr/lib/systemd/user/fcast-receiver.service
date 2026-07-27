@@ -35,12 +35,14 @@ ExecStartPre=-/usr/bin/flatpak kill org.fcast.Receiver
 # Listens on TCP 46899, already reachable on tailscale0 (trusted zone) and on the LAN
 # (the FedoraWorkstation zone opens 1025-65535).
 ExecStart=/usr/bin/flatpak run org.fcast.Receiver
-# Restart=no, deliberately. This is a GUI app: closing its window is the user's intent, not
-# a fault, and on=failure turned every close into a respawn that reopened the window
-# forever. There is no tray fallback to close it to either — Slint cannot create a tray
-# icon on KDE Wayland here ("Slint: Failed to create system tray icon: 0"), so a
-# windowless instance is invisible while still holding the port. `ujust fcast-off` is the
-# quit action the missing tray cannot offer.
+# Restart=no, deliberately. This is a GUI app, and a GUI app exiting 0 because its window
+# was closed is intent, not a fault — measured: an instance under this unit exited with
+# Result=success, ExecMainStatus=0. Restart=on-failure would not have respawned that, and
+# no respawn was ever observed on this host; the duplicate-window symptom came from the
+# missing single-instance lock above, not from systemd. Restart=no is kept because there is
+# also no tray to reach a running copy by (Slint cannot create a tray icon on KDE Wayland
+# here), so an automatic respawn would put back a window the user cannot dismiss for good.
+# `ujust fcast-off` is the explicit quit action.
 Restart=no
 # `flatpak kill` (used by fcast-off and by the ExecStartPre above) SIGKILLs the app, and
 # `flatpak run` then exits 137 — which systemd records as Result=exit-code / failed, leaving
