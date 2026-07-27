@@ -230,7 +230,12 @@ remote-ide-tunnel name:
 remote-ide-status:
     #!/usr/bin/env bash
     echo "== code-server =="
-    systemctl --user is-active code-server.service 2>/dev/null || echo "inactive"
+    # `is-active` prints the state on stdout AND exits non-zero for anything but active, so
+    # `|| echo inactive` printed it twice ("inactive" then "inactive"). Reproduced here before
+    # the fix. Capture with `|| true` and substitute only when the output is truly empty.
+    CS_STATE=$(systemctl --user is-active code-server.service 2>/dev/null || true)
+    CS_ENABLED=$(systemctl --user is-enabled code-server.service 2>/dev/null || true)
+    printf "%-12s %s (%s)\n" "state:" "${CS_STATE:-unknown}" "${CS_ENABLED:-unknown}"
     printf "local check: "
     curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:61337/login || echo "unreachable"
     tailscale serve status
@@ -240,7 +245,8 @@ remote-ide-status:
     for name in code code-insiders antigravity; do
         ENV_FILE="$HOME/.config/ide-tunnel/$name.env"
         [[ -f "$ENV_FILE" ]] || continue
-        STATE=$(systemctl --user is-active "ide-tunnel@$name.service" 2>/dev/null || echo "inactive")
-        echo "-- $name: $STATE"
+        # Same trap as above: `|| echo inactive` would capture BOTH strings into STATE.
+        STATE=$(systemctl --user is-active "ide-tunnel@$name.service" 2>/dev/null || true)
+        echo "-- $name: ${STATE:-inactive}"
         journalctl --user -u "ide-tunnel@$name" --no-pager 2>/dev/null | grep -F "Open:" | tail -1
     done

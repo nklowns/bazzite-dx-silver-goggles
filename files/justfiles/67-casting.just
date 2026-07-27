@@ -23,17 +23,29 @@ casting-status:
     # `systemctl is-active` already prints the state on stdout and exits non-zero for
     # anything but "active", so a `|| echo ...` fallback prints BOTH. Capture with
     # `|| true` and substitute only when the output is genuinely empty.
+    # Both units ship in /usr/lib/systemd/user/, so "is the file there" is no longer a
+    # question worth asking — it always is. What distinguishes "never set up" from "set up
+    # and stopped" is now the enablement state, so report both. is-enabled behaves like
+    # is-active: state on stdout, non-zero exit for anything but enabled.
     for unit in uxplay fcast-receiver; do
         case "$unit" in
             uxplay) setup_recipe="airplay-setup" ;;
             fcast-receiver) setup_recipe="fcast-setup" ;;
         esac
-        if [[ -f "$HOME/.config/systemd/user/$unit.service" ]]; then
-            STATE=$(systemctl --user is-active "$unit.service" 2>/dev/null || true)
-            printf "%-16s %s\n" "$unit" "${STATE:-unknown}"
-        else
-            printf "%-16s %s\n" "$unit" "not staged (ujust ${setup_recipe})"
-        fi
+        STATE=$(systemctl --user is-active "$unit.service" 2>/dev/null || true)
+        # is-enabled writes "not-found" to stdout (exit 4) for a missing unit — it does not
+        # go quiet, so match it explicitly rather than testing for an empty string.
+        ENABLED=$(systemctl --user is-enabled "$unit.service" 2>/dev/null || true)
+        case "$unit:$ENABLED" in
+            # fcast-receiver is deliberately never enabled: at login it would bind 46899
+            # before the desktop exists and every app-menu launch would then be the broken
+            # second instance. "disabled" is the correct steady state for it.
+            fcast-receiver:disabled) SUFFIX="(on-demand by design)" ;;
+            *:not-found) SUFFIX="(NOT FOUND -- image regression, expected in /usr/lib/systemd/user)" ;;
+            *:enabled | *:enabled-runtime | *:linked | *:linked-runtime) SUFFIX="($ENABLED)" ;;
+            *) SUFFIX="($ENABLED -- ujust ${setup_recipe})" ;;
+        esac
+        printf "%-16s %-10s %s\n" "$unit" "${STATE:-unknown}" "$SUFFIX"
     done
     SHAIRPORT=$(systemctl is-active shairport-sync.service 2>/dev/null || true)
     printf "%-16s %s\n" "shairport-sync" "${SHAIRPORT:-unknown} (system unit, AirPlay 1 only)"
