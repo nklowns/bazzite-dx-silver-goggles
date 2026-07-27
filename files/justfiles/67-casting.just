@@ -38,6 +38,17 @@ casting-status:
     SHAIRPORT=$(systemctl is-active shairport-sync.service 2>/dev/null || true)
     printf "%-16s %s\n" "shairport-sync" "${SHAIRPORT:-unknown} (system unit, AirPlay 1 only)"
 
+    # Count flatpak instances, not just the unit. FCast Receiver is not single-instance and
+    # app-menu launches live in their own scopes, so the unit can read "inactive" while three
+    # copies are running and only the first one holds TCP 46899. Every other copy shows a
+    # window claiming there is no network. Surfacing the count makes that diagnosable.
+    FCAST_N=$(flatpak ps --columns=application 2>/dev/null | grep -cx 'org.fcast.Receiver' || true)
+    if [[ "${FCAST_N:-0}" -gt 1 ]]; then
+        printf "%-16s %s\n" "fcast instances" "$FCAST_N -- CONFLICT, only one can bind 46899 (ujust fcast-off)"
+    elif [[ "${FCAST_N:-0}" -eq 1 ]]; then
+        printf "%-16s %s\n" "fcast instances" "1"
+    fi
+
     echo ""
     echo "== Discovery =="
     AVAHI=$(systemctl is-active avahi-daemon.service 2>/dev/null || true)
@@ -149,10 +160,20 @@ fcast-setup with_sender="no":
     fi
 
     systemctl --user daemon-reload
-    systemctl --user enable --now fcast-receiver.service
+    # start, NOT enable. The receiver is not single-instance (see fcast-receiver.service):
+    # enabled at login it would grab 46899 before the user ever touches the desktop, and the
+    # app-menu icon would then only ever produce a second, listener-less window claiming the
+    # machine has no network. One owner at a time is the whole point.
+    systemctl --user restart fcast-receiver.service
 
     echo ""
     echo "FCast receiver is up on TCP 46899."
+    echo "  * Only ONE copy can run: the second one cannot bind 46899 and shows"
+    echo "    'Your device isn't connected to a network' even though the network is fine."
+    echo "    Launching from the app menu while this unit runs is exactly that case."
+    echo "  * Closing the window does NOT quit it, and the tray icon fails to appear on"
+    echo "    KDE Wayland, so the process keeps the port with nothing on screen."
+    echo "    Use 'ujust fcast-off' to really stop it, 'ujust fcast-setup' to restart."
     if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
         DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
         echo "  Tailnet: in the FCast sender app, add a receiver MANUALLY as:"
@@ -170,7 +191,13 @@ fcast-setup with_sender="no":
 fcast-off:
     #!/usr/bin/env bash
     systemctl --user disable --now fcast-receiver.service 2>/dev/null || true
-    echo "FCast receiver disabled. The flatpak itself is left installed."
+    # Stopping the unit is not enough. Copies launched from the app menu run in their own
+    # app-flatpak-org.fcast.Receiver-*.scope, so systemd never owned them, and closing the
+    # window does not exit the process while the KDE Wayland tray icon fails to appear.
+    # Those orphans keep TCP 46899 bound, which is what makes the NEXT launch look broken.
+    flatpak kill org.fcast.Receiver 2>/dev/null || true
+    echo "FCast receiver stopped (unit disabled, stray flatpak instances killed)."
+    echo "The flatpak itself is left installed."
 
 # Pair this host with an Android device's wireless debugging (once per device)
 [group('Casting')]

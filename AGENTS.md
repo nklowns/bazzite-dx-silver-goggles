@@ -216,6 +216,21 @@ Conventions this layer follows:
   `/usr/bin/uxplay`, because `~/.config/systemd/user/uxplay.service` already existed. Note also that
   a user drop-in or copy always wins over the image unit — that is the same failure mode from the
   other direction.
+- **FCast Receiver 3.0.3 is not single-instance, and the second copy lies about why.** Measured
+  here: instance A binds TCP 46899, instance B panics on
+  `receiver-core/src/lib.rs:978  called Result::unwrap() on an Err value: Address already in use
+  (os error 98)` — on the `main-async-worker` thread, so *the thread* dies and the process does
+  not. B's window stays up with no listener behind it and reports **"Your device isn't connected
+  to a network"**, which points at the network and means the exact opposite. Compounding it,
+  `Slint: Failed to create system tray icon: 0` on KDE Wayland: closing the window neither quits
+  the app nor leaves a tray handle, so a windowless instance keeps the port invisibly and the
+  only way back in — the app menu — produces case B. Hence three in-tree decisions:
+  `Restart=no` on the unit (closing a GUI window is intent, not failure), `ExecStartPre=-flatpak
+  kill` so `systemctl restart` is authoritative, and `fcast-setup` using `restart` rather than
+  `enable --now` — enabled at login it would hold 46899 before the desktop appears and turn every
+  menu launch into the broken window. `fcast-off` kills stray flatpak instances too, since
+  app-menu copies run in their own `app-flatpak-org.fcast.Receiver-*.scope` that systemd never
+  owned; `casting-status` prints the instance count for the same reason.
 - `casting-status` captures `systemctl is-active` with `|| true`, never `|| echo <fallback>`:
   `is-active` already prints the state on stdout *and* exits non-zero for anything but active, so a
   fallback prints both strings on one line.

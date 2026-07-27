@@ -21,11 +21,32 @@ Type=simple
 # nothing, unlike a D-Bus property read.
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY:-wayland-0}" ] && exit 0; sleep 1; done; echo "wayland socket not ready after 30s" >&2; exit 1'
 TimeoutStartSec=45
+# FCast Receiver 3.0.3 has no single-instance lock, so a second copy is a hard conflict
+# rather than a no-op: it fails to bind 46899 and, worse, survives the failure. The panic
+#     receiver-core/src/lib.rs:978  called `Result::unwrap()` on an `Err` value:
+#     Address already in use (os error 98)
+# happens on the 'main-async-worker' thread, which kills that thread and not the process,
+# so the window stays up with no listener behind it and reports "Your device isn't
+# connected to a network" — a message that points at the network and means the opposite.
+# This ExecStartPre makes `systemctl --user start/restart` authoritative: whatever copy is
+# already running (typically one launched from the app menu) is reaped first so this one
+# can bind. Reaping is also why the unit must NOT be enabled at login — see fcast-setup.
+ExecStartPre=-/usr/bin/flatpak kill org.fcast.Receiver
 # Listens on TCP 46899, already reachable on tailscale0 (trusted zone) and on the LAN
 # (the FedoraWorkstation zone opens 1025-65535).
 ExecStart=/usr/bin/flatpak run org.fcast.Receiver
-Restart=on-failure
-RestartSec=5
+# Restart=no, deliberately. This is a GUI app: closing its window is the user's intent, not
+# a fault, and on=failure turned every close into a respawn that reopened the window
+# forever. There is no tray fallback to close it to either — Slint cannot create a tray
+# icon on KDE Wayland here ("Slint: Failed to create system tray icon: 0"), so a
+# windowless instance is invisible while still holding the port. `ujust fcast-off` is the
+# quit action the missing tray cannot offer.
+Restart=no
+# `flatpak kill` (used by fcast-off and by the ExecStartPre above) SIGKILLs the app, and
+# `flatpak run` then exits 137 — which systemd records as Result=exit-code / failed, leaving
+# casting-status reporting a fault for a deliberate stop. 143 is the SIGTERM equivalent.
+# Measured: 137 after `flatpak kill`.
+SuccessExitStatus=137 143
 
 # The flatpak sandbox does the heavy lifting here (see
 # /usr/share/flatpak/overrides/org.fcast.Receiver), so this only adds directives that do
