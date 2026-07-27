@@ -116,6 +116,30 @@ Immutable/atomic host — imperative system mutations on the live host are forbi
 - Shell scripts must pass `shellcheck` (`just lint`); format with `shfmt` (`just format`).
 - Custom BlueBuild modules follow the pattern in `modules/` and should include an integrity check where possible (see `dx-verify`).
 
+### dx-verify: presence is not behaviour
+
+The registry started as `file|`/`bin|` asserts, which check that an asset exists. That is why a
+dead udev rule, a device unit that never appears and a nonexistent `acpi_call` all passed green
+for as long as they did. Two providers now check behaviour instead:
+
+- **`unit|<path>`** — runs `systemd-analyze verify` (`--user` inferred from the path) and fails on
+  any diagnostic. It must grep the *output*: measured, `verify` exits **0** for a unit containing
+  `BogusKey=yes` and for one whose `ExecStart` does not exist. `/home/linuxbrew` lines are
+  filtered, since Homebrew is installed at runtime and "Command … is not executable" is expected
+  in the build container. Known blind spots, so nobody over-trusts it: legacy aliases draw no
+  warning at all (`BindTo=` is silently accepted for `BindsTo=`), and references to units or
+  devices absent on the target are fine by it.
+- **`nostage|<dir>`** — greps the installed justfiles for any recipe that `install`s a `.service`
+  into `$HOME`/`$UNIT_DIR`, i.e. a regression against Atomic State Policy item 7. Purely static, so
+  it works in a build container with no user session.
+
+Both were checked against injected regressions, not just the clean tree — a check that has never
+failed is a check you have not tested. **A udev-rule assert was deliberately not added:** matching
+`DRIVER==` against real devices needs the target hardware, and `udevadm info -e` in CI describes
+the build runner, so it would have to pass vacuously. After the `g15-thermal` deletion no shipped
+rule matches on `DRIVER==` at all; if one is added, verify it on the machine, because the build
+cannot.
+
 ## ⚙️ AWCC RPM Workflow
 
 `files/rpm-ostree/awcc-dev.rpm` is committed to the repo and installed at image build time via the `rpm-ostree` module.

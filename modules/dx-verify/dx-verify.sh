@@ -78,6 +78,12 @@ readonly AUDIT_REGISTRY=(
 	"bin|ifuse|Tool: iOS FUSE Mount|Error"
 	"bin|ideviceinstaller|Tool: iOS App Installer|Error"
 
+	"unit|/usr/lib/systemd/user/uxplay.service|Behaviour: UxPlay Unit Parses Clean|Error"
+	"unit|/usr/lib/systemd/user/fcast-receiver.service|Behaviour: FCast Unit Parses Clean|Error"
+	"unit|/usr/lib/systemd/user/code-server.service|Behaviour: code-server Unit Parses Clean|Error"
+	"unit|/usr/lib/systemd/user/ide-tunnel@.service|Behaviour: IDE Tunnel Unit Parses Clean|Error"
+	"nostage|/usr/share/bluebuild/justfiles|Policy: No ujust Recipe Stages a Unit into \$HOME|Error"
+
 	"file|/usr/lib/systemd/user/uxplay.service|Asset: Casting UxPlay Unit|Error"
 	"file|/usr/share/ublue-os/casting/uxplayrc.tmpl|Asset: Casting UxPlay Config Template|Error"
 	"file|/usr/lib/systemd/user/fcast-receiver.service|Asset: Casting FCast Receiver Unit|Error"
@@ -133,6 +139,47 @@ CheckDesktop() {
 	! grep -qi "NoDisplay=true" "$1"
 }
 
+# Unit provider: parse a shipped unit with systemd-analyze and fail on ANY diagnostic.
+#
+# The exit code is useless here — measured: `systemd-analyze verify` returns 0 for a unit
+# containing `BogusKey=yes` and for one whose ExecStart does not exist. It only writes the
+# complaint to stderr. So this greps the output instead.
+#
+# /home/linuxbrew paths are filtered: Homebrew is installed at runtime, so "Command
+# /home/linuxbrew/... is not executable" is expected in the build container and says nothing
+# about the unit. Any other diagnostic is a real defect and fails the build.
+#
+# Note what this does NOT catch, so nobody assumes it does: unknown-but-accepted legacy
+# aliases (`BindTo=` for `BindsTo=` draws no warning at all), and references to units or
+# devices that do not exist on the target machine — verify is happy with
+# `After=plasma-kwin_wayland.service` and with a device unit that will never appear.
+CheckUnit() {
+	local path="$1" scope=() out
+	command -v systemd-analyze >/dev/null || return 1
+	[[ -f "$path" ]] || return 1
+	[[ "$path" == */systemd/user/* ]] && scope=(--user)
+	out=$(systemd-analyze verify "${scope[@]}" "$path" 2>&1 | grep -v '/home/linuxbrew' || true)
+	[[ -z "$out" ]] || {
+		printf '        %s\n' "$out" >&2
+		return 1
+	}
+}
+
+# NoStage provider: assert no ujust recipe copies a systemd unit into the user's home.
+#
+# Units belong in /usr/lib/systemd/user/ (Atomic State Policy item 7). A copy under
+# ~/.config/systemd/user takes precedence over the image and therefore freezes the host on
+# whatever version it first ran — that is how this image shipped a pairing-pin fix and a
+# code-server hardening commit that the host they were written on never received. Purely
+# static, so it works in the build container where no user session exists.
+CheckNoStage() {
+	local dir="$1"
+	[[ -d "$dir" ]] || return 1
+	# [$] rather than \$ so shellcheck does not read this as an unexpanded variable (SC2016);
+	# the two are equivalent to grep -E and the quoting must stay single.
+	! grep -REn 'install[^|]*\.service[^|]*([$]HOME|[$]UNIT_DIR)' "$dir" >/dev/null
+}
+
 # --- Engine ---
 
 RunAudit() {
@@ -149,6 +196,8 @@ RunAudit() {
 		target) success=$(CheckTarget "$target" && echo 1 || echo 0) ;;
 		content) success=$(CheckContent "$target" && echo 1 || echo 0) ;;
 		desktop) success=$(CheckDesktop "$target" && echo 1 || echo 0) ;;
+		unit) success=$(CheckUnit "$target" && echo 1 || echo 0) ;;
+		nostage) success=$(CheckNoStage "$target" && echo 1 || echo 0) ;;
 		esac
 
 		if [[ "$success" -eq 1 ]]; then
