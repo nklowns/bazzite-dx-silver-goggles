@@ -1,3 +1,0 @@
-# Enable AWCC Daemon for Dell G15
-enable awccd.service
-disable thermald.service
