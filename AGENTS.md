@@ -179,6 +179,32 @@ writing `balanced` to the sysfs node flipped `tuned-adm active` to `balanced-baz
 So use `tuned-adm profile …`, the KDE power widget, or that sysfs node — never a boot-time script
 racing the daemon.
 
+#### Do not try to "fix" AWCC's thermals, and do not migrate to alienfx-linux for them
+
+Upstream's prescription is DKMS. On the still-open AWCC issue #124 the maintainer answers "the acpi
+module is not in kernel install acpicall-dkms and modprobe acpi_call", and issue #111 — *literally*
+this image's error, `Unknown thermal mode returned: 0xffffffff` — was closed as **stale**, not
+fixed. DKMS is not available on an atomic host, and no uBlue akmods set carries `acpi_call`.
+
+`dell_related/alienfx-linux` (same author, the repo AWCC's README points at) is **not** the escape
+hatch for this, despite `AlienFan-SDK/src/AlienFan-SDK.cpp` reading exactly the right surfaces
+(`/sys/class/hwmon` for `name == alienware_wmi`, `/sys/class/platform-profile`) and even
+implementing `SetFanBoost()` as an `ofstream` on `fanN_boost`. Its CLI exposes **no fan command at
+all** — 14 subcommands: nine for lights, `getpowerprofile`/`supportedprofiles`/`setpowerprofile`,
+`status`, `reset`. And the profile half duplicates what `tuned` and the KDE power widget already do.
+AWCC is also not deprecated (182★ vs 25★, 1.19.0, new devices as recently as June 2026); its
+roadmap marks `[x] New backend for thermal mode (AlienFan-SDK)` but the code contradicts that —
+zero `hwmon`/`platform-profile` references anywhere in `AWCC/src`, and `Thermals.cpp` still goes
+through `AcpiUtils` → `/proc/acpi/call`.
+
+So: **AWCC stays for lights** (`LightFX.cpp` is libusb, independent of ACPI, which is why the
+keyboard zones work and always did), profiles come from tuned/KDE, and if per-fan boost is ever
+wanted the cheap path is ours, not upstream's — a `dx-udev` rule granting group write on
+`fanN_boost` plus a `ujust`, on the sysfs nodes measured below. Worth remembering the measurement
+before building that: on CPU load it buys ~0 MHz. If alienfx-linux is ever packaged, pin its
+`FetchContent` deps — libusb-cmake, loguru and hidapi are all declared with floating
+`GIT_TAG main`/`master`.
+
 #### What max fan actually buys (measured, so stop guessing)
 
 `stress-ng --cpu 20` for 80 s on AC, same load under both profiles:
