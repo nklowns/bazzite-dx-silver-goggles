@@ -209,6 +209,13 @@ Conventions this layer follows:
     Failure (client proof not validated)` on the phone side, because the pin the user was supposed
     to type had never been displayed. Verified end-to-end after the fix: pin printed live, iPhone
     (`iPhone14,5`, `AirPlay/950.7.1`) paired and registered, `raop_rtp_mirror starting mirroring`.
+- **`*-setup` stages units on drift (`cmp -s`), not `if [[ ! -f ]]`.** The rc file is user config and
+  is still never overwritten, but the units hold no tunables, so a first-run copy in `$HOME` pinned
+  the host to whatever the image shipped back then. Observed after the `stdbuf` fix landed: the
+  updated image was booted (`latest.20260727`) and the running `ExecStart` was still the old
+  `/usr/bin/uxplay`, because `~/.config/systemd/user/uxplay.service` already existed. Note also that
+  a user drop-in or copy always wins over the image unit — that is the same failure mode from the
+  other direction.
 - `casting-status` captures `systemctl is-active` with `|| true`, never `|| echo <fallback>`:
   `is-active` already prints the state on stdout *and* exits non-zero for anything but active, so a
   fallback prints both strings on one line.

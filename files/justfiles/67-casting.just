@@ -84,14 +84,18 @@ airplay-setup:
 
     if [[ ! -f "$RC_FILE" ]]; then
         install -Dm644 "$CASTING_DIR/uxplayrc.tmpl" "$RC_FILE"
-        echo "Installed $RC_FILE (NVDEC + waylandsink + pipewiresink, pin auth on)"
+        echo "Installed $RC_FILE (NVDEC + xvimagesink + pipewiresink, pin auth on)"
     else
         echo "Keeping existing $RC_FILE — compare against $CASTING_DIR/uxplayrc.tmpl if something misbehaves."
     fi
 
-    if [[ ! -f "$UNIT_DIR/uxplay.service" ]]; then
+    # The rc file above is user config and is never overwritten; the unit is NOT. It holds no
+    # tunables (every knob lives in uxplayrc), so a stale copy in $HOME just pins whatever the
+    # image shipped the first time this ran — that is how a host kept running an ExecStart without
+    # the load-bearing `stdbuf` wrapper long after the image had been fixed. Refresh on drift.
+    if ! cmp -s "$CASTING_DIR/uxplay.service" "$UNIT_DIR/uxplay.service"; then
         install -Dm644 "$CASTING_DIR/uxplay.service" "$UNIT_DIR/uxplay.service"
-        echo "Installed uxplay.service"
+        echo "Staged uxplay.service from $CASTING_DIR (refreshed if it had drifted)"
     fi
 
     systemctl --user daemon-reload
@@ -137,9 +141,11 @@ fcast-setup with_sender="no":
     fi
 
     mkdir -p "$UNIT_DIR"
-    if [[ ! -f "$UNIT_DIR/fcast-receiver.service" ]]; then
+    # Same reasoning as uxplay.service in airplay-setup: no user tunables in the unit, so a copy
+    # left in $HOME would freeze this host on the image's first version forever.
+    if ! cmp -s "$CASTING_DIR/fcast-receiver.service" "$UNIT_DIR/fcast-receiver.service"; then
         install -Dm644 "$CASTING_DIR/fcast-receiver.service" "$UNIT_DIR/fcast-receiver.service"
-        echo "Installed fcast-receiver.service"
+        echo "Staged fcast-receiver.service from $CASTING_DIR (refreshed if it had drifted)"
     fi
 
     systemctl --user daemon-reload
