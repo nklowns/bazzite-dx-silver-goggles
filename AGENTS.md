@@ -351,7 +351,11 @@ Conventions this layer follows:
   Both recipes therefore delete a legacy non-symlink copy and `reenable`. A user drop-in also wins
   over the image unit — same failure mode from the other direction, and the reason the local
   `10-line-buffered.conf` drop-in had to be removed after the fix shipped.
-- **FCast Receiver 3.0.3 is not single-instance, and the second copy lies about why.** Measured
+- **FCast Receiver 3.0.3 is not single-instance, and the second copy lies about why.** Reported
+  upstream as [futo-org/fcast#119](https://github.com/futo-org/fcast/issues/119) (port conflict
+  misreported as a missing network) and
+  [#120](https://github.com/futo-org/fcast/issues/120) (tray item never created on KDE Wayland);
+  drop the local workarounds if either is fixed. Measured
   here: instance A binds TCP 46899, instance B panics on
   `receiver-core/src/lib.rs:978  called Result::unwrap() on an Err value: Address already in use
   (os error 98)` — on the `main-async-worker` thread, so *the thread* dies and the process does
