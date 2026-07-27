@@ -81,9 +81,9 @@ readonly AUDIT_REGISTRY=(
 	"bin|ifuse|Tool: iOS FUSE Mount|Error"
 	"bin|ideviceinstaller|Tool: iOS App Installer|Error"
 
-	"file|/usr/share/ublue-os/casting/uxplay.service|Asset: Casting UxPlay Unit|Error"
+	"file|/usr/lib/systemd/user/uxplay.service|Asset: Casting UxPlay Unit|Error"
 	"file|/usr/share/ublue-os/casting/uxplayrc.tmpl|Asset: Casting UxPlay Config Template|Error"
-	"file|/usr/share/ublue-os/casting/fcast-receiver.service|Asset: Casting FCast Receiver Unit|Error"
+	"file|/usr/lib/systemd/user/fcast-receiver.service|Asset: Casting FCast Receiver Unit|Error"
 	"file|/usr/share/flatpak/overrides/org.fcast.Receiver|Policy: FCast Receiver Flatpak Override|Error"
 	"file|/usr/share/flatpak/overrides/org.fcast.Sender|Policy: FCast Sender Flatpak Override|Error"
 	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"

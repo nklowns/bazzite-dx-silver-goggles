@@ -71,10 +71,10 @@ recipe.yml              ← Entry point (declarative orchestration)
 | `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
-| `files/system/etc/modules-load.d/` | Kernel module loading (acpi_call) |
+| `files/system/etc/modules-load.d/` | Kernel module **opt-outs**: an empty `/etc/modules-load.d/<x>.conf` masks the same-named file under `/usr/lib/modules-load.d/`. `kvmfr.conf` is 0 bytes on purpose (dx-verify registers it as "Mask: KVMFR Autoload"), so do not "fix" it. Modules this layer actually wants loaded are declared under `/usr/lib/modules-load.d/` — e.g. `br_netfilter` in `ip_tables.conf`. Nothing here loads `acpi_call`, and nothing can: see the AWCC note below |
 | `files/system/usr/lib/systemd/user/` | **User units, image-resident and read-only.** `ujust` only `enable`s them — never copies them into `$HOME`, which would shadow the image copy and freeze the host on it |
 | `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 95-bazzite-dx.just), injected via the `justfiles` module |
-| `files/system/usr/share/ublue-os/casting/` | Staged casting assets (user units + `uxplayrc.tmpl`), wired into `$HOME` by `ujust` on request |
+| `files/system/usr/share/ublue-os/casting/` | Staged casting **config template** (`uxplayrc.tmpl`) copied into `$HOME` by `ujust` on request. The units themselves live in `usr/lib/systemd/user/` |
 | `files/rpm-ostree/` | Pre-compiled RPMs committed to git (awcc-dev.rpm) |
 | `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |
 | `build_files/` | AWCC RPM specs (stable: `awcc.spec`; dev fork: `awcc.dev.spec`) |
@@ -199,9 +199,9 @@ Conventions this layer follows:
   `plasma-kwin_wayland.service` reports active 20-30s before the compositor serves
   clients. A socket test is used rather than `busctl get-property`, which would
   resurrect the portal and kwin as a side effect of asking.
-- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; assets are staged
-  read-only in `/usr/share/ublue-os/casting/` and `67-casting.just` installs them into
-  `~/.config/systemd/user` on request — same pattern as `remote-ide-setup`.
+- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; the units ship inert in
+  `/usr/lib/systemd/user/` and `67-casting.just` only `enable`s them on request — same pattern as
+  `remote-ide-setup`. See Atomic State Policy item 7 for why they are not copied into `$HOME`.
 - UxPlay ships `pin` + `reg` in `uxplayrc.tmpl`: no receiver accepts an anonymous client.
 - **`vs xvimagesink`, not `waylandsink`** — the single hardest-won line in `uxplayrc.tmpl`.
   Measured against one iPhone on KDE Wayland / RTX 3060: `waylandsink` renders correct geometry
@@ -225,13 +225,14 @@ Conventions this layer follows:
     Failure (client proof not validated)` on the phone side, because the pin the user was supposed
     to type had never been displayed. Verified end-to-end after the fix: pin printed live, iPhone
     (`iPhone14,5`, `AirPlay/950.7.1`) paired and registered, `raop_rtp_mirror starting mirroring`.
-- **`*-setup` stages units on drift (`cmp -s`), not `if [[ ! -f ]]`.** The rc file is user config and
-  is still never overwritten, but the units hold no tunables, so a first-run copy in `$HOME` pinned
-  the host to whatever the image shipped back then. Observed after the `stdbuf` fix landed: the
-  updated image was booted (`latest.20260727`) and the running `ExecStart` was still the old
-  `/usr/bin/uxplay`, because `~/.config/systemd/user/uxplay.service` already existed. Note also that
-  a user drop-in or copy always wins over the image unit — that is the same failure mode from the
-  other direction.
+- **`*-setup` only `enable`s; it stages no unit at all.** `uxplayrc` is user config and is still
+  never overwritten, but the units carry no tunables and live in `/usr/lib/systemd/user/`. The
+  earlier copy-into-`$HOME` version pinned each host to whatever the image shipped on first run:
+  after the `stdbuf` fix landed and `latest.20260727` was booted, the running `ExecStart` was still
+  the old bare `/usr/bin/uxplay`, because `~/.config/systemd/user/uxplay.service` already existed.
+  Both recipes therefore delete a legacy non-symlink copy and `reenable`. A user drop-in also wins
+  over the image unit — same failure mode from the other direction, and the reason the local
+  `10-line-buffered.conf` drop-in had to be removed after the fix shipped.
 - **FCast Receiver 3.0.3 is not single-instance, and the second copy lies about why.** Measured
   here: instance A binds TCP 46899, instance B panics on
   `receiver-core/src/lib.rs:978  called Result::unwrap() on an Err value: Address already in use

@@ -100,13 +100,18 @@ airplay-setup:
         echo "Keeping existing $RC_FILE — compare against $CASTING_DIR/uxplayrc.tmpl if something misbehaves."
     fi
 
-    # The rc file above is user config and is never overwritten; the unit is NOT. It holds no
-    # tunables (every knob lives in uxplayrc), so a stale copy in $HOME just pins whatever the
-    # image shipped the first time this ran — that is how a host kept running an ExecStart without
-    # the load-bearing `stdbuf` wrapper long after the image had been fixed. Refresh on drift.
-    if ! cmp -s "$CASTING_DIR/uxplay.service" "$UNIT_DIR/uxplay.service"; then
-        install -Dm644 "$CASTING_DIR/uxplay.service" "$UNIT_DIR/uxplay.service"
-        echo "Staged uxplay.service from $CASTING_DIR (refreshed if it had drifted)"
+    # The rc file above is user config, so it is never overwritten. The unit is the opposite:
+    # it holds no tunables at all (every knob lives in uxplayrc), and it now ships read-only
+    # in /usr/lib/systemd/user/, so there is nothing to install and nothing that can drift.
+    # A copy in $HOME would *shadow* the image unit — ~/.config/systemd/user has precedence —
+    # which is exactly how this host kept running an ExecStart with no `stdbuf` wrapper after
+    # the fix shipped. Delete the legacy copy and reenable so the graphical-session.target.wants
+    # symlink stops pointing at the file that just went away.
+    if [[ -f "$UNIT_DIR/uxplay.service" && ! -L "$UNIT_DIR/uxplay.service" ]]; then
+        rm -f "$UNIT_DIR/uxplay.service"
+        systemctl --user daemon-reload
+        systemctl --user reenable uxplay.service >/dev/null 2>&1 || true
+        echo "Removed legacy $UNIT_DIR/uxplay.service (now provided by the image)"
     fi
 
     systemctl --user daemon-reload
@@ -152,11 +157,13 @@ fcast-setup with_sender="no":
     fi
 
     mkdir -p "$UNIT_DIR"
-    # Same reasoning as uxplay.service in airplay-setup: no user tunables in the unit, so a copy
-    # left in $HOME would freeze this host on the image's first version forever.
-    if ! cmp -s "$CASTING_DIR/fcast-receiver.service" "$UNIT_DIR/fcast-receiver.service"; then
-        install -Dm644 "$CASTING_DIR/fcast-receiver.service" "$UNIT_DIR/fcast-receiver.service"
-        echo "Staged fcast-receiver.service from $CASTING_DIR (refreshed if it had drifted)"
+    # Same as uxplay.service in airplay-setup: the unit ships read-only in
+    # /usr/lib/systemd/user/, and a copy in $HOME would shadow it forever.
+    if [[ -f "$UNIT_DIR/fcast-receiver.service" && ! -L "$UNIT_DIR/fcast-receiver.service" ]]; then
+        rm -f "$UNIT_DIR/fcast-receiver.service"
+        systemctl --user daemon-reload
+        systemctl --user reenable fcast-receiver.service >/dev/null 2>&1 || true
+        echo "Removed legacy $UNIT_DIR/fcast-receiver.service (now provided by the image)"
     fi
 
     systemctl --user daemon-reload
