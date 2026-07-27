@@ -174,14 +174,51 @@ remote-ide-setup:
         done
     fi
 
+    # config.yaml is BOTH user secret and image policy, which is why "never overwrite" was the
+    # wrong rule for it. The password is the only line this host owns; bind-addr, auth, cert and
+    # the disable-telemetry/disable-update-check pair are policy from the template. Guarding the
+    # whole file behind `! -f` trapped that policy: commit 7f52615 added both disable-* keys and
+    # a host set up before it kept reporting telemetry indefinitely, with nothing to signal it.
+    #
+    # So: generate on first run, and on every later run rebuild from the template while carrying
+    # the existing password across. That converges on image policy without ever regenerating a
+    # working credential.
+    umask 077
     if [[ ! -f "$CONF_DIR/config.yaml" ]]; then
         PASS=$(openssl rand -base64 18)
         sed "s|__GENERATE__|$PASS|" "$REF_DIR/code-server-config.yaml.tmpl" >"$CONF_DIR/config.yaml"
         chmod 600 "$CONF_DIR/config.yaml"
         echo "Generated code-server password (save it, shown once): $PASS"
+    else
+        PASS=$(sed -n 's/^password:[[:space:]]*//p' "$CONF_DIR/config.yaml" | head -1)
+        PASS_NOTE="Password preserved."
+        if [[ -z "$PASS" ]]; then
+            PASS=$(openssl rand -base64 18)
+            PASS_NOTE="No password was present, so a new one was generated (shown once): $PASS"
+        fi
+        # Staged inside $CONF_DIR, not /tmp: the file holds the password, and umask 077 above
+        # only covers the mode, not who can see the path.
+        RENDERED=$(mktemp -p "$CONF_DIR" .config.yaml.XXXXXX)
+        sed "s|__GENERATE__|$PASS|" "$REF_DIR/code-server-config.yaml.tmpl" >"$RENDERED"
+        if cmp -s "$RENDERED" "$CONF_DIR/config.yaml"; then
+            rm -f "$RENDERED"
+        else
+            # Report the keys that changed, without printing values (one of them is the password).
+            CHANGED=$(diff <(sed 's/:.*//' "$CONF_DIR/config.yaml" | sort) <(sed 's/:.*//' "$RENDERED" | sort) | grep '^>' | sed 's/^> //' | paste -sd, -)
+            install -m600 "$RENDERED" "$CONF_DIR/config.yaml"
+            rm -f "$RENDERED"
+            echo "Reconciled $CONF_DIR/config.yaml with image policy${CHANGED:+ (added: $CHANGED)}. $PASS_NOTE"
+            CONF_CHANGED="yes"
+        fi
     fi
 
     systemctl --user enable --now code-server.service
+    # enable --now does not restart an already-running unit, so a policy change would sit
+    # unapplied until the next login. Written as `if`, not `[[ ... ]] && cmd`: under `set -e` the
+    # latter exits the whole recipe with status 1 whenever the variable is empty.
+    if [[ -n "${CONF_CHANGED:-}" ]]; then
+        systemctl --user try-restart code-server.service
+    fi
     tailscale serve --bg 61337
 
     for name in code code-insiders antigravity; do
