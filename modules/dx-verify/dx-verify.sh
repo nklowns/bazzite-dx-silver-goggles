@@ -41,9 +41,9 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/environment.d/homebrew.conf|Policy: Homebrew System Environment|Error"
 	"file|/usr/share/ublue-os/user-setup.hooks.d/40-bazzite-dx-env.sh|UX: Mise Shims Env Hook|Error"
 
-	"file|/usr/share/ublue-os/remote-ide/code-server.service|Asset: Remote IDE code-server Unit|Error"
+	"file|/usr/lib/systemd/user/code-server.service|Asset: Remote IDE code-server Unit|Error"
 	"file|/usr/share/ublue-os/remote-ide/code-server-config.yaml.tmpl|Asset: Remote IDE code-server Config Template|Error"
-	"file|/usr/share/ublue-os/remote-ide/ide-tunnel@.service|Asset: Remote IDE Tunnel Templated Unit|Error"
+	"file|/usr/lib/systemd/user/ide-tunnel@.service|Asset: Remote IDE Tunnel Templated Unit|Error"
 	"file|/usr/share/ublue-os/remote-ide/ide-tunnel-code.env|Asset: Remote IDE Tunnel Env (code)|Error"
 	"file|/usr/share/ublue-os/remote-ide/ide-tunnel-code-insiders.env|Asset: Remote IDE Tunnel Env (code-insiders)|Error"
 	"file|/usr/share/ublue-os/remote-ide/ide-tunnel-antigravity.env|Asset: Remote IDE Tunnel Env (antigravity, pending upstream fix)|Warn"

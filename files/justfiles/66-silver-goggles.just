@@ -141,9 +141,37 @@ remote-ide-setup:
 
     mkdir -p "$UNIT_DIR" "$CONF_DIR" "$TUNNEL_ENV_DIR"
 
-    if [[ ! -f "$UNIT_DIR/code-server.service" ]]; then
-        install -Dm644 "$REF_DIR/code-server.service" "$UNIT_DIR/code-server.service"
-        echo "Installed code-server.service"
+    # Both units now ship read-only in /usr/lib/systemd/user/, so there is nothing to
+    # install: `systemctl --user enable` is the whole opt-in, and the unit can never drift
+    # from what the image ships. Earlier versions of this recipe copied them into $HOME
+    # under `if [[ ! -f ]]`, which froze each host on whatever the image shipped the first
+    # time it ran — that is how a host ended up running code-server.service from before
+    # commit 7f52615 (no ProtectKernel*/LockPersonality) long after the fix was published.
+    #
+    # A leftover copy in $HOME does not merely linger: ~/.config/systemd/user takes
+    # PRECEDENCE over /usr/lib/systemd/user, so it would keep shadowing the image unit
+    # forever. Remove it, and re-enable so the *.target.wants symlink stops pointing at the
+    # file that just went away.
+    MIGRATED=""
+    for unit in code-server.service ide-tunnel@.service; do
+        if [[ -f "$UNIT_DIR/$unit" && ! -L "$UNIT_DIR/$unit" ]]; then
+            rm -f "$UNIT_DIR/$unit"
+            MIGRATED="yes"
+            echo "Removed legacy $UNIT_DIR/$unit (now provided by the image)"
+        fi
+    done
+    systemctl --user daemon-reload
+    if [[ -n "$MIGRATED" ]]; then
+        # reenable, not enable: enable leaves an existing (now dangling) symlink alone.
+        systemctl --user reenable code-server.service >/dev/null 2>&1 || true
+        # Enabled instances of a template are NOT listed by
+        # `list-unit-files 'ide-tunnel@*.service'` — that reports only the template itself
+        # ("indirect disabled"). The enabled instances exist solely as symlinks under
+        # *.target.wants, so enumerate those.
+        for link in "$UNIT_DIR"/*.target.wants/ide-tunnel@*.service; do
+            [[ -e "$link" || -L "$link" ]] || continue
+            systemctl --user reenable "$(basename "$link")" >/dev/null 2>&1 || true
+        done
     fi
 
     if [[ ! -f "$CONF_DIR/config.yaml" ]]; then
@@ -153,14 +181,8 @@ remote-ide-setup:
         echo "Generated code-server password (save it, shown once): $PASS"
     fi
 
-    systemctl --user daemon-reload
     systemctl --user enable --now code-server.service
     tailscale serve --bg 61337
-
-    if [[ ! -f "$UNIT_DIR/ide-tunnel@.service" ]]; then
-        install -Dm644 "$REF_DIR/ide-tunnel@.service" "$UNIT_DIR/ide-tunnel@.service"
-        echo "Installed ide-tunnel@.service template"
-    fi
 
     for name in code code-insiders antigravity; do
         if [[ ! -f "$TUNNEL_ENV_DIR/$name.env" ]]; then
