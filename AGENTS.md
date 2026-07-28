@@ -237,8 +237,45 @@ left `powerdevilrc` untouched (verified by mtime), so the next login would have 
 `performance`. Persisting it needs the config key — System Settings → Power Management, or
 `kwriteconfig6 --file powerdevilrc --group AC --group Performance --key PowerProfile balanced`.
 
-**Untested and therefore not claimed: GPU-bound load.** The measurement above left the RTX 3060 at
-53-59 °C, idle. Extra airflow may well earn its noise while gaming; nothing here shows either way.
+#### GPU-bound load is the opposite result — and the reason `g15-boost` exists
+
+Same question, GPU side. Load was an OpenCL FMA burn (100 % SM, 115 W of a 130 W board limit);
+both profiles were run twice, from a cold start each time (`gpu ≤ 62 °C`, `cpu ≤ 60 °C`) and in both
+orders, because the first round gave `performance` a 6 °C heat-soak handicap from the previous run
+and would have inverted the conclusion:
+
+| elapsed | `balanced` (fans ~3800) | `performance` (fans ~4800) |
+|---|---|---|
+| 20 s | 79 °C · 1852 MHz · 115 W | 76 °C · 1860 MHz · 115 W |
+| 40 s | 84 °C · 1830 MHz · 115 W | 81 °C · 1845 MHz · 115 W |
+| 60 s | 87 °C · 1792 MHz · 109 W · **SW_THERMAL** | 84 °C · 1837 MHz · 115 W · POWER_CAP |
+| 80 s | 87 °C · 1710 MHz · 94 W · **SW_THERMAL** | 87 °C · 1815 MHz · 115 W · POWER_CAP |
+
+**Here the airflow pays: ~+105 MHz sustained and +20 W of usable board power at 80 s, and
+`SW_THERMAL` is held off by 20 s or more** — under `performance` the GPU was still limited by its
+*power* cap where `balanced` had already fallen back to a *thermal* one. The CPU-only result was
+~0 MHz for the same 1000 RPM, and the asymmetry has a cause: the GPU has power headroom that only
+cooling can unlock, while the CPU is already Tjmax-limited at its power ceiling.
+
+That is an argument for a wrapper, not a global default — quiet at idle, loud only while something
+is on the GPU. Two things ship for it, neither needing root, because `tuned-ppd` serves
+`net.hadess.PowerProfiles` and polkit lets the active session set `ActiveProfile` exactly as the
+KDE widget does (verified: `busctl --system set-property … ActiveProfile s performance` flipped
+`fan_boost` to 100 with no password):
+
+- **`/usr/bin/g15-boost <command>`** — sets `performance`, runs the command, restores the previous
+  profile from an `EXIT`/`INT`/`TERM`/`HUP` trap. Meant as a Steam launch option:
+  `g15-boost %command%`. Measured limit: bash defers a trap while a foreground child runs, so a
+  `SIGTERM` to the wrapper restores only after the child exits (`kill -TERM` at t+5 s of a 30 s
+  child kept `performance` until t+30 s) — which is the behaviour you want anyway, since the game
+  is still running. `SIGKILL` of the wrapper is the one uncovered case.
+- **`ujust g15-profile [profile]`** — prints the active profile, the sysfs view, the provider's
+  choices and current fan boost/RPM; with an argument, switches. It goes through PowerProfiles
+  rather than the sysfs node on purpose: two writers is what produced the permanent max-fan bug,
+  and the daemon wins the next event.
+
+Both stay away from `fanN_boost` writes, which *would* need root — the profile switch already
+delivers `boost=100`, which is the whole measured win.
 
 That measurement is also the honest justification for **masking `thermald`**. The old "AWCC compat"
 reason does not survive contact: `thermald` writes RAPL (msr/mmio) and binds cooling devices, and

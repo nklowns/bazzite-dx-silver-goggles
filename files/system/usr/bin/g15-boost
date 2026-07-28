@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# g15-boost — run a command with the chassis in the `performance` power profile, then put the
+# profile back. Intended as a Steam launch option: `g15-boost %command%`.
+#
+# Why this exists, measured on this hardware (Dell G15 5520, RTX 3060, OpenCL burn, cold start,
+# both directions of A/B to cancel heat soak):
+#
+#            balanced (fans ~3800rpm)          performance (fans ~4800rpm)
+#   20s      79C  1852MHz  115W               76C  1860MHz  115W
+#   40s      84C  1830MHz  115W               81C  1845MHz  115W
+#   60s      87C  1792MHz  109W SW_THERMAL    84C  1837MHz  115W  (still power-capped)
+#   80s      87C  1710MHz   94W SW_THERMAL    87C  1815MHz  115W  (still power-capped)
+#
+# So on a GPU-bound load the extra airflow is worth ~+105MHz sustained and +20W of usable
+# board power at 80s, and it holds off SW_THERMAL by 20s or more. Note this is the OPPOSITE of
+# the CPU-bound result, where max fan bought ~0MHz (3035 vs 3023MHz) because the CPU is already
+# Tjmax/power limited — see AGENTS.md. Hence a wrapper for games rather than a global default:
+# quiet when idle, loud only while something is actually using the GPU.
+#
+# No root needed: tuned-ppd serves net.hadess.PowerProfiles and polkit lets the active session
+# set ActiveProfile, exactly as the KDE power widget does.
+set -uo pipefail
+
+PPD_ARGS=(--system net.hadess.PowerProfiles /net/hadess/PowerProfiles net.hadess.PowerProfiles ActiveProfile)
+TARGET="${G15_BOOST_PROFILE:-performance}"
+
+if [[ $# -eq 0 ]]; then
+	echo "usage: g15-boost <command> [args...]" >&2
+	echo "  Steam launch option:  g15-boost %command%" >&2
+	echo "  Override the profile: G15_BOOST_PROFILE=balanced-performance g15-boost ..." >&2
+	exit 64
+fi
+
+get_profile() { busctl get-property "${PPD_ARGS[@]}" 2>/dev/null | sed 's/^s "//; s/"$//'; }
+set_profile() { busctl set-property "${PPD_ARGS[@]}" s "$1" >/dev/null 2>&1; }
+
+PREVIOUS=$(get_profile)
+if [[ -z "$PREVIOUS" ]]; then
+	# No PowerProfiles on the bus (tuned-ppd not running): run the command anyway rather than
+	# refusing to launch a game over a missing nicety.
+	echo "g15-boost: net.hadess.PowerProfiles unavailable, running without a profile change" >&2
+	exec "$@"
+fi
+
+# The restore is a trap rather than a line after the command so it also runs when the wrapped
+# process dies badly. Measured behaviour, so nobody expects more than it does: bash defers a
+# trap while a foreground child is running, so a SIGTERM to this wrapper restores the profile
+# only once the child exits — verified, `kill -TERM` at t+5s of a 30s child left `performance`
+# in place until t+30s, then restored `balanced`. That is the useful behaviour anyway, since
+# the wrapped process is still on the GPU. A SIGKILL of the wrapper is the case it cannot
+# cover: `ujust g15-profile balanced` puts things back by hand.
+restore() {
+	local rc=$?
+	trap - EXIT INT TERM HUP
+	[[ "$(get_profile)" == "$PREVIOUS" ]] || set_profile "$PREVIOUS"
+	exit "$rc"
+}
+trap restore EXIT INT TERM HUP
+
+if set_profile "$TARGET"; then
+	echo "g15-boost: profile $PREVIOUS -> $TARGET for the duration of: $1" >&2
+else
+	echo "g15-boost: could not set profile $TARGET (staying on $PREVIOUS)" >&2
+fi
+
+"$@"

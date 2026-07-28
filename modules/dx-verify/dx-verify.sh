@@ -71,6 +71,7 @@ readonly AUDIT_REGISTRY=(
 	"bin|cloud-hypervisor|Tool: Cloud-Hypervisor|Error"
 	"bin|looking-glass-client|Tool: Looking Glass Client|Error"
 	"bin|g15-status|Tool: G15 Status|Error"
+	"bin|g15-boost|Tool: G15 GPU-load Profile Wrapper|Error"
 	"bin|bling-check|Tool: Bling Check|Error"
 	"bin|uxplay|Tool: UxPlay AirPlay Receiver|Error"
 	"bin|usbmuxd|Tool: iOS USB Multiplex Daemon|Error"

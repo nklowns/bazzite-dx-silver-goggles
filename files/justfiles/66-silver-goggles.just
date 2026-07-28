@@ -113,6 +113,58 @@ brew-trust-taps:
 # GROUP 4: Hardware & Input
 # ==============================================================================
 
+# Show or switch the chassis power profile (fan behaviour follows it) — no root needed
+[group('Hardware')]
+g15-profile profile="":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    PROV=/sys/class/platform-profile/platform-profile-0
+    PPD=(--system net.hadess.PowerProfiles /net/hadess/PowerProfiles net.hadess.PowerProfiles ActiveProfile)
+    HW=$(for d in /sys/class/hwmon/hwmon*; do [[ "$(cat "$d/name" 2>/dev/null)" == alienware_wmi ]] && echo "$d"; done)
+
+    if [[ ! -d "$PROV" ]]; then
+        echo "No platform-profile provider at $PROV — is this the Dell G15 with alienware-wmi loaded?"
+        exit 1
+    fi
+
+    # Go through PowerProfiles, not sysfs. tuned-ppd owns platform_profile and KDE powerdevil is
+    # a client; writing the sysfs node directly means two writers and, as this repo learned the
+    # hard way, the daemon wins on the next event. polkit lets the active session set this, so
+    # no root is involved.
+    if [[ -z "{{ profile }}" ]]; then
+        printf "%-14s %s\n" "active:" "$(busctl get-property "${PPD[@]}" 2>/dev/null | sed 's/^s "//; s/"$//')"
+        printf "%-14s %s\n" "sysfs:" "$(cat "$PROV/profile")"
+        printf "%-14s %s\n" "choices:" "$(cat "$PROV/choices")"
+        if [[ -n "$HW" ]]; then
+            printf "%-14s %s/%s (fans %s/%s rpm, max %s)\n" "fan boost:" \
+                "$(cat "$HW/fan1_boost")" "$(cat "$HW/fan2_boost")" \
+                "$(cat "$HW/fan1_input")" "$(cat "$HW/fan2_input")" "$(cat "$HW/fan1_max")"
+        fi
+        echo ""
+        echo "Usage: ujust g15-profile <balanced|performance|...>"
+        echo "  Measured here: on a GPU-bound load 'performance' is worth ~+105MHz sustained and"
+        echo "  +20W of board power at 80s; on a CPU-bound load it is worth ~0MHz. Prefer"
+        echo "  'g15-boost <command>' (or the Steam launch option 'g15-boost %command%') so the"
+        echo "  fans only spin up while something is actually running."
+        exit 0
+    fi
+
+    if ! grep -qw -- "{{ profile }}" "$PROV/choices"; then
+        echo "Unknown profile '{{ profile }}'. This provider accepts: $(cat "$PROV/choices")"
+        exit 1
+    fi
+
+    if ! busctl set-property "${PPD[@]}" s "{{ profile }}"; then
+        echo "PowerProfiles refused the change. Is tuned-ppd running?"
+        exit 1
+    fi
+    sleep 2
+    printf "profile=%s" "$(cat "$PROV/profile")"
+    [[ -n "$HW" ]] && printf "  fan boost=%s/%s" "$(cat "$HW/fan1_boost")" "$(cat "$HW/fan2_boost")"
+    echo ""
+    echo "Note: KDE re-asserts its own choice per AC/battery state at login. To make this the"
+    echo "default, set it in System Settings > Power Management, not here."
+
 # Toggle laptop's built-in keyboard (enable/disable/toggle/status)
 [group('Hardware')]
 toggle-keyboard state="toggle":
