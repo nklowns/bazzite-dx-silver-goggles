@@ -33,7 +33,16 @@ remote-cockpit-setup:
         echo "cockpit.socket not active. Enable first: sudo systemctl enable --now cockpit.socket"
         exit 1
     fi
-    tailscale serve --bg --https=9090 9090
+    # Same permission trap as remote-ide-setup: serve needs root unless --operator is set, and
+    # re-asserting it on every run turned a redundant call into a fatal one under `set -e`.
+    if tailscale serve status 2>/dev/null | grep -q 'proxy http://127.0.0.1:9090'; then
+        echo "tailscale serve already proxies 9090 — left as is."
+    elif ! tailscale serve --bg --https=9090 9090 2>/dev/null; then
+        echo "Could not configure 'tailscale serve' (it needs root here). Run either:"
+        echo "    sudo tailscale serve --bg --https=9090 9090"
+        echo "    sudo tailscale set --operator=$USER   # once, then this recipe can do it"
+        exit 1
+    fi
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Cockpit ready at: https://$DNS_NAME:9090"
 
@@ -219,7 +228,19 @@ remote-ide-setup:
     if [[ -n "${CONF_CHANGED:-}" ]]; then
         systemctl --user try-restart code-server.service
     fi
-    tailscale serve --bg 61337
+    # `tailscale serve` needs root unless `sudo tailscale set --operator=$USER` has been run
+    # once, and it is re-asserted on every run of this recipe. Under `set -e` a permission
+    # error aborted everything after this line — the tunnel env staging and the final
+    # instructions never ran. Measured here: serve was already proxying 61337 from an earlier
+    # root invocation, so the call was both redundant and fatal.
+    if tailscale serve status 2>/dev/null | grep -q 'proxy http://127.0.0.1:61337'; then
+        echo "tailscale serve already proxies 61337 — left as is."
+    elif ! tailscale serve --bg 61337 2>/dev/null; then
+        echo "Could not configure 'tailscale serve' (it needs root here). Run either:"
+        echo "    sudo tailscale serve --bg 61337"
+        echo "    sudo tailscale set --operator=$USER   # once, then this recipe can do it"
+        echo "code-server is still up on 127.0.0.1:61337; only the tailnet proxy is missing."
+    fi
 
     for name in code code-insiders antigravity; do
         if [[ ! -f "$TUNNEL_ENV_DIR/$name.env" ]]; then

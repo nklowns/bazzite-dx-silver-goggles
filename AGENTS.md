@@ -371,9 +371,12 @@ Conventions this layer follows:
   `Restart=no` on the unit (a GUI app exiting 0 is intent, not failure — note that no respawn was
   ever observed here, so `on-failure` was not the cause of the duplicate windows and an earlier
   commit message overstated that), `ExecStartPre=-flatpak kill` so `systemctl restart` is
-  authoritative over an app-menu copy, and `fcast-setup` using `restart` rather than
-  `enable --now` — enabled at login it would hold 46899 before the desktop appears and turn every
-  menu launch into the broken window. `fcast-off` kills stray flatpak instances too, since
+  authoritative over an app-menu copy, and **nothing starting the receiver implicitly** —
+  `fcast-setup` installs the flatpak and prints sender addresses without starting anything, and
+  `fcast-on` starts it only when asked. Never `enable`: at login the unit would hold 46899 before
+  the desktop appears and turn every later menu launch into the broken window. With nothing
+  auto-starting, launching from the app menu is fine too — it is the only copy.
+  `fcast-off` kills stray flatpak instances too, since
   app-menu copies run in scopes systemd never owned; `casting-status` prints the instance count
   for the same reason.
 - `casting-status` captures `systemctl is-active` with `|| true`, never `|| echo <fallback>`:

@@ -30,7 +30,8 @@ TimeoutStartSec=45
 # connected to a network" — a message that points at the network and means the opposite.
 # This ExecStartPre makes `systemctl --user start/restart` authoritative: whatever copy is
 # already running (typically one launched from the app menu) is reaped first so this one
-# can bind. Reaping is also why the unit must NOT be enabled at login — see fcast-setup.
+# can bind. Reaping is also why the unit must NOT be enabled at login — `ujust fcast-setup`
+# only installs, and `ujust fcast-on` starts it when the user actually asks.
 ExecStartPre=-/usr/bin/flatpak kill org.fcast.Receiver
 # Listens on TCP 46899, already reachable on tailscale0 (trusted zone) and on the LAN
 # (the FedoraWorkstation zone opens 1025-65535).

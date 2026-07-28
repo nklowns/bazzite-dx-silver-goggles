@@ -140,7 +140,7 @@ airplay-off:
     systemctl --user disable --now uxplay.service 2>/dev/null || true
     echo "UxPlay disabled. ~/.config/uxplayrc and ~/.uxplay.register are left in place."
 
-# Install and enable the FCast receiver, then print the tailnet address for senders
+# Install the FCast receiver flatpak and print sender addresses — does NOT start it
 [group('Casting')]
 fcast-setup with_sender="no":
     #!/usr/bin/env bash
@@ -174,20 +174,17 @@ fcast-setup with_sender="no":
     fi
 
     systemctl --user daemon-reload
-    # start, NOT enable. The receiver is not single-instance (see fcast-receiver.service):
-    # enabled at login it would grab 46899 before the user ever touches the desktop, and the
-    # app-menu icon would then only ever produce a second, listener-less window claiming the
-    # machine has no network. One owner at a time is the whole point.
-    systemctl --user restart fcast-receiver.service
 
     echo ""
-    echo "FCast receiver is up on TCP 46899."
-    echo "  * Only ONE copy can run: the second one cannot bind 46899 and shows"
-    echo "    'Your device isn't connected to a network' even though the network is fine."
-    echo "    Launching from the app menu while this unit runs is exactly that case."
-    echo "  * Closing the window does NOT quit it, and the tray icon fails to appear on"
-    echo "    KDE Wayland, so the process keeps the port with nothing on screen."
-    echo "    Use 'ujust fcast-off' to really stop it, 'ujust fcast-setup' to restart."
+    echo "FCast receiver installed. It is NOT running and NOT enabled — nothing listens"
+    echo "on 46899 and no window opens until you ask for one:"
+    echo "        ujust fcast-on      # start it (or just launch it from the app menu)"
+    echo "        ujust fcast-off     # stop it, including any app-menu copy"
+    echo "  * Only ONE copy can run. A second one cannot bind 46899 and shows"
+    echo "    'Your device isn't connected to a network' even though the network is fine"
+    echo "    (upstream futo-org/fcast#119)."
+    echo "  * No tray icon appears on KDE Wayland (upstream #120), so a running copy with"
+    echo "    no window is only reachable through 'ujust fcast-off'."
     if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
         DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
         echo "  Tailnet: in the FCast sender app, add a receiver MANUALLY as:"
@@ -198,7 +195,23 @@ fcast-setup with_sender="no":
     else
         echo "  Tailscale is not up; only LAN auto-discovery will find this receiver."
     fi
-    echo "  Turn it off with 'ujust fcast-off'."
+    echo "  Start it with 'ujust fcast-on' when you actually want to receive."
+
+# Start the FCast receiver on demand (never at login — see fcast-receiver.service)
+[group('Casting')]
+fcast-on:
+    #!/usr/bin/env bash
+    set -e
+    if ! flatpak info org.fcast.Receiver >/dev/null 2>&1; then
+        echo "org.fcast.Receiver is not installed. Run 'ujust fcast-setup' first."
+        exit 1
+    fi
+    # restart, not start: ExecStartPre reaps any app-menu copy first, so this is authoritative
+    # over whatever is already holding 46899. Never `enable` — at login the unit would bind the
+    # port before the desktop exists and every later app-menu launch would be the broken
+    # second instance.
+    systemctl --user restart fcast-receiver.service
+    echo "FCast receiver started on TCP 46899. Stop it with 'ujust fcast-off'."
 
 # Stop and disable the FCast receiver
 [group('Casting')]
