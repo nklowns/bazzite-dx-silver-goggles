@@ -223,6 +223,20 @@ to avoid enabling G-mode by hand — which is why the numbers matter: the on-dem
 widget, or `tuned-adm profile throughput-performance-bazzite`) gives the same thing for one click,
 and `balanced` ramps 0 → ~3800 RPM under load on its own.
 
+**Deleting `g15-thermal` was necessary but not sufficient, and the rest is host config, not
+image.** After booting the image without it, the machine still came up at `performance` with
+`fan_boost=100` and both fans at 4830 RPM at 56 °C. Two persistent writers, neither in the image:
+`/etc/tuned/active_profile` held `throughput-performance-bazzite` with `profile_mode=manual`, and
+`~/.config/powerdevilrc` had `[AC][Performance] PowerProfile=performance` (battery was already
+`balanced`, low battery `power-saver`) — so KDE re-asserts performance through tuned-ppd at every
+login while on AC. The image change removed a redundant *second* writer, not the order itself.
+
+One more trap: **picking a profile in the KDE power widget is runtime-only.** Selecting Balanced
+moved `net.hadess.PowerProfiles` `ActiveProfile` to `balanced` and dropped the fans to 0 RPM, but
+left `powerdevilrc` untouched (verified by mtime), so the next login would have restored
+`performance`. Persisting it needs the config key — System Settings → Power Management, or
+`kwriteconfig6 --file powerdevilrc --group AC --group Performance --key PowerProfile balanced`.
+
 **Untested and therefore not claimed: GPU-bound load.** The measurement above left the RTX 3060 at
 53-59 °C, idle. Extra airflow may well earn its noise while gaming; nothing here shows either way.
 
