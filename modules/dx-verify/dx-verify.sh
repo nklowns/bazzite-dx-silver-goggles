@@ -80,14 +80,12 @@ readonly AUDIT_REGISTRY=(
 	"bin|ideviceinstaller|Tool: iOS App Installer|Error"
 
 	"unit|/usr/lib/systemd/user/uxplay.service|Behaviour: UxPlay Unit Parses Clean|Error"
-	"unit|/usr/lib/systemd/user/fcast-receiver.service|Behaviour: FCast Unit Parses Clean|Error"
 	"unit|/usr/lib/systemd/user/code-server.service|Behaviour: code-server Unit Parses Clean|Error"
 	"unit|/usr/lib/systemd/user/ide-tunnel@.service|Behaviour: IDE Tunnel Unit Parses Clean|Error"
 	"nostage|/usr/share/bluebuild/justfiles|Policy: No ujust Recipe Stages a Unit into \$HOME|Error"
 
 	"file|/usr/lib/systemd/user/uxplay.service|Asset: Casting UxPlay Unit|Error"
 	"file|/usr/share/ublue-os/casting/uxplayrc.tmpl|Asset: Casting UxPlay Config Template|Error"
-	"file|/usr/lib/systemd/user/fcast-receiver.service|Asset: Casting FCast Receiver Unit|Error"
 	"file|/usr/share/flatpak/overrides/org.fcast.Receiver|Policy: FCast Receiver Flatpak Override|Error"
 	"file|/usr/share/flatpak/overrides/org.fcast.Sender|Policy: FCast Sender Flatpak Override|Error"
 	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"

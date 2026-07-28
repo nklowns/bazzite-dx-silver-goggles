@@ -20,40 +20,31 @@ casting-status:
     CASTING_DIR="/usr/share/ublue-os/casting"
 
     echo "== Receivers (user session) =="
-    # Both units ship in /usr/lib/systemd/user/, so "is the file there" is no longer a
-    # question worth asking — it always is. What distinguishes "never set up" from "set up
-    # and stopped" is now the enablement state, so report both. is-enabled behaves like
-    # is-active: state on stdout, non-zero exit for anything but enabled.
-    for unit in uxplay fcast-receiver; do
-        case "$unit" in
-            uxplay) setup_recipe="airplay-setup" ;;
-            fcast-receiver) setup_recipe="fcast-setup" ;;
-        esac
-        STATE=$(systemctl --user is-active "$unit.service" 2>/dev/null || true)
-        # is-enabled writes "not-found" to stdout (exit 4) for a missing unit — it does not
-        # go quiet, so match it explicitly rather than testing for an empty string.
-        ENABLED=$(systemctl --user is-enabled "$unit.service" 2>/dev/null || true)
-        case "$unit:$ENABLED" in
-            # fcast-receiver is deliberately never enabled: at login it would bind 46899
-            # before the desktop exists and every app-menu launch would then be the broken
-            # second instance. "disabled" is the correct steady state for it.
-            fcast-receiver:disabled) SUFFIX="(on-demand by design)" ;;
-            *:not-found) SUFFIX="(NOT FOUND -- image regression, expected in /usr/lib/systemd/user)" ;;
-            *:enabled | *:enabled-runtime | *:linked | *:linked-runtime) SUFFIX="($ENABLED)" ;;
-            *) SUFFIX="($ENABLED -- ujust ${setup_recipe})" ;;
-        esac
-        printf "%-16s %-10s %s\n" "$unit" "${STATE:-unknown}" "$SUFFIX"
-    done
+    # uxplay is a service: it has no window of its own worth managing and must survive the
+    # session, so it is a unit and enablement is the interesting state. is-enabled behaves like
+    # is-active (state on stdout, non-zero exit) and writes "not-found" for a missing unit
+    # rather than going quiet.
+    STATE=$(systemctl --user is-active uxplay.service 2>/dev/null || true)
+    ENABLED=$(systemctl --user is-enabled uxplay.service 2>/dev/null || true)
+    case "$ENABLED" in
+        not-found) SUFFIX="(NOT FOUND -- image regression, expected in /usr/lib/systemd/user)" ;;
+        enabled | enabled-runtime | linked | linked-runtime) SUFFIX="($ENABLED)" ;;
+        *) SUFFIX="($ENABLED -- ujust airplay-setup)" ;;
+    esac
+    printf "%-16s %-10s %s\n" "uxplay" "${STATE:-unknown}" "$SUFFIX"
 
-    # Count flatpak instances, not just the unit. FCast Receiver is not single-instance and
-    # app-menu launches live in their own scopes, so the unit can read "inactive" while three
-    # copies are running and only the first one holds TCP 46899. Every other copy shows a
-    # window claiming there is no network. Surfacing the count makes that diagnosable.
-    FCAST_N=$(flatpak ps --columns=application 2>/dev/null | grep -cx 'org.fcast.Receiver' || true)
-    if [[ "${FCAST_N:-0}" -gt 1 ]]; then
-        printf "%-16s %s\n" "fcast instances" "$FCAST_N -- CONFLICT, only one can bind 46899 (ujust fcast-off)"
-    elif [[ "${FCAST_N:-0}" -eq 1 ]]; then
-        printf "%-16s %s\n" "fcast instances" "1"
+    # FCast is a windowed Flatpak app, not a service — no unit, launched from the app menu. So
+    # report what actually matters: how many copies are alive. More than one is a conflict, since
+    # only the first binds TCP 46899 and the others display "no network" instead (#119).
+    if flatpak info org.fcast.Receiver >/dev/null 2>&1; then
+        FCAST_N=$(flatpak ps --columns=application 2>/dev/null | grep -cx 'org.fcast.Receiver' || true)
+        case "${FCAST_N:-0}" in
+            0) printf "%-16s %-10s %s\n" "fcast (app)" "not running" "(launch from the app menu)" ;;
+            1) printf "%-16s %-10s %s\n" "fcast (app)" "running" "(1 copy)" ;;
+            *) printf "%-16s %-10s %s\n" "fcast (app)" "running" "$FCAST_N copies -- CONFLICT, only one can bind 46899 (ujust fcast-off)" ;;
+        esac
+    else
+        printf "%-16s %-10s %s\n" "fcast (app)" "absent" "(ujust fcast-setup)"
     fi
 
     echo ""
@@ -140,12 +131,11 @@ airplay-off:
     systemctl --user disable --now uxplay.service 2>/dev/null || true
     echo "UxPlay disabled. ~/.config/uxplayrc and ~/.uxplay.register are left in place."
 
-# Install the FCast receiver flatpak and print sender addresses — does NOT start it
+# Install the FCast receiver flatpak (and optionally the sender), then print sender addresses
 [group('Casting')]
 fcast-setup with_sender="no":
     #!/usr/bin/env bash
     set -e
-    CASTING_DIR="/usr/share/ublue-os/casting"
     UNIT_DIR="$HOME/.config/systemd/user"
 
     if ! command -v flatpak >/dev/null 2>&1; then
@@ -163,68 +153,50 @@ fcast-setup with_sender="no":
         flatpak install --user --assumeyes flathub org.fcast.Sender
     fi
 
-    mkdir -p "$UNIT_DIR"
-    # Same as uxplay.service in airplay-setup: the unit ships read-only in
-    # /usr/lib/systemd/user/, and a copy in $HOME would shadow it forever.
-    if [[ -f "$UNIT_DIR/fcast-receiver.service" && ! -L "$UNIT_DIR/fcast-receiver.service" ]]; then
+    # This layer used to ship an fcast-receiver.service. It is gone: a windowed Flatpak app is
+    # launched by the desktop, not by systemd. Clean up after that experiment on hosts that ran
+    # the older recipes, otherwise a leftover copy in $HOME (or a wants symlink from a
+    # `reenable`) keeps starting the receiver at login.
+    if [[ -e "$UNIT_DIR/fcast-receiver.service" ]]; then
+        systemctl --user disable --now fcast-receiver.service >/dev/null 2>&1 || true
         rm -f "$UNIT_DIR/fcast-receiver.service"
+        rm -f "$UNIT_DIR"/*.target.wants/fcast-receiver.service
         systemctl --user daemon-reload
-        systemctl --user reenable fcast-receiver.service >/dev/null 2>&1 || true
-        echo "Removed legacy $UNIT_DIR/fcast-receiver.service (now provided by the image)"
+        echo "Removed the old fcast-receiver.service from $UNIT_DIR (the app is launched by hand now)."
     fi
-
-    systemctl --user daemon-reload
 
     echo ""
-    echo "FCast receiver installed. It is NOT running and NOT enabled — nothing listens"
-    echo "on 46899 and no window opens until you ask for one:"
-    echo "        ujust fcast-on      # start it (or just launch it from the app menu)"
-    echo "        ujust fcast-off     # stop it, including any app-menu copy"
-    echo "  * Only ONE copy can run. A second one cannot bind 46899 and shows"
-    echo "    'Your device isn't connected to a network' even though the network is fine"
-    echo "    (upstream futo-org/fcast#119)."
-    echo "  * No tray icon appears on KDE Wayland (upstream #120), so a running copy with"
-    echo "    no window is only reachable through 'ujust fcast-off'."
+    echo "FCast receiver installed. Launch it when you want to receive something:"
+    echo "        from the app menu, or:  flatpak run org.fcast.Receiver"
+    echo "Closing its window quits it, and nothing starts it at login."
+    echo ""
+    echo "Point senders at:"
     if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
         DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-        echo "  Tailnet: in the FCast sender app, add a receiver MANUALLY as:"
-        echo "        $DNS_NAME:46899"
-        echo "        (or $(tailscale ip -4 2>/dev/null | head -1):46899)"
-        echo "  Auto-discovery only works on the LAN — mDNS does not cross the tailnet,"
-        echo "  but the manual entry above does, and tailscale0 is already in the trusted zone."
+        echo "  LAN     : auto-discovered (mDNS), nothing to type"
+        echo "  Tailnet : $DNS_NAME:46899   (or $(tailscale ip -4 2>/dev/null | head -1):46899)"
+        echo "            added MANUALLY in the sender — mDNS does not cross the tailnet, but a"
+        echo "            typed address does, and tailscale0 is already in the trusted zone."
     else
-        echo "  Tailscale is not up; only LAN auto-discovery will find this receiver."
+        echo "  LAN only (tailscale is not up): auto-discovered via mDNS"
     fi
-    echo "  Start it with 'ujust fcast-on' when you actually want to receive."
+    echo ""
+    echo "One caveat, upstream: do not open it twice. The second copy cannot bind TCP 46899 and"
+    echo "says \"Your device isn't connected to a network\" instead (futo-org/fcast#119), and"
+    echo "there is no tray icon on KDE Wayland to find the first one with (#120). If a copy is"
+    echo "running with no window, 'ujust fcast-off' clears it."
 
-# Start the FCast receiver on demand (never at login — see fcast-receiver.service)
-[group('Casting')]
-fcast-on:
-    #!/usr/bin/env bash
-    set -e
-    if ! flatpak info org.fcast.Receiver >/dev/null 2>&1; then
-        echo "org.fcast.Receiver is not installed. Run 'ujust fcast-setup' first."
-        exit 1
-    fi
-    # restart, not start: ExecStartPre reaps any app-menu copy first, so this is authoritative
-    # over whatever is already holding 46899. Never `enable` — at login the unit would bind the
-    # port before the desktop exists and every later app-menu launch would be the broken
-    # second instance.
-    systemctl --user restart fcast-receiver.service
-    echo "FCast receiver started on TCP 46899. Stop it with 'ujust fcast-off'."
-
-# Stop and disable the FCast receiver
+# Force-quit every FCast receiver copy — the rescue for a running copy with no window
 [group('Casting')]
 fcast-off:
     #!/usr/bin/env bash
-    systemctl --user disable --now fcast-receiver.service 2>/dev/null || true
-    # Stopping the unit is not enough. Copies launched from the app menu run in their own
-    # app-flatpak-org.fcast.Receiver-*.scope, so systemd never owned them, and closing the
-    # window does not exit the process while the KDE Wayland tray icon fails to appear.
-    # Those orphans keep TCP 46899 bound, which is what makes the NEXT launch look broken.
+    # No unit to stop any more; app-menu launches live in their own
+    # app-flatpak-org.fcast.Receiver-*.scope, which systemd never owned. Without a tray icon on
+    # KDE Wayland (upstream #120) this is the only way to reach a windowless copy still holding
+    # TCP 46899 — which is what makes the NEXT launch look broken (#119).
     flatpak kill org.fcast.Receiver 2>/dev/null || true
-    echo "FCast receiver stopped (unit disabled, stray flatpak instances killed)."
-    echo "The flatpak itself is left installed."
+    systemctl --user disable --now fcast-receiver.service >/dev/null 2>&1 || true
+    echo "Any running FCast receiver has been killed. The flatpak stays installed."
 
 # Pair this host with an Android device's wireless debugging (once per device)
 [group('Casting')]

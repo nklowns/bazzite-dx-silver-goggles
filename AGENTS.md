@@ -132,9 +132,10 @@ for as long as they did. Two providers now check behaviour instead:
 - **`nostage|<dir>`** — greps the installed justfiles for any recipe that `install`s a `.service`
   into `$HOME`/`$UNIT_DIR`, i.e. a regression against Atomic State Policy item 7. Purely static, so
   it works in a build container with no user session.
-
 Both were checked against injected regressions, not just the clean tree — a check that has never
-failed is a check you have not tested. **A udev-rule assert was deliberately not added:** matching
+failed is a check you have not tested. A third provider (`nocontent|`, asserting a pattern is
+absent) was written to keep `[Install]` out of `fcast-receiver.service` and then deleted with that
+unit: a provider with no target is dead weight. **A udev-rule assert was deliberately not added:** matching
 `DRIVER==` against real devices needs the target hardware, and `udevadm info -e` in CI describes
 the build runner, so it would have to pass vacuously. After the `g15-thermal` deletion no shipped
 rule matches on `DRIVER==` at all; if one is added, verify it on the machine, because the build
@@ -307,7 +308,7 @@ architectural — **not** a configuration gap:
 | Path | Tool | Discovery | Tailnet |
 |---|---|---|---|
 | iOS/macOS screen + audio | `uxplay` (`ujust airplay-setup`) | mDNS | ❌ never |
-| media casting | FCast flatpaks (`ujust fcast-setup`) | mDNS **or manual IP** | ✅ TCP 46899 |
+| media casting | FCast flatpak app, launched by hand (`ujust fcast-setup` installs it) | mDNS **or manual IP** | ✅ TCP 46899 |
 | Android screen + audio | `scrcpy` (`ujust android-mirror <host>`) | ADB over TCP | ✅ |
 | input/clipboard/files | KDE Connect (`ujust kdeconnect-tailnet-add <host>`) | broadcast **or manual IP** | ✅ Android · ❌ iOS |
 | iOS files/apps | `libimobiledevice-utils`, `ifuse`, `ideviceinstaller` | USB (usbmuxd) | ⚠️ USB only |
@@ -358,7 +359,7 @@ Conventions this layer follows:
 - The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
   `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `dx.yml`'s
   "Host Integration & Peripheral Bridges" section (a pointer comment remains there).
-- Both user units follow the graphical-session pattern proven by
+- `uxplay.service` follows the graphical-session pattern proven by
   `files/system/usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh`:
   `After=graphical-session.target plasma-kwin_wayland.service`, `Requisite=` (never
   `Wants=`/`Requires=`, which would spawn a standalone compositor at boot under user
@@ -368,9 +369,10 @@ Conventions this layer follows:
   `plasma-kwin_wayland.service` reports active 20-30s before the compositor serves
   clients. A socket test is used rather than `busctl get-property`, which would
   resurrect the portal and kwin as a side effect of asking.
-- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; the units ship inert in
-  `/usr/lib/systemd/user/` and `67-casting.just` only `enable`s them on request — same pattern as
-  `remote-ide-setup`. See Atomic State Policy item 7 for why they are not copied into `$HOME`.
+- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; `uxplay.service` ships
+  inert in `/usr/lib/systemd/user/` and `airplay-setup` only `enable`s it on request — same pattern
+  as `remote-ide-setup`. See Atomic State Policy item 7 for why it is not copied into `$HOME`. FCast
+  has no unit at all; see below.
 - UxPlay ships `pin` + `reg` in `uxplayrc.tmpl`: no receiver accepts an anonymous client.
 - **`vs xvimagesink`, not `waylandsink`** — the single hardest-won line in `uxplayrc.tmpl`.
   Measured against one iPhone on KDE Wayland / RTX 3060: `waylandsink` renders correct geometry
@@ -402,34 +404,37 @@ Conventions this layer follows:
   Both recipes therefore delete a legacy non-symlink copy and `reenable`. A user drop-in also wins
   over the image unit — same failure mode from the other direction, and the reason the local
   `10-line-buffered.conf` drop-in had to be removed after the fix shipped.
-- **FCast Receiver 3.0.3 is not single-instance, and the second copy lies about why.** Reported
-  upstream as [futo-org/fcast#119](https://github.com/futo-org/fcast/issues/119) (port conflict
-  misreported as a missing network) and
-  [#120](https://github.com/futo-org/fcast/issues/120) (tray item never created on KDE Wayland);
-  drop the local workarounds if either is fixed. Measured
-  here: instance A binds TCP 46899, instance B panics on
-  `receiver-core/src/lib.rs:978  called Result::unwrap() on an Err value: Address already in use
-  (os error 98)` — on the `main-async-worker` thread, so *the thread* dies and the process does
-  not. B's window stays up with no listener behind it and reports **"Your device isn't connected
-  to a network"**, which points at the network and means the exact opposite. Compounding it,
-  `Slint: Failed to create system tray icon: 0` on KDE Wayland, so there is no tray handle to
-  reach a running copy by, and the only way back in — the app menu — produces case B. Three
-  copies were found alive in their own `app-flatpak-org.fcast.Receiver-*.scope` while the unit
-  read `inactive`; **why they survived is not established** — a healthy instance under the unit
-  later exited on its own with `Result=success`, status 0, so a plain window close does appear to
-  quit a *working* copy. Treat "closing the window leaves it running" as unverified; the port
-  conflict and the missing tray are the measured parts. Hence three in-tree decisions:
-  `Restart=no` on the unit (a GUI app exiting 0 is intent, not failure — note that no respawn was
-  ever observed here, so `on-failure` was not the cause of the duplicate windows and an earlier
-  commit message overstated that), `ExecStartPre=-flatpak kill` so `systemctl restart` is
-  authoritative over an app-menu copy, and **nothing starting the receiver implicitly** —
-  `fcast-setup` installs the flatpak and prints sender addresses without starting anything, and
-  `fcast-on` starts it only when asked. Never `enable`: at login the unit would hold 46899 before
-  the desktop appears and turn every later menu launch into the broken window. With nothing
-  auto-starting, launching from the app menu is fine too — it is the only copy.
-  `fcast-off` kills stray flatpak instances too, since
-  app-menu copies run in scopes systemd never owned; `casting-status` prints the instance count
-  for the same reason.
+- **FCast has no systemd unit, on purpose — it is a windowed Flatpak app.** `ujust fcast-setup`
+  installs `org.fcast.Receiver` (and the sender with `with_sender=yes`), prints the addresses to
+  type into senders, and stops there. You launch it from the app menu when you want to receive
+  something; closing the window quits it; nothing starts it at login. `ujust fcast-off` exists only
+  as a rescue for a copy left running with no window, and `casting-status` reports the live copy
+  count rather than a unit state.
+  **This replaced a unit, and the unit is the cautionary tale.** Wrapping a GUI Flatpak in
+  `fcast-receiver.service` bought nothing the desktop launcher does not already do, and it cost
+  three separate runtime bugs on this machine: a `restart` in `fcast-setup` that opened a window
+  merely because you asked to install the app; `Restart=on-failure` blamed for duplicate windows it
+  never caused (no `Scheduled restart` line exists in any journal here); and finally the migration
+  block calling `systemctl --user reenable` — which is disable+enable — creating
+  `~/.config/systemd/user/graphical-session.target.wants/fcast-receiver.service` and making the
+  receiver open by itself on the next boot, on an image that had just been updated to stop exactly
+  that. Around it had accreted `Requisite=graphical-session.target`, a Wayland-socket
+  `ExecStartPre` poll, `ExecStartPre=-flatpak kill`, `Restart=no` and
+  `SuccessExitStatus=137 143`. On an atomic host the rule is simpler than any of that: **systemd
+  units are for daemons; a Flatpak with a window is launched by the desktop.**
+- **Two upstream FCast bugs still matter when using it, and the local advice is just "don't open it
+  twice".** Reported as [futo-org/fcast#119](https://github.com/futo-org/fcast/issues/119) and
+  [#120](https://github.com/futo-org/fcast/issues/120). Measured here: instance A binds TCP 46899;
+  instance B panics on `receiver-core/src/lib.rs:978  called Result::unwrap() on an Err value:
+  Address already in use (os error 98)` on the `main-async-worker` thread, so the *thread* dies and
+  the process does not — B's window stays up with no listener and reports **"Your device isn't
+  connected to a network"**, pointing at the network and meaning the opposite. And
+  `Slint: Failed to create system tray icon: 0` on KDE Wayland means a running copy has no tray
+  handle, so the app menu is the only way back to it, which produces case B. Note the Flatpak's own
+  session bus policy already grants `org.kde.StatusNotifierWatcher=talk` and the host watcher is
+  live (`kded6`, and another app's tray item works), but no appindicator/dbusmenu/ksni library
+  exists inside the sandbox — filed as a strong hypothesis, not a verified root cause. A healthy
+  copy does exit cleanly (`Result=success`, status 0) when its window is closed.
 - `casting-status` captures `systemctl is-active` with `|| true`, never `|| echo <fallback>`:
   `is-active` already prints the state on stdout *and* exits non-zero for anything but active, so a
   fallback prints both strings on one line.
