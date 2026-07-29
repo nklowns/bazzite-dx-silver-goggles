@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Generates /var/srv/nomad/.env with random secrets on first run only. Never overwrites an
+# existing file, so secrets survive image rebases and updates — which matters more than it
+# looks: MySQL only reads MYSQL_ROOT_PASSWORD/MYSQL_PASSWORD when it initialises an empty
+# data directory. Regenerating them later would leave the database on the old credentials
+# and the admin unable to connect, with "Access denied" as the only clue.
+set -euo pipefail
+
+ENV_FILE="/var/srv/nomad/.env"
+
+if [[ -f "$ENV_FILE" ]]; then
+	exit 0
+fi
+
+# Sibling layout, not nested: _resolveHostStorageRoot() (docker_service.ts:505) resolves the
+# admin's /app/storage bind and rewrites every child app's bind underneath it, so a database
+# living inside storage/ would show up in the UI's disk-usage and content browser.
+mkdir -p /var/srv/nomad/storage /var/srv/nomad/mysql /var/srv/nomad/redis
+umask 077
+
+# One password, three names. Compose could write `MYSQL_PASSWORD=${DB_PASSWORD}` and let the
+# engine interpolate; `podman run --env-file` performs no substitution at all, so every name
+# a container expects has to be spelled out here with its value already resolved.
+DB_PASSWORD="$(openssl rand -hex 24)"
+
+{
+	echo "APP_KEY=$(openssl rand -hex 32)"
+	echo "MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24)"
+	# Consumed by the admin…
+	echo "DB_PASSWORD=${DB_PASSWORD}"
+	# …and by mysql on first init. Must be the same value or the admin cannot log in.
+	echo "MYSQL_PASSWORD=${DB_PASSWORD}"
+	# Adonis builds absolute links and CORS from this. Left at localhost because that is
+	# true until someone runs `ujust remote-nomad-setup`, which rewrites it and restarts.
+	echo "URL=http://localhost:61380"
+} >"$ENV_FILE"
+
+chmod 600 "$ENV_FILE"

@@ -77,3 +77,15 @@ if [[ -n "$KERNEL_RELEASE" ]]; then
 else
 	echo "Warning: could not resolve base image kernel; omitting ostree.linux label."
 fi
+
+# NOTE: Project NOMAD image pinning is deliberately NOT generated here any more.
+#
+# The earlier design kept digests in image-versions.yaml and rendered a docker-compose.yml
+# from a .tmpl with envsubst at build time. That bought a second copy of the truth and a way
+# for the two to disagree: the rendered file was also committed, CI regenerated it, and a
+# stale local copy could ship unnoticed. The Quadlet units under
+# files/system/etc/containers/systemd/users/ now carry their `Image=…@sha256:…` inline, and
+# Renovate updates those files directly (see the customManager in .github/renovate.json5).
+# The artifact that ships is the artifact that is pinned — no template, no render step, no
+# drift to police.
+

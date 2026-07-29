@@ -36,6 +36,54 @@ Requirements: `just`, `podman` (or `docker`), `bluebuild` CLI. Install the CLI i
 podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
 ```
 
+## 🔌 Reserved Port Range (DX Services)
+
+This is a developer workstation — arbitrary projects spin up arbitrary dev servers (`8080`, `3000`, `5173`, `8081`, `11434`, etc). Always-on system/DX services exposed over the tailnet must therefore never squat a common dev port. Convention: **`61300-61399`**, plus the bare tailnet domain (`443`/root) reserved for nothing (kept free so a project can `tailscale serve` its own thing there without a fight).
+
+| Service | Local port | Tailnet |
+| :--- | :--- | :--- |
+| code-server | `61337` | `https://bazzite.drake-ayu.ts.net:61337` (explicit `--https=`, not bare root) |
+| NOMAD Command Center | `61380` | `https://bazzite.drake-ayu.ts.net:61380` (`ujust remote-nomad-setup`) |
+| NOMAD dozzle (log viewer) | `61381` | not exposed over tailnet by default |
+| NOMAD Ollama (GPU inference) | `61382` | never — ships no authentication, and deliberately absent from the firewalld service. The Command Center reaches it over the container network (`http://ollama:11434`), not this port |
+| cockpit | `61390` | `https://bazzite.drake-ayu.ts.net:61390` (`ujust remote-cockpit-setup`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
+
+Adding a new always-on DX service: pick the next free port in `61300-61399`, wire it the same way (compose/env + firewalld service XML + `ujust` echoes/URLs), and add a row here.
+
+## 🥾 Boot Impact Policy (this is a gaming + dev box, not a server)
+
+Bazzite serves two conflicting jobs on the same hardware — play and develop — and every service enabled at boot is CPU/RAM/VRAM the game or the build isn't getting, plus slower cold start. The only things this layer's own recipes enable by default are:
+
+- **`tailscale` + `sunshine`** — the actual remote-access path into the system, and the one thing that stays on. Note the mechanism, because it was described wrongly here before: neither is enabled *by the image*. `tailscaled.service` ships `preset: disabled` and is turned on by upstream's own `ujust tailscale enable` (`80-bazzite.just`); Sunshine likewise. They show up in `ujust boot-audit` as "enabled outside the image" and that is correct and intended — the audit reports facts, it does not label them violations.
+- Socket-activated units already established pre-NOMAD (`cockpit.socket`, `docker.socket`, `podman.socket`, `virtqemud.socket` and siblings in `recipes/dx.yml`) — near-zero idle cost since the daemon only spawns on first connection. Not something this change revisits.
+
+Everything else — **NOMAD (Command Center, mysql, redis, dozzle, Ollama, and any Supply Depot app), code-server, VS Code Remote Tunnels, casting receivers (uxplay/FCast/scrcpy)** — is opt-in: `nomad.yml`/`casting.yml` carry no `systemd` module at all, so their units ship inert until a `ujust ...-up`/`...-setup` call activates them. **Do not add a `systemd: enabled:` block to `nomad.yml` or `casting.yml`** — that would turn an on-demand feature into permanent background load (mysql/redis daemons, a container socket held open, VRAM pressure from Ollama) fighting the same RTX 3060 a game session needs. If a future service seems to want boot-enablement, that's a signal to re-check this policy with the user first, not a default to reach for.
+
+### `enable` is not opt-in on this image — lingering is on
+
+This paragraph used to end at "…does `systemctl --user enable --now`", and that sentence quietly contradicted itself. Lingering is enabled for the desktop user:
+
+```
+$ loginctl show-user "$USER" -p Linger
+Linger=yes
+$ ls /var/lib/systemd/linger/
+cloud
+```
+
+Without lingering, an enabled *user* unit starts at **login**. With it, the unit starts at **boot** with no login at all, and keeps running after logout. So `systemctl --user enable` is not "remember my preference for this session" — it is the same permanent-background-load commitment the policy above forbids, arriving by a different door. It is the user-scope equivalent of a container's `restart: unless-stopped`.
+
+**Rule: `ujust ...-up` recipes use `systemctl --user start`, never `enable`.** The `[Install]` section stays in the units so someone can deliberately opt into always-on, but nothing in this repo should enable a user unit on the user's behalf.
+
+**This is not hypothetical, and the host is already drifting.** Measured — every one of these currently starts at boot, not at login:
+
+```
+uxplay                    enabled     ide-tunnel@code           enabled
+code-server               enabled     ide-tunnel@code-insiders  enabled
+tailscale-systray         enabled     agy-warmup.timer          enabled
+```
+
+Two VS Code tunnel servers at ~10 s each plus a 23 s warmup, all before the desktop is usable — and `uxplay`/`code-server` are precisely the services this section calls "opt-in and manual". They *were* opted into; nothing ever accounted for the accumulation. `ujust boot-audit` exists to make that visible; the policy is only as real as the thing that checks it.
+
 ## 🏗️ Architecture
 
 ### Modular Hybrid Build Model
@@ -47,6 +95,7 @@ recipe.yml              ← Entry point (declarative orchestration)
 │   └── local modules   ← Encapsulated logic: dx-flavor (branding/policy), dx-udev
 ├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, AWCC RPM (rpm-ostree), thermald mask
 ├── casting.yml         ← CASTING: AirPlay/FCast/scrcpy receivers + iOS bridges (opt-in via ujust)
+├── nomad.yml           ← OFFLINE KNOWLEDGE & AI: Project NOMAD (Quadlet units + ujust; nothing enabled)
 ├── initramfs module
 ├── dx-verify           ← System integrity auditor (custom module in modules/)
 ├── os-release          ← OCI metadata
@@ -62,18 +111,20 @@ recipe.yml              ← Entry point (declarative orchestration)
 3. **TUNING** — kernel and performance optimization (native `kargs` module).
 4. **HARDWARE** — Dell G15 customization (AWCC, dGPU, services).
 5. **IDENTITY** — visual identity and branding.
+6. **OFFLINE KNOWLEDGE & AI** — Project NOMAD offline stack (`nomad.yml`).
 
 ### Key Directories
 
 | Path | Purpose |
 |------|---------|
-| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, `casting.yml`, generated `build-recipe.yml`) |
+| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, `casting.yml`, `nomad.yml`, generated `build-recipe.yml`) |
 | `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
 | `files/system/etc/modules-load.d/` | Kernel module **opt-outs**: an empty `/etc/modules-load.d/<x>.conf` masks the same-named file under `/usr/lib/modules-load.d/`. `kvmfr.conf` is 0 bytes on purpose (dx-verify registers it as "Mask: KVMFR Autoload"), so do not "fix" it. Modules this layer actually wants loaded are declared under `/usr/lib/modules-load.d/` — e.g. `br_netfilter` in `ip_tables.conf`. Nothing here loads `acpi_call`, and nothing can: see the AWCC note below |
-| `files/system/usr/lib/systemd/user/` | **User units, image-resident and read-only.** `ujust` only `enable`s them — never copies them into `$HOME`, which would shadow the image copy and freeze the host on it |
-| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 95-bazzite-dx.just), injected via the `justfiles` module |
+| `files/system/usr/lib/systemd/user/` | **User units, image-resident and read-only.** `ujust` only activates them — never copies them into `$HOME`, which would shadow the image copy and freeze the host on it. Note `start` vs `enable`: see the lingering subsection under Boot Impact Policy |
+| `files/system/etc/containers/systemd/users/` | **Rootless Quadlet units** (`.container`/`.network`) for the NOMAD stack, turned into `.service` by a systemd generator. Under `/etc` and not `/usr` because rootless Quadlet has **no `/usr` search path** — `man podman-systemd.unit` lists only `$XDG_RUNTIME_DIR/containers/systemd/`, `~/.config/containers/systemd/`, `/etc/containers/systemd/users/$(UID)` and `/etc/containers/systemd/users/`. The rootful list *does* include `/usr/share/containers/systemd/`, so going rootful would restore the `/usr` placement — at the cost of the security property that made podman the right engine (see the socket note in README). This is not a breach of Atomic State Policy item 1, which forbids mutating `/etc` imperatively at runtime, not shipping into it via the `files` module |
+| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 68-nomad.just, 95-bazzite-dx.just), injected via the `justfiles` module |
 | `files/system/usr/share/ublue-os/casting/` | Staged casting **config template** (`uxplayrc.tmpl`) copied into `$HOME` by `ujust` on request. The units themselves live in `usr/lib/systemd/user/` |
 | `files/rpm-ostree/` | Pre-compiled RPMs committed to git (awcc-dev.rpm) |
 | `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |

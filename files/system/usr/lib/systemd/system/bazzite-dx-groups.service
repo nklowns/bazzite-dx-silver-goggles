@@ -1,6 +1,12 @@
 [Unit]
 Description=Add wheel members to developer essential groups
 After=local-fs.target
+# ConfigureNomadStorage() applies attributes to directories that tmpfiles.d creates, so it
+# must not run first. Ordering already holds by accident — this unit is WantedBy
+# multi-user.target and tmpfiles-setup belongs to sysinit.target — but an accident is not a
+# contract, and the failure it would cause is silent: chattr +C only takes effect on an empty
+# directory, so losing the race once means the database is created CoW and stays that way.
+After=systemd-tmpfiles-setup.service
 
 [Service]
 Type=oneshot

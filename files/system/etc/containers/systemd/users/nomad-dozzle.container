@@ -1,0 +1,36 @@
+[Unit]
+Description=Project NOMAD — Dozzle (container log viewer)
+# Not a dependency of anything: the Command Center's "Service Logs & Metrics" link points
+# here, and that link is simply dead if this is not running. Kept separate so it can be left
+# off without touching the rest of the stack.
+# Same socket-activation dependency as nomad-admin.container: %t/podman/podman.sock is
+# created by the unit, so mounting it without requiring the unit is a silent no-op.
+Requires=podman.socket
+After=podman.socket
+
+[Container]
+Image=docker.io/amir20/dozzle@sha256:d383abf0fee72a8037d6ec6474424e56d752a52208e0ed70f4805e9d86a77830
+ContainerName=nomad_dozzle
+Network=project-nomad_default.network
+
+# 61381, next to the Command Center inside the reserved 61300-61399 range. Upstream uses
+# 9999. Not exposed over the tailnet by default — see the firewalld service definition.
+PublishPort=61381:8080
+
+# Reads logs through the container socket, so it carries the same SELinux exemption and the
+# same justification as nomad-admin.container: denied outright without it, and rootless means
+# what it gains is the user's podman rather than host root.
+Volume=%t/podman/podman.sock:/var/run/docker.sock
+SecurityLabelDisable=true
+
+# Both off deliberately, and both matter on a machine reachable over a tailnet: Dozzle ships
+# no authentication here, so actions would expose unauthenticated container stop/restart, and
+# shell access combined with the mounted socket is a straightforward privilege escalation.
+Environment=DOZZLE_ENABLE_ACTIONS=false
+Environment=DOZZLE_ENABLE_SHELL=false
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Project NOMAD
+Comment=Offline Knowledge, AI & Maps Server
+Exec=xdg-open http://localhost:61380
+Icon=network-server
+Terminal=false
+Type=Application
+Categories=Network;Education;Utility;

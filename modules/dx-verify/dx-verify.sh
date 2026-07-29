@@ -28,6 +28,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system/awccd.service|Asset: AWCC Service|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
 	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"
+	"file|/usr/libexec/bazzite-dx-serve|Asset: Tailscale Serve Helper|Error"
 	"file|/usr/libexec/bazzite-dx-virt-lib|Asset: Virt Shared Library|Error"
 	"file|/usr/lib/systemd/system/bazzite-dx-groups.service|Asset: DX Groups Service|Error"
 	"file|/etc/profile.d/brew.sh|Shield: Brew Profile|Error"
@@ -62,8 +63,26 @@ readonly AUDIT_REGISTRY=(
 	"file|/etc/systemd/resolved.conf.d/00-amyos-dns.conf|Policy: DNS-over-TLS Config|Error"
 	"file|/usr/lib/NetworkManager/conf.d/00-amyos-random-mac.conf|Policy: NM MAC Randomization|Error"
 
+	# Quadlet units, not systemd units — they live under /etc because rootless Quadlet has no
+	# /usr search path (see the header of nomad-admin.container). `unit|` cannot verify them:
+	# systemd-analyze does not know the .container format, and the generated .service files
+	# only exist once the generator has run against a real user session. The behavioural check
+	# that does work is `quadlet -dryrun`, which needs a podman that can reach its own storage
+	# — the build container has neither, so it would pass vacuously. Same reasoning that kept
+	# a udev-rule assert out of this registry. Verified by hand instead, and the generator
+	# output is what the unit comments record.
+	"file|/etc/containers/systemd/users/project-nomad_default.network|Asset: NOMAD Quadlet Network|Error"
+	"file|/etc/containers/systemd/users/nomad-admin.container|Asset: NOMAD Quadlet Command Center|Error"
+	"file|/etc/containers/systemd/users/nomad-mysql.container|Asset: NOMAD Quadlet MySQL|Error"
+	"file|/etc/containers/systemd/users/nomad-redis.container|Asset: NOMAD Quadlet Redis|Error"
+	"file|/etc/containers/systemd/users/nomad-dozzle.container|Asset: NOMAD Quadlet Dozzle|Error"
+	"file|/etc/containers/systemd/users/nomad-ollama.container|Asset: NOMAD Quadlet Ollama (GPU)|Error"
+	"file|/usr/libexec/project-nomad-bootstrap-env|Asset: Project NOMAD Secret Bootstrap|Error"
+	"file|/usr/share/applications/project-nomad.desktop|Asset: Project NOMAD Desktop Launcher|Error"
 	"file|/usr/lib/systemd/system/nvidia-persistenced.service.d/10-device-nodes.conf|Asset: NVIDIA Persistenced Device-Node Override|Error"
 	"file|/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/10-after-persistenced.conf|Asset: CDI Generation Ordering Override|Error"
+	"file|/usr/lib/systemd/system/cockpit.socket.d/10-port.conf|Asset: Cockpit Port Relocation (61390)|Error"
+	"file|/usr/lib/firewalld/services/project-nomad.xml|Asset: Project NOMAD Firewalld Policy|Error"
 
 	"target|graphical.target|Policy: Default Graphical Target|Warn"
 

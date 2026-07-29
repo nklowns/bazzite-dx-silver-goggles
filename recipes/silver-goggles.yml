@@ -64,3 +64,7 @@ modules:
   - type: justfiles
     include:
       - 66-silver-goggles.just
+      # Read-only audits. They exist because the Boot Impact Policy and the reserved port
+      # range in AGENTS.md were both being contradicted by the running host without anything
+      # noticing — a policy is only as real as the thing that checks it.
+      - 69-audit.just

@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Shared `tailscale serve` handling for the remote-* ujust recipes. Executed, not sourced —
+# each just recipe is its own shell, so a command is more useful here than a library.
+#
+# WHY THIS EXISTS
+# ---------------
+# Three recipes (remote-ide-setup, remote-cockpit-setup, remote-nomad-setup) each carried their
+# own copy of the same idempotency guard:
+#
+#     if tailscale serve status | grep -q 'proxy http://127.0.0.1:61337'; then
+#         echo "already proxies 61337 — left as is."
+#
+# That grep matches the proxy TARGET and ignores which listener it hangs off. Measured on this
+# host, the difference is not academic:
+#
+#     https://bazzite.drake-ayu.ts.net        -> proxy http://127.0.0.1:61337   <- ROOT
+#     https://bazzite.drake-ayu.ts.net:9090   -> proxy http://127.0.0.1:9090
+#
+# code-server was published on the bare tailnet domain, which this layer reserves so a project
+# can claim it. The recipe was later fixed to pass `--https=61337`, and the fix is inert: the
+# old root mapping still satisfies the grep, so the recipe reports success and migrates
+# nothing. A no-op that reads as "already correct" is worse than a failure — it looks resolved
+# in the diff and changes nothing on the machine.
+#
+# `tailscale serve status --json` exposes the actual shape, so ask it instead of grepping prose:
+#     .Web["<host>:<port>"].Handlers["/"].Proxy
+set -euo pipefail
+
+Usage() {
+	cat <<-EOF
+		usage: ${0##*/} <command> <port>
+
+		  status <port>   prints ok | misplaced:<listener> | absent
+		  ensure <port>   idempotently publish <port> on the tailnet at the same port
+		  off <port>      stop publishing <port>
+	EOF
+	exit 2
+}
+
+# Prints the listeners whose "/" handler proxies to 127.0.0.1:<port>, one per line.
+_ListenersProxyingTo() {
+	local port="$1"
+	tailscale serve status --json 2>/dev/null |
+		jq -r --arg p "$port" '
+			(.Web // {}) | to_entries[]
+			| select((.value.Handlers["/"].Proxy // "") == "http://127.0.0.1:" + $p)
+			| .key
+		' 2>/dev/null || true
+}
+
+Status() {
+	local port="$1" listener
+	while IFS= read -r listener; do
+		[ -n "$listener" ] || continue
+		# Listener keys are always "<dnsname>:<port>" — including the root mapping, which
+		# reports as "…:443" rather than as a bare host. Verified against this host's live
+		# config, where code-server on the tailnet root shows up as
+		#     misplaced:bazzite.drake-ayu.ts.net:443
+		# which is exactly the state the old grep read as success.
+		if [[ "$listener" == *:"$port" ]]; then
+			echo "ok"
+			return 0
+		fi
+		echo "misplaced:${listener}"
+		return 0
+	done < <(_ListenersProxyingTo "$port")
+	echo "absent"
+}
+
+Ensure() {
+	local port="$1" state
+	state=$(Status "$port")
+	case "$state" in
+	ok)
+		echo "tailscale serve já publica ${port} na porta certa — mantido."
+		return 0
+		;;
+	misplaced:*)
+		# Deliberately NOT auto-removing it. This is remote, shared configuration: another
+		# device may be using that URL right now, and silently repointing it is the kind of
+		# change that should be a human decision. Print the exact commands instead.
+		local where="${state#misplaced:}"
+		echo "⚠️  A porta ${port} está publicada no listener errado: ${where}"
+		echo "    Isso ocupa um endpoint do tailnet que deveria estar livre. Para migrar:"
+		echo "        sudo tailscale serve --https=${where##*:} off"
+		echo "        sudo tailscale serve --bg --https=${port} ${port}"
+		echo "    (não faço isso sozinho: outra máquina pode estar usando essa URL agora)"
+		return 0
+		;;
+	esac
+	# absent — publish it. Needs root unless `tailscale set --operator=$USER` was run once.
+	if tailscale serve --bg --https="$port" "$port" 2>/dev/null; then
+		return 0
+	fi
+	echo "Não consegui configurar o 'tailscale serve' (precisa de root aqui). Rode:"
+	echo "    sudo tailscale serve --bg --https=${port} ${port}"
+	echo "    sudo tailscale set --operator=${USER}   # uma vez, e este recipe passa a funcionar"
+	return 1
+}
+
+Off() {
+	local port="$1"
+	if ! tailscale serve --https="$port" off 2>/dev/null; then
+		echo "Não consegui remover (precisa de root). Rode:"
+		echo "    sudo tailscale serve --https=${port} off"
+		return 1
+	fi
+}
+
+[ $# -eq 2 ] || Usage
+case "$1" in
+status) Status "$2" ;;
+ensure) Ensure "$2" ;;
+off) Off "$2" ;;
+*) Usage ;;
+esac

@@ -1,0 +1,78 @@
+# Ollama, deliberately OUTSIDE the Command Center's control.
+#
+# WHY THIS IS NOT A SUPPLY DEPOT APP
+# ----------------------------------
+# The Command Center can install Ollama itself, and on this image that path is a trap. It
+# detects NVIDIA by looking for an 'nvidia' key in the container engine's Runtimes map and
+# then creates the container with HostConfig.DeviceRequests (docker_service.ts:710-730).
+# Podman's docker-compat API accepts that payload and drops it on the floor — measured:
+#
+#     POST /v1.41/containers/create  HostConfig.DeviceRequests[{Driver:nvidia,Count:-1}]
+#       -> 201 Created, Warnings: [], start 204
+#       -> container logs: NO_NVIDIA_DEVICES
+#
+# while docker, same payload and same host, injects the devices. Nothing errors, nothing warns,
+# and the UI cheerfully reports "NVIDIA container runtime detected". The user would get a
+# CPU-only assistant on a machine with an RTX 3060 and no way to tell from inside the product.
+#
+# The one podman-side workaround that did work — a global `[containers] devices=` default in
+# containers.conf — hands a GPU to every container the engine ever starts, mysql and redis
+# included. Not a trade worth making to keep a button working.
+#
+# So the GPU workload lives here instead, with a real CDI device, and NOMAD is pointed at it
+# as an external endpoint. That path is supported upstream: OllamaService._initialize() checks
+# KVStore key `ai.remoteOllamaUrl` first and only falls back to the Supply Depot container when
+# it is unset (admin/app/services/ollama_service.ts:63-75). See README for the exact value.
+
+[Unit]
+Description=Project NOMAD — Ollama (GPU inference)
+# Shares the stack network so the Command Center can reach it by alias, but is NOT required by
+# nomad-admin: the Command Center is perfectly usable for offline content with no AI at all,
+# and a 6 GB VRAM workload should never be dragged up as a side effect of opening Wikipedia.
+
+[Container]
+Image=docker.io/ollama/ollama@sha256:4dea9fb511947e24a84237bb636b0203abcb2ff0d3fbc7b4ff865deb91362131
+ContainerName=nomad_ollama
+Network=project-nomad_default.network
+# What the admin should be pointed at: http://ollama:11434
+NetworkAlias=ollama
+
+# Native CDI, which is the whole reason this container exists separately. Verified working on
+# this host once the three GPU gates were fixed — nvidia-persistenced actually starting, the
+# CDI spec being regenerated with it up, and container_use_devices turned on:
+#     $ podman run --rm --device nvidia.com/gpu=all alpine sh -c 'ls /dev | grep nvidia'
+#     nvidia-modeset  nvidia-uvm  nvidia-uvm-tools  nvidia0  nvidiactl
+AddDevice=nvidia.com/gpu=all
+
+# Model weights are tens of GB and are NOT offline "content": kept as a sibling of storage/ so
+# the Command Center's disk-usage view and content browser do not count them, and so a content
+# reset cannot reach them.
+Volume=/var/srv/nomad/ollama:/root/.ollama
+
+# 61382 in the reserved DX range, NOT Ollama's default 11434. That default is exactly the port
+# a separately-installed Ollama would already own on a developer workstation — publishing it
+# here would make two inference servers fight over one port, with whichever started first
+# winning silently. The admin does not use this mapping at all (it goes over the container
+# network); it exists so host-side tools can reach this instance deliberately.
+PublishPort=61382:11434
+
+Environment=OLLAMA_HOST=0.0.0.0
+# Unload the model 5 minutes after the last request instead of holding VRAM indefinitely. This
+# box also plays games on the same RTX 3060, and an idle assistant sitting on several GB of
+# VRAM is precisely the background cost the Boot Impact Policy exists to prevent.
+Environment=OLLAMA_KEEP_ALIVE=5m
+
+HealthCmd=ollama list
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+
+[Service]
+Restart=on-failure
+# The image is several GB; the systemd default of 90s is not enough for a cold pull.
+TimeoutStartSec=900
+
+[Install]
+# Same warning as nomad-admin.container: lingering is on, so `enable` means BOOT, not login.
+# For a GPU inference server that is a bigger commitment than usual — use `ujust ollama-up`.
+WantedBy=default.target

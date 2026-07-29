@@ -1,3 +1,9 @@
+# Base image pin, consumed by scripts/generate-recipe.sh and updated by Renovate.
+#
+# The Project NOMAD stack images are deliberately NOT listed here. They are pinned inline in
+# the Quadlet units under files/system/etc/containers/systemd/users/, which is the artifact
+# that actually ships — keeping a second copy here only created a way for the two to
+# disagree. Renovate tracks those files directly via a customManager.
 images:
   - name: bazzite-nvidia
     image: ghcr.io/ublue-os/bazzite-nvidia

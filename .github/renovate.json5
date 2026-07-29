@@ -24,6 +24,21 @@
     },
     {
       customType: 'regex',
+      description: 'Track Quadlet container image digests (Project NOMAD stack, Ollama)',
+      // Pinned inline in the units rather than in image-versions.yaml: the unit is what
+      // ships, so pinning it directly removes the render step and the chance of the two
+      // copies disagreeing. Matches `Image=registry/path@sha256:...` in any .container file.
+      managerFilePatterns: [
+        '/^files/system/etc/containers/systemd/users/.+\\.container$/',
+      ],
+      matchStrings: [
+        'Image=(?<depName>[^\\s@:]+)@(?<currentDigest>sha256:[a-f0-9]+)',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
       description: 'Track image dependencies in Justfile',
       managerFilePatterns: [
         '/^Justfile$/',
@@ -92,6 +107,23 @@
       automerge: true,
       ignoreTests: true,
       commitMessagePrefix: 'chore(deps): ',
+    },
+    {
+      description: 'Auto-update and automerge Project NOMAD stack image digests in the Quadlet units',
+      // Scoped by path, not by package name: the stack is a moving target (Ollama joined it
+      // when GPU work moved out of the Supply Depot, and Supply Depot apps may follow), and
+      // an enumerated package list silently stops covering whatever gets added next.
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/*.container',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
+      pinDigests: true,
+      automerge: true,
+      ignoreTests: true,
+      commitMessagePrefix: 'chore(deps-nomad): ',
     },
     {
       description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',

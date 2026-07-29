@@ -126,3 +126,119 @@ These overrides are synced as atomic symlinks via `tmpfiles.d` using the `L+` pa
    just status   # Image config, local images, tooling versions
    just g15-status   # Dell G15 hardware health
    ```
+
+---
+
+# Project N.O.M.A.D. (Offline Knowledge, AI & Maps)
+
+[Project N.O.M.A.D.](https://www.projectnomad.us) (*Node for Offline Media, Archives, and Data*) is an offline-first knowledge server: Wikipedia and other ZIM archives via Kiwix, Khan Academy via Kolibri, offline maps, notes, and an AI assistant with RAG over your own documents. Upstream ships it as a Docker Compose stack for Debian; this image runs it as **rootless Podman Quadlet units**, and the differences below are deliberate.
+
+## What runs, and where
+
+| Unit | Container | Host port | Purpose |
+| :--- | :--- | :--- | :--- |
+| `nomad-admin.service` | `nomad_admin` | `61380` | Command Center (dashboard + API) |
+| `nomad-dozzle.service` | `nomad_dozzle` | `61381` | Container log viewer |
+| `nomad-mysql.service` | `nomad_mysql` | — | Application database |
+| `nomad-redis.service` | `nomad_redis` | — | Job queue |
+| `nomad-ollama.service` | `nomad_ollama` | `61382` | GPU inference (**separate on purpose** — see below) |
+
+Units live in `/etc/containers/systemd/users/` and a systemd generator turns each `.container` into a `.service`. They are under `/etc` rather than `/usr` because **rootless Quadlet has no `/usr` search path** (`man podman-systemd.unit`); running them rootful to get `/usr/share/containers/systemd/` would forfeit the security property described under *Container socket access*.
+
+All ports sit in this layer's reserved DX range **`61300-61399`** so nothing here squats a port a project's own dev server would want. Upstream defaults — `8080` for the Command Center, `11434` for Ollama, `9999` for Dozzle — are all changed for that reason.
+
+## The AI assistant is not a Supply Depot app, and that is not an oversight
+
+The Command Center can install Ollama itself. On this image that path silently produces a **CPU-only** assistant, and the reason is worth knowing before you click it.
+
+NOMAD detects an NVIDIA GPU by looking for an `nvidia` key in the container engine's runtime map, then creates the container with Docker's `DeviceRequests` API. Podman's docker-compatible API accepts that payload and discards it — measured on this host:
+
+```
+POST /v1.41/containers/create  HostConfig.DeviceRequests[{Driver:nvidia,Count:-1}]
+  -> 201 Created, Warnings: []
+  -> container logs: NO_NVIDIA_DEVICES
+```
+
+Docker, given the identical payload on the same host, injects the devices. Nothing errors and nothing warns; the UI reports *"NVIDIA container runtime detected"* either way. The only podman-side workaround that worked was a global device default in `containers.conf`, which hands a GPU to **every** container the engine starts — MySQL and Redis included.
+
+So GPU inference runs as its own unit with a real CDI device, and NOMAD is pointed at it as an external endpoint. That path is supported upstream: `OllamaService` checks the `ai.remoteOllamaUrl` setting first and only falls back to the Supply Depot container when it is unset.
+
+**Wiring it up, once:** start it with `ujust ollama-up`, then in the Command Center go to **Settings → AI** and set the remote base URL to:
+
+```
+http://ollama:11434
+```
+
+That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Then `ujust ollama-pull-models` fetches models sized for 6 GB of VRAM (`llama3.2:3b`, `qwen2.5-coder:7b`, and `nomic-embed-text`, which is what the RAG indexer uses).
+
+Qdrant, which backs RAG search, is not in the management stack either — it is provisioned on demand as a Supply Depot app when you first use the knowledge base. It needs no GPU, so it is unaffected by the above.
+
+## Storage layout
+
+```
+/var/srv/nomad/storage    ZIMs, maps, notes, uploads   (the Command Center's /app/storage)
+/var/srv/nomad/mysql      database
+/var/srv/nomad/redis      queue persistence
+/var/srv/nomad/ollama     model weights
+```
+
+They are **siblings, not nested**. The Command Center resolves the host path behind its own `/app/storage` mount and rewrites every child app's bind to live underneath it, so a database inside `storage/` would be counted as offline content by the disk-usage view and the content browser — and be reachable by a content reset.
+
+Three properties are applied declaratively at boot, none of which `tmpfiles.d` can express, so they live in `bazzite-dx-groups`:
+
+- **`chattr +C` (btrfs nodatacow)** on the database directories. MySQL and Redis do random writes inside large files, the pathological case for copy-on-write. This only works while the directory is **empty** — `+C` is inherited by new files and does nothing to existing ones — so it is set before first start or not at all. If you ever see the warning about a directory already having contents, the window has closed and the fix is recreating that store.
+- **SELinux `container_file_t`** on the whole tree. An unlabelled bind is denied outright to a container. This cannot be solved with `:z` on our own volumes alone, because the Command Center generates binds for the apps it spawns and those carry no `:z`; labelling the root covers all of them.
+- **`CACHEDIR.TAG`** in `storage/`, honoured by restic, borg, tar, duplicity and `rsync --exclude-caches`. ZIM archives and model weights are re-downloadable, so they are excluded from backups by convention rather than by an exclude list you would have to maintain.
+
+### Rootless means the files are not yours, exactly
+
+Containers write as *subordinate* UIDs: a file created by MySQL as uid 999 inside the container lands as uid 524287+ on the host. Your own account cannot read, `chown`, or even `rm` it. This is how user namespaces work, not a misconfiguration — and it is why deleting an old ZIM with `rm -rf` fails with *Permission denied*.
+
+Use **`ujust nomad-shell`**, which drops you into `podman unshare bash`. Inside that namespace the files are owned by root and behave normally.
+
+## Container socket access — an explicit security decision
+
+`nomad_admin` and `nomad_dozzle` mount the podman socket and run with **SELinux confinement disabled** (`SecurityLabelDisable=true`). Without it the bind is denied outright and the Command Center is an empty dashboard — orchestrating Supply Depot apps *is* what it does.
+
+This is acceptable here specifically because the stack is **rootless**. The socket is the user's own `podman`, so a container that reaches it gains what the user already has rather than root on the machine. Under rootful Docker the same configuration would be handing out host root, and this layer would not ship it. That difference is the main reason the engine choice went to podman despite upstream testing only Docker.
+
+MySQL and Redis are **not** exempted — they touch storage only, and the SELinux label above covers them.
+
+A tighter alternative exists and was not taken: a custom SELinux module permitting `container_t` → `container_var_run_t:sock_file`, which would keep the rest of the confinement. Worth revisiting if this surface grows.
+
+## Nothing starts at boot, and `enable` is the wrong verb here
+
+Lingering is enabled for the desktop user on this image (`loginctl show-user $USER -p Linger` → `yes`). That changes what enabling a *user* unit means: without lingering an enabled unit starts at login, **with** lingering it starts at **boot**, with no login at all, and survives logout.
+
+So `ujust nomad-up` uses `systemctl --user start`, never `enable`. The stack runs until you stop it or reboot. This is a gaming machine as well as a workstation, and a permanently-resident MySQL, Redis, Node server and 6 GB inference engine is exactly the background cost that policy exists to prevent.
+
+If you genuinely want NOMAD always-on, `systemctl --user enable nomad-admin.service` is yours to run deliberately.
+
+## Secrets
+
+`APP_KEY`, `MYSQL_ROOT_PASSWORD` and the database password are generated on first `nomad-up` into `/var/srv/nomad/.env` (mode `0600`) and **never overwritten**, so they survive image rebases. That matters more than it looks: MySQL only reads its credentials when initialising an empty data directory, so regenerating them later would leave the database on the old ones with *"Access denied"* as the only symptom.
+
+`URL` starts at `http://localhost:61380` and is rewritten automatically by `ujust remote-nomad-setup` — AdonisJS builds absolute links and CORS from it, and a stale value produces localhost URLs in a browser that arrived over the tailnet, which looks like an application bug.
+
+## Image pinning
+
+Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There is no template and no render step: the file that ships is the file that is pinned. `ujust nomad-update` pulls what the current image pins — a version bump arrives through a rebase, not through that command.
+
+## `ujust` commands
+
+| Command | Action |
+| :--- | :--- |
+| `ujust nomad-up` | Start the stack (Command Center, database, queue, log viewer) |
+| `ujust nomad-down` | Stop the stack; data is preserved |
+| `ujust nomad-status` | Unit states, containers, GPU/VRAM, disk usage, nodatacow check |
+| `ujust nomad-update` | Re-pull the pinned images and restart |
+| `ujust nomad-shell` | `podman unshare` shell for managing NOMAD's files |
+| `ujust ollama-up` | Start GPU inference |
+| `ujust ollama-down` | Stop it and release VRAM |
+| `ujust ollama-pull-models` | Fetch models sized for 6 GB VRAM |
+| `ujust remote-nomad-setup` | Publish the Command Center on the tailnet (`https://…:61380`) |
+| `ujust remote-nomad-teardown` | Unpublish it and restore the local `URL` |
+| `ujust nomad-firewall-on` | Open `61380`/`61381` on the local network |
+| `ujust nomad-firewall-off` | Close them again |
+
+Over the tailnet the firewall recipes are unnecessary — `tailscale0` already sits in firewalld's `trusted` zone. Ollama's `61382` is deliberately **not** in the firewalld service: it ships no authentication, and the Command Center reaches it over the container network anyway.

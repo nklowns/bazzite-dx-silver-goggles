@@ -24,6 +24,7 @@ modules:
   - from-file: dx.yml
   - from-file: casting.yml
   - from-file: silver-goggles.yml
+  - from-file: nomad.yml
 
   - type: initramfs
 

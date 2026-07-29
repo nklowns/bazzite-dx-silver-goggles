@@ -1,0 +1,24 @@
+[Unit]
+Description=Project NOMAD — Redis (job queue)
+
+[Container]
+Image=docker.io/library/redis@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+ContainerName=nomad_redis
+Network=project-nomad_default.network
+# REDIS_HOST=redis in the admin — same Compose-alias gap as nomad-mysql.container.
+NetworkAlias=redis
+
+# Sibling of storage/, same reasoning as nomad-mysql.container.
+Volume=/var/srv/nomad/redis:/data
+
+HealthCmd=redis-cli ping
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+Notify=healthy
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

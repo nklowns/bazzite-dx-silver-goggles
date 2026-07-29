@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>Project NOMAD</short>
+  <description>Command Center (61380) and the Dozzle log viewer (61381), in this layer's reserved DX-service range 61300-61399 so they never collide with a per-project dev server. Definition only, bound to no zone until `ujust nomad-firewall-on`, and unnecessary over the tailnet where tailscale0 already sits in the trusted zone. Ollama (61382) is deliberately NOT listed: the Command Center reaches it over the container network rather than the host port, localhost use needs no rule, and Ollama ships no authentication at all — opening it would put an unauthenticated inference server on the LAN. Supply Depot apps are likewise not pre-opened; open a port by hand only for an app you have decided to expose.</description>
+  <port protocol="tcp" port="61380"/>
+  <port protocol="tcp" port="61381"/>
+</service>

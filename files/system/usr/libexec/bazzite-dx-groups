@@ -291,6 +291,7 @@ ConfigureSelinux
 ConfigureLibvirtNss
 ConfigureSambaSelinux
 ConfigureContainerSelinux
+ConfigureNomadStorage
 ConfigureFirewall
 
 if IsStateSynchronized; then

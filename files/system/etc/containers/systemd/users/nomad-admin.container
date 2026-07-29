@@ -1,0 +1,121 @@
+# Project NOMAD Command Center — the orchestrator, and the reason this stack is Quadlet.
+#
+# WHY /etc AND NOT /usr, given Atomic State Policy item 1
+# ------------------------------------------------------
+# Rootless Quadlet has no /usr search path. `man podman-systemd.unit`, "Podman rootless unit
+# search path", lists exactly four:
+#     $XDG_RUNTIME_DIR/containers/systemd/
+#     $XDG_CONFIG_HOME/containers/systemd/  or  ~/.config/containers/systemd/
+#     /etc/containers/systemd/users/$(UID)
+#     /etc/containers/systemd/users/
+# The rootful path list does include /usr/share/containers/systemd/, so shipping these
+# image-resident under /usr would work — but only by running the stack rootful, which throws
+# away the single property that made podman the right engine here (see the security note
+# below). /etc/containers/systemd/users/ without a UID is the compromise: image-resident via
+# the files module, no hardcoded 1000. Item 1 forbids mutating /etc imperatively at runtime;
+# it does not forbid the files-module overlay, which already places 21 files under /etc in
+# this repo (/etc/skel, /etc/profile.d, /etc/libvirt/hooks/qemu, /etc/udev/rules.d, …).
+#
+# WHY PODMAN AND NOT DOCKER, given the upstream ships a Compose file
+# -----------------------------------------------------------------
+# Because the GPU question was measured rather than assumed, and it went the other way from
+# the obvious reading. Podman's docker-compat API accepts the DeviceRequests payload the
+# admin emits and then silently drops it:
+#     POST /v1.41/containers/create  HostConfig.DeviceRequests[{Driver:nvidia,Count:-1}]
+#     -> 201 Created, Warnings: [], start 204, logs: NO_NVIDIA_DEVICES
+# while docker, same payload and same host, injects the devices. So the Command Center cannot
+# give a child container a GPU on podman — it would report "NVIDIA container runtime detected"
+# to the UI and run Ollama on CPU with no error anywhere. Rather than pay for that with a
+# global `[containers] devices=` default (which would hand a GPU to mysql and redis too), the
+# GPU workload moved out: Ollama is its own Quadlet with a real CDI device, and the admin
+# points at it as an endpoint. Nothing this container spawns needs a GPU any more, which is
+# what makes rootless podman viable at all.
+
+[Unit]
+Description=Project NOMAD — Command Center
+# Requires= + Notify=healthy on the dependencies means "start me once mysql and redis are
+# actually answering", not merely once their processes exist. Adonis migrates on boot and
+# exits on a refused connection, so the distinction is the difference between a working
+# stack and a crash loop.
+Requires=nomad-mysql.service nomad-redis.service
+After=nomad-mysql.service nomad-redis.service
+# The socket bind below is %t/podman/podman.sock, which exists only while the user's
+# podman.socket unit is listening — podman is socket-activated, so the path is created by the
+# unit, not by the daemon. It happens to be active on this host, but that is host state, not a
+# contract, and the failure mode is quiet: the container starts, the mount resolves to
+# nothing useful, and the Command Center just cannot orchestrate anything. Pulling the socket
+# in here also means the image does not have to enable it at boot — it comes up with NOMAD
+# and not before.
+Requires=podman.socket
+After=podman.socket
+
+[Container]
+Image=ghcr.io/crosstalk-solutions/project-nomad@sha256:e0240ec836396bfefa7934851e05b11a151512e8e1b8a784d3d5adfad85c9bcf
+ContainerName=nomad_admin
+Network=project-nomad_default.network
+
+# 61380 sits in this layer's reserved DX-service range (61300-61399) so it never collides
+# with a project's own dev server. Upstream defaults to 8080, which on a developer
+# workstation is the one port guaranteed to be contested.
+PublishPort=61380:8080
+
+# The storage root the admin hands to every child app. _resolveHostStorageRoot() inspects
+# this very mount to decide where child binds live, so the host side is the single source of
+# truth for the whole tree — and why mysql/ and redis/ are its siblings, not its children.
+Volume=/var/srv/nomad/storage:/app/storage
+
+# SECURITY DECISION, stated openly rather than buried in a flag.
+# The Command Center orchestrates every Supply Depot app through the container socket; with
+# no socket it is an empty dashboard. SELinux denies that bind outright — measured:
+#     podman run -v /run/user/1000/podman/podman.sock:/var/run/docker.sock alpine ls -la
+#     -> Permission denied
+#     …with --security-opt label=disable -> srw-rw---- root root
+# so this container runs unconfined by SELinux. Under rootful docker that would be handing
+# out root on the host and would not be acceptable. Here the socket is the *user's* rootless
+# podman: the container gains what the user already has, not an escalation. That difference
+# is precisely why the engine decision went to podman.
+Volume=%t/podman/podman.sock:/var/run/docker.sock
+SecurityLabelDisable=true
+
+EnvironmentFile=/var/srv/nomad/.env
+Environment=NODE_ENV=production
+Environment=NOMAD_STORAGE_PATH=/var/srv/nomad/storage
+Environment=PORT=8080
+Environment=HOST=0.0.0.0
+Environment=LOG_LEVEL=info
+Environment=DB_HOST=mysql
+Environment=DB_PORT=3306
+Environment=DB_DATABASE=nomad
+Environment=DB_NAME=nomad
+Environment=DB_USER=nomad_user
+Environment=DB_SSL=false
+Environment=REDIS_HOST=redis
+Environment=REDIS_PORT=6379
+Environment=DISABLE_COMPRESSION=false
+
+HealthCmd=curl -f http://localhost:8080/api/health
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+# READ THIS BEFORE RUNNING `systemctl --user enable`.
+#
+# Lingering is already on for the desktop user on this image:
+#     $ loginctl show-user cloud -p Linger
+#     Linger=yes
+# which changes what this section means. Without lingering, an enabled user unit starts at
+# login. WITH lingering, it starts at BOOT, with no login at all, and survives logout. So
+# `enable` here is not "remember my preference" — it is "run a database, a queue and a Node
+# server on every boot forever", which is exactly the load the Boot Impact Policy exists to
+# keep off a machine that also has to play games.
+#
+# `ujust nomad-up` therefore uses `systemctl --user start`, not `enable`: the stack runs until
+# you stop it or reboot, and comes back only when asked. This section is kept for the person
+# who genuinely wants NOMAD always-on and opts in deliberately with `enable` — the choice is
+# theirs to make explicitly, not one to inherit by accident from a default.
+WantedBy=default.target

@@ -1,0 +1,15 @@
+# Shared network for the Project NOMAD stack.
+#
+# THE NAME IS LOAD-BEARING — do not "tidy" it. admin/app/services/docker_service.ts:32 has
+#
+#     public static NOMAD_NETWORK = 'project-nomad_default'
+#
+# hardcoded, and the Command Center attaches every Supply Depot app it spawns to that
+# literal name. The value comes from Compose's `<project>_<network>` convention, which is
+# why it reads oddly here — there is no compose project any more, only the string the
+# admin will look for. NetworkName= pins it so Quadlet does not derive one from the file.
+#
+# Lives under /etc rather than /usr on purpose: rootless Quadlet has no /usr search path.
+# See the header of nomad-admin.container for the full reasoning.
+[Network]
+NetworkName=project-nomad_default

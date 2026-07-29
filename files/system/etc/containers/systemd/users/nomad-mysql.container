@@ -1,0 +1,48 @@
+[Unit]
+Description=Project NOMAD — MySQL
+# The admin runs Adonis migrations on boot and dies if the database is not accepting
+# connections yet, so this must be genuinely ready, not merely started. Notify=healthy
+# below is what makes `Requires=`/`After=` in nomad-admin.container mean "healthy"
+# rather than "process spawned" — it is the Quadlet translation of Compose's
+# `depends_on: { mysql: { condition: service_healthy } }`.
+
+[Container]
+Image=docker.io/library/mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+ContainerName=nomad_mysql
+Network=project-nomad_default.network
+# The admin connects to DB_HOST=mysql. Under Compose that name came free from the service
+# key; Quadlet only publishes ContainerName (nomad_mysql), so the short name has to be
+# declared or the admin fails DNS resolution and never completes its migrations.
+NetworkAlias=mysql
+
+# Sibling of storage/, never inside it. _resolveHostStorageRoot() (docker_service.ts:505)
+# resolves the admin's /app/storage bind and rewrites every child app's bind underneath it,
+# so nesting the database in there would make the UI's disk-usage and content browser count
+# innodb files as offline content — and put them in reach of a content reset.
+Volume=/var/srv/nomad/mysql:/var/lib/mysql
+
+# No :z here, deliberately. /var/srv/nomad is labelled container_file_t declaratively (see
+# the SELinux provisioning in files/system/usr/libexec/bazzite-dx-groups). That single
+# mechanism is required anyway, because the binds the admin generates for child apps carry
+# no :z and cannot be given one — adding :z here too would mean two writers of the same
+# label with no benefit. Measured: an unlabelled bind is denied outright, a container_file_t
+# one is writable by a plain container with no :z at all.
+EnvironmentFile=/var/srv/nomad/.env
+Environment=MYSQL_DATABASE=nomad
+Environment=MYSQL_USER=nomad_user
+
+HealthCmd=mysqladmin ping -h localhost
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=10
+Notify=healthy
+
+[Service]
+Restart=on-failure
+# First start initialises the data directory, which is far past systemd's 90s default.
+TimeoutStartSec=300
+
+[Install]
+# Nothing here is enabled by the image. `ujust nomad-up` performs the enable, matching the
+# Boot Impact Policy: a database daemon is not something a gaming session should be funding.
+WantedBy=default.target

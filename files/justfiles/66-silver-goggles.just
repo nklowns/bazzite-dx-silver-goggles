@@ -24,27 +24,38 @@ init-tailscale-systray:
     systemctl --user daemon-reload
     systemctl --user enable --now tailscale-systray
 
-# 🔒 Expose Cockpit (system admin UI, :9090) privately via tailscale serve — separate port, doesn't collide with code-server's root (443)
+# 🔒 Expose Cockpit (system admin UI, :61390) privately via tailscale serve
 [group('Network')]
 remote-cockpit-setup:
     #!/usr/bin/env bash
-    set -e
+    set -euo pipefail
     if ! systemctl is-active --quiet cockpit.socket 2>/dev/null; then
         echo "cockpit.socket not active. Enable first: sudo systemctl enable --now cockpit.socket"
         exit 1
     fi
-    # Same permission trap as remote-ide-setup: serve needs root unless --operator is set, and
-    # re-asserting it on every run turned a redundant call into a fatal one under `set -e`.
-    if tailscale serve status 2>/dev/null | grep -q 'proxy http://127.0.0.1:9090'; then
-        echo "tailscale serve already proxies 9090 — left as is."
-    elif ! tailscale serve --bg --https=9090 9090 2>/dev/null; then
-        echo "Could not configure 'tailscale serve' (it needs root here). Run either:"
-        echo "    sudo tailscale serve --bg --https=9090 9090"
-        echo "    sudo tailscale set --operator=$USER   # once, then this recipe can do it"
+    # Cockpit moved off 9090 into the reserved 61300-61399 range — 9090 is Prometheus' default
+    # and cockpit.socket squats it on every boot whether Cockpit is used or not. The drop-in
+    # doing the move is files/system/usr/lib/systemd/system/cockpit.socket.d/10-port.conf, so
+    # this only works on an image that carries it: check rather than announce a URL nobody can
+    # open.
+    if ! ss -tln 2>/dev/null | grep -q ':61390 '; then
+        echo "❌ Nada escutando em 61390. Esta imagem já tem o drop-in que move o Cockpit?"
+        echo "   Se acabou de rebasear, reinicie o socket:"
+        echo "       sudo systemctl daemon-reload && sudo systemctl restart cockpit.socket"
         exit 1
     fi
+    # Shared helper rather than an inline guard — see /usr/libexec/bazzite-dx-serve for why the
+    # three recipes stopped rolling their own (the old grep matched the proxy target and
+    # ignored the listener, so a service published on the wrong endpoint read as "already
+    # correct" and never migrated).
+    /usr/libexec/bazzite-dx-serve ensure 61390
+    # A host that ran the pre-move recipe still publishes 9090, now pointing at a dead port.
+    if [[ "$(/usr/libexec/bazzite-dx-serve status 9090)" != absent ]]; then
+        echo "⚠️  Ainda existe um serve publicando 9090, agora sem nada escutando. Remova com:"
+        echo "       sudo tailscale serve --https=9090 off"
+    fi
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "Cockpit ready at: https://$DNS_NAME:9090"
+    echo "Cockpit ready at: https://$DNS_NAME:61390"
 
 # ==============================================================================
 # GROUP 3: Setup & Packages
@@ -285,13 +296,16 @@ remote-ide-setup:
     # error aborted everything after this line — the tunnel env staging and the final
     # instructions never ran. Measured here: serve was already proxying 61337 from an earlier
     # root invocation, so the call was both redundant and fatal.
-    if tailscale serve status 2>/dev/null | grep -q 'proxy http://127.0.0.1:61337'; then
-        echo "tailscale serve already proxies 61337 — left as is."
-    elif ! tailscale serve --bg 61337 2>/dev/null; then
-        echo "Could not configure 'tailscale serve' (it needs root here). Run either:"
-        echo "    sudo tailscale serve --bg 61337"
-        echo "    sudo tailscale set --operator=$USER   # once, then this recipe can do it"
-        echo "code-server is still up on 127.0.0.1:61337; only the tailnet proxy is missing."
+    # Explicit --https=61337 keeps code-server off the bare tailnet domain (443/root), which is
+    # reserved so a per-project dev server can `tailscale serve` its own port.
+    #
+    # The inline grep this replaced looked for the proxy TARGET and ignored the listener, so on
+    # a host that had already published code-server at the root it matched, reported "already
+    # proxies 61337", and never migrated anything — the fix was inert exactly where it was
+    # needed. /usr/libexec/bazzite-dx-serve asks `serve status --json` for the listener/target
+    # pair instead, and reports a misplaced mapping rather than mistaking it for success.
+    if ! /usr/libexec/bazzite-dx-serve ensure 61337; then
+        echo "code-server segue de pé em 127.0.0.1:61337; falta só o proxy do tailnet."
     fi
 
     for name in code code-insiders antigravity; do
