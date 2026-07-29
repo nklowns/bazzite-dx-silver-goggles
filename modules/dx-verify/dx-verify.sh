@@ -62,6 +62,9 @@ readonly AUDIT_REGISTRY=(
 	"file|/etc/systemd/resolved.conf.d/00-amyos-dns.conf|Policy: DNS-over-TLS Config|Error"
 	"file|/usr/lib/NetworkManager/conf.d/00-amyos-random-mac.conf|Policy: NM MAC Randomization|Error"
 
+	"file|/usr/lib/systemd/system/nvidia-persistenced.service.d/10-device-nodes.conf|Asset: NVIDIA Persistenced Device-Node Override|Error"
+	"file|/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/10-after-persistenced.conf|Asset: CDI Generation Ordering Override|Error"
+
 	"target|graphical.target|Policy: Default Graphical Target|Warn"
 
 	"bin|docker|Tool: Docker|Error"

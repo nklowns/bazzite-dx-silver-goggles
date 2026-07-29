@@ -39,6 +39,22 @@ modules:
     system:
       enabled:
         - awccd.service
+        # Regenerates /etc/cdi/nvidia.yaml from the live system. The unit ships in the
+        # bazzite-nvidia base with `preset: enabled`, but the preset never took on this
+        # deployment — no symlink in multi-user.target.wants, `is-enabled` reports
+        # disabled. Consequence measured: the spec on disk was generated 2026-04-24 and
+        # had not moved since, so it froze a hostPath to /run/nvidia-persistenced/socket
+        # and would keep pointing at stale driver libs across NVIDIA bumps. Every CDI
+        # GPU injection died on it:
+        #     $ podman run --rm --device nvidia.com/gpu=all alpine ls /dev
+        #     Error: crun: cannot stat `/run/nvidia-persistenced/socket`
+        # Enabling it explicitly is the fix; it is a Type=oneshot that runs and exits, so
+        # it costs no resident memory and does not contradict the Boot Impact Policy.
+        # Ordering after nvidia-persistenced is handled by a drop-in — see
+        # files/system/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/, and note that
+        # generating in the degraded window silently omits the socket mount instead of
+        # failing, which is how a spec ends up wrong rather than absent.
+        - ublue-nvctk-cdi.service
       masked:
         - thermald.service
 

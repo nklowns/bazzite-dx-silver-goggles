@@ -173,6 +173,107 @@ ConfigureSambaSelinux() {
 	fi
 }
 
+ConfigureContainerSelinux() {
+	# Without this, a container gets the NVIDIA device nodes injected and then cannot open
+	# them. The failure reads like a driver problem and is not one — measured 2026-07-29,
+	# with nvidia-persistenced up and /etc/cdi/nvidia.yaml freshly generated:
+	#
+	#     $ podman run --rm --device nvidia.com/gpu=all alpine sh -c 'ls /dev | grep nvidia'
+	#     ls: /dev/nvidia0: Permission denied
+	#     ls: /dev/nvidiactl: Permission denied
+	#     ...
+	#     $ setsebool container_use_devices on   # same command again
+	#     nvidia-modeset  nvidia-uvm  nvidia-uvm-tools  nvidia0  nvidiactl
+	#
+	# container_use_dri_devices is already on and does NOT cover this: it is the iGPU/DRI
+	# path, not the nvidia char devices. This is the last of three gates between a container
+	# and the RTX 3060 — the other two are nvidia-persistenced actually starting and the CDI
+	# spec being regenerated, both handled declaratively under files/system/usr/lib/systemd/.
+	#
+	# Engine-agnostic on purpose: podman and docker both label containers container_t, so
+	# this is required either way and does not presuppose which engine a given stack uses.
+	if getsebool container_use_devices 2>/dev/null | grep -q "off$"; then
+		echo "Enabling SELinux container_use_devices boolean (GPU passthrough into containers)..."
+		setsebool -P container_use_devices on || true
+	fi
+}
+
+ConfigureNomadStorage() {
+	local root="/var/srv/nomad"
+	# tmpfiles.d owns creation (see /usr/lib/tmpfiles.d/project-nomad.conf). If the tree is
+	# not there yet, do nothing — tmpfiles runs in sysinit.target and will have made it by
+	# the next boot. Never create it here: two creators means two opinions about ownership.
+	[ -d "$root" ] || return 0
+
+	# --- btrfs: disable copy-on-write for the database directories ---------------------
+	# MySQL and Redis do random writes inside large files, which is the pathological case
+	# for CoW: every write forks a new extent, fragmenting the file and amplifying writes
+	# on the NVMe. Measured on this host: /var is btrfs, rw,relatime,ssd,discard=async,
+	# space_cache=v2, no compression, and no nodatacow anywhere.
+	#
+	# The catch that makes this urgent rather than nice-to-have: +C is inherited by files
+	# created afterwards and does NOTHING to files that already exist. There is exactly one
+	# moment to set it — while the directory is still empty. Once mysqld has initialised its
+	# datadir the only fix is recreating the database, so a directory with contents is
+	# reported and skipped rather than given a reassuring no-op.
+	local dir
+	for dir in "$root/mysql" "$root/redis"; do
+		[ -d "$dir" ] || continue
+		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+			continue
+		fi
+		if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+			echo "WARNING: $dir already has contents; cannot enable btrfs nodatacow (+C only" \
+				"affects files created after it is set). Existing data stays copy-on-write."
+			continue
+		fi
+		echo "Enabling btrfs nodatacow on empty $dir..."
+		chattr +C "$dir" || true
+	done
+
+	# --- Exclude the bulk data from any future backup ----------------------------------
+	# CACHEDIR.TAG is a cross-tool convention honoured by restic (installed here), borg, tar,
+	# duplicity and rsync --exclude-caches. Written now, before any backup exists, precisely
+	# so that whichever tool shows up later inherits the right answer without an exclude list
+	# to maintain. The claim is honest: ZIM archives and model weights are re-downloadable.
+	# The signature line is a fixed magic string — it must be byte-exact and come first.
+	local tag="$root/storage/CACHEDIR.TAG"
+	if [ -d "$root/storage" ] && [ ! -f "$tag" ]; then
+		echo "Marking $root/storage as a cache directory for backup tools..."
+		{
+			echo "Signature: 8a477f597d28d172789f06886806bc55"
+			echo "# Project NOMAD offline content (ZIM archives, model weights, maps)."
+			echo "# Re-downloadable through the Command Center; excluded from backups by"
+			echo "# tools honouring the CACHEDIR.TAG convention."
+		} >"$tag" || true
+	fi
+
+	# --- SELinux: label the tree so containers can actually use it ---------------------
+	# Measured: a bind mount of an unlabelled directory is denied outright to a container
+	# (touch -> Permission denied), and the same bind works once the directory is
+	# container_file_t. This cannot be solved with :z on our own volumes alone, because the
+	# Command Center generates binds for every Supply Depot app it spawns and those carry no
+	# :z and cannot be given one — labelling the root covers all of them at once.
+	command -v semanage >/dev/null 2>&1 || return 0
+	local spec="${root}(/.*)?" listing
+	# Capture the listing rather than piping it, so "no entry" is distinguishable from
+	# "could not ask". Piping conflated them: `semanage fcontext -l` fails without root, the
+	# empty output failed the grep, and the negation then reported the rule as missing on
+	# every single run. Match with -F — the spec contains (, ), ? and *, none of which mean
+	# themselves in a basic regex.
+	if ! listing=$(semanage fcontext -l 2>/dev/null); then
+		echo "WARNING: cannot query SELinux fcontext (needs root); skipping label registration." \
+			"Containers will be denied access to ${root} until this runs privileged."
+		return 0
+	fi
+	if ! grep -qF "$spec" <<<"$listing"; then
+		echo "Registering SELinux fcontext container_file_t for ${root}..."
+		semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
+			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
+		restorecon -R "$root" || true
+	fi
+}
+
 ConfigureFirewall() {
 	if command -v firewall-cmd >/dev/null; then
 		if ! firewall-cmd --zone=trusted --query-interface=tailscale0 >/dev/null 2>&1; then
@@ -189,6 +290,7 @@ ConfigureQemuAcl
 ConfigureSelinux
 ConfigureLibvirtNss
 ConfigureSambaSelinux
+ConfigureContainerSelinux
 ConfigureFirewall
 
 if IsStateSynchronized; then
