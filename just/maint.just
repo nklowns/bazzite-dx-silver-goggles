@@ -6,21 +6,35 @@
 [group('Just')]
 check:
     #!/usr/bin/env bash
-    find . -type f -name "*.just" | while read -r file; do
+    # A recipe with a shebang exits with the status of its LAST command, so the original
+    # version of this reported success for everything except `just lint`. Measured: with
+    # `{{{{.Names}}}}` written unescaped in 68-nomad.just, `just --fmt --check` printed
+    #     error: unknown start of token '.'
+    # and `just check` still exited 0. Justfile syntax, both bluebuild validations and the
+    # zsh/fish parses were all being discarded the same way. Collect into rc and exit on it.
+    set -uo pipefail
+    rc=0
+    # `< <(...)` rather than `find | while`: a pipe puts the loop in a subshell, where an
+    # rc set inside the body dies with it. -print0/-d '' so a path with a space survives.
+    while IFS= read -r -d '' file; do
     	echo "Checking syntax: $file"
-    	just --unstable --fmt --check -f "$file"
-    done
+    	just --unstable --fmt --check -f "$file" || rc=1
+    done < <(find . -type f -name '*.just' -not -path './.git/*' -print0)
     echo "Checking syntax: Justfile"
-    just --unstable --fmt --check -f Justfile
+    just --unstable --fmt --check -f Justfile || rc=1
     if [ -f recipes/recipe.yml ]; then
       echo "Validating BlueBuild recipe..."
-      bluebuild validate recipes/recipe.yml
+      bluebuild validate recipes/recipe.yml || rc=1
       echo "Validating generated build recipe (what CI actually ships)..."
-      just generate-recipe "bazzite-nvidia" "latest"
-      bluebuild validate recipes/build-recipe.yml
+      just generate-recipe "bazzite-nvidia" "latest" || rc=1
+      bluebuild validate recipes/build-recipe.yml || rc=1
     fi
     echo "Running ShellCheck on Bash scripts..."
-    just lint
+    just lint || rc=1
+    if [ "$rc" -ne 0 ]; then
+      echo "❌ just check: one or more validations failed (see above)."
+    fi
+    exit "$rc"
 
 # Fix Just Syntax and Format scripts
 [group('Just')]
