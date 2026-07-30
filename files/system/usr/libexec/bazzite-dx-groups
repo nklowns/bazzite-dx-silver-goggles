@@ -280,6 +280,13 @@ ConfigureNomadStorage() {
 			echo "# tools honouring the CACHEDIR.TAG convention."
 		} >"$tag" || true
 	fi
+	# This function runs as root, so anything it creates is owned by uid 0 — and uid 0 is
+	# unreachable from inside a rootless container's user namespace, which maps only
+	# {1000} plus the subuid range. A stray root-owned file in a volume a rootless container
+	# manages is not cosmetic: redis died in a restart loop over exactly this shape, with
+	# `chown: ./dump.rdb: Operation not permitted` as the only clue, and took the whole stack
+	# down with it through Requires=. Hand the tag to the owner of the tree.
+	[ ! -f "$tag" ] || chown 1000:1000 "$tag" || true
 
 	# --- SELinux: label the tree so containers can actually use it ---------------------
 	# Measured: a bind mount of an unlabelled directory is denied outright to a container

@@ -78,6 +78,29 @@ nomad-status:
     du -sh /var/srv/nomad/* 2>/dev/null || true
     echo "--- btrfs nodatacow nos bancos (C = correto) ---"
     lsattr -d /var/srv/nomad/mysql /var/srv/nomad/redis 2>/dev/null || true
+    echo "--- arquivos inalcançáveis pelos containers rootless ---"
+    # A rootless container's user namespace maps exactly {1000} plus this user's subuid range.
+    # A file owned by anything else cannot be chowned, or often even removed, from inside —
+    # not by container root, not by `podman unshare`. That is not a cosmetic problem: a single
+    # 89-byte redis snapshot owned by a raw uid put nomad-redis in a restart loop with
+    #     chown: ./dump.rdb: Operation not permitted
+    # as the only symptom, and took the entire stack down through Requires=. Nothing in that
+    # message mentions ownership, namespaces or subuids, which is why this check exists.
+    SUB_START=$(awk -F: -v u="$USER" '$1==u {print $2; exit}' /etc/subuid 2>/dev/null)
+    SUB_LEN=$(awk -F: -v u="$USER" '$1==u {print $3; exit}' /etc/subuid 2>/dev/null)
+    if [[ -n "${SUB_START:-}" && -n "${SUB_LEN:-}" ]]; then
+        BAD=$(find /var/srv/nomad -printf '%U %p\n' 2>/dev/null |
+            awk -v me="$(id -u)" -v s="$SUB_START" -v e="$((SUB_START + SUB_LEN - 1))" \
+                '$1 != me && ($1 < s || $1 > e)')
+        if [[ -n "$BAD" ]]; then
+            echo "$BAD" | sed 's/^/    ⚠️  uid /'
+            echo "    Corrija com: sudo chown $(id -u):$(id -g) <arquivo>   (ou remova, se for descartável)"
+        else
+            echo "    (nenhum — todos dentro de {$(id -u)} ∪ [$SUB_START, $((SUB_START + SUB_LEN - 1))])"
+        fi
+    else
+        echo "    (sem faixa de subuid para $USER em /etc/subuid — rootless não funcionaria)"
+    fi
 
 # 🔄 Atualizar as imagens pinadas mantendo os dados intactos
 [group('NOMAD')]
