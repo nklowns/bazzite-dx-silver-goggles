@@ -84,7 +84,15 @@ code-server               enabled     ide-tunnel@code-insiders  enabled
 tailscale-systray         enabled     agy-warmup.timer          enabled
 ```
 
-Two VS Code tunnel servers at ~10 s each plus a 23 s warmup, all before the desktop is usable — and `uxplay`/`code-server` are precisely the services this section calls "opt-in and manual". They *were* opted into; nothing ever accounted for the accumulation. `ujust boot-audit` exists to make that visible; the policy is only as real as the thing that checks it.
+Two VS Code tunnel servers at ~10 s each plus a 23 s warmup, all before the desktop is usable — and `uxplay`/`code-server` are precisely the services this section calls "opt-in and manual". They *were* opted into; nothing ever accounted for the accumulation.
+
+**`ujust boot-audit` is a diagnostic, not a watchdog, and the distinction is not pedantry.** An earlier version of this paragraph ended "the policy is only as real as the thing that checks it", pointing at that command — which promises supervision a manual command cannot provide. The evidence is `uupd.timer`: it sat inert for an unknown length of time, the machine quietly stopped auto-updating, and no watchdog would have caught it because nobody was running one. What caught it was investigating something else and looking.
+
+So run it when you ask *"what is actually on this machine?"* — after a rebase, when something behaves oddly, or before changing what starts at boot. Expect roughly twenty lines, most of them intentional: `tailscaled` and `sunshine` are supposed to be there, and `docker`/`libvirtd` may well be too. It reports facts and labels nothing a violation, because it cannot tell your deliberate choice from accumulated drift — only you can.
+
+A baseline file plus an acknowledge command was considered and rejected: it would solve a problem other than the one that actually occurred, and add state that itself needs maintaining. If real supervision is ever wanted, the shape is a timer that reports or `uupd` failing loudly — a different decision, not taken here.
+
+The exception this section makes for `lock-on-session-start.service` belongs with the rule rather than hidden in a recipe: `ujust autologin-setup` **enables** it, which the rule above forbids. It is a oneshot that locks the screen and exits, so it competes for none of the CPU/RAM/VRAM this policy protects, and leaving it disabled would leave autologin unguarded — an open desktop is strictly worse than the login screen it replaced.
 
 ## 🏗️ Architecture
 
@@ -141,6 +149,34 @@ recipe.yml              ← Entry point (declarative orchestration)
 ## 🛡️ Atomic State Policy (MANDATORY)
 
 Immutable/atomic host — imperative system mutations on the live host are forbidden. Everything is baked into the image at build time.
+
+### `/usr` is declarative. `/etc` is only seeded. Know which one you are writing to.
+
+"Declarative and immutable" is true of `/usr` and merely *advisory* for `/etc`, and conflating the two produced nearly every wrong diagnosis this layer has recorded. **26 of the 112 files this image ships land in `/etc`** — not the periphery: all six NOMAD Quadlet units, `cockpit.conf`, the resolved DNS drop-in, `/etc/skel`.
+
+| | `/usr` (86 files) | `/etc` (26 files) |
+| :--- | :--- | :--- |
+| Image replaces on rebase | always | **only if you never touched it** |
+| You edit it | impossible, read-only | your edit wins forever |
+| You delete it | impossible | **your deletion wins forever, silently** |
+| Image re-asserts later | yes | **never** |
+
+ostree performs a three-way merge on `/etc` at deployment time, so a local change — including a deletion — outranks the image from then on. That is the OS working as designed: the administrator outranks the vendor. It is also why declaring something is not the same as it being applied.
+
+**Measured consequences, so nobody has to rediscover them:**
+
+- `uupd.timer` was **inert** — the machine had stopped auto-updating, with no error, no failed unit, nothing. `ostree admin config-diff` reported it as `D`.
+- `ublue-nvctk-cdi.service` was likewise `D`, and the base image had been enabling it all along: both deployments on disk carry the symlink under `usr/etc/systemd/system/multi-user.target.wants/`, including the one predating the line that "added" it.
+- Adding `systemd: enabled:` to a recipe therefore **repairs nothing on an upgraded host**. It works on a fresh install. On this one, only `systemctl enable` does.
+
+**Practical rules:**
+
+1. Prefer `/usr` whenever the mechanism allows it. Rootless Quadlet is the notable case where it does not — see the Key Directories note.
+2. A recipe's `systemd: enabled:` declares intent and documents a dependency. Do not treat it as a guarantee, and do not "fix" a disabled unit by re-declaring it.
+3. Runtime provisioning (`bazzite-dx-groups`) is the reliable path for anything that must actually be true on an existing host. It ran successfully on the very boot where the declarative unit enablement did not.
+4. `ujust boot-audit` reports both directions of divergence. The direction that hurts is the quiet one — what the image enables and the host does not.
+
+### Rules
 
 1. **Static files** go under `files/system/` (the `files` module overlays them onto `/`). Never mutate `/etc` directly.
 2. **Flatpak overrides**: NEVER use `flatpak override` or `sudo cp` in scripts. Use `tmpfiles.d` with the **`L+` (symlink with overwrite)** pattern linking `/usr/share/flatpak/overrides/` → `/var/lib/flatpak/overrides/`.
