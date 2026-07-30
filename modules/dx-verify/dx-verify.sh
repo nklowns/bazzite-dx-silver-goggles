@@ -82,6 +82,10 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system/nvidia-persistenced.service.d/10-device-nodes.conf|Asset: NVIDIA Persistenced Device-Node Override|Error"
 	"file|/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/10-after-persistenced.conf|Asset: CDI Generation Ordering Override|Error"
 	"file|/usr/lib/systemd/system/cockpit.socket.d/10-port.conf|Asset: Cockpit Port Relocation (61390)|Error"
+	# Not decoration: without it the WebSocket upgrade is refused on the origin check and
+	# Cockpit is unusable behind the tailnet proxy, while still serving a login page that
+	# looks fine. Presence is a weak assert, but losing this file is a silent breakage.
+	"file|/etc/cockpit/cockpit.conf|Policy: Cockpit Reverse-Proxy Origin Handling|Error"
 	"file|/usr/lib/firewalld/services/project-nomad.xml|Asset: Project NOMAD Firewalld Policy|Error"
 
 	"target|graphical.target|Policy: Default Graphical Target|Warn"
