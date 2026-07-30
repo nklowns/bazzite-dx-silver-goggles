@@ -198,6 +198,39 @@ ConfigureContainerSelinux() {
 	fi
 }
 
+ConfigureCockpitPortLabel() {
+	# Moving a port in a systemd drop-in is only half the job under SELinux: the policy
+	# constrains which port LABEL a domain may bind, and cockpit_ws_t is allowed websm_port_t,
+	# which by default covers only 9090. Relocating the socket to 61390 without relabelling
+	# leaves the unit dead on arrival, with an error that names neither SELinux nor the port:
+	#
+	#     cockpit.socket: Failed to receive listening socket ([::]:61390): Input/output error
+	#     cockpit.socket: Failed with result 'resources'.
+	#
+	# The audit log is where it actually says so:
+	#
+	#     avc: denied { name_bind } comm="(sd-listen)" src=61390
+	#       scontext=system_u:system_r:cockpit_ws_t:s0
+	#       tcontext=system_u:object_r:unreserved_port_t:s0
+	#
+	# Measured on a clean boot of the image that first shipped the drop-in — the port move
+	# was verified in isolation beforehand and still broke here, because that check looked at
+	# request origins and never at port labels.
+	command -v semanage >/dev/null 2>&1 || return 0
+	local listing
+	if ! listing=$(semanage port -l 2>/dev/null); then
+		echo "WARNING: cannot query SELinux port labels (needs root); Cockpit will fail to" \
+			"bind 61390 until this runs privileged."
+		return 0
+	fi
+	if grep '^websm_port_t' <<<"$listing" | grep -q '61390'; then
+		return 0
+	fi
+	echo "Labelling tcp/61390 as websm_port_t so Cockpit may bind it..."
+	semanage port -a -t websm_port_t -p tcp 61390 2>/dev/null ||
+		semanage port -m -t websm_port_t -p tcp 61390 2>/dev/null || true
+}
+
 ConfigureNomadStorage() {
 	local root="/var/srv/nomad"
 	# tmpfiles.d owns creation (see /usr/lib/tmpfiles.d/project-nomad.conf). If the tree is
@@ -291,6 +324,7 @@ ConfigureSelinux
 ConfigureLibvirtNss
 ConfigureSambaSelinux
 ConfigureContainerSelinux
+ConfigureCockpitPortLabel
 ConfigureNomadStorage
 ConfigureFirewall
 
