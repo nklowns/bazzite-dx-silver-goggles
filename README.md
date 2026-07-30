@@ -171,6 +171,20 @@ http://ollama:11434
 
 That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Then `ujust ollama-pull-models` fetches models sized for 6 GB of VRAM (`llama3.2:3b`, `qwen2.5-coder:7b`, and `nomic-embed-text`, which is what the RAG indexer uses).
 
+### The Supply Depot will say "AI Assistant — Stopped". Leave it stopped.
+
+That entry tracks the Ollama the Command Center manages itself, and it is genuinely not
+running — deliberately. Yours runs beside it, outside NOMAD's registry, which is the only way
+it gets the GPU. The chat view is where the truth shows: it reports **Remote Connected**.
+
+**Do not press Start on that card.** It would create a second Ollama, CPU-only for the reason
+above, listening on its own port and holding its own copy of the weights, competing for the
+same 6 GB of VRAM the moment anything loads a model. Nothing warns you — both would appear to
+work, one just answers slowly. The same applies to installing "AI Assistant" from the catalog.
+
+This is the price of the arrangement, and it was accepted knowingly: NOMAD cannot show a
+container it does not manage, and it cannot manage this one without taking the GPU away.
+
 **The container is called `nomad_ollama_gpu`, and the suffix is load-bearing.** `admin/constants/service_names.ts` reserves `nomad_ollama` for the instance the Command Center manages itself, and the Command Center holds the container socket — so anything wearing one of its service names is a container it may stop, remove or recreate at will. The first version of this unit was named `nomad_ollama`, which handed it straight back to the orchestrator this arrangement exists to keep it away from: it answered the admin's probes and disappeared in the same second, leaving no stop reason in its own journal. The network alias stays `ollama`, so the endpoint you configure in the UI never changes; only the container name has to stay outside NOMAD's namespace.
 
 Qdrant, which backs RAG search, is not in the management stack either — it is provisioned on demand as a Supply Depot app when you first use the knowledge base. It needs no GPU, so it is unaffected by the above.
@@ -237,7 +251,7 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust nomad-shell` | `podman unshare` shell for managing NOMAD's files |
 | `ujust ollama-up` | Start GPU inference |
 | `ujust ollama-down` | Stop it and release VRAM |
-| `ujust ollama-pull-models` | Fetch models sized for 6 GB VRAM |
+| `ujust ollama-pull-models` | Fetch the models NOMAD actually names (`nomic-embed-text:v1.5`, `qwen2.5:3b`, `llama3.2:3b`) |
 | `ujust remote-nomad-setup` | Publish the Command Center on the tailnet (`https://…:61380`) |
 | `ujust remote-nomad-teardown` | Unpublish it and restore the local `URL` |
 | `ujust nomad-firewall-on` | Open `61380`/`61381` on the local network |

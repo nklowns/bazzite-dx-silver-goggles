@@ -160,13 +160,30 @@ ollama-pull-models:
         echo "❌ Ollama não está rodando. Rode 'ujust ollama-up' primeiro."
         exit 1
     fi
-    for m in llama3.2:3b nomic-embed-text qwen2.5-coder:7b; do
+    # Names taken from admin/constants/ollama.ts, not chosen here. The first version of this
+    # recipe guessed, and guessed wrong twice:
+    #
+    #   EMBEDDING_MODEL_NAME        = 'nomic-embed-text:v1.5'
+    #   DEFAULT_QUERY_REWRITE_MODEL = 'qwen2.5:3b'
+    #
+    # Pulling `nomic-embed-text` untagged yields `nomic-embed-text:latest`, which does not
+    # match the exact name NOMAD looks up — the model is present and the app still reports it
+    # missing. And `qwen2.5-coder:7b` is a coding model; the RAG pipeline wants plain
+    # `qwen2.5:3b` to rewrite queries. The Command Center says so itself, in the chat view:
+    # "The qwen2.5:3b model is not installed."
+    for m in nomic-embed-text:v1.5 qwen2.5:3b llama3.2:3b; do
         echo "→ $m"
         # nomad_ollama_gpu, not nomad_ollama: the latter is a name the Command Center claims
         # for its own managed service and will happily stop and remove.
         podman exec nomad_ollama_gpu ollama pull "$m"
     done
-    echo "✅ Modelos baixados. 'nomic-embed-text' é o que o RAG do NOMAD usa para indexar."
+    echo "✅ Modelos baixados."
+    echo "   nomic-embed-text:v1.5  indexação do RAG (sem ele a busca nos seus documentos não funciona)"
+    echo "   qwen2.5:3b             reescrita de query do RAG"
+    echo "   llama3.2:3b            chat, dimensionado para os 6 GB da RTX 3060"
+    echo
+    echo "Para trabalho com código, opcional e fora do que o NOMAD usa:"
+    echo "   podman exec nomad_ollama_gpu ollama pull qwen2.5-coder:7b"
 
 # 🗂️ Shell com o mapeamento de UID do rootless, para mexer nos arquivos do NOMAD
 [group('NOMAD')]
