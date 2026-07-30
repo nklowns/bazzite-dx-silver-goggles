@@ -198,6 +198,84 @@ ConfigureContainerSelinux() {
 	fi
 }
 
+ClearAutologinObstacles() {
+	# Makes the user's own autologin choice stick. Does NOT make that choice — see the note at
+	# the end of this function for why the split matters.
+	#
+	# WHY AUTOLOGIN MATTERS HERE, on a machine that is otherwise conservative about this
+	# sunshine.service carries Requisite=graphical-session.target — not Wants, not After. It
+	# fails immediately if that target is inactive, and the target is only reached once someone
+	# logs in graphically. Without autologin every reboot locks remote access out until a human
+	# walks to the machine, which defeats the tailscale-first arrangement the rest of this image
+	# is built around.
+	#
+	# The security ledger, measured rather than assumed:
+	#   - zero LUKS partitions, so the login screen is not a boundary against physical access;
+	#     anyone holding the machine boots a USB stick and reads the btrfs. It stops casual
+	#     access, and the LOCK SCREEN stops exactly as much.
+	#   - no pam_kwallet in /etc/pam.d, so autologin does not unlock the wallet. Secrets keep
+	#     asking for their own password.
+	#   - verified on this hardware: with the session locked, Sunshine still streams the lock
+	#     screen and input reaches it, so unlocking remotely works. Without that test this would
+	#     have been reckless — a Wayland compositor that refused to be captured while locked
+	#     would leave a black stream, i.e. remote access that looks alive and is not.
+	# The lock half is not optional. See the ujust that ties them together.
+	local dropin_dir="/etc/plasmalogin.conf.d"
+	[ -d "$dropin_dir" ] || return 0
+
+	# Human accounts only. plasma-setup is a system account (uid 968) and must never be picked.
+	local admins=() u uid
+	for u in $(getent group wheel | cut -d: -f4 | tr ',' ' '); do
+		uid=$(id -u "$u" 2>/dev/null) || continue
+		[ "$uid" -ge 1000 ] 2>/dev/null && admins+=("$u")
+	done
+
+	if [ "${#admins[@]}" -eq 0 ]; then
+		# FIRST BOOT OF A FRESH INSTALL. The out-of-box wizard has not created anyone yet, and
+		# it is the thing that will. Suppressing it here would leave a machine nobody can log
+		# into — return before touching anything.
+		return 0
+	fi
+
+	# From here a human administrator exists, so the wizard has served its purpose.
+	# plasma-setup.service guards on ConditionPathExists=!/etc/plasma-setup-done, and that file
+	# is never created on this image — measured: the service ran 17 seconds into this boot and
+	# rewrote the autologin config, as it does on every boot, planting
+	# 99-plasma-setup.conf with User=plasma-setup. plasmalogin ignores it (system account) and
+	# falls back to the greeter, so the visible effect is nil and the real effect is that any
+	# autologin config here is in a permanent race. Ending the wizard removes the race entirely.
+	# Blast radius checked: plasma-setup.service is the ONLY consumer of that path anywhere in
+	# /usr/lib/systemd/system, /usr/libexec or /usr/bin. Undo with `rm /etc/plasma-setup-done`.
+	if [ ! -f /etc/plasma-setup-done ]; then
+		echo "Marking Plasma first-run setup complete (a human administrator exists)..."
+		: >/etc/plasma-setup-done || true
+	fi
+	rm -f "$dropin_dir/99-plasma-setup.conf"
+
+	# AND THAT IS ALL THIS DOES. It clears the ground; it does not configure autologin.
+	#
+	# An earlier version of this function wrote the [Autologin] block itself, resolving the
+	# username at runtime so the image would not carry it. That was the right instinct and the
+	# wrong owner: System Settings → Login Screen writes the same setting to
+	# /etc/plasmalogin.conf, and a boot service that rewrote it would silently undo whatever the
+	# user had just chosen in the UI. The failure mode is the worst kind — the official tool
+	# appears not to work, and nothing explains why.
+	#
+	# It would also have got the value wrong. That version wrote `Session=plasma`; the KDE UI
+	# writes `Session=plasma.desktop`, and the suffix matters — autologin fails back to the
+	# greeter without it. The component that owns a setting knows its format; guessing at it
+	# from a shell script does not.
+	#
+	# So the division is: this function removes what fights the user (a wizard that rewrites
+	# autologin on every boot, and its stale drop-in), and the user owns the setting through the
+	# UI. `ujust boot-audit` reports what is effective, so the visibility is not lost — only the
+	# imposition is.
+	if [ "${#admins[@]}" -gt 1 ]; then
+		echo "Note: multiple human members of wheel (${admins[*]}). Autologin is configured in" \
+			"System Settings → Login Screen and applies to whichever one is named there."
+	fi
+}
+
 ConfigureCockpitPortLabel() {
 	# Moving a port in a systemd drop-in is only half the job under SELinux: the policy
 	# constrains which port LABEL a domain may bind, and cockpit_ws_t is allowed websm_port_t,
@@ -331,6 +409,7 @@ ConfigureSelinux
 ConfigureLibvirtNss
 ConfigureSambaSelinux
 ConfigureContainerSelinux
+ClearAutologinObstacles
 ConfigureCockpitPortLabel
 ConfigureNomadStorage
 ConfigureFirewall

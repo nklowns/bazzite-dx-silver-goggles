@@ -24,6 +24,61 @@ init-tailscale-systray:
     systemctl --user daemon-reload
     systemctl --user enable --now tailscale-systray
 
+# 🔓 Ligar autologin + bloqueio imediato, para o Sunshine sobreviver a um reboot remoto
+[group('Network')]
+autologin-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The two halves are enabled together and only together. Autologin alone leaves a desktop
+    # open to anyone who walks up; the lock alone does nothing. Splitting them into separate
+    # recipes would make the dangerous combination reachable by typing one of two commands.
+    #
+    # Autologin itself is NOT set here, and not by the image either. It belongs to
+    # System Settings → Login Screen, which writes /etc/plasmalogin.conf. A boot service that
+    # rewrote that would silently undo whatever was chosen in the UI, and the KDE UI also knows
+    # details a shell script would get wrong — it writes `Session=plasma.desktop`, and the
+    # suffix is load-bearing. What the image does is clear the obstacles: end the first-run
+    # wizard that rewrites autologin on every boot, and delete its stale drop-in
+    # (ClearAutologinObstacles in /usr/libexec/bazzite-dx-groups).
+    AUTOLOGIN_USER=$(grep -oP '^\s*User=\K.*' /etc/plasmalogin.conf 2>/dev/null | tail -1)
+    if [[ -z "${AUTOLOGIN_USER:-}" ]]; then
+        echo "❌ Autologin não está configurado."
+        echo "   Configure em: System Settings → Login Screen → Autologin (usuário e sessão)."
+        echo "   Volte aqui depois para ligar o bloqueio — autologin sem bloqueio deixa a"
+        echo "   máquina aberta para quem chegar nela, que é pior que a tela de login."
+        exit 1
+    fi
+    if ! id "$AUTOLOGIN_USER" >/dev/null 2>&1; then
+        echo "❌ Autologin aponta para '$AUTOLOGIN_USER', que não existe neste sistema."
+        echo "   A máquina vai parar na tela de login — corrija em System Settings."
+        exit 1
+    fi
+    echo "Autologin configurado para: $AUTOLOGIN_USER"
+    # Enabled, not started: this one has to fire at every login, which is exactly what the
+    # Boot Impact Policy tells recipes not to do. The exception is deliberate and narrow — it is
+    # a oneshot that locks the screen and exits, so it competes for nothing, and leaving it
+    # disabled would leave autologin unguarded. Documented alongside the rule in AGENTS.md.
+    systemctl --user enable --now lock-on-session-start.service
+    echo "✅ Autologin + bloqueio ativos."
+    echo "   No próximo boot a sessão abre sozinha e trava — o Sunshine passa a estar de pé"
+    echo "   sem ninguém ir até a máquina, e você destrava pelo Moonlight."
+
+# 🔒 Desligar o bloqueio automático da sessão
+[group('Network')]
+autologin-teardown:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    # Only the lock is undone here. Autologin lives in System Settings and is not this recipe's
+    # to remove — silently deleting a setting the user made in the UI is the same disrespect,
+    # in the opposite direction, that keeping it out of the boot service avoids.
+    systemctl --user disable --now lock-on-session-start.service 2>/dev/null || true
+    echo "🔓 Bloqueio automático desligado."
+    AUTOLOGIN_USER=$(grep -oP '^\s*User=\K.*' /etc/plasmalogin.conf 2>/dev/null | tail -1)
+    if [[ -n "${AUTOLOGIN_USER:-}" ]]; then
+        echo "⚠️  Autologin SEGUE ATIVO para '$AUTOLOGIN_USER' — a sessão vai abrir sozinha e"
+        echo "   agora sem travar. Para desligá-lo: System Settings → Login Screen."
+    fi
+
 # 🔒 Expose Cockpit (system admin UI, :61390) privately via tailscale serve
 [group('Network')]
 remote-cockpit-setup:

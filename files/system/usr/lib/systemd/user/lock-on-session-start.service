@@ -1,0 +1,28 @@
+[Unit]
+Description=Lock the session as soon as it starts
+Documentation=man:loginctl(1)
+# The other half of autologin, and not separable from it. Autologin exists so that
+# sunshine.service — which carries Requisite=graphical-session.target and therefore cannot start
+# before someone logs in — comes up after an unattended reboot. Without this unit that same
+# autologin leaves a desktop open to whoever walks up to the machine, which is strictly worse
+# than the login screen it replaced. `ujust autologin-setup` enables both or neither.
+#
+# Locking is viable here because it was tested rather than assumed: with the session locked, the
+# Sunshine stream still shows the lock screen and keyboard input reaches it, so the password can
+# be typed from Moonlight. Had the Wayland compositor refused to be captured while locked, the
+# result would have been a black stream — remote access that looks alive and is not — and this
+# whole arrangement would have been the wrong call.
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+Type=oneshot
+# loginctl acts on the caller's own session, so no session id has to be discovered or guessed.
+ExecStart=/usr/bin/loginctl lock-session
+# Nothing to keep alive: this fires once and exits. That is also why enabling it does not
+# contradict the Boot Impact Policy, which is about resident CPU/RAM/VRAM competing with a game
+# or a build — a oneshot that locks the screen competes with nothing.
+RemainAfterExit=no
+
+[Install]
+WantedBy=graphical-session.target

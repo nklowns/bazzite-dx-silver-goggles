@@ -100,6 +100,42 @@ boot-audit:
     fi
 
     echo
+    # Autologin decides whether this machine comes back on its own after a reboot, and every
+    # way it can break is silent: the greeter simply appears, with no error and no log. That
+    # matters more here than on a desktop, because sunshine.service carries
+    # Requisite=graphical-session.target and cannot start until someone has logged in — so a
+    # broken autologin means no remote access at all until a human walks over.
+    echo "=== Autologin e bloqueio ==="
+    AL_USER=$(grep -oP '^\s*User=\K.*' /etc/plasmalogin.conf 2>/dev/null | tail -1)
+    if [[ -z "${AL_USER:-}" ]]; then
+        echo "  autologin: não configurado (System Settings → Login Screen)"
+        echo "             consequência: após um reboot o Sunshine só sobe quando alguém logar"
+    elif ! id "$AL_USER" >/dev/null 2>&1; then
+        echo "  ⚠️  autologin aponta para '$AL_USER', que NÃO EXISTE — a máquina para na tela de login"
+    else
+        echo "  autologin: $AL_USER"
+    fi
+    # The lock is the half that stops autologin from being a downgrade. Reported separately
+    # because the dangerous state is not "both off" — it is autologin on with the lock off.
+    # `|| true`, never `|| echo <fallback>`: is-enabled already prints the state on stdout AND
+    # exits non-zero for anything but enabled, so a fallback yields both strings. The same trap
+    # is documented for is-active in casting-status, and I walked straight into it here.
+    LOCK=$(systemctl --user is-enabled lock-on-session-start.service 2>/dev/null || true)
+    LOCK=${LOCK:-ausente}
+    if [[ -n "${AL_USER:-}" && "$LOCK" != "enabled" ]]; then
+        echo "  ⚠️  bloqueio na sessão: $LOCK — com autologin ligado, a sessão abre DESTRAVADA."
+        echo "      Corrija com: ujust autologin-setup"
+    else
+        echo "  bloqueio na sessão: $LOCK"
+    fi
+    # Leftover from the first-run wizard: it rewrites autologin on every boot until
+    # /etc/plasma-setup-done exists, which is what ClearAutologinObstacles creates.
+    if [[ -f /etc/plasmalogin.conf.d/99-plasma-setup.conf ]]; then
+        echo "  ⚠️  99-plasma-setup.conf presente — o assistente de primeiro boot ainda reescreve"
+        echo "      o autologin a cada boot. Esperado antes do rebase que traz o conserto."
+    fi
+
+    echo
     echo "=== Custo medido do boot ==="
     systemd-analyze 2>/dev/null | head -1
     echo "--- sistema, 5 maiores ---"

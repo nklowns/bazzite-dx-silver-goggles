@@ -108,6 +108,8 @@ readonly AUDIT_REGISTRY=(
 	"unit|/usr/lib/systemd/user/uxplay.service|Behaviour: UxPlay Unit Parses Clean|Error"
 	"unit|/usr/lib/systemd/user/code-server.service|Behaviour: code-server Unit Parses Clean|Error"
 	"unit|/usr/lib/systemd/user/ide-tunnel@.service|Behaviour: IDE Tunnel Unit Parses Clean|Error"
+	"file|/usr/lib/systemd/user/lock-on-session-start.service|Asset: Session Lock Unit|Error"
+	"unit|/usr/lib/systemd/user/lock-on-session-start.service|Behaviour: Session Lock Unit Parses Clean|Error"
 	"nostage|/usr/share/bluebuild/justfiles|Policy: No ujust Recipe Stages a Unit into \$HOME|Error"
 
 	"file|/usr/lib/systemd/user/uxplay.service|Asset: Casting UxPlay Unit|Error"
