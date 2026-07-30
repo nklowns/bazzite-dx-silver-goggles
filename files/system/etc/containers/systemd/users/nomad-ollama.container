@@ -32,9 +32,24 @@ Description=Project NOMAD — Ollama (GPU inference)
 
 [Container]
 Image=docker.io/ollama/ollama@sha256:4dea9fb511947e24a84237bb636b0203abcb2ff0d3fbc7b4ff865deb91362131
-ContainerName=nomad_ollama
+
+# NOT `nomad_ollama`, which is what this was called first and is the single most important
+# line in the file. admin/constants/service_names.ts declares:
+#
+#     SERVICE_NAMES = { OLLAMA: 'nomad_ollama', … }
+#
+# The Command Center holds the container socket and treats any container with one of those
+# names as a service it owns — free to stop, remove and recreate. Naming this container
+# nomad_ollama handed it straight back to the orchestrator that this whole arrangement exists
+# to keep it away from. Observed: the container answered the admin's probes and then vanished
+# in the same second, leaving no stop reason in its own journal.
+#
+# The `gpu` suffix is not decoration; it is what keeps this instance outside NOMAD's registry.
+ContainerName=nomad_ollama_gpu
 Network=project-nomad_default.network
-# What the admin should be pointed at: http://ollama:11434
+# The admin is pointed at http://ollama:11434, so the alias is what has to be stable — not the
+# container name. Keeping them separate is what lets the name stay out of NOMAD's namespace
+# while the endpoint the UI is configured with never changes.
 NetworkAlias=ollama
 
 # Native CDI, which is the whole reason this container exists separately. Verified working on

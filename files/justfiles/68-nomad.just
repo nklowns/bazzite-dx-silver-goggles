@@ -162,7 +162,9 @@ ollama-pull-models:
     fi
     for m in llama3.2:3b nomic-embed-text qwen2.5-coder:7b; do
         echo "→ $m"
-        podman exec nomad_ollama ollama pull "$m"
+        # nomad_ollama_gpu, not nomad_ollama: the latter is a name the Command Center claims
+        # for its own managed service and will happily stop and remove.
+        podman exec nomad_ollama_gpu ollama pull "$m"
     done
     echo "✅ Modelos baixados. 'nomic-embed-text' é o que o RAG do NOMAD usa para indexar."
 

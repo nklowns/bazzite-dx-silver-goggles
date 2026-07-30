@@ -141,7 +141,7 @@ These overrides are synced as atomic symlinks via `tmpfiles.d` using the `L+` pa
 | `nomad-dozzle.service` | `nomad_dozzle` | `61381` | Container log viewer |
 | `nomad-mysql.service` | `nomad_mysql` | — | Application database |
 | `nomad-redis.service` | `nomad_redis` | — | Job queue |
-| `nomad-ollama.service` | `nomad_ollama` | `61382` | GPU inference (**separate on purpose** — see below) |
+| `nomad-ollama.service` | `nomad_ollama_gpu` | `61382` | GPU inference (**separate on purpose** — see below) |
 
 Units live in `/etc/containers/systemd/users/` and a systemd generator turns each `.container` into a `.service`. They are under `/etc` rather than `/usr` because **rootless Quadlet has no `/usr` search path** (`man podman-systemd.unit`); running them rootful to get `/usr/share/containers/systemd/` would forfeit the security property described under *Container socket access*.
 
@@ -170,6 +170,8 @@ http://ollama:11434
 ```
 
 That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Then `ujust ollama-pull-models` fetches models sized for 6 GB of VRAM (`llama3.2:3b`, `qwen2.5-coder:7b`, and `nomic-embed-text`, which is what the RAG indexer uses).
+
+**The container is called `nomad_ollama_gpu`, and the suffix is load-bearing.** `admin/constants/service_names.ts` reserves `nomad_ollama` for the instance the Command Center manages itself, and the Command Center holds the container socket — so anything wearing one of its service names is a container it may stop, remove or recreate at will. The first version of this unit was named `nomad_ollama`, which handed it straight back to the orchestrator this arrangement exists to keep it away from: it answered the admin's probes and disappeared in the same second, leaving no stop reason in its own journal. The network alias stays `ollama`, so the endpoint you configure in the UI never changes; only the container name has to stay outside NOMAD's namespace.
 
 Qdrant, which backs RAG search, is not in the management stack either — it is provisioned on demand as a Supply Depot app when you first use the knowledge base. It needs no GPU, so it is unaffected by the above.
 
