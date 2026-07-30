@@ -241,4 +241,17 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust nomad-firewall-on` | Open `61380`/`61381` on the local network |
 | `ujust nomad-firewall-off` | Close them again |
 
-Over the tailnet the firewall recipes are unnecessary — `tailscale0` already sits in firewalld's `trusted` zone. Ollama's `61382` is deliberately **not** in the firewalld service: it ships no authentication, and the Command Center reaches it over the container network anyway.
+## What the firewall does and does not do here
+
+`tailscale0` sits in firewalld's `trusted` zone, which accepts everything. That makes the firewall recipes above a LAN-only control — and it means **anything published on `0.0.0.0` is reachable by every device on your tailnet**, with no `tailscale serve` and no firewall rule.
+
+This is not hypothetical. While the stack was briefly published on all interfaces:
+
+```
+curl http://<host>:61381/            -> HTTP 200      (Dozzle: logs of every container)
+curl http://<host>:61382/api/tags    -> {"models":[]} (Ollama: no auth, no rate limit)
+```
+
+So the containers publish on `127.0.0.1` instead, and `ujust remote-nomad-setup` is the one deliberate way out — which also gets you real TLS rather than plain HTTP. It is the same shape code-server and Cockpit already use. Nothing internal is affected: the Command Center talks to its apps over the container network, not through host ports.
+
+If you want to share NOMAD with specific machines rather than your whole tailnet, that is a Tailscale ACL decision. firewalld cannot express it.

@@ -57,7 +57,22 @@ Network=project-nomad_default.network
 # 61380 sits in this layer's reserved DX-service range (61300-61399) so it never collides
 # with a project's own dev server. Upstream defaults to 8080, which on a developer
 # workstation is the one port guaranteed to be contested.
-PublishPort=61380:8080
+#
+# LOOPBACK, not 0.0.0.0, and the reason is measured rather than theoretical. firewalld puts
+# tailscale0 in the `trusted` zone (see bazzite-dx-groups), and trusted accepts everything —
+# so a port published on all interfaces is reachable from every device on the tailnet with no
+# `tailscale serve` and no firewall rule at all. Confirmed while this was still 61380:8080:
+#
+#     curl http://bazzite.drake-ayu.ts.net:61380/   -> HTTP 302
+#
+# The Command Center has no authentication in front of it at that point. Binding loopback
+# makes `ujust remote-nomad-setup` the single deliberate entrance, which also gets it real
+# TLS instead of plain HTTP — the same shape code-server (bind-addr 127.0.0.1:61337) and
+# Cockpit (ListenStream=127.0.0.1:61390) already use.
+#
+# Nothing internal depends on the host port: the admin reaches its child apps over the
+# container network, not through published ports.
+PublishPort=127.0.0.1:61380:8080
 
 # The storage root the admin hands to every child app. _resolveHostStorageRoot() inspects
 # this very mount to decide where child binds live, so the host side is the single source of

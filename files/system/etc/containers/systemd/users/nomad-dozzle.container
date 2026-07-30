@@ -13,9 +13,18 @@ Image=docker.io/amir20/dozzle@sha256:d383abf0fee72a8037d6ec6474424e56d752a52208e
 ContainerName=nomad_dozzle
 Network=project-nomad_default.network
 
-# 61381, next to the Command Center inside the reserved 61300-61399 range. Upstream uses
-# 9999. Not exposed over the tailnet by default — see the firewalld service definition.
-PublishPort=61381:8080
+# 61381, next to the Command Center inside the reserved 61300-61399 range. Upstream uses 9999.
+#
+# Loopback for the same reason as nomad-admin.container, and this one mattered most: with
+# tailscale0 in firewalld's `trusted` zone, publishing on all interfaces made an
+# unauthenticated log viewer readable by every device on the tailnet. Measured:
+#
+#     curl http://bazzite.drake-ayu.ts.net:61381/   -> HTTP 200
+#
+# Dozzle ships no authentication whatsoever and shows the logs of every container on the
+# host. An earlier version of the firewalld service definition claimed the LAN was protected
+# here, which was true and beside the point — the tailnet was the open path.
+PublishPort=127.0.0.1:61381:8080
 
 # Reads logs through the container socket, so it carries the same SELinux exemption and the
 # same justification as nomad-admin.container: denied outright without it, and rootless means
