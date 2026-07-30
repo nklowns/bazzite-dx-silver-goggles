@@ -39,21 +39,30 @@ modules:
     system:
       enabled:
         - awccd.service
-        # Regenerates /etc/cdi/nvidia.yaml from the live system. The unit ships in the
-        # bazzite-nvidia base with `preset: enabled`, but the preset never took on this
-        # deployment — no symlink in multi-user.target.wants, `is-enabled` reports
-        # disabled. Consequence measured: the spec on disk was generated 2026-04-24 and
-        # had not moved since, so it froze a hostPath to /run/nvidia-persistenced/socket
-        # and would keep pointing at stale driver libs across NVIDIA bumps. Every CDI
-        # GPU injection died on it:
+        # Regenerates /etc/cdi/nvidia.yaml from the live system, without which GPU
+        # containers die on a stale spec:
         #     $ podman run --rm --device nvidia.com/gpu=all alpine ls /dev
         #     Error: crun: cannot stat `/run/nvidia-persistenced/socket`
-        # Enabling it explicitly is the fix; it is a Type=oneshot that runs and exits, so
-        # it costs no resident memory and does not contradict the Boot Impact Policy.
+        #
+        # REDUNDANT ON PAPER, KEPT ON PURPOSE — and the first version of this comment got
+        # the reason wrong, so here is what was actually measured. The bazzite-nvidia base
+        # already enables this unit: both deployments on disk carry the symlink under
+        # usr/etc/systemd/system/multi-user.target.wants/, including the one from before
+        # this line existed. It was nevertheless `disabled` on the running host and the
+        # spec had not been regenerated since 2026-04-24.
+        #
+        # The cause is not a missing enable, it is an ostree /etc merge that preserves a
+        # local deletion forever: `ostree admin config-diff` reported it as `D`, and every
+        # subsequent deployment inherits that, no matter how many times the image enables
+        # it. Declaring it here therefore does NOT fix an upgraded host — only
+        # `systemctl enable` on the host does, or a fresh install. It is kept because this
+        # layer genuinely depends on the unit and that dependency should be legible, not
+        # because it repairs anything. `ujust boot-audit` is what surfaces the divergence.
+        #
         # Ordering after nvidia-persistenced is handled by a drop-in — see
-        # files/system/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/, and note that
-        # generating in the degraded window silently omits the socket mount instead of
-        # failing, which is how a spec ends up wrong rather than absent.
+        # files/system/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/. Generating in the
+        # degraded window silently omits the socket mount instead of failing, which is how
+        # a spec ends up wrong rather than absent.
         - ublue-nvctk-cdi.service
       masked:
         - thermald.service

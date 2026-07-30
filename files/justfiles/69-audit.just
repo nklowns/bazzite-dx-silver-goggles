@@ -47,6 +47,41 @@ boot-audit:
     rm -f "$img" "$host"
 
     echo
+    # THE OTHER DIRECTION, and the one that actually hurt. Everything above is "the host
+    # enabled something extra". This is "the image enables it and the host does not" — which
+    # is silent by construction: there is no failed unit, no error, the timer simply is not
+    # there. `uupd.timer` sat like this and the machine stopped auto-updating with nothing to
+    # show for it.
+    #
+    # The cause is ostree's /etc merge, not a build bug. A unit disabled locally once is
+    # recorded as a deletion and preserved across every future deployment, no matter how many
+    # times the image enables it — verified with `ostree admin config-diff`, which reports
+    # them as `D`, and by finding the symlinks present in usr/etc of BOTH deployments on disk
+    # while absent from the live /etc.
+    #
+    # Deliberately reported and not repaired. That merge behaviour is ostree working as
+    # designed: a local administrative decision outranks the image, and some of these were
+    # probably disabled on purpose. Re-enabling them from a boot service would override a
+    # choice the OS went out of its way to protect. Surfacing it is the honest job; the fix
+    # is one `systemctl enable` by someone who knows which of these they meant.
+    echo "=== Sistema: a IMAGEM habilita, o host não (deleção local preservada pelo ostree) ==="
+    img=$(mktemp) host=$(mktemp)
+    find /usr/etc/systemd/system -mindepth 2 -maxdepth 2 -path '*.wants/*' -printf '%P\n' 2>/dev/null | sort -u >"$img"
+    find /etc/systemd/system -mindepth 2 -maxdepth 2 -path '*.wants/*' -printf '%P\n' 2>/dev/null | sort -u >"$host"
+    missing=0
+    while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        printf '  %s\n' "$entry"
+        missing=1
+    done < <(comm -23 "$img" "$host")
+    if [ "$missing" -eq 1 ]; then
+        echo "  Reativar o que você quiser de volta:  sudo systemctl enable --now <unit>"
+    else
+        echo "  (nenhum)"
+    fi
+    rm -f "$img" "$host"
+
+    echo
     echo "=== Usuário: habilitado em \$HOME ==="
     # Every enablement symlink under ~/.config is local by construction — the image ships its
     # user units in /usr/lib/systemd/user and never enables them. So there is no baseline to
