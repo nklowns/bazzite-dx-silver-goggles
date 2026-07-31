@@ -7,7 +7,7 @@ Description=Project NOMAD — MySQL
 # `depends_on: { mysql: { condition: service_healthy } }`.
 
 [Container]
-Image=docker.io/library/mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+Image=docker.io/library/mysql@sha256:66aec17cd21a956029b83f083b813073859e8355dc1a00e55df6ba02f0e32345
 ContainerName=nomad_mysql
 Network=project-nomad_default.network
 # The admin connects to DB_HOST=mysql. Under Compose that name came free from the service
