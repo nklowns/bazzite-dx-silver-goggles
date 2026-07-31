@@ -9,7 +9,7 @@ Requires=podman.socket
 After=podman.socket
 
 [Container]
-Image=docker.io/amir20/dozzle@sha256:d383abf0fee72a8037d6ec6474424e56d752a52208e0ed70f4805e9d86a77830
+Image=docker.io/amir20/dozzle@sha256:1c1060cfb5402093c4e0f03f3534d7deaffeb0a6f6dd034e7c5f244603f35fb3
 ContainerName=nomad_dozzle
 Network=project-nomad_default.network
 
