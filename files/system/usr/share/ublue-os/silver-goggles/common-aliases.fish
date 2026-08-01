@@ -95,5 +95,3 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
     # </delta>
 
 end
-
-

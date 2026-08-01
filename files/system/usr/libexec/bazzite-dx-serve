@@ -37,80 +37,81 @@ Usage() {
 	exit 2
 }
 
-# Prints the listeners whose "/" handler proxies to 127.0.0.1:<port>, one per line.
+# Prints the listeners whose "/" handler proxies to target_scheme://127.0.0.1:<target_port>, one per line.
 _ListenersProxyingTo() {
-	local port="$1"
+	local target_port="$1"
+	local target_scheme="${2:-http}"
+	local expected_proxy="${target_scheme}://127.0.0.1:${target_port}"
 	tailscale serve status --json 2>/dev/null |
-		jq -r --arg p "$port" '
+		jq -r --arg proxy "$expected_proxy" '
 			(.Web // {}) | to_entries[]
-			| select((.value.Handlers["/"].Proxy // "") == "http://127.0.0.1:" + $p)
+			| select((.value.Handlers["/"].Proxy // "") == $proxy)
 			| .key
 		' 2>/dev/null || true
 }
 
 Status() {
-	local port="$1" listener
+	local listen_port="$1"
+	local target_port="${2:-$listen_port}"
+	local target_scheme="${3:-http}"
+	local listener
 	while IFS= read -r listener; do
 		[ -n "$listener" ] || continue
-		# Listener keys are always "<dnsname>:<port>" — including the root mapping, which
-		# reports as "…:443" rather than as a bare host. Verified against this host's live
-		# config, where code-server on the tailnet root shows up as
-		#     misplaced:bazzite.drake-ayu.ts.net:443
-		# which is exactly the state the old grep read as success.
-		if [[ "$listener" == *:"$port" ]]; then
+		if [[ "$listener" == *:"$listen_port" ]]; then
 			echo "ok"
 			return 0
 		fi
 		echo "misplaced:${listener}"
 		return 0
-	done < <(_ListenersProxyingTo "$port")
+	done < <(_ListenersProxyingTo "$target_port" "$target_scheme")
 	echo "absent"
 }
 
 Ensure() {
-	local port="$1" state
-	state=$(Status "$port")
+	local listen_port="$1"
+	local target_port="${2:-$listen_port}"
+	local target_scheme="${3:-http}"
+	local target_uri="${target_scheme}://127.0.0.1:${target_port}"
+	local state
+	state=$(Status "$listen_port" "$target_port" "$target_scheme")
 	case "$state" in
 	ok)
-		echo "tailscale serve já publica ${port} na porta certa — mantido."
+		echo "tailscale serve já publica ${listen_port} (apontando para ${target_uri}) — mantido."
 		return 0
 		;;
 	misplaced:*)
-		# Deliberately NOT auto-removing it. This is remote, shared configuration: another
-		# device may be using that URL right now, and silently repointing it is the kind of
-		# change that should be a human decision. Print the exact commands instead.
 		local where="${state#misplaced:}"
-		echo "⚠️  A porta ${port} está publicada no listener errado: ${where}"
+		echo "⚠️  A porta ${target_port} está publicada no listener errado: ${where}"
 		echo "    Isso ocupa um endpoint do tailnet que deveria estar livre. Para migrar:"
 		echo "        sudo tailscale serve --https=${where##*:} off"
-		echo "        sudo tailscale serve --bg --https=${port} ${port}"
+		echo "        sudo tailscale serve --bg --https=${listen_port} ${target_uri}"
 		echo "    (não faço isso sozinho: outra máquina pode estar usando essa URL agora)"
 		return 0
 		;;
 	esac
 	# absent — publish it. Needs root unless `tailscale set --operator=$USER` was run once.
-	if tailscale serve --bg --https="$port" "$port" 2>/dev/null; then
+	if tailscale serve --bg --https="$listen_port" "$target_uri" 2>/dev/null; then
 		return 0
 	fi
 	echo "Não consegui configurar o 'tailscale serve' (precisa de root aqui). Rode:"
-	echo "    sudo tailscale serve --bg --https=${port} ${port}"
+	echo "    sudo tailscale serve --bg --https=${listen_port} ${target_uri}"
 	echo "    sudo tailscale set --operator=${USER}   # uma vez, e este recipe passa a funcionar"
 	return 1
 }
 
 Off() {
-	local port="$1"
-	if ! tailscale serve --https="$port" off 2>/dev/null; then
+	local listen_port="$1"
+	if ! tailscale serve --https="$listen_port" off 2>/dev/null; then
 		echo "Não consegui remover (precisa de root). Rode:"
-		echo "    sudo tailscale serve --https=${port} off"
+		echo "    sudo tailscale serve --https=${listen_port} off"
 		return 1
 	fi
 }
 
-[ $# -eq 2 ] || Usage
+[ $# -ge 2 ] || Usage
 case "$1" in
-status) Status "$2" ;;
-ensure) Ensure "$2" ;;
+status) Status "$2" "${3:-}" "${4:-}" ;;
+ensure) Ensure "$2" "${3:-}" "${4:-}" ;;
 off) Off "$2" ;;
 *) Usage ;;
 esac

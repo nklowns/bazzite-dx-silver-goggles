@@ -2,6 +2,6 @@
 # Same non-default-profile CDP guard as Chrome (Chromium-based); dedicated
 # automation profile keeps the personal signed-in profile off the debug port.
 exec /usr/bin/flatpak run --branch=stable --arch=x86_64 com.microsoft.Edge \
-  --remote-debugging-port=9223 \
-  --user-data-dir="$HOME/.config/microsoft-edge-cdp" \
-  "$@"
+	--remote-debugging-port=9223 \
+	--user-data-dir="$HOME/.config/microsoft-edge-cdp" \
+	"$@"

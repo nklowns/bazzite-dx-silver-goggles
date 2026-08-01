@@ -96,5 +96,3 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 	# </delta>
 
 fi
-
-

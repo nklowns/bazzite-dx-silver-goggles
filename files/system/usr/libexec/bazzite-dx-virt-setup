@@ -20,196 +20,197 @@ source /usr/libexec/bazzite-dx-virt-lib
 ACTION="$1"
 
 if [[ $(id -u) -eq 0 ]]; then
-  echo "Please do not run this command as root"
-  exit 1
+	echo "Please do not run this command as root"
+	exit 1
 fi
 
 # Check if we are running on a Steam Deck
 if /usr/libexec/hwsupport/valve-hardware; then
-  echo "${red}${b}WARNING${n}: Virtualization is not properly supported on Steam Deck by Valve"
-  echo "Use at your own risk and performance may not be ideal."
+	echo "${red}${b}WARNING${n}: Virtualization is not properly supported on Steam Deck by Valve"
+	echo "Use at your own risk and performance may not be ideal."
 fi
 
 # Check if libvirt daemon or socket is active (supporting both modular virtqemud and legacy libvirtd)
 VIRT_SERVICE="virtqemud.socket"
 if ! systemctl list-unit-files | grep -q "virtqemud.socket"; then
-  VIRT_SERVICE="libvirtd.service"
+	VIRT_SERVICE="libvirtd.service"
 fi
 
 if [ "$(systemctl is-enabled "$VIRT_SERVICE" 2>/dev/null)" == "disabled" ]; then
-  echo "${b}${VIRT_SERVICE}${n} service is ${red}disabled${n}!"
-  echo "${green}enabling${n} and starting ${VIRT_SERVICE}..."
-  echo "If virt-manager says the socket is not available after a big update, re-run this command."
-  sudo systemctl enable --now "$VIRT_SERVICE" 2> /dev/null
-  # For modular setup, also enable helper network, storage and node-dev sockets
-  if [ "$VIRT_SERVICE" == "virtqemud.socket" ]; then
-    sudo systemctl enable --now virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
-  fi
-  echo "Press ESC if you want to exit and do not need to do anything"
+	echo "${b}${VIRT_SERVICE}${n} service is ${red}disabled${n}!"
+	echo "${green}enabling${n} and starting ${VIRT_SERVICE}..."
+	echo "If virt-manager says the socket is not available after a big update, re-run this command."
+	sudo systemctl enable --now "$VIRT_SERVICE" 2>/dev/null
+	# For modular setup, also enable helper network, storage and node-dev sockets
+	if [ "$VIRT_SERVICE" == "virtqemud.socket" ]; then
+		sudo systemctl enable --now virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+	fi
+	echo "Press ESC if you want to exit and do not need to do anything"
 fi
 
 OPTION="$ACTION"
 if [ "$OPTION" == "help" ]; then
-  echo "Usage: ujust setup-virtualization <option>"
-  echo "  <option>: Specify the quick option to skip the prompt"
-  echo "  Use 'virt-on' to select Enable Virtualization"
-  echo "  Use 'virt-off' to select Disable Virtualization"
-  echo "  Use 'group' to select Add \$USER to libvirt group"
-  echo "  Use 'vfio-on' to select Enable VFIO drivers"
-  echo "  Use 'vfio-off' to select Disable VFIO drivers"
-  echo "  Use 'kvmfr-on' to select Enable Looking Glass Support"
-  echo "  Use 'kvmfr-off' to select Disable Looking Glass Support"
-  echo "  Use 'pwaudio-on' to select Enable PipeWire VM Audio"
-  echo "  Use 'pwaudio-off' to select Disable PipeWire VM Audio"
-  echo "  Use 'vfs-workspace-on' to select Setup Virtio-FS Workspace Permissions"
-  echo "  Use 'vfs-workspace-off' to select Remove Virtio-FS Workspace Permissions"
-  exit 0
+	echo "Usage: ujust setup-virtualization <option>"
+	echo "  <option>: Specify the quick option to skip the prompt"
+	echo "  Use 'virt-on' to select Enable Virtualization"
+	echo "  Use 'virt-off' to select Disable Virtualization"
+	echo "  Use 'group' to select Add \$USER to libvirt group"
+	echo "  Use 'vfio-on' to select Enable VFIO drivers"
+	echo "  Use 'vfio-off' to select Disable VFIO drivers"
+	echo "  Use 'kvmfr-on' to select Enable Looking Glass Support"
+	echo "  Use 'kvmfr-off' to select Disable Looking Glass Support"
+	echo "  Use 'pwaudio-on' to select Enable PipeWire VM Audio"
+	echo "  Use 'pwaudio-off' to select Disable PipeWire VM Audio"
+	echo "  Use 'vfs-workspace-on' to select Setup Virtio-FS Workspace Permissions"
+	echo "  Use 'vfs-workspace-off' to select Remove Virtio-FS Workspace Permissions"
+	exit 0
 elif [ -n "$OPTION" ]; then
-  # Map CLI shortcut actions to their corresponding menu text
-  case "${OPTION,,}" in
-    virt-on)      OPTION="Setup Simultaneous Graphics (NVIDIA on Host + VM)" ;;
-    virt-off)     OPTION="Disable All Virtualization Kargs" ;;
-    group)        OPTION="Add $USER to libvirt group" ;;
-    vfio-on)      OPTION="Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" ;;
-    vfio-off)     OPTION="Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" ;;
-    kvmfr-on)     OPTION="Enable KVMFR / Looking Glass Support" ;;
-    kvmfr-off)    OPTION="Disable KVMFR / Looking Glass Support" ;;
-    pwaudio-on)   OPTION="Enable PipeWire VM Audio Support (Microphone)" ;;
-    pwaudio-off)  OPTION="Disable PipeWire VM Audio Support (Microphone)" ;;
-    vfs-workspace-on)  OPTION="Configure Virtio-FS Shared Workspace Directory (SELinux)" ;;
-    vfs-workspace-off) OPTION="Remove Virtio-FS Shared Workspace Directory (SELinux)" ;;
-  esac
+	# Map CLI shortcut actions to their corresponding menu text
+	case "${OPTION,,}" in
+	virt-on) OPTION="Setup Simultaneous Graphics (NVIDIA on Host + VM)" ;;
+	virt-off) OPTION="Disable All Virtualization Kargs" ;;
+	group) OPTION="Add $USER to libvirt group" ;;
+	vfio-on) OPTION="Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" ;;
+	vfio-off) OPTION="Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" ;;
+	kvmfr-on) OPTION="Enable KVMFR / Looking Glass Support" ;;
+	kvmfr-off) OPTION="Disable KVMFR / Looking Glass Support" ;;
+	pwaudio-on) OPTION="Enable PipeWire VM Audio Support (Microphone)" ;;
+	pwaudio-off) OPTION="Disable PipeWire VM Audio Support (Microphone)" ;;
+	vfs-workspace-on) OPTION="Configure Virtio-FS Shared Workspace Directory (SELinux)" ;;
+	vfs-workspace-off) OPTION="Remove Virtio-FS Shared Workspace Directory (SELinux)" ;;
+	esac
 elif [ "$OPTION" == "" ]; then
-  echo "${bold}Virtualization Setup & Diagnostics${normal}"
-  echo "NOTE: Choose the mode that fits your workflow."
-  OPTION=$(Choose \
-    "Check Virtualization Readiness (Status)" \
-    "Setup Simultaneous Graphics (NVIDIA on Host + VM)" \
-    "Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" \
-    "Enable KVMFR / Looking Glass Support" \
-    "Disable KVMFR / Looking Glass Support" \
-    "Enable PipeWire VM Audio Support (Microphone)" \
-    "Disable PipeWire VM Audio Support (Microphone)" \
-    "Configure Virtio-FS Shared Workspace Directory (SELinux)" \
-    "Remove Virtio-FS Shared Workspace Directory (SELinux)" \
-    "Add $USER to libvirt group" \
-    "Disable All Virtualization Kargs" \
-  )
+	echo "${bold}Virtualization Setup & Diagnostics${normal}"
+	echo "NOTE: Choose the mode that fits your workflow."
+	OPTION=$(
+		Choose \
+			"Check Virtualization Readiness (Status)" \
+			"Setup Simultaneous Graphics (NVIDIA on Host + VM)" \
+			"Setup Exclusive GPU Passthrough (NVIDIA for VM ONLY)" \
+			"Enable KVMFR / Looking Glass Support" \
+			"Disable KVMFR / Looking Glass Support" \
+			"Enable PipeWire VM Audio Support (Microphone)" \
+			"Disable PipeWire VM Audio Support (Microphone)" \
+			"Configure Virtio-FS Shared Workspace Directory (SELinux)" \
+			"Remove Virtio-FS Shared Workspace Directory (SELinux)" \
+			"Add $USER to libvirt group" \
+			"Disable All Virtualization Kargs"
+	)
 fi
 
 if [[ "$OPTION" =~ "Status" ]]; then
-    echo "${bold}--- Virtualization Readiness Report ---${normal}"
-    # 1. IOMMU Check
-    if sudo dmesg | grep -i -e IOMMU -e DMAR | grep -q "enabled"; then
-        echo "  [${green}OK${normal}] IOMMU is enabled in kernel."
-    else
-        echo "  [${red}FAIL${normal}] IOMMU not detected. Check BIOS (VT-d/AMD-Vi) and kargs."
-    fi
-    # 2. KVMFR Check
-    if [ -c "/dev/kvmfr0" ]; then
-        echo "  [${green}OK${normal}] /dev/kvmfr0 is active."
-    else
-        echo "  [${yellow}PENDING${normal}] /dev/kvmfr0 not found."
-    fi
-    # 3. SELinux KVMFR Policy Check
-    if sudo semodule -l | grep -q "^kvmfr$"; then
-        echo "  [${green}OK${normal}] SELinux KVMFR policy loaded."
-    else
-        echo "  [${red}FAIL${normal}] SELinux KVMFR policy missing."
-    fi
-    # 4. SELinux PipeWire Policy Check
-    if sudo semodule -l | grep -q "^pipewire$"; then
-        echo "  [${green}OK${normal}] SELinux PipeWire policy loaded."
-    else
-        echo "  [${red}FAIL${normal}] SELinux PipeWire policy missing."
-    fi
-    # 5. QEMU Hook Runner Check
-    if [ -x "/etc/libvirt/hooks/qemu" ]; then
-        echo "  [${green}OK${normal}] QEMU hook runner is active and executable."
-    else
-        echo "  [${red}FAIL${normal}] QEMU hook runner missing or not executable."
-    fi
-    # 6. Group Check
-    if groups | grep -q "libvirt"; then
-        echo "  [${green}OK${normal}] User in libvirt group."
-    else
-        echo "  [${yellow}PENDING${normal}] User NOT in libvirt group."
-    fi
-    # 7. QEMU Conf Check
-    if [ -f "/etc/libvirt/qemu.conf" ] && grep -q "kvmfr0" "/etc/libvirt/qemu.conf"; then
-        echo "  [${green}OK${normal}] QEMU is configured for Looking Glass."
-    else
-        echo "  [${yellow}PENDING${normal}] QEMU ACL missing /dev/kvmfr0."
-    fi
-    echo "---------------------------------------"
+	echo "${bold}--- Virtualization Readiness Report ---${normal}"
+	# 1. IOMMU Check
+	if sudo dmesg | grep -i -e IOMMU -e DMAR | grep -q "enabled"; then
+		echo "  [${green}OK${normal}] IOMMU is enabled in kernel."
+	else
+		echo "  [${red}FAIL${normal}] IOMMU not detected. Check BIOS (VT-d/AMD-Vi) and kargs."
+	fi
+	# 2. KVMFR Check
+	if [ -c "/dev/kvmfr0" ]; then
+		echo "  [${green}OK${normal}] /dev/kvmfr0 is active."
+	else
+		echo "  [${yellow}PENDING${normal}] /dev/kvmfr0 not found."
+	fi
+	# 3. SELinux KVMFR Policy Check
+	if sudo semodule -l | grep -q "^kvmfr$"; then
+		echo "  [${green}OK${normal}] SELinux KVMFR policy loaded."
+	else
+		echo "  [${red}FAIL${normal}] SELinux KVMFR policy missing."
+	fi
+	# 4. SELinux PipeWire Policy Check
+	if sudo semodule -l | grep -q "^pipewire$"; then
+		echo "  [${green}OK${normal}] SELinux PipeWire policy loaded."
+	else
+		echo "  [${red}FAIL${normal}] SELinux PipeWire policy missing."
+	fi
+	# 5. QEMU Hook Runner Check
+	if [ -x "/etc/libvirt/hooks/qemu" ]; then
+		echo "  [${green}OK${normal}] QEMU hook runner is active and executable."
+	else
+		echo "  [${red}FAIL${normal}] QEMU hook runner missing or not executable."
+	fi
+	# 6. Group Check
+	if groups | grep -q "libvirt"; then
+		echo "  [${green}OK${normal}] User in libvirt group."
+	else
+		echo "  [${yellow}PENDING${normal}] User NOT in libvirt group."
+	fi
+	# 7. QEMU Conf Check
+	if [ -f "/etc/libvirt/qemu.conf" ] && grep -q "kvmfr0" "/etc/libvirt/qemu.conf"; then
+		echo "  [${green}OK${normal}] QEMU is configured for Looking Glass."
+	else
+		echo "  [${yellow}PENDING${normal}] QEMU ACL missing /dev/kvmfr0."
+	fi
+	echo "---------------------------------------"
 
 elif [[ "$OPTION" =~ "Simultaneous" ]]; then
-    echo "Enabling Virtualization Core (Safe Mode)..."
-    echo "NVIDIA will remain available for Bazzite/Games."
-    CPU_VENDOR=$(grep -m1 "vendor_id" "/proc/cpuinfo" | awk -F: '{print $2}' | xargs)
-    VENDOR_KARG="intel_iommu=on"
-    [[ "${CPU_VENDOR}" == "AuthenticAMD" ]] && VENDOR_KARG="amd_iommu=on"
-    
-    rpm-ostree kargs \
-        --append-if-missing="${VENDOR_KARG}" \
-        --append-if-missing="iommu=pt" \
-        --append-if-missing="kvm.ignore_msrs=1"
-    echo "${green}Success!${n} Reboot to enable IOMMU infrastructure safely."
+	echo "Enabling Virtualization Core (Safe Mode)..."
+	echo "NVIDIA will remain available for Bazzite/Games."
+	CPU_VENDOR=$(grep -m1 "vendor_id" "/proc/cpuinfo" | awk -F: '{print $2}' | xargs)
+	VENDOR_KARG="intel_iommu=on"
+	[[ "${CPU_VENDOR}" == "AuthenticAMD" ]] && VENDOR_KARG="amd_iommu=on"
+
+	rpm-ostree kargs \
+		--append-if-missing="${VENDOR_KARG}" \
+		--append-if-missing="iommu=pt" \
+		--append-if-missing="kvm.ignore_msrs=1"
+	echo "${green}Success!${n} Reboot to enable IOMMU infrastructure safely."
 
 elif [[ "$OPTION" =~ "Exclusive" ]]; then
-    vfio_action=""
-    if [[ "${ACTION,,}" == "vfio-on" ]]; then
-        echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
-        vfio_action="Bind"
-    elif [[ "${ACTION,,}" == "vfio-off" ]]; then
-        echo "Restoring NVIDIA to Bazzite host..."
-        vfio_action="Unbind"
-    fi
-    /usr/libexec/bazzite-dx-manage-vfio "$vfio_action"
+	vfio_action=""
+	if [[ "${ACTION,,}" == "vfio-on" ]]; then
+		echo "${red}${b}WARNING:${n} This mode will take NVIDIA away from Bazzite."
+		vfio_action="Bind"
+	elif [[ "${ACTION,,}" == "vfio-off" ]]; then
+		echo "Restoring NVIDIA to Bazzite host..."
+		vfio_action="Unbind"
+	fi
+	/usr/libexec/bazzite-dx-manage-vfio "$vfio_action"
 
 elif [[ "${OPTION,,}" =~ "kvmfr-on" || "$OPTION" =~ "Enable KVMFR" || "$OPTION" == "kvmfr" ]]; then
-    EnsureQEMUHook
-    sudo /usr/libexec/bazzite-dx-kvmfr-setup
+	EnsureQEMUHook
+	sudo /usr/libexec/bazzite-dx-kvmfr-setup
 
 elif [[ "${OPTION,,}" =~ "kvmfr-off" || "$OPTION" =~ "Disable KVMFR" ]]; then
-    echo "Disabling KVMFR / Looking Glass Support..."
+	echo "Disabling KVMFR / Looking Glass Support..."
 
-    # Restore declarative opt-out masks so /usr/lib/ assets are neutralised on next boot.
-    # Empty modules-load.d mask → systemd-modules-load skips kvmfr.
-    # /dev/null udev mask → udev skips /usr/lib/udev/rules.d/99-kvmfr.rules.
-    echo "Restoring opt-out masks..."
-    sudo install -Dm644 /dev/null /etc/modules-load.d/kvmfr.conf
-    sudo ln -sf /dev/null /etc/udev/rules.d/99-kvmfr.rules
-    sudo rm -f /etc/modprobe.d/kvmfr.conf
+	# Restore declarative opt-out masks so /usr/lib/ assets are neutralised on next boot.
+	# Empty modules-load.d mask → systemd-modules-load skips kvmfr.
+	# /dev/null udev mask → udev skips /usr/lib/udev/rules.d/99-kvmfr.rules.
+	echo "Restoring opt-out masks..."
+	sudo install -Dm644 /dev/null /etc/modules-load.d/kvmfr.conf
+	sudo ln -sf /dev/null /etc/udev/rules.d/99-kvmfr.rules
+	sudo rm -f /etc/modprobe.d/kvmfr.conf
 
-    # Unload the module from the running kernel (best-effort; may fail if a VM is active)
-    if lsmod | grep -q "^kvmfr "; then
-        echo "Unloading kvmfr module..."
-        sudo modprobe -r kvmfr 2>/dev/null || \
-            echo "${yellow}Note:${n} kvmfr in use — will be disabled on next reboot."
-    fi
+	# Unload the module from the running kernel (best-effort; may fail if a VM is active)
+	if lsmod | grep -q "^kvmfr "; then
+		echo "Unloading kvmfr module..."
+		sudo modprobe -r kvmfr 2>/dev/null ||
+			echo "${yellow}Note:${n} kvmfr in use — will be disabled on next reboot."
+	fi
 
-    # Remove kernel argument
-    if rpm-ostree kargs | grep -q "kvmfr.static_size_mb"; then
-        echo "Removing kvmfr karg..."
-        KVMFR_KARG=$(rpm-ostree kargs | grep -o 'kvmfr.static_size_mb=[^ ]*' || true)
-        if [ -n "$KVMFR_KARG" ]; then
-            rpm-ostree kargs --delete-if-present="$KVMFR_KARG"
-        fi
-    fi
+	# Remove kernel argument
+	if rpm-ostree kargs | grep -q "kvmfr.static_size_mb"; then
+		echo "Removing kvmfr karg..."
+		KVMFR_KARG=$(rpm-ostree kargs | grep -o 'kvmfr.static_size_mb=[^ ]*' || true)
+		if [ -n "$KVMFR_KARG" ]; then
+			rpm-ostree kargs --delete-if-present="$KVMFR_KARG"
+		fi
+	fi
 
-    # Remove SELinux policy
-    if sudo semodule -l | grep -q "^kvmfr$"; then
-        echo "Removing kvmfr SELinux policy..."
-        sudo semodule -r kvmfr
-        sudo rm -f /etc/ublue/kvmfr-policy.checksum
-    fi
+	# Remove SELinux policy
+	if sudo semodule -l | grep -q "^kvmfr$"; then
+		echo "Removing kvmfr SELinux policy..."
+		sudo semodule -r kvmfr
+		sudo rm -f /etc/ublue/kvmfr-policy.checksum
+	fi
 
-    # Remove from qemu.conf cgroup list if present
-    QEMU_CONF="/etc/libvirt/qemu.conf"
-    if [ -f "$QEMU_CONF" ]; then
-        echo "Removing /dev/kvmfr0 from qemu.conf device ACL..."
-        sudo python3 -c '
+	# Remove from qemu.conf cgroup list if present
+	QEMU_CONF="/etc/libvirt/qemu.conf"
+	if [ -f "$QEMU_CONF" ]; then
+		echo "Removing /dev/kvmfr0 from qemu.conf device ACL..."
+		sudo python3 -c '
 import sys, re
 path = sys.argv[1]
 try:
@@ -225,91 +226,91 @@ try:
 except Exception as e:
     print(f"Error: {e}")
 ' "$QEMU_CONF"
-    fi
-    echo "Restarting virtualization services..."
-    sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
-    echo "${green}Success!${n} KVMFR / Looking Glass Support disabled. Reboot to complete."
+	fi
+	echo "Restarting virtualization services..."
+	sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+	echo "${green}Success!${n} KVMFR / Looking Glass Support disabled. Reboot to complete."
 
 elif [[ "${OPTION,,}" =~ "pwaudio-on" || "$OPTION" =~ "Enable PipeWire" ]]; then
-    echo "Enabling PipeWire VM Audio Support..."
-    EnsureQEMUHook
-    sudo mkdir -p /etc/ublue
-    sudo touch /etc/ublue/virt-pipewire.enable
-    if [ -f "/usr/share/selinux/packages/pipewire.cil" ]; then
-        echo "Loading SELinux policy for PipeWire..."
-        sudo semodule -i /usr/share/selinux/packages/pipewire.cil
-    fi
-    echo "Restarting virtualization services..."
-    sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
-    echo "${green}Success!${n} PipeWire VM Audio Support enabled."
+	echo "Enabling PipeWire VM Audio Support..."
+	EnsureQEMUHook
+	sudo mkdir -p /etc/ublue
+	sudo touch /etc/ublue/virt-pipewire.enable
+	if [ -f "/usr/share/selinux/packages/pipewire.cil" ]; then
+		echo "Loading SELinux policy for PipeWire..."
+		sudo semodule -i /usr/share/selinux/packages/pipewire.cil
+	fi
+	echo "Restarting virtualization services..."
+	sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+	echo "${green}Success!${n} PipeWire VM Audio Support enabled."
 
 elif [[ "${OPTION,,}" =~ "pwaudio-off" || "$OPTION" =~ "Disable PipeWire" ]]; then
-    echo "Disabling PipeWire VM Audio Support..."
-    sudo rm -f /etc/ublue/virt-pipewire.enable
-    if sudo semodule -l | grep -q "^pipewire$"; then
-        echo "Removing SELinux policy for PipeWire..."
-        sudo semodule -r pipewire
-    fi
-    echo "Restarting virtualization services..."
-    sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
-    echo "${green}Success!${n} PipeWire VM Audio Support disabled."
+	echo "Disabling PipeWire VM Audio Support..."
+	sudo rm -f /etc/ublue/virt-pipewire.enable
+	if sudo semodule -l | grep -q "^pipewire$"; then
+		echo "Removing SELinux policy for PipeWire..."
+		sudo semodule -r pipewire
+	fi
+	echo "Restarting virtualization services..."
+	sudo systemctl restart virtqemud.socket virtqemud.service virtnetworkd.socket virtstoraged.socket virtnodedevd.socket 2>/dev/null || true
+	echo "${green}Success!${n} PipeWire VM Audio Support disabled."
 
 elif [[ "${OPTION,,}" =~ "vfs-workspace-on" || "$OPTION" =~ "Configure Virtio-FS" ]]; then
-    read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
-    WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
-    # Strip trailing slash if present to avoid double slashes in regex
-    WORKSPACE_PATH="${WORKSPACE_PATH%/}"
-    mkdir -p "$WORKSPACE_PATH"
-    
-    # Resolve /home to /var/home to avoid SELinux equivalence rule conflicts on OSTree systems
-    SEMANAGE_PATH="$WORKSPACE_PATH"
-    if [[ "$SEMANAGE_PATH" =~ ^/home/ ]]; then
-        SEMANAGE_PATH="/var/home${SEMANAGE_PATH#/home}"
-    fi
+	read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
+	WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
+	# Strip trailing slash if present to avoid double slashes in regex
+	WORKSPACE_PATH="${WORKSPACE_PATH%/}"
+	mkdir -p "$WORKSPACE_PATH"
 
-    echo "Configurando permissões do SELinux para o diretório: $WORKSPACE_PATH..."
-    sudo semanage fcontext -a -t svirt_image_t "${SEMANAGE_PATH}(/.*)?"
-    sudo restorecon -Rv "$WORKSPACE_PATH"
-    echo "${green}Sucesso!${n} O diretório $WORKSPACE_PATH agora está configurado para acesso via Virtio-FS."
+	# Resolve /home to /var/home to avoid SELinux equivalence rule conflicts on OSTree systems
+	SEMANAGE_PATH="$WORKSPACE_PATH"
+	if [[ "$SEMANAGE_PATH" =~ ^/home/ ]]; then
+		SEMANAGE_PATH="/var/home${SEMANAGE_PATH#/home}"
+	fi
+
+	echo "Configurando permissões do SELinux para o diretório: $WORKSPACE_PATH..."
+	sudo semanage fcontext -a -t svirt_image_t "${SEMANAGE_PATH}(/.*)?"
+	sudo restorecon -Rv "$WORKSPACE_PATH"
+	echo "${green}Sucesso!${n} O diretório $WORKSPACE_PATH agora está configurado para acesso via Virtio-FS."
 
 elif [[ "${OPTION,,}" =~ "vfs-workspace-off" || "$OPTION" =~ "Remove Virtio-FS" ]]; then
-    read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
-    WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
-    # Strip trailing slash if present
-    WORKSPACE_PATH="${WORKSPACE_PATH%/}"
-    
-    # Resolve /home to /var/home for SELinux path equivalence
-    SEMANAGE_PATH="$WORKSPACE_PATH"
-    if [[ "$SEMANAGE_PATH" =~ ^/home/ ]]; then
-        SEMANAGE_PATH="/var/home${SEMANAGE_PATH#/home}"
-    fi
+	read -rp "Digite o caminho absoluto do diretório no Host (padrão: $HOME/workspace): " WORKSPACE_PATH
+	WORKSPACE_PATH="${WORKSPACE_PATH:-$HOME/workspace}"
+	# Strip trailing slash if present
+	WORKSPACE_PATH="${WORKSPACE_PATH%/}"
 
-    echo "Removendo permissões do SELinux para o diretório: $WORKSPACE_PATH..."
-    sudo semanage fcontext -d -t svirt_image_t "${SEMANAGE_PATH}(/.*)?" 2>/dev/null || true
-    sudo restorecon -Rv "$WORKSPACE_PATH"
-    echo "${green}Sucesso!${n} Permissões do SELinux para $WORKSPACE_PATH foram removidas."
+	# Resolve /home to /var/home for SELinux path equivalence
+	SEMANAGE_PATH="$WORKSPACE_PATH"
+	if [[ "$SEMANAGE_PATH" =~ ^/home/ ]]; then
+		SEMANAGE_PATH="/var/home${SEMANAGE_PATH#/home}"
+	fi
+
+	echo "Removendo permissões do SELinux para o diretório: $WORKSPACE_PATH..."
+	sudo semanage fcontext -d -t svirt_image_t "${SEMANAGE_PATH}(/.*)?" 2>/dev/null || true
+	sudo restorecon -Rv "$WORKSPACE_PATH"
+	echo "${green}Sucesso!${n} Permissões do SELinux para $WORKSPACE_PATH foram removidas."
 
 elif [[ "$OPTION" =~ "Add" ]]; then
-    if ! grep -q "^libvirt" /etc/group; then
-      grep '^libvirt' /usr/lib/group | sudo tee -a /etc/group > /dev/null
-    fi
-    sudo usermod -aG libvirt "$USER"
-    echo "User added to libvirt. Log out and log in to apply."
+	if ! grep -q "^libvirt" /etc/group; then
+		grep '^libvirt' /usr/lib/group | sudo tee -a /etc/group >/dev/null
+	fi
+	sudo usermod -aG libvirt "$USER"
+	echo "User added to libvirt. Log out and log in to apply."
 
 elif [[ "$OPTION" =~ "Disable" ]]; then
-    echo "Removing all virtualization kargs..."
-    rpm-ostree kargs \
-        --delete-if-present="intel_iommu=on" \
-        --delete-if-present="amd_iommu=on" \
-        --delete-if-present="iommu=pt" \
-        --delete-if-present="kvm.ignore_msrs=1" \
-        --delete-if-present="kvm.report_ignored_msrs=0" \
-        --delete-if-present="kvm_intel.nested=1"
-    # Note: kvmfr.static_size_mb is baked via /usr/lib/modprobe.d/kvmfr.conf — karg
-    # removal reduces to the modprobe default but does NOT unload the module.
-    KVMFR_KARG=$(rpm-ostree kargs | grep -o 'kvmfr.static_size_mb=[^ ]*' || true)
-    if [ -n "$KVMFR_KARG" ]; then
-        rpm-ostree kargs --delete-if-present="$KVMFR_KARG"
-    fi
-    echo "Kargs removed. Reboot required."
+	echo "Removing all virtualization kargs..."
+	rpm-ostree kargs \
+		--delete-if-present="intel_iommu=on" \
+		--delete-if-present="amd_iommu=on" \
+		--delete-if-present="iommu=pt" \
+		--delete-if-present="kvm.ignore_msrs=1" \
+		--delete-if-present="kvm.report_ignored_msrs=0" \
+		--delete-if-present="kvm_intel.nested=1"
+	# Note: kvmfr.static_size_mb is baked via /usr/lib/modprobe.d/kvmfr.conf — karg
+	# removal reduces to the modprobe default but does NOT unload the module.
+	KVMFR_KARG=$(rpm-ostree kargs | grep -o 'kvmfr.static_size_mb=[^ ]*' || true)
+	if [ -n "$KVMFR_KARG" ]; then
+		rpm-ostree kargs --delete-if-present="$KVMFR_KARG"
+	fi
+	echo "Kargs removed. Reboot required."
 fi

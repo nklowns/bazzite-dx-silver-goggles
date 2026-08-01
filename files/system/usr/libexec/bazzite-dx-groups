@@ -49,7 +49,7 @@ GrantDeveloperEntitlements() {
 	# Return 0 (success) only when at least one user was provisioned.
 	# Returning non-zero prevents PersistStateMarker from being called on
 	# first-boot race conditions where no wheel member exists yet (OOBE not complete).
-	return $(( provisioned_count > 0 ? 0 : 1 ))
+	return $((provisioned_count > 0 ? 0 : 1))
 }
 
 PersistStateMarker() {
@@ -65,7 +65,7 @@ ConfigureQemuAcl() {
 		local _kvmfr_udev="/etc/udev/rules.d/99-kvmfr.rules"
 		# A /dev/null symlink in /etc/ is the declarative opt-out mask.
 		if [ -L "$_kvmfr_udev" ] && [ "$(readlink "$_kvmfr_udev" 2>/dev/null)" = "/dev/null" ]; then
-			has_kvmfr=0  # explicitly masked
+			has_kvmfr=0 # explicitly masked
 		elif [ -f "$_kvmfr_udev" ] || [ -f "/usr/lib/udev/rules.d/99-kvmfr.rules" ]; then
 			has_kvmfr=1
 		fi
@@ -116,7 +116,7 @@ ConfigureSelinux() {
 		local policy_name
 		policy_name=$(basename "$policy_path" .cil)
 		local checksum_file="/etc/ublue/${policy_name}-policy.checksum"
-		
+
 		# Check if the policy is optional and enabled
 		local is_enabled=true
 		if [ "$policy_name" = "pipewire" ]; then
@@ -125,8 +125,8 @@ ConfigureSelinux() {
 			fi
 		elif [ "$policy_name" = "kvmfr" ]; then
 			# Masked (/dev/null symlink in /etc/) = kvmfr opt-out; skip SELinux policy.
-			if [ -L "/etc/udev/rules.d/99-kvmfr.rules" ] && \
-			   [ "$(readlink /etc/udev/rules.d/99-kvmfr.rules 2>/dev/null)" = "/dev/null" ]; then
+			if [ -L "/etc/udev/rules.d/99-kvmfr.rules" ] &&
+				[ "$(readlink /etc/udev/rules.d/99-kvmfr.rules 2>/dev/null)" = "/dev/null" ]; then
 				is_enabled=false
 			fi
 		fi
@@ -134,17 +134,17 @@ ConfigureSelinux() {
 		if [ "$is_enabled" = "true" ]; then
 			local current_checksum
 			current_checksum=$(sha256sum "$policy_path" | cut -d' ' -f1)
-			
+
 			local stored_checksum=""
 			if [ -f "$checksum_file" ]; then
 				stored_checksum=$(cat "$checksum_file")
 			fi
-			
+
 			if [ "$current_checksum" != "$stored_checksum" ] || ! semodule -l | grep -q "^${policy_name}$"; then
 				echo "Installing/updating SELinux custom policy for ${policy_name}..."
 				if semodule -i "$policy_path"; then
 					mkdir -p "$(dirname "$checksum_file")"
-					echo "$current_checksum" > "$checksum_file"
+					echo "$current_checksum" >"$checksum_file"
 				fi
 			fi
 		else

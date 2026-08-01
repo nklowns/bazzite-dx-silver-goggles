@@ -16,64 +16,65 @@ echo "${bold}Windows Guest Utility Suite (Bazzite-DX)${normal}"
 echo "This helper provides links and snippets for high-performance Windows VMs."
 echo "----------------------------------------------------------------------"
 
-OPTION=$(Choose \
-  "Download VirtIO Drivers (ISO)" \
-  "Download Looking Glass B7 Host (Windows)" \
-  "Install Looking Glass B7 Client (Linux Host)" \
-  "Download Virtual Display Driver (Idd)" \
-  "Show Libvirt XML Snippets" \
+OPTION=$(
+	Choose \
+		"Download VirtIO Drivers (ISO)" \
+		"Download Looking Glass B7 Host (Windows)" \
+		"Install Looking Glass B7 Client (Linux Host)" \
+		"Download Virtual Display Driver (Idd)" \
+		"Show Libvirt XML Snippets"
 )
 
 if [[ "$OPTION" =~ "VirtIO" ]]; then
-    echo "Opening download link for latest stable VirtIO drivers..."
-    echo "Link: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso"
-    xdg-open "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso" || true
+	echo "Opening download link for latest stable VirtIO drivers..."
+	echo "Link: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso"
+	xdg-open "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso" || true
 
 elif [[ "$OPTION" =~ "Windows" ]]; then
-    echo "Opening Looking Glass B7 Host Setup download..."
-    echo "Note: Ensure you download the 'Host' version for Windows."
-    echo "Link: https://looking-glass.io/downloads"
-    xdg-open "https://looking-glass.io/downloads" || true
+	echo "Opening Looking Glass B7 Host Setup download..."
+	echo "Note: Ensure you download the 'Host' version for Windows."
+	echo "Link: https://looking-glass.io/downloads"
+	xdg-open "https://looking-glass.io/downloads" || true
 
 elif [[ "$OPTION" =~ "Linux Host" ]]; then
-    echo "${bold}Looking Glass Client Status:${normal}"
-    echo "Looking Glass Client is ${green}pre-installed${normal} directly in the Bazzite-DX Silver Goggles system image!"
-    echo "No manual layering or compilation is required on the host."
-    echo ""
-    echo "To launch the client, simply open a terminal on your host and run:"
-    echo "------------------------------------------------"
-    echo "looking-glass-client"
-    echo "------------------------------------------------"
-    echo "Use the ${bold}Scroll Lock${normal} key to capture and release mouse/keyboard input."
-    echo ""
+	echo "${bold}Looking Glass Client Status:${normal}"
+	echo "Looking Glass Client is ${green}pre-installed${normal} directly in the Bazzite-DX Silver Goggles system image!"
+	echo "No manual layering or compilation is required on the host."
+	echo ""
+	echo "To launch the client, simply open a terminal on your host and run:"
+	echo "------------------------------------------------"
+	echo "looking-glass-client"
+	echo "------------------------------------------------"
+	echo "Use the ${bold}Scroll Lock${normal} key to capture and release mouse/keyboard input."
+	echo ""
 
 elif [[ "$OPTION" =~ "Virtual Display" ]]; then
-    echo "Opening IddSampleDriver (Virtual Display) repository..."
-    echo "Useful if you don't have a physical dummy plug."
-    echo "Link: https://github.com/ge9/IddSampleDriver/releases"
-    xdg-open "https://github.com/ge9/IddSampleDriver/releases" || true
+	echo "Opening IddSampleDriver (Virtual Display) repository..."
+	echo "Useful if you don't have a physical dummy plug."
+	echo "Link: https://github.com/ge9/IddSampleDriver/releases"
+	xdg-open "https://github.com/ge9/IddSampleDriver/releases" || true
 
 elif [[ "$OPTION" =~ "XML Snippets" ]]; then
-    echo "${bold}1. IVSHMEM (Looking Glass / KVMFR)${normal}"
-    echo "Place this under <devices>. Size must match kvmfr.static_size_mb karg (default: 128)."
-    echo "See: https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt"
-    echo "------------------------------------------------"
-    echo "<shmem name='looking-glass'>"
-    echo "  <model type='ivshmem-plain'/>"
-    echo "  <size unit='M'>128</size>"
-    echo "</shmem>"
-    echo "------------------------------------------------"
-    echo ""
-    echo "${bold}2. CPU Passthrough (Windows-optimized)${normal}"
-    echo "<cpu mode='host-passthrough' check='none' migratable='off'>"
-    echo "  <topology sockets='1' cores='4' threads='2'/>"
-    echo "  <feature policy='require' name='invtsc'/>"
-    echo "  <cache mode='passthrough'/>"
-    echo "</cpu>"
-    echo ""
-    echo "${bold}3. Optimization (Remove Tablet)${normal}"
-    echo "Remove: <input type='tablet' bus='usb'/>"
-    echo "Add:    <input type='mouse' bus='virtio'/>"
-    echo "        <input type='keyboard' bus='virtio'/>"
-    echo "------------------------------------------------"
+	echo "${bold}1. IVSHMEM (Looking Glass / KVMFR)${normal}"
+	echo "Place this under <devices>. Size must match kvmfr.static_size_mb karg (default: 128)."
+	echo "See: https://looking-glass.io/docs/rc/ivshmem_kvmfr/#libvirt"
+	echo "------------------------------------------------"
+	echo "<shmem name='looking-glass'>"
+	echo "  <model type='ivshmem-plain'/>"
+	echo "  <size unit='M'>128</size>"
+	echo "</shmem>"
+	echo "------------------------------------------------"
+	echo ""
+	echo "${bold}2. CPU Passthrough (Windows-optimized)${normal}"
+	echo "<cpu mode='host-passthrough' check='none' migratable='off'>"
+	echo "  <topology sockets='1' cores='4' threads='2'/>"
+	echo "  <feature policy='require' name='invtsc'/>"
+	echo "  <cache mode='passthrough'/>"
+	echo "</cpu>"
+	echo ""
+	echo "${bold}3. Optimization (Remove Tablet)${normal}"
+	echo "Remove: <input type='tablet' bus='usb'/>"
+	echo "Add:    <input type='mouse' bus='virtio'/>"
+	echo "        <input type='keyboard' bus='virtio'/>"
+	echo "------------------------------------------------"
 fi

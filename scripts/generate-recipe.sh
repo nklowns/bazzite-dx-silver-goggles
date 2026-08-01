@@ -88,4 +88,3 @@ fi
 # Renovate updates those files directly (see the customManager in .github/renovate.json5).
 # The artifact that ships is the artifact that is pinned — no template, no render step, no
 # drift to police.
-

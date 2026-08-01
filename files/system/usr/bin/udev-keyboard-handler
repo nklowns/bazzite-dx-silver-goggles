@@ -7,98 +7,97 @@ INTERNAL_KBD_NAME="AT Translated Set 2 keyboard"
 # Find sysfs directory for the internal keyboard
 INTERNAL_KBD_PATH=""
 for dev in /sys/class/input/input*; do
-    if [[ -f "$dev/name" ]]; then
-        name=$(cat "$dev/name")
-        if [[ "$name" == "$INTERNAL_KBD_NAME" ]]; then
-            INTERNAL_KBD_PATH="$dev"
-            break
-        fi
-    fi
+	if [[ -f "$dev/name" ]]; then
+		name=$(cat "$dev/name")
+		if [[ "$name" == "$INTERNAL_KBD_NAME" ]]; then
+			INTERNAL_KBD_PATH="$dev"
+			break
+		fi
+	fi
 done
 
 if [[ -z "$INTERNAL_KBD_PATH" ]]; then
-    echo "Internal keyboard '$INTERNAL_KBD_NAME' not found." >&2
-    exit 1
+	echo "Internal keyboard '$INTERNAL_KBD_NAME' not found." >&2
+	exit 1
 fi
 
 CURRENT_STATUS=$(cat "$INTERNAL_KBD_PATH/inhibited")
 
 set_inhibited() {
-    local val="$1"
-    if [[ -f "$INTERNAL_KBD_PATH/inhibited" ]]; then
-        if echo "$val" > "$INTERNAL_KBD_PATH/inhibited" 2>/dev/null; then
-            :
-        else
-            sudo sh -c "echo '$val' > '$INTERNAL_KBD_PATH/inhibited'"
-        fi
-        if [[ "$val" == "1" ]]; then
-            echo "Internal keyboard has been DISABLED (inhibited)."
-            if command -v notify-send >/dev/null; then
-                notify-send "Teclado Interno" "Teclado integrado DESATIVADO" -i input-keyboard -t 2000
-            fi
-        else
-            echo "Internal keyboard has been ENABLED."
-            if command -v notify-send >/dev/null; then
-                notify-send "Teclado Interno" "Teclado integrado ATIVADO" -i input-keyboard -t 2000
-            fi
-        fi
-    fi
+	local val="$1"
+	if [[ -f "$INTERNAL_KBD_PATH/inhibited" ]]; then
+		if echo "$val" >"$INTERNAL_KBD_PATH/inhibited" 2>/dev/null; then
+			:
+		else
+			sudo sh -c "echo '$val' > '$INTERNAL_KBD_PATH/inhibited'"
+		fi
+		if [[ "$val" == "1" ]]; then
+			echo "Internal keyboard has been DISABLED (inhibited)."
+			if command -v notify-send >/dev/null; then
+				notify-send "Teclado Interno" "Teclado integrado DESATIVADO" -i input-keyboard -t 2000
+			fi
+		else
+			echo "Internal keyboard has been ENABLED."
+			if command -v notify-send >/dev/null; then
+				notify-send "Teclado Interno" "Teclado integrado ATIVADO" -i input-keyboard -t 2000
+			fi
+		fi
+	fi
 }
 
 ACTION="${1:-auto}"
 
 case "$ACTION" in
-    on|enable|0)
-        set_inhibited 0
-        ;;
-    off|disable|1)
-        set_inhibited 1
-        ;;
-    toggle)
-        if [[ "$CURRENT_STATUS" == "1" ]]; then
-            set_inhibited 0
-        else
-            set_inhibited 1
-        fi
-        ;;
-    status)
-        if [[ "$CURRENT_STATUS" == "1" ]]; then
-            echo "disabled"
-        else
-            echo "enabled"
-        fi
-        ;;
-    auto)
-        # Count external keyboards
-        EXTERNAL_KBD_COUNT=0
-        for dev in /sys/class/input/input*; do
-            # Skip the internal keyboard itself
-            [[ "$dev" == "$INTERNAL_KBD_PATH" ]] && continue
-            
-            # Read name to ignore power buttons, lid switch, etc.
-            if [[ -f "$dev/name" ]]; then
-                dev_name=$(cat "$dev/name")
-                # Ignore common non-keyboard devices that might have keyboard capabilities
-                [[ "$dev_name" =~ (Power|Lid|Video|Sleep|Intel|Dell|Button|Camera|Switch|Audio|Microphone) ]] && continue
-            fi
-            
-            # Check if udev considers it a keyboard
-            is_kbd=$(udevadm info --query=property --value --property=ID_INPUT_KEYBOARD "$dev" 2>/dev/null || true)
-            if [[ "$is_kbd" == "1" ]]; then
-                EXTERNAL_KBD_COUNT=$((EXTERNAL_KBD_COUNT + 1))
-            fi
-        done
-        
-        # Set the inhibited status
-        if [[ $EXTERNAL_KBD_COUNT -gt 0 ]]; then
-            set_inhibited 1
-        else
-            set_inhibited 0
-        fi
-        ;;
-    *)
-        echo "Usage: $0 [on|off|toggle|status|auto]" >&2
-        exit 1
-        ;;
-esac
+on | enable | 0)
+	set_inhibited 0
+	;;
+off | disable | 1)
+	set_inhibited 1
+	;;
+toggle)
+	if [[ "$CURRENT_STATUS" == "1" ]]; then
+		set_inhibited 0
+	else
+		set_inhibited 1
+	fi
+	;;
+status)
+	if [[ "$CURRENT_STATUS" == "1" ]]; then
+		echo "disabled"
+	else
+		echo "enabled"
+	fi
+	;;
+auto)
+	# Count external keyboards
+	EXTERNAL_KBD_COUNT=0
+	for dev in /sys/class/input/input*; do
+		# Skip the internal keyboard itself
+		[[ "$dev" == "$INTERNAL_KBD_PATH" ]] && continue
 
+		# Read name to ignore power buttons, lid switch, etc.
+		if [[ -f "$dev/name" ]]; then
+			dev_name=$(cat "$dev/name")
+			# Ignore common non-keyboard devices that might have keyboard capabilities
+			[[ "$dev_name" =~ (Power|Lid|Video|Sleep|Intel|Dell|Button|Camera|Switch|Audio|Microphone) ]] && continue
+		fi
+
+		# Check if udev considers it a keyboard
+		is_kbd=$(udevadm info --query=property --value --property=ID_INPUT_KEYBOARD "$dev" 2>/dev/null || true)
+		if [[ "$is_kbd" == "1" ]]; then
+			EXTERNAL_KBD_COUNT=$((EXTERNAL_KBD_COUNT + 1))
+		fi
+	done
+
+	# Set the inhibited status
+	if [[ $EXTERNAL_KBD_COUNT -gt 0 ]]; then
+		set_inhibited 1
+	else
+		set_inhibited 0
+	fi
+	;;
+*)
+	echo "Usage: $0 [on|off|toggle|status|auto]" >&2
+	exit 1
+	;;
+esac

@@ -112,6 +112,20 @@ remote-cockpit-setup:
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Cockpit ready at: https://$DNS_NAME:61390"
 
+# 🔒 Expose Sunshine Web UI (:61395) privately via tailscale serve
+[group('Network')]
+remote-sunshine-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! ss -tln 2>/dev/null | grep -q ':47990 '; then
+        echo "❌ Nada escutando em 47990. O Sunshine Web UI está ativo?"
+        echo "   Se necessário, inicie o serviço com: systemctl --user start homebrew.sunshine.service"
+        exit 1
+    fi
+    /usr/libexec/bazzite-dx-serve ensure 61395 47990 https+insecure
+    DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+    echo "Sunshine Web UI ready at: https://$DNS_NAME:61395"
+
 # ==============================================================================
 # GROUP 3: Setup & Packages
 # ==============================================================================

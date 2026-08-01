@@ -42,23 +42,23 @@ end
 if status is-interactive
 
     # --- VS Code / VS Code Insiders / Cursor / Antigravity IDE Integration ---
-    if test "$TERM_PROGRAM" = "vscode"; or set -q VSCODE_GIT_ASKPASS_NODE
+    if test "$TERM_PROGRAM" = vscode; or set -q VSCODE_GIT_ASKPASS_NODE
         if not test -f /run/.containerenv; and not test -f /.dockerenv
             switch "$EDITOR"
                 case "" "*nano*" "*vi" "*vim"
                     set -l _detected_editor ""
                     for _var in "$VSCODE_GIT_ASKPASS_NODE" "$GIT_ASKPASS" "$TERM_PROGRAM_VERSION"
                         if string match -q "*code-insiders*" "$_var"
-                            set _detected_editor "code-insiders"
+                            set _detected_editor code-insiders
                             break
-                        elif string match -q "*cursor*" "$_var"
-                            set _detected_editor "cursor"
+                            elif string match -q "*cursor*" "$_var"
+                            set _detected_editor cursor
                             break
-                        elif string match -q "*antigravity-ide*" "$_var"
-                            set _detected_editor "antigravity-ide"
+                            elif string match -q "*antigravity-ide*" "$_var"
+                            set _detected_editor antigravity-ide
                             break
-                        elif string match -q "*code*" "$_var"
-                            set _detected_editor "code"
+                            elif string match -q "*code*" "$_var"
+                            set _detected_editor code
                             break
                         end
                     end
@@ -68,16 +68,16 @@ if status is-interactive
                         while test "$_pid" -gt 1
                             set -l _cmd (ps -p "$_pid" -o comm= 2>/dev/null)
                             if string match -q "*code-insiders*" "$_cmd"
-                                set _detected_editor "code-insiders"
+                                set _detected_editor code-insiders
                                 break
-                            elif string match -q "*cursor*" "$_cmd"
-                                set _detected_editor "cursor"
+                                elif string match -q "*cursor*" "$_cmd"
+                                set _detected_editor cursor
                                 break
-                            elif string match -q "*antigravity-ide*" "$_cmd"
-                                set _detected_editor "antigravity-ide"
+                                elif string match -q "*antigravity-ide*" "$_cmd"
+                                set _detected_editor antigravity-ide
                                 break
-                            elif string match -q "*code*" "$_cmd"
-                                set _detected_editor "code"
+                                elif string match -q "*code*" "$_cmd"
+                                set _detected_editor code
                                 break
                             end
                             set _pid (ps -p "$_pid" -o ppid= 2>/dev/null | string trim)

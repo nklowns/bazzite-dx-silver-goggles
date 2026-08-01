@@ -63,18 +63,30 @@ case $- in *i*)
 
 		# Only override if EDITOR is empty, or set to standard defaults (nano/vi/vim)
 		case "${EDITOR:-}" in
-			""|*nano*|*vi|*vim) ;;
-			*) return 0 ;;
+		"" | *nano* | *vi | *vim) ;;
+		*) return 0 ;;
 		esac
 
 		local _detected_editor=""
 		local _var
 		for _var in "$VSCODE_GIT_ASKPASS_NODE" "$GIT_ASKPASS" "$TERM_PROGRAM_VERSION"; do
 			case "$_var" in
-				*code-insiders*) _detected_editor="code-insiders"; break ;;
-				*cursor*) _detected_editor="cursor"; break ;;
-				*antigravity-ide*) _detected_editor="antigravity-ide"; break ;;
-				*code*) _detected_editor="code"; break ;;
+			*code-insiders*)
+				_detected_editor="code-insiders"
+				break
+				;;
+			*cursor*)
+				_detected_editor="cursor"
+				break
+				;;
+			*antigravity-ide*)
+				_detected_editor="antigravity-ide"
+				break
+				;;
+			*code*)
+				_detected_editor="code"
+				break
+				;;
 			esac
 		done
 
@@ -84,10 +96,22 @@ case $- in *i*)
 			while [ "$_pid" -gt 1 ]; do
 				_cmd=$(ps -p "$_pid" -o comm= 2>/dev/null || true)
 				case "$_cmd" in
-					*code-insiders*) _detected_editor="code-insiders"; break ;;
-					*cursor*) _detected_editor="cursor"; break ;;
-					*antigravity-ide*) _detected_editor="antigravity-ide"; break ;;
-					*code*) _detected_editor="code"; break ;;
+				*code-insiders*)
+					_detected_editor="code-insiders"
+					break
+					;;
+				*cursor*)
+					_detected_editor="cursor"
+					break
+					;;
+				*antigravity-ide*)
+					_detected_editor="antigravity-ide"
+					break
+					;;
+				*code*)
+					_detected_editor="code"
+					break
+					;;
 				esac
 				_pid=$(ps -p "$_pid" -o ppid= 2>/dev/null | tr -d ' ' || true)
 				[ -z "$_pid" ] && break

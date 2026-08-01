@@ -3,7 +3,7 @@
 # keeps CDP off the personal signed-in profile. --no-remote avoids handing
 # off to an already-running default-profile Firefox instance.
 exec /usr/bin/flatpak run --branch=stable --arch=x86_64 org.mozilla.firefox \
-  --remote-debugging-port=9224 \
-  -profile "$HOME/.mozilla/firefox-cdp" \
-  --no-remote \
-  "$@"
+	--remote-debugging-port=9224 \
+	-profile "$HOME/.mozilla/firefox-cdp" \
+	--no-remote \
+	"$@"

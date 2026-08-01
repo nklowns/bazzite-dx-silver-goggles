@@ -144,17 +144,17 @@ CHECKSUM_FILE="/etc/ublue/kvmfr-policy.checksum"
 
 if [ -f "$POLICY_FILE" ]; then
 	CURRENT_CHECKSUM=$(sha256sum "$POLICY_FILE" | cut -d' ' -f1)
-	
+
 	STORED_CHECKSUM=""
 	if [ -f "$CHECKSUM_FILE" ]; then
 		STORED_CHECKSUM=$(cat "$CHECKSUM_FILE")
 	fi
-	
+
 	if [ "$CURRENT_CHECKSUM" != "$STORED_CHECKSUM" ] || ! semodule -l | grep -q "^kvmfr$"; then
 		echo "Installing/updating SELinux custom policy for kvmfr..."
 		if sudo semodule -i "$POLICY_FILE"; then
 			sudo mkdir -p "$(dirname "$CHECKSUM_FILE")"
-			echo "$CURRENT_CHECKSUM" | sudo tee "$CHECKSUM_FILE" > /dev/null
+			echo "$CURRENT_CHECKSUM" | sudo tee "$CHECKSUM_FILE" >/dev/null
 		fi
 	fi
 fi

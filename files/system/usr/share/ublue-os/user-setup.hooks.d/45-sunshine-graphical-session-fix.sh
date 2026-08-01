@@ -59,10 +59,25 @@ EOF
 systemctl --user disable homebrew.sunshine.service 2>/dev/null || true
 systemctl --user add-wants graphical-session.target homebrew.sunshine.service || true
 
+# Ensure Sunshine Web UI is restricted to localhost (origin_web_ui_allowed = pc)
+# so it is only accessible locally or via tailscale serve proxy, keeping the LAN secure.
+SUNSHINE_CONF_DIR="${HOME}/.config/sunshine"
+SUNSHINE_CONF="${SUNSHINE_CONF_DIR}/sunshine.conf"
+mkdir -p "${SUNSHINE_CONF_DIR}"
+if [[ -f "${SUNSHINE_CONF}" ]]; then
+	if grep -q '^\s*origin_web_ui_allowed\s*=' "${SUNSHINE_CONF}"; then
+		sed -i 's/^\s*origin_web_ui_allowed\s*=.*/origin_web_ui_allowed = pc/' "${SUNSHINE_CONF}"
+	else
+		echo 'origin_web_ui_allowed = pc' >>"${SUNSHINE_CONF}"
+	fi
+else
+	echo 'origin_web_ui_allowed = pc' >"${SUNSHINE_CONF}"
+fi
+
 systemctl --user daemon-reload || true
 
 if systemctl --user is-active --quiet homebrew.sunshine.service; then
-  systemctl --user restart homebrew.sunshine.service || true
+	systemctl --user restart homebrew.sunshine.service || true
 else
-  systemctl --user start homebrew.sunshine.service || true
+	systemctl --user start homebrew.sunshine.service || true
 fi

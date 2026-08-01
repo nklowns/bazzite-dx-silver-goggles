@@ -6,24 +6,24 @@
 # The shipped hook at /usr/etc/libvirt/hooks/qemu (or /usr/share/ublue-os/...) is
 # the canonical version; this falls back to an inline heredoc if neither is present.
 EnsureQEMUHook() {
-  local needs_install=0
-  if [ ! -x "/etc/libvirt/hooks/qemu" ]; then
-    needs_install=1
-  elif ! grep -q "virt-pipewire.enable" "/etc/libvirt/hooks/qemu"; then
-    echo "Existing QEMU hook runner lacks PipeWire support. Upgrading..."
-    needs_install=1
-  fi
+	local needs_install=0
+	if [ ! -x "/etc/libvirt/hooks/qemu" ]; then
+		needs_install=1
+	elif ! grep -q "virt-pipewire.enable" "/etc/libvirt/hooks/qemu"; then
+		echo "Existing QEMU hook runner lacks PipeWire support. Upgrading..."
+		needs_install=1
+	fi
 
-  if [ "$needs_install" -eq 1 ]; then
-    echo "Configuring QEMU hook runner in /etc/libvirt/hooks/qemu..."
-    sudo mkdir -p /etc/libvirt/hooks
-    if [ -f "/usr/etc/libvirt/hooks/qemu" ]; then
-      sudo cp -f /usr/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
-    elif [ -f "/usr/share/ublue-os/etc/libvirt/hooks/qemu" ]; then
-      sudo cp -f /usr/share/ublue-os/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
-    else
-      # Fallback: write hook inline when shipped copy not found
-      sudo tee /etc/libvirt/hooks/qemu > /dev/null << 'EOF'
+	if [ "$needs_install" -eq 1 ]; then
+		echo "Configuring QEMU hook runner in /etc/libvirt/hooks/qemu..."
+		sudo mkdir -p /etc/libvirt/hooks
+		if [ -f "/usr/etc/libvirt/hooks/qemu" ]; then
+			sudo cp -f /usr/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+		elif [ -f "/usr/share/ublue-os/etc/libvirt/hooks/qemu" ]; then
+			sudo cp -f /usr/share/ublue-os/etc/libvirt/hooks/qemu /etc/libvirt/hooks/qemu
+		else
+			# Fallback: write hook inline when shipped copy not found
+			sudo tee /etc/libvirt/hooks/qemu >/dev/null <<'EOF'
 #!/usr/bin/env bash
 GUEST_NAME="$1"
 HOOK_NAME="$2"
@@ -77,8 +77,8 @@ elif [ -d "$HOOKPATH" ]; then
 	done <<<"$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print)"
 fi
 EOF
-    fi
-    sudo chmod +x /etc/libvirt/hooks/qemu
-    echo "QEMU hook runner installed/upgraded successfully."
-  fi
+		fi
+		sudo chmod +x /etc/libvirt/hooks/qemu
+		echo "QEMU hook runner installed/upgraded successfully."
+	fi
 }
