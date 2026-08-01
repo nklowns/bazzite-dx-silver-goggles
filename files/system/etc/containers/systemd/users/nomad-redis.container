@@ -2,7 +2,7 @@
 Description=Project NOMAD — Redis (job queue)
 
 [Container]
-Image=docker.io/library/redis@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+Image=docker.io/library/redis@sha256:077ba791400f390cb96d9d419d90259d5e72e697fca7abc3bbde6d83285d7346
 ContainerName=nomad_redis
 Network=project-nomad_default.network
 # REDIS_HOST=redis in the admin — same Compose-alias gap as nomad-mysql.container.
