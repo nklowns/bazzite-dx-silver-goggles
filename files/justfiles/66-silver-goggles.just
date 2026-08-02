@@ -166,9 +166,18 @@ remote-kasmvnc-setup:
     set -euo pipefail
     echo "🌐 Setting up KasmVNC / HTML5 Desktop on port 61391..."
     echo "💡 KasmVNC allows full browser-based desktop access with native bidirectional browser clipboard sync!"
-    /usr/libexec/bazzite-dx-serve ensure 61391 61391 http || true
+    if ! ss -tln 2>/dev/null | grep -q ':61391 '; then
+        echo "🚀 Spawning rootless KasmVNC container on 127.0.0.1:61391..."
+        podman run -d --name kasmvnc-desktop \
+            --restart=unless-stopped \
+            -p 127.0.0.1:61391:6901 \
+            -e VNC_PW=kasmvnc \
+            docker.io/kasmweb/desktop:1.15.0 2>/dev/null || podman start kasmvnc-desktop 2>/dev/null || true
+    fi
+    /usr/libexec/bazzite-dx-serve ensure 61391 61391 https+insecure || true
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "KasmVNC ready at: https://$DNS_NAME:61391"
+    echo "Default login: kasm_user / kasmvnc"
 
 # 🛡️ Master Status & Manager for Remote Access Suite (Sunshine, KasmVNC, Webcam, Mic, Taildrop)
 [group('Network')]
