@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Smart Idle Checker for Bazzite Host (Dell G15)
+# Validates whether the host is safe to suspend or if active background jobs exist.
+
+INHIBIT=0
+REASONS=()
+
+# 1. Check for Active Sunshine Stream
+if pgrep -x "sunshine" >/dev/null 2>&1; then
+    if grep -q "Streaming bitrate" /home/cloud/.config/sunshine/sunshine.log 2>/dev/null; then
+        INHIBIT=1
+        REASONS+=("Sunshine streaming session active")
+    fi
+fi
+
+# 2. Check for Active SSH Sessions
+if who 2>/dev/null | grep -q -E "pts/[0-9]+.*\(.*\)"; then
+    INHIBIT=1
+    REASONS+=("Active SSH session")
+fi
+
+# 3. Check for Active Background Dev Containers (Docker / Podman)
+if command -v docker >/dev/null 2>&1; then
+    ACTIVE_CONTAINERS=$(docker ps -q 2>/dev/null | wc -l)
+    if [ "$ACTIVE_CONTAINERS" -gt 0 ]; then
+        INHIBIT=1
+        REASONS+=("Active Docker containers ($ACTIVE_CONTAINERS running)")
+    fi
+fi
+
+if command -v podman >/dev/null 2>&1; then
+    ACTIVE_PODMAN=$(podman ps -q 2>/dev/null | wc -l)
+    if [ "$ACTIVE_PODMAN" -gt 0 ]; then
+        INHIBIT=1
+        REASONS+=("Active Podman containers ($ACTIVE_PODMAN running)")
+    fi
+fi
+
+# 4. Check for Active Dev Build Processes / Compilers
+if pgrep -f "(cargo|go build|npm run|node|pytest|python3|gcc|g\+\+|make|ninja|cmake)" >/dev/null 2>&1; then
+    INHIBIT=1
+    REASONS+=("Active dev build / compilation process")
+fi
+
+# 5. Check CPU Load Average (1-minute average >= 2.0)
+LOAD=$(awk '{print $1}' /proc/loadavg 2>/dev/null | cut -d. -f1)
+if [ "${LOAD:-0}" -ge 2 ]; then
+    INHIBIT=1
+    REASONS+=("High CPU load average ($LOAD)")
+fi
+
+if [ "$INHIBIT" -eq 1 ]; then
+    echo "⛔ SUSPEND INHIBITED: ${REASONS[*]}"
+    exit 1
+else
+    echo "✅ Host is idle. Safe to suspend."
+    exit 0
+fi

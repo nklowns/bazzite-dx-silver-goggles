@@ -126,6 +126,24 @@ remote-sunshine-setup:
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Sunshine Web UI ready at: https://$DNS_NAME:61395"
 
+# ⚡ Check Wake-on-LAN (WoL) and background idle inhibitor status
+[group('Network')]
+wol-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "== Wake-on-LAN (WoL) Configuration =="
+    nmcli c show "Wired connection 1" 2>/dev/null | grep -i wake-on-lan || echo "Wired connection 1 not configured"
+    nmcli c show "PRX-SEM.NUVEM-5G" 2>/dev/null | grep -i wake-on-wlan || echo "Wi-Fi WoL default"
+    echo ""
+    echo "== Background Idle Inhibitor Status =="
+    if [ -x /usr/bin/smart-idle-checker ]; then
+        /usr/bin/smart-idle-checker || true
+    elif [ -x /usr/local/bin/smart-idle-checker ]; then
+        /usr/local/bin/smart-idle-checker || true
+    elif [ -x ./files/system/usr/bin/smart-idle-checker ]; then
+        ./files/system/usr/bin/smart-idle-checker || true
+    fi
+
 # ==============================================================================
 # GROUP 3: Setup & Packages
 # ==============================================================================

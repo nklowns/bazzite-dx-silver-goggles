@@ -4,7 +4,7 @@ set -ouex pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script sunshine-graphical-session-fix user 6 || exit 0
+version-script sunshine-graphical-session-fix user 7 || exit 0
 
 # Homebrew's generated sunshine.service is WantedBy=default.target, which can
 # start before the Wayland session is up. graphical-session.target alone is
@@ -59,20 +59,27 @@ EOF
 systemctl --user disable homebrew.sunshine.service 2>/dev/null || true
 systemctl --user add-wants graphical-session.target homebrew.sunshine.service || true
 
-# Ensure Sunshine Web UI is restricted to localhost (origin_web_ui_allowed = pc)
-# so it is only accessible locally or via tailscale serve proxy, keeping the LAN secure.
+# Ensure Sunshine settings (Web UI localhost security + low-latency NVENC parameters) are declaratively set.
 SUNSHINE_CONF_DIR="${HOME}/.config/sunshine"
 SUNSHINE_CONF="${SUNSHINE_CONF_DIR}/sunshine.conf"
 mkdir -p "${SUNSHINE_CONF_DIR}"
-if [[ -f "${SUNSHINE_CONF}" ]]; then
-	if grep -q '^\s*origin_web_ui_allowed\s*=' "${SUNSHINE_CONF}"; then
-		sed -i 's/^\s*origin_web_ui_allowed\s*=.*/origin_web_ui_allowed = pc/' "${SUNSHINE_CONF}"
+touch "${SUNSHINE_CONF}"
+
+set_sunshine_key() {
+	local key="$1"
+	local val="$2"
+	if grep -q "^\s*${key}\s*=" "${SUNSHINE_CONF}"; then
+		sed -i "s/^\s*${key}\s*=.*/${key} = ${val}/" "${SUNSHINE_CONF}"
 	else
-		echo 'origin_web_ui_allowed = pc' >>"${SUNSHINE_CONF}"
+		echo "${key} = ${val}" >>"${SUNSHINE_CONF}"
 	fi
-else
-	echo 'origin_web_ui_allowed = pc' >"${SUNSHINE_CONF}"
-fi
+}
+
+set_sunshine_key "origin_web_ui_allowed" "pc"
+set_sunshine_key "nv_preset" "p1"
+set_sunshine_key "nv_tune" "ll"
+set_sunshine_key "nv_rc" "vbr"
+set_sunshine_key "color_range" "2"
 
 systemctl --user daemon-reload || true
 
