@@ -19,11 +19,11 @@ case "$action" in
             echo "   Status: ❌ INACTIVE (Start with: systemctl --user start homebrew.sunshine.service)"
         fi
         echo ""
-        echo "2. 🌐 KasmVNC (HTML5 Browser Desktop / WebRTC Clipboard)"
-        if ss -tln 2>/dev/null | grep -q ':61391 '; then
-            echo "   Status: ✅ ACTIVE (Port 61391)"
+        echo "2. 🌐 Apache Guacamole + KRDP (Real Host Desktop / HTML5 Clipboard)"
+        if ss -tln 2>/dev/null | grep -q ':61392 '; then
+            echo "   Status: ✅ ACTIVE (Port 61392)"
         else
-            echo "   Status: ⚪ INACTIVE (Setup with: ujust remote-kasmvnc-setup)"
+            echo "   Status: ⚪ INACTIVE (Setup with: ujust remote-guacamole-setup)"
         fi
         echo ""
         echo "3. 🎥 Webcam Bridge (Windows RTSP -> /dev/video10)"

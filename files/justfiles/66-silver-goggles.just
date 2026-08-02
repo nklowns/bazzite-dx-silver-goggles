@@ -159,25 +159,29 @@ remote-webcam-setup win_ip="100.108.150.113":
         exit 1
     fi
 
-# 🔒 Expose KasmVNC / HTML5 Desktop (:61391) privately via tailscale serve (with browser clipboard sync)
+# 🔒 Expose Apache Guacamole + KRDP / Real Host Desktop (:61392) privately via tailscale serve
 [group('Network')]
-remote-kasmvnc-setup:
+remote-guacamole-setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "🌐 Setting up KasmVNC / HTML5 Desktop on port 61391..."
-    echo "💡 KasmVNC allows full browser-based desktop access with native bidirectional browser clipboard sync!"
-    if ! ss -tln 2>/dev/null | grep -q ':61391 '; then
-        echo "🚀 Spawning rootless KasmVNC container on 127.0.0.1:61391..."
-        podman run -d --name kasmvnc-desktop \
-            --restart=unless-stopped \
-            -p 127.0.0.1:61391:6901 \
-            -e VNC_PW=kasmvnc \
-            docker.io/kasmweb/desktop:1.15.0 2>/dev/null || podman start kasmvnc-desktop 2>/dev/null || true
+    echo "🌐 Setting up Apache Guacamole + KRDP (Real Host Desktop) on port 61392..."
+    echo "💡 Guacamole streams your REAL KDE Plasma 6 desktop with native bidirectional clipboard sync!"
+    if ! systemctl --user is-active --quiet krdp.service 2>/dev/null; then
+        echo "⚙️ Enabling KDE Remote Desktop (KRDP) service for real host display..."
+        systemctl --user enable --now krdp.service 2>/dev/null || true
     fi
-    /usr/libexec/bazzite-dx-serve ensure 61391 61391 https+insecure || true
+    if ! ss -tln 2>/dev/null | grep -q ':61392 '; then
+        echo "🚀 Spawning rootless Apache Guacamole container on 127.0.0.1:61392..."
+        podman run -d --name guacamole-desktop \
+            --restart=unless-stopped \
+            -p 127.0.0.1:61392:8080 \
+            -e OPT_MYSQL=false \
+            docker.io/jwetzell/guacamole:latest 2>/dev/null || podman start guacamole-desktop 2>/dev/null || true
+    fi
+    /usr/libexec/bazzite-dx-serve ensure 61392 61392 http || true
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "KasmVNC ready at: https://$DNS_NAME:61391"
-    echo "Default login: kasm_user / kasmvnc"
+    echo "Guacamole ready at: https://$DNS_NAME:61392"
+    echo "Default login: guacadmin / guacadmin"
 
 # 🛡️ Master Status & Manager for Remote Access Suite (Sunshine, KasmVNC, Webcam, Mic, Taildrop)
 [group('Network')]
