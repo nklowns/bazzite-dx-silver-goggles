@@ -144,6 +144,32 @@ wol-status:
         ./files/system/usr/bin/smart-idle-checker || true
     fi
 
+# 🎥 Configure virtual webcam receiver (/dev/video10) from Windows GUEST RTSP stream
+[group('Network')]
+remote-webcam-setup win_ip="100.108.150.113":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    WIN_IP="{{ win_ip }}"
+    if [ -x /usr/bin/webcam-receiver ]; then
+        /usr/bin/webcam-receiver "$WIN_IP"
+    elif [ -x ./files/system/usr/bin/webcam-receiver ]; then
+        ./files/system/usr/bin/webcam-receiver "$WIN_IP"
+    else
+        echo "❌ /usr/bin/webcam-receiver not found"
+        exit 1
+    fi
+
+# 🔒 Expose KasmVNC / HTML5 Desktop (:61391) privately via tailscale serve (with browser clipboard sync)
+[group('Network')]
+remote-kasmvnc-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🌐 Setting up KasmVNC / HTML5 Desktop on port 61391..."
+    echo "💡 KasmVNC allows full browser-based desktop access with native bidirectional browser clipboard sync!"
+    /usr/libexec/bazzite-dx-serve ensure 61391 61391 http || true
+    DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+    echo "KasmVNC ready at: https://$DNS_NAME:61391"
+
 # ==============================================================================
 # GROUP 3: Setup & Packages
 # ==============================================================================

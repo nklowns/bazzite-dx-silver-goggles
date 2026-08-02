@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# webcam-receiver: Receives RTSP video from Windows GUEST and pipes it to
+# /dev/video10 via v4l2loopback for Google Meet / Zoom / Teams on Linux HOST.
+# ==============================================================================
+set -euo pipefail
+
+WIN_IP="${1:-100.108.150.113}"
+RTSP_PORT="${2:-8554}"
+DEVICE_INDEX="${3:-10}"
+DEVICE_PATH="/dev/video${DEVICE_INDEX}"
+
+echo "🎥 Configuring v4l2loopback virtual camera on ${DEVICE_PATH}..."
+
+# Ensure v4l2loopback module is loaded
+if ! lsmod | grep -q v4l2loopback; then
+	sudo modprobe v4l2loopback video_nr="${DEVICE_INDEX}" card_label="Webcam-Windows" exclusive_caps=1 || {
+		echo "❌ Failed to load v4l2loopback kernel module."
+		exit 1
+	}
+fi
+
+echo "✅ Virtual camera device ${DEVICE_PATH} ready."
+echo "🔗 Connecting to Windows RTSP camera at rtsp://${WIN_IP}:${RTSP_PORT}/webcam..."
+echo "💡 Make sure Windows MediaMTX + FFmpeg are publishing to rtsp://${WIN_IP}:${RTSP_PORT}/webcam"
+echo ""
+
+# Pipe RTSP stream to v4l2loopback with yuv420p format for Chrome / Meet compatibility
+exec ffmpeg -loglevel warning -fflags nobuffer -rtsp_transport tcp \
+	-i "rtsp://${WIN_IP}:${RTSP_PORT}/webcam" \
+	-vf "format=yuv420p" \
+	-f v4l2 "${DEVICE_PATH}"
