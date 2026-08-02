@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# remote-suite: Master CLI manager for Silver-Goggles Remote Access Suite
+# ==============================================================================
+set -euo pipefail
+
+action="${1:-status}"
+
+case "$action" in
+    status)
+        echo "======================================================================"
+        echo " 🛡️ SILVER-GOGGLES REMOTE ACCESS SUITE STATUS"
+        echo "======================================================================"
+        echo ""
+        echo "1. 🎮 Sunshine (NVENC Streaming / Moonlight)"
+        if systemctl --user is-active --quiet homebrew.sunshine.service 2>/dev/null; then
+            echo "   Status: ✅ ACTIVE (Port 47989 / Web UI 61395)"
+        else
+            echo "   Status: ❌ INACTIVE (Start with: systemctl --user start homebrew.sunshine.service)"
+        fi
+        echo ""
+        echo "2. 🌐 KasmVNC (HTML5 Browser Desktop / WebRTC Clipboard)"
+        if ss -tln 2>/dev/null | grep -q ':61391 '; then
+            echo "   Status: ✅ ACTIVE (Port 61391)"
+        else
+            echo "   Status: ⚪ INACTIVE (Setup with: ujust remote-kasmvnc-setup)"
+        fi
+        echo ""
+        echo "3. 🎥 Webcam Bridge (Windows RTSP -> /dev/video10)"
+        if [ -c /dev/video10 ]; then
+            echo "   Status: ✅ /dev/video10 ACTIVE (Ready for Google Meet / Teams)"
+        else
+            echo "   Status: ⚪ INACTIVE (Start receiver: ujust remote-webcam-setup)"
+        fi
+        echo ""
+        echo "4. 🎙️ PipeWire Microphone Receiver"
+        if [ -f "$HOME/.config/pipewire/pipewire.conf.d/rtp-source.conf" ]; then
+            echo "   Status: ✅ PipeWire RTP Source Configured"
+        else
+            echo "   Status: ⚪ Standard PipeWire Audio"
+        fi
+        echo ""
+        echo "5. 📁 File Transfer & Mesh Network (Tailscale)"
+        if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
+            DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+            echo "   Tailscale: ✅ CONNECTED ($DNS_NAME)"
+            echo "   Taildrop:  ✅ READY (Send files to $DNS_NAME via Tailscale)"
+        else
+            echo "   Tailscale: ❌ NOT CONNECTED"
+        fi
+        echo "======================================================================"
+        ;;
+    setup-mic)
+        echo "🎙️ Provisioning PipeWire RTP Microphone receiver..."
+        mkdir -p "$HOME/.config/pipewire/pipewire.conf.d"
+        cat << 'EOF' > "$HOME/.config/pipewire/pipewire.conf.d/rtp-source.conf"
+context.modules = [
+    {
+        name = libpipewire-module-rtp-source
+        args = {
+            sess.latency.msec = 40
+            source.ip = "0.0.0.0"
+            source.port = 46000
+        }
+    }
+]
+EOF
+        systemctl --user restart pipewire
+        echo "✅ PipeWire RTP Microphone receiver active on port 46000 UDP."
+        ;;
+    *)
+        echo "Usage: remote-suite [status|setup-mic]"
+        exit 1
+        ;;
+esac

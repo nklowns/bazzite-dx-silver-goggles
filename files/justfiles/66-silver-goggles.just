@@ -170,6 +170,21 @@ remote-kasmvnc-setup:
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "KasmVNC ready at: https://$DNS_NAME:61391"
 
+# 🛡️ Master Status & Manager for Remote Access Suite (Sunshine, KasmVNC, Webcam, Mic, Taildrop)
+[group('Network')]
+remote-suite action="status":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ACTION="{{ action }}"
+    if [ -x /usr/bin/remote-suite ]; then
+        /usr/bin/remote-suite "$ACTION"
+    elif [ -x ./files/system/usr/bin/remote-suite ]; then
+        ./files/system/usr/bin/remote-suite "$ACTION"
+    else
+        echo "❌ /usr/bin/remote-suite script not found"
+        exit 1
+    fi
+
 # ==============================================================================
 # GROUP 3: Setup & Packages
 # ==============================================================================
