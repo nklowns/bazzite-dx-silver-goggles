@@ -10,7 +10,7 @@ StartLimitBurst=5
 # `depends_on: { mysql: { condition: service_healthy } }`.
 
 [Container]
-Image=docker.io/library/mysql:8.0@sha256:62fb722c78b24245ddff1796a0fcee4a49cc5b87e0aaaf20c92d1da9e0a2497b
+Image=docker.io/library/mysql:26.7@sha256:973c5e8e4d2f12ecc3da9ca9d8d4189b6a7e3d17584c66fca6dae6993c0417ed
 ContainerName=nomad_mysql
 Network=project-nomad_default.network
 # The admin connects to DB_HOST=mysql. Under Compose that name came free from the service
