@@ -62,6 +62,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system-preset/99-dx-flavor.preset|Unit: DX Flavor Preset|Error"
 	"file|/etc/systemd/resolved.conf.d/00-amyos-dns.conf|Policy: DNS-over-TLS Config|Error"
 	"file|/usr/lib/NetworkManager/conf.d/00-amyos-random-mac.conf|Policy: NM MAC Randomization|Error"
+	"file|/etc/security/limits.d/99-realtime-gaming.conf|Policy: Realtime Gaming Limits (Sunshine/PipeWire)|Error"
 
 	# Quadlet units, not systemd units — they live under /etc because rootless Quadlet has no
 	# /usr search path (see the header of nomad-admin.container). `unit|` cannot verify them:

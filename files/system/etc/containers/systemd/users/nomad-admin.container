@@ -33,6 +33,9 @@
 
 [Unit]
 Description=Project NOMAD — Command Center
+# Rate limiting to prevent unthrottled restart thrashing on failure
+StartLimitIntervalSec=300
+StartLimitBurst=5
 # Requires= + Notify=healthy on the dependencies means "start me once mysql and redis are
 # actually answering", not merely once their processes exist. Adonis migrates on boot and
 # exits on a refused connection, so the distinction is the difference between a working
@@ -117,20 +120,7 @@ HealthRetries=3
 Restart=on-failure
 TimeoutStartSec=300
 
-[Install]
-# READ THIS BEFORE RUNNING `systemctl --user enable`.
-#
-# Lingering is already on for the desktop user on this image:
-#     $ loginctl show-user cloud -p Linger
-#     Linger=yes
-# which changes what this section means. Without lingering, an enabled user unit starts at
-# login. WITH lingering, it starts at BOOT, with no login at all, and survives logout. So
-# `enable` here is not "remember my preference" — it is "run a database, a queue and a Node
-# server on every boot forever", which is exactly the load the Boot Impact Policy exists to
-# keep off a machine that also has to play games.
-#
-# `ujust nomad-up` therefore uses `systemctl --user start`, not `enable`: the stack runs until
-# you stop it or reboot, and comes back only when asked. This section is kept for the person
-# who genuinely wants NOMAD always-on and opts in deliberately with `enable` — the choice is
-# theirs to make explicitly, not one to inherit by accident from a default.
-WantedBy=default.target
+# [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
+# containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,
+# auto-starting the stack at boot under user lingering and violating the Boot Impact Policy.
+# The stack is strictly opt-in and started on demand via `ujust nomad-up`.

@@ -4,7 +4,7 @@ set -ouex pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script sunshine-graphical-session-fix user 7 || exit 0
+version-script sunshine-graphical-session-fix user 8 || exit 0
 
 # Homebrew's generated sunshine.service is WantedBy=default.target, which can
 # start before the Wayland session is up. graphical-session.target alone is
@@ -44,6 +44,7 @@ After=graphical-session.target plasma-kwin_wayland.service plasma-xdg-desktop-po
 Requisite=graphical-session.target
 
 [Service]
+LimitNICE=-15
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do busctl --user list 2>/dev/null | grep -q org.freedesktop.portal.Desktop && exit 0; sleep 1; done; echo "screencast portal interface not ready after 30s" >&2; exit 1'
 TimeoutStartSec=45
 EOF

@@ -1,5 +1,8 @@
 [Unit]
 Description=Project NOMAD — Dozzle (container log viewer)
+# Rate limiting to prevent unthrottled restart thrashing on failure
+StartLimitIntervalSec=300
+StartLimitBurst=5
 # Not a dependency of anything: the Command Center's "Service Logs & Metrics" link points
 # here, and that link is simply dead if this is not running. Kept separate so it can be left
 # off without touching the rest of the stack.
@@ -41,5 +44,7 @@ Environment=DOZZLE_ENABLE_SHELL=false
 [Service]
 Restart=on-failure
 
-[Install]
-WantedBy=default.target
+# [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
+# containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,
+# auto-starting the stack at boot under user lingering and violating the Boot Impact Policy.
+# The stack is strictly opt-in and started on demand via `ujust nomad-up`.

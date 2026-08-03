@@ -26,6 +26,9 @@
 
 [Unit]
 Description=Project NOMAD — Ollama (GPU inference)
+# Rate limiting to prevent unthrottled restart thrashing on failure
+StartLimitIntervalSec=300
+StartLimitBurst=5
 # Shares the stack network so the Command Center can reach it by alias, but is NOT required by
 # nomad-admin: the Command Center is perfectly usable for offline content with no AI at all,
 # and a 6 GB VRAM workload should never be dragged up as a side effect of opening Wikipedia.
@@ -97,7 +100,7 @@ Restart=on-failure
 # The image is several GB; the systemd default of 90s is not enough for a cold pull.
 TimeoutStartSec=900
 
-[Install]
-# Same warning as nomad-admin.container: lingering is on, so `enable` means BOOT, not login.
-# For a GPU inference server that is a bigger commitment than usual — use `ujust ollama-up`.
-WantedBy=default.target
+# [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
+# containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,
+# auto-starting the stack at boot under user lingering and violating the Boot Impact Policy.
+# The stack is strictly opt-in and started on demand via `ujust ollama-up`.

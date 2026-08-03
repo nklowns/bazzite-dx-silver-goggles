@@ -1,5 +1,8 @@
 [Unit]
 Description=Project NOMAD — Redis (job queue)
+# Rate limiting to prevent unthrottled restart thrashing on failure
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Container]
 Image=docker.io/library/redis@sha256:077ba791400f390cb96d9d419d90259d5e72e697fca7abc3bbde6d83285d7346
@@ -20,5 +23,7 @@ Notify=healthy
 [Service]
 Restart=on-failure
 
-[Install]
-WantedBy=default.target
+# [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
+# containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,
+# auto-starting the stack at boot under user lingering and violating the Boot Impact Policy.
+# The stack is strictly opt-in and started on demand via `ujust nomad-up`.

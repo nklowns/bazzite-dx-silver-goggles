@@ -27,14 +27,13 @@
       description: 'Track Quadlet container image digests (Project NOMAD stack, Ollama)',
       // Pinned inline in the units rather than in image-versions.yaml: the unit is what
       // ships, so pinning it directly removes the render step and the chance of the two
-      // copies disagreeing. Matches `Image=registry/path@sha256:...` in any .container file.
+      // copies disagreeing. Matches `Image=registry/path[:tag]@sha256:...` in any .container file.
       managerFilePatterns: [
         '/^files/system/etc/containers/systemd/users/.+\\.container$/',
       ],
       matchStrings: [
-        'Image=(?<depName>[^\\s@:]+)@(?<currentDigest>sha256:[a-f0-9]+)',
+        'Image=(?<depName>[^\\s@:]+)(:(?<currentValue>[^@\\s]+))?@(?<currentDigest>sha256:[a-f0-9]+)',
       ],
-      currentValueTemplate: 'latest',
       datasourceTemplate: 'docker',
       versioningTemplate: 'docker',
     },
