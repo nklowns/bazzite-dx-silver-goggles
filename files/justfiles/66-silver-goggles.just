@@ -122,6 +122,11 @@ remote-sunshine-setup:
         echo "   Se necessário, inicie o serviço com: systemctl --user start homebrew.sunshine.service"
         exit 1
     fi
+    CONF_FILE="$HOME/.config/sunshine/sunshine.conf"
+    if [ -f "$CONF_FILE" ] && ! grep -q 'origin_web_ui_allowed = pc' "$CONF_FILE"; then
+        echo "origin_web_ui_allowed = pc" >> "$CONF_FILE"
+        systemctl --user restart sunshine.service 2>/dev/null || true
+    fi
     /usr/libexec/bazzite-dx-serve ensure 61395 47990 https+insecure
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Sunshine Web UI ready at: https://$DNS_NAME:61395"

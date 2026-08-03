@@ -1,0 +1,7 @@
+[kwin]
+Switch to Virtual Terminal 1=none,none,Switch to Virtual Terminal 1
+Switch to Virtual Terminal 2=none,none,Switch to Virtual Terminal 2
+Switch to Virtual Terminal 3=none,none,Switch to Virtual Terminal 3
+Switch to Virtual Terminal 4=none,none,Switch to Virtual Terminal 4
+Switch to Virtual Terminal 5=Ctrl+Alt+F5,Ctrl+Alt+F5,Switch to Virtual Terminal 5
+Switch to Virtual Terminal 6=Ctrl+Alt+F6,Ctrl+Alt+F6,Switch to Virtual Terminal 6
