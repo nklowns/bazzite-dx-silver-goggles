@@ -53,7 +53,7 @@ Requires=podman.socket
 After=podman.socket
 
 [Container]
-Image=ghcr.io/crosstalk-solutions/project-nomad@sha256:e0240ec836396bfefa7934851e05b11a151512e8e1b8a784d3d5adfad85c9bcf
+Image=ghcr.io/crosstalk-solutions/project-nomad@sha256:832f7b1516593bc6a83f5554c98cf753a7b96aaa7e3d991b538ac4e5edc01146
 ContainerName=nomad_admin
 Network=project-nomad_default.network
 
