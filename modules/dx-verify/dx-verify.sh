@@ -29,6 +29,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
 	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"
 	"file|/usr/libexec/bazzite-dx-serve|Asset: Tailscale Serve Helper|Error"
+	"file|/usr/libexec/bazzite-dx-sunshine-apps|Asset: Sunshine Multi-Monitor Apps Helper|Error"
 	"file|/usr/libexec/bazzite-dx-virt-lib|Asset: Virt Shared Library|Error"
 	"file|/usr/lib/systemd/system/bazzite-dx-groups.service|Asset: DX Groups Service|Error"
 	"file|/etc/profile.d/brew.sh|Shield: Brew Profile|Error"
@@ -117,6 +118,9 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/ublue-os/casting/uxplayrc.tmpl|Asset: Casting UxPlay Config Template|Error"
 	"file|/usr/share/flatpak/overrides/org.fcast.Receiver|Policy: FCast Receiver Flatpak Override|Error"
 	"file|/usr/share/flatpak/overrides/org.fcast.Sender|Policy: FCast Sender Flatpak Override|Error"
+	"file|/usr/share/flatpak/overrides/com.rustdesk.RustDesk|Policy: RustDesk Flatpak Override|Error"
+	"file|/usr/share/flatpak/overrides/com.parsec.app|Policy: Parsec Flatpak Override|Error"
+	"file|/usr/share/flatpak/overrides/com.deskflow.deskflow|Policy: Deskflow Flatpak Override|Error"
 	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"
 	"file|/usr/lib/firewalld/services/fcast.xml|Asset: Firewalld FCast Service Def|Error"
 

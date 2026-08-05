@@ -112,7 +112,7 @@ remote-cockpit-setup:
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Cockpit ready at: https://$DNS_NAME:61390"
 
-# 🔒 Expose Sunshine Web UI (:61395) privately via tailscale serve
+# 🔒 Expose Sunshine Web UI (:61395) privately via tailscale serve and provision multi-monitor apps
 [group('Network')]
 remote-sunshine-setup:
     #!/usr/bin/env bash
@@ -127,9 +127,19 @@ remote-sunshine-setup:
         echo "origin_web_ui_allowed = pc" >> "$CONF_FILE"
         systemctl --user restart sunshine.service 2>/dev/null || true
     fi
+    /usr/libexec/bazzite-dx-sunshine-apps
     /usr/libexec/bazzite-dx-serve ensure 61395 47990 https+insecure
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Sunshine Web UI ready at: https://$DNS_NAME:61395"
+
+# 🎮 Provision multi-monitor display shortcuts (Tela 1, Tela 2, Dual Canvas 32:9) in Sunshine apps.json
+[group('Network')]
+remote-sunshine-multimon-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /usr/libexec/bazzite-dx-sunshine-apps
+    systemctl --user try-restart homebrew.sunshine.service || true
+    echo "✅ Sunshine multi-monitor apps ready. Connect via Moonlight to select Tela 1, Tela 2, or Dual Canvas!"
 
 # ⚡ Check Wake-on-LAN (WoL) and background idle inhibitor status
 [group('Network')]
@@ -169,10 +179,11 @@ remote-webcam-setup win_ip="100.108.150.113":
 remote-guacamole-setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "🌐 Setting up Apache Guacamole + KRDP (Real Host Desktop) on port 61392..."
-    echo "💡 Guacamole streams your REAL KDE Plasma 6 desktop with native bidirectional clipboard sync!"
+    echo "🌐 Setting up Apache Guacamole on port 61392..."
+    echo "⚠️ Note: KRDP is unstable on Bazzite Wayland/NVIDIA (bazzite#2173 - black screens/PipeWire crashes)."
+    echo "💡 For reliable desktop access, prefer Sunshine in Desktop Mode or KasmVNC."
     if ! systemctl --user is-active --quiet krdp.service 2>/dev/null; then
-        echo "⚙️ Enabling KDE Remote Desktop (KRDP) service for real host display..."
+        echo "⚙️ Enabling KDE Remote Desktop (KRDP) service..."
         systemctl --user enable --now krdp.service 2>/dev/null || true
     fi
     if ! ss -tln 2>/dev/null | grep -q ':61392 '; then
@@ -187,6 +198,47 @@ remote-guacamole-setup:
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Guacamole ready at: https://$DNS_NAME:61392"
     echo "Default login: guacadmin / guacadmin"
+
+# 🎮 Setup Parsec client (Note: Linux supports CLIENT mode only to access Windows hosts)
+[group('Network')]
+remote-parsec-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🎮 Installing Parsec client..."
+    flatpak install --user -y flathub com.parsec.app || true
+    echo "✅ Parsec installed."
+    echo "⚠️ Note: Parsec on Linux operates as a CLIENT only (to connect to remote Windows hosts)."
+    echo "💡 Multi-monitor tip: Use 'Add Screens' (Ctrl+Shift+S) when connected to a remote host."
+
+# 🦀 Setup RustDesk open-source remote desktop client
+[group('Network')]
+remote-rustdesk-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🦀 Installing and preparing RustDesk (Tailscale-first remote access)..."
+    flatpak install --user -y flathub com.rustdesk.RustDesk || true
+    echo "✅ RustDesk installed."
+    if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
+        DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+        TS_IP=$(tailscale ip -4 2>/dev/null | head -1)
+        echo "🔒 Tailnet: $DNS_NAME ($TS_IP)"
+        echo "💡 Zero-Trust Direct Connection: Type '$TS_IP' or '$DNS_NAME' in the RustDesk client Direct IP box."
+    fi
+
+# ⌨️ Setup Deskflow (Software KVM for sharing mouse & keyboard across PCs over Tailscale)
+[group('Network')]
+remote-deskflow-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "⌨️ Installing Deskflow (KVM Mouse/Keyboard Share over Tailscale)..."
+    flatpak install --user -y flathub com.deskflow.deskflow || true
+    echo "✅ Deskflow installed."
+    if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
+        DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+        TS_IP=$(tailscale ip -4 2>/dev/null | head -1)
+        echo "🔒 Tailnet Server Address: $DNS_NAME:24800 (IP: $TS_IP:24800)"
+        echo "💡 In Deskflow client on Guest, point server IP to '$TS_IP' to control Host screens with zero video overhead."
+    fi
 
 # 🛡️ Master Status & Manager for Remote Access Suite (Sunshine, KasmVNC, Webcam, Mic, Taildrop)
 [group('Network')]

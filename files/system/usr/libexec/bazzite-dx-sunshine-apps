@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# bazzite-dx-sunshine-apps: Declarative multi-monitor apps manager for Sunshine
+# Preserves existing Notebook (eDP-1) & AOC (HDMI-A-1) apps and adds Dual Canvas
+# ==============================================================================
+set -euo pipefail
+
+SUNSHINE_DIR="$HOME/.config/sunshine"
+APPS_FILE="$SUNSHINE_DIR/apps.json"
+SET_OUTPUT_SCRIPT="$SUNSHINE_DIR/set-output.sh"
+
+mkdir -p "$SUNSHINE_DIR"
+
+if [ ! -f "$APPS_FILE" ] || [ ! -s "$APPS_FILE" ]; then
+    echo '{"env":null,"apps":[]}' > "$APPS_FILE"
+fi
+
+# Ensure set-output.sh helper exists
+if [ ! -f "$SET_OUTPUT_SCRIPT" ]; then
+    cat << 'EOF' > "$SET_OUTPUT_SCRIPT"
+#!/bin/bash
+CONF="$HOME/.config/sunshine/sunshine.conf"
+NAME="$1"
+CURRENT="$(grep '^output_name' "$CONF" 2>/dev/null | sed 's/^output_name *= *//')"
+
+if [ "$CURRENT" = "$NAME" ]; then
+    exit 0
+fi
+
+sed -i '/^output_name/d' "$CONF"
+if [ -n "$NAME" ]; then
+    echo "output_name = ${NAME}" >> "$CONF"
+fi
+
+nohup systemctl --user restart homebrew.sunshine.service >/dev/null 2>&1 &
+disown
+exit 0
+EOF
+    chmod +x "$SET_OUTPUT_SCRIPT"
+fi
+
+# Construct valid JSON app objects using jq
+NOTEBOOK_APP=$(jq -n --arg path "$SUNSHINE_DIR/notebook.png" --arg script "$SET_OUTPUT_SCRIPT eDP-1" '{
+  "auto-detach": true,
+  "exclude-global-prep-cmd": false,
+  "exit-timeout": 5,
+  "image-path": $path,
+  "name": "Notebook (eDP)",
+  "wait-all": true,
+  "prep-cmd": [{"do": $script, "undo": ""}]
+}')
+
+AOC_APP=$(jq -n --arg path "$SUNSHINE_DIR/aoc.png" --arg script "$SET_OUTPUT_SCRIPT HDMI-A-1" '{
+  "auto-detach": true,
+  "exclude-global-prep-cmd": false,
+  "exit-timeout": 5,
+  "image-path": $path,
+  "name": "AOC (HDMI)",
+  "wait-all": true,
+  "prep-cmd": [{"do": $script, "undo": ""}]
+}')
+
+# shellcheck disable=SC2016
+DUAL_CMD="$SET_OUTPUT_SCRIPT \"\"; export WAYLAND_DISPLAY=\${WAYLAND_DISPLAY:-wayland-0}; export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$UID}; kscreen-doctor output.eDP-1.position.0,0 output.HDMI-A-1.position.1920,0 2>/dev/null || true"
+
+DUAL_APP=$(jq -n --arg cmd "$DUAL_CMD" '{
+  "auto-detach": true,
+  "exclude-global-prep-cmd": false,
+  "exit-timeout": 5,
+  "image-path": "desktop-alt.png",
+  "name": "Dual Canvas (32:9)",
+  "wait-all": true,
+  "prep-cmd": [{"do": $cmd, "undo": ""}]
+}')
+
+TMP_FILE=$(mktemp -p "$SUNSHINE_DIR" .apps.json.XXXXXX)
+
+jq --argjson nb "$NOTEBOOK_APP" \
+   --argjson aoc "$AOC_APP" \
+   --argjson dual "$DUAL_APP" '
+  .apps = ((.apps // []) | map(select(.name != "Notebook (eDP)" and .name != "AOC (HDMI)" and .name != "Dual Canvas (32:9)")) + [$nb, $aoc, $dual])
+' "$APPS_FILE" > "$TMP_FILE"
+
+mv "$TMP_FILE" "$APPS_FILE"
+echo "✅ Sunshine multi-monitor applications provisioned in $APPS_FILE"

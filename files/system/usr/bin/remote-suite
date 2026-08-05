@@ -19,7 +19,7 @@ case "$action" in
             echo "   Status: ❌ INACTIVE (Start with: systemctl --user start homebrew.sunshine.service)"
         fi
         echo ""
-        echo "2. 🌐 Apache Guacamole + KRDP (Real Host Desktop / HTML5 Clipboard)"
+        echo "2. 🌐 Apache Guacamole + KRDP (HTML5 Client - Note: KRDP unstable on Wayland/NVIDIA bazzite#2173)"
         if ss -tln 2>/dev/null | grep -q ':61392 '; then
             echo "   Status: ✅ ACTIVE (Port 61392)"
         else
@@ -40,10 +40,28 @@ case "$action" in
             echo "   Status: ⚪ Standard PipeWire Audio"
         fi
         echo ""
-        echo "5. 📁 File Transfer & Mesh Network (Tailscale)"
+        echo "5. 🎯 Additional Tools (Client & Input Utilities)"
+        if flatpak info com.parsec.app >/dev/null 2>&1; then
+            echo "   Parsec:   ✅ INSTALLED (Client-only: Use to access Windows hosts from Bazzite)"
+        else
+            echo "   Parsec:   ⚪ ABSENT (Setup with: ujust remote-parsec-setup)"
+        fi
+        if flatpak info com.rustdesk.RustDesk >/dev/null 2>&1; then
+            echo "   RustDesk: ✅ INSTALLED (Direct IP via Tailnet - Requires Wayland portal prompt)"
+        else
+            echo "   RustDesk: ⚪ ABSENT (Setup with: ujust remote-rustdesk-setup)"
+        fi
+        if flatpak info com.deskflow.deskflow >/dev/null 2>&1; then
+            echo "   Deskflow: ✅ INSTALLED (Software KVM input sharing via Tailscale :24800)"
+        else
+            echo "   Deskflow: ⚪ ABSENT (Setup with: ujust remote-deskflow-setup)"
+        fi
+        echo ""
+        echo "6. 📁 File Transfer & Mesh Network (Tailscale)"
         if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
             DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-            echo "   Tailscale: ✅ CONNECTED ($DNS_NAME)"
+            TS_IP=$(tailscale ip -4 2>/dev/null | head -1)
+            echo "   Tailscale: ✅ CONNECTED ($DNS_NAME / $TS_IP)"
             echo "   Taildrop:  ✅ READY (Send files to $DNS_NAME via Tailscale)"
         else
             echo "   Tailscale: ❌ NOT CONNECTED"
