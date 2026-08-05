@@ -61,16 +61,19 @@ AOC_APP=$(jq -n --arg path "$SUNSHINE_DIR/aoc.png" --arg script "$SET_OUTPUT_SCR
 }')
 
 # shellcheck disable=SC2016
-DUAL_CMD="$SET_OUTPUT_SCRIPT \"\"; export WAYLAND_DISPLAY=\${WAYLAND_DISPLAY:-wayland-0}; export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$UID}; kscreen-doctor output.eDP-1.position.0,0 output.HDMI-A-1.position.1920,0 2>/dev/null || true"
+DUAL_CMD="bash -c 'export WAYLAND_DISPLAY=\${WAYLAND_DISPLAY:-wayland-0}; export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$UID}; pkill krfb-virtualmonitor 2>/dev/null || true; krfb-virtualmonitor --resolution 3840x1080 --name \"Dual-Canvas\" --password dummy --port 5999 & sleep 1; $SET_OUTPUT_SCRIPT Virtual-Dual-Canvas'"
 
-DUAL_APP=$(jq -n --arg cmd "$DUAL_CMD" '{
+# shellcheck disable=SC2016
+DUAL_UNDO="bash -c 'pkill krfb-virtualmonitor 2>/dev/null || true; $SET_OUTPUT_SCRIPT eDP-1'"
+
+DUAL_APP=$(jq -n --arg cmd "$DUAL_CMD" --arg undo "$DUAL_UNDO" '{
   "auto-detach": true,
   "exclude-global-prep-cmd": false,
   "exit-timeout": 5,
   "image-path": "desktop-alt.png",
   "name": "Dual Canvas (32:9)",
   "wait-all": true,
-  "prep-cmd": [{"do": $cmd, "undo": ""}]
+  "prep-cmd": [{"do": $cmd, "undo": $undo}]
 }')
 
 TMP_FILE=$(mktemp -p "$SUNSHINE_DIR" .apps.json.XXXXXX)
