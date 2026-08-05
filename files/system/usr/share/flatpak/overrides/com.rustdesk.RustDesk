@@ -1,0 +1,7 @@
+[Context]
+filesystems=home;
+devices=all;
+sockets=x11;wayland;pulseaudio;
+
+[Session Bus Policy]
+org.freedesktop.portal.Desktop=talk

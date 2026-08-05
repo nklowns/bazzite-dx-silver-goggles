@@ -17,6 +17,8 @@ flatpak "com.google.Chrome"                                 # Web browser
 # --- Containers & Remote Access ---
 flatpak "io.podman_desktop.PodmanDesktop"                   # Container desktop management (User-space GUI)
 flatpak "com.rustdesk.RustDesk"                             # Open source remote desktop
+flatpak "com.parsec.app"                                    # High performance low-latency remote desktop / gaming
+flatpak "com.deskflow.deskflow"                             # KVM mouse & keyboard sharing across PCs
 
 # --- Gaming & Emulation ---
 flatpak "net.retrodeck.retrodeck"                           # All-in-one emulation suite
