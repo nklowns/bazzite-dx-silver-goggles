@@ -5,7 +5,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/library/redis@sha256:a7efd4ed5037dcfe1543c0e50b9f06293d3e88827005544bf37f381eea5f01cf
+Image=docker.io/library/redis@sha256:c8deb6d5d6d30f67aa6d18075b2336f65d783a80415381500bfc7a5ea8266070
 ContainerName=nomad_redis
 Network=project-nomad_default.network
 # REDIS_HOST=redis in the admin — same Compose-alias gap as nomad-mysql.container.
