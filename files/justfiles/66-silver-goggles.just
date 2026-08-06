@@ -216,7 +216,10 @@ remote-rustdesk-setup:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🦀 Installing and preparing RustDesk (Tailscale-first remote access)..."
-    flatpak install --user -y flathub com.rustdesk.RustDesk || true
+    if ! flatpak info com.rustdesk.RustDesk >/dev/null 2>&1; then
+        flatpak install -y com.rustdesk.RustDesk 2>/dev/null || flatpak install --user -y com.rustdesk.RustDesk 2>/dev/null || true
+    fi
+    rm -f "$HOME/.config/autostart/com.rustdesk.RustDesk.desktop" 2>/dev/null || true
     CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
     mkdir -p "$(dirname "$CONF")"
     if [ -f /usr/share/ublue-os/rustdesk/RustDesk2.toml.template ] && [ ! -s "$CONF" ]; then
