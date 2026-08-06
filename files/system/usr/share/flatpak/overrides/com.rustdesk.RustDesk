@@ -1,7 +1,10 @@
 [Context]
-filesystems=home;
+filesystems=home;xdg-run/pipewire-0;
 devices=all;
 sockets=x11;wayland;pulseaudio;
 
 [Session Bus Policy]
 org.freedesktop.portal.Desktop=talk
+org.freedesktop.portal.ScreenCast=talk
+org.freedesktop.portal.RemoteDesktop=talk
+org.freedesktop.portal.Camera=talk

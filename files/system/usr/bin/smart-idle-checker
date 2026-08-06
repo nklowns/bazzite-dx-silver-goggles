@@ -7,12 +7,22 @@ set -euo pipefail
 INHIBIT=0
 REASONS=()
 
-# 1. Check for Active Sunshine Stream
+# 1. Check for Active Sunshine Stream or Remote Desktop (RustDesk / Deskflow)
 if pgrep -x "sunshine" >/dev/null 2>&1; then
 	if grep -q "Streaming bitrate" /home/cloud/.config/sunshine/sunshine.log 2>/dev/null; then
 		INHIBIT=1
 		REASONS+=("Sunshine streaming session active")
 	fi
+fi
+
+if pgrep -f "rustdesk" >/dev/null 2>&1; then
+	INHIBIT=1
+	REASONS+=("Active RustDesk session")
+fi
+
+if pgrep -f "deskflow" >/dev/null 2>&1; then
+	INHIBIT=1
+	REASONS+=("Active Deskflow KVM session")
 fi
 
 # 2. Check for Active SSH Sessions

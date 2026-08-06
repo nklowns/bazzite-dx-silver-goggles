@@ -1,0 +1,16 @@
+rendezvous_server = 'rs-ny.rustdesk.com:21116'
+nat_type = 1
+serial = 0
+unlock_pin = ''
+trusted_devices = ''
+
+[options]
+av1-test = 'Y'
+direct-server = 'Y'
+allow-ip-directing = 'Y'
+direct-access-port = '21118'
+close-to-tray = 'Y'
+hide-to-tray = 'Y'
+approve-mode = 'password'
+verification-method = 'use-both-passwords'
+enable-camera = 'Y'

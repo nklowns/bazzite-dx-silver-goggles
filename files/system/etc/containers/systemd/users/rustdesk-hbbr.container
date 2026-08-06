@@ -1,0 +1,14 @@
+[Unit]
+Description=RustDesk Self-Hosted Relay Server (hbbr)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/rustdesk/rustdesk-server:latest
+ContainerName=rustdesk_hbbr
+Network=host
+Exec=hbbr
+Volume=%h/rustdesk-server:/root
+
+[Service]
+Restart=on-failure

@@ -217,12 +217,28 @@ remote-rustdesk-setup:
     set -euo pipefail
     echo "🦀 Installing and preparing RustDesk (Tailscale-first remote access)..."
     flatpak install --user -y flathub com.rustdesk.RustDesk || true
-    echo "✅ RustDesk installed."
+    CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
+    mkdir -p "$(dirname "$CONF")"
+    if [ -f /usr/share/ublue-os/rustdesk/RustDesk2.toml.template ] && [ ! -s "$CONF" ]; then
+        cp /usr/share/ublue-os/rustdesk/RustDesk2.toml.template "$CONF"
+    else
+        touch "$CONF"
+        if ! grep -q "direct-server" "$CONF" 2>/dev/null; then
+            if grep -q "\[options\]" "$CONF" 2>/dev/null; then
+                sed -i '/\[options\]/a direct-server = "Y"\nallow-ip-directing = "Y"\ndirect-access-port = "21118"\nclose-to-tray = "Y"' "$CONF"
+            else
+                echo -e "\n[options]\ndirect-server = \"Y\"\nallow-ip-directing = \"Y\"\ndirect-access-port = \"21118\"\nclose-to-tray = \"Y\"" >> "$CONF"
+            fi
+        fi
+    fi
+    systemctl --user daemon-reload
+    systemctl --user enable --now rustdesk.service || true
+    echo "✅ RustDesk installed, configured, and systemd background service activated."
     if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
         DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
         TS_IP=$(tailscale ip -4 2>/dev/null | head -1)
         echo "🔒 Tailnet: $DNS_NAME ($TS_IP)"
-        echo "💡 Zero-Trust Direct Connection: Type '$TS_IP' or '$DNS_NAME' in the RustDesk client Direct IP box."
+        echo "💡 Direct IP Connection: In RustDesk client on Windows, click '...' next to ID box -> 'Direct IP Access' and enter '$TS_IP:21118'."
     fi
 
 # ⌨️ Setup Deskflow (Software KVM for sharing mouse & keyboard across PCs over Tailscale)

@@ -1,0 +1,16 @@
+[Unit]
+Description=RustDesk Remote Desktop Server (Always Active Service)
+Documentation=https://rustdesk.com/docs/
+After=graphical-session.target plasma-kwin_wayland.service
+Requisite=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY:-wayland-0}" ] && exit 0; sleep 1; done; exit 1'
+ExecStart=/usr/bin/flatpak run com.rustdesk.RustDesk
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target
