@@ -1,0 +1,5 @@
+# MediaMTX Configuration for Scalable Multi-Camera Streaming
+paths:
+  all_others:
+    # Allow any publisher (Windows GUESTs, phones, IP cameras) to stream dynamically
+    source: publisher

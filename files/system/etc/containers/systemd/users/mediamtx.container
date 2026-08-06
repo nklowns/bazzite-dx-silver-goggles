@@ -1,0 +1,13 @@
+[Unit]
+Description=MediaMTX Multi-Camera RTSP/WebRTC Video Router
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/bluenviron/mediamtx:latest
+ContainerName=mediamtx_router
+Network=host
+Volume=%h/.config/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+
+[Service]
+Restart=on-failure
