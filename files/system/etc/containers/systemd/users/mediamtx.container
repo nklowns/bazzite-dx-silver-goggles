@@ -4,7 +4,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/bluenviron/mediamtx:latest
+Image=docker.io/bluenviron/mediamtx:latest@sha256:86e63af28616d5e5a18540d7b031b6510bd4cbf1a3c7d224f9e2976f02aefbfb
 ContainerName=mediamtx_router
 Network=host
 Volume=%h/.config/mediamtx/mediamtx.yml:/mediamtx.yml:ro
