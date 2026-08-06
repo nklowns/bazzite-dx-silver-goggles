@@ -10,13 +10,16 @@ RTSP_PORT="${2:-8554}"
 DEVICE_INDEX="${3:-10}"
 DEVICE_PATH="/dev/video${DEVICE_INDEX}"
 
+if [ ! -c "${DEVICE_PATH}" ] && [ -c "/dev/video0" ]; then
+	DEVICE_PATH="/dev/video0"
+fi
+
 echo "🎥 Configuring v4l2loopback virtual camera on ${DEVICE_PATH}..."
 
 # Ensure v4l2loopback module is loaded
 if ! lsmod | grep -q v4l2loopback; then
-	sudo modprobe v4l2loopback video_nr="${DEVICE_INDEX}" card_label="Webcam-Windows" exclusive_caps=1 || {
-		echo "❌ Failed to load v4l2loopback kernel module."
-		exit 1
+	sudo -n modprobe v4l2loopback video_nr="${DEVICE_INDEX}" card_label="Webcam-Windows" 2>/dev/null || {
+		echo "⚠️ v4l2loopback kernel module not active (proceeding with existing video nodes)."
 	}
 fi
 
@@ -25,8 +28,43 @@ echo "🔗 Connecting to Windows RTSP camera at rtsp://${WIN_IP}:${RTSP_PORT}/we
 echo "💡 Make sure Windows MediaMTX + FFmpeg are publishing to rtsp://${WIN_IP}:${RTSP_PORT}/webcam"
 echo ""
 
-# Pipe RTSP stream to v4l2loopback with yuv420p format for Chrome / Meet compatibility
-exec ffmpeg -loglevel warning -fflags nobuffer -rtsp_transport tcp \
+# Auto-resolve remote device hostname via Tailscale -> mDNS -> Reverse DNS -> IP Fallback
+HOST_LABEL=""
+if command -v tailscale >/dev/null 2>&1 && tailscale status >/dev/null 2>&1; then
+	HOST_LABEL=$(tailscale status --json 2>/dev/null | jq -r '.Peer[]? | select(.TailscaleIPs[]? == "'"$WIN_IP"'") | .HostName' 2>/dev/null | head -n 1 || true)
+fi
+
+if [ -z "${HOST_LABEL}" ]; then
+	HOST_LABEL=$(getent hosts "${WIN_IP}" 2>/dev/null | awk '{print $2}' | cut -d. -f1 || true)
+fi
+
+if [ -z "${HOST_LABEL}" ]; then
+	HOST_LABEL="${WIN_IP}"
+fi
+
+echo "🏷️ Remote device identified: ${HOST_LABEL} (${WIN_IP})"
+
+# Ensure PipeWire Virtual Microphone sink exists for remote audio (isolated null-sink & virtual source)
+MIC_LABEL="Mic (${HOST_LABEL})"
+if command -v pactl >/dev/null 2>&1; then
+	if ! pactl list sinks short 2>/dev/null | grep -q "Virtual_Mic_Sink"; then
+		pactl load-module module-null-sink sink_name=Virtual_Mic_Sink sink_properties=device.description="Virtual_Mic_Loopback" 2>/dev/null || true
+	fi
+	if ! pactl list sources short 2>/dev/null | grep -q "Virtual_Mic"; then
+		pactl load-module module-remap-source source_name=Virtual_Mic master=Virtual_Mic_Sink.monitor source_properties="device.description=\"${MIC_LABEL}\",media.class=\"Audio/Source\"" 2>/dev/null || true
+	fi
+fi
+
+TARGET_AUDIO_SINK="Virtual_Mic_Sink"
+if command -v pactl >/dev/null 2>&1 && pactl list sinks short 2>/dev/null | grep -q "remote_mic_sink"; then
+	TARGET_AUDIO_SINK="remote_mic_sink"
+fi
+
+# Pipe RTSP video to v4l2loopback and audio to PipeWire Virtual Microphone (ultra-low latency)
+exec ffmpeg -loglevel warning \
+	-flags low_delay -fflags nobuffer+fastseek+flush_packets \
+	-probesize 32 -analyzeduration 0 \
+	-rtsp_transport tcp \
 	-i "rtsp://${WIN_IP}:${RTSP_PORT}/webcam" \
-	-vf "format=yuv420p" \
-	-f v4l2 "${DEVICE_PATH}"
+	-map 0:v:0 -vf "format=yuv420p" -r 30 -f v4l2 "${DEVICE_PATH}" \
+	-map 0:a:0? -c:a pcm_s16le -f pulse "${TARGET_AUDIO_SINK}"
