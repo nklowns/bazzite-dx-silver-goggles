@@ -1,5 +1,5 @@
 [Context]
-filesystems=home;xdg-run/pipewire-0;
+filesystems=home;xdg-run/pipewire-0;xdg-run/systemd;/run/systemd/seats:ro;/run/utmp:ro;
 devices=all;
 sockets=x11;wayland;pulseaudio;
 
@@ -8,3 +8,6 @@ org.freedesktop.portal.Desktop=talk
 org.freedesktop.portal.ScreenCast=talk
 org.freedesktop.portal.RemoteDesktop=talk
 org.freedesktop.portal.Camera=talk
+
+[System Bus Policy]
+org.freedesktop.login1=talk
