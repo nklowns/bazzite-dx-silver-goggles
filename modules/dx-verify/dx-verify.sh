@@ -190,20 +190,18 @@ CheckDesktop() {
 # devices that do not exist on the target machine — verify is happy with
 # `After=plasma-kwin_wayland.service` and with a device unit that will never appear.
 CheckUnit() {
-	local path="$1" scope=() out rundir rc=0
+	local path="$1" scope=() out rundir rc=0 unit_target
 	command -v systemd-analyze >/dev/null || return 1
 	[[ -f "$path" ]] || return 1
 	[[ "$path" == */systemd/user/* ]] && scope=(--user)
-	# --user needs XDG_RUNTIME_DIR to point at a directory that exists, or the manager cannot
-	# start and every unit "fails" for environmental reasons. The build container has no user
-	# session, which is exactly how the first version of this check failed CI on all four
-	# units with:
-	#     Failed to lookup RuntimeDirectory path: No such device or address
-	#     Failed to initialize manager: No such device or address
-	# An empty scratch directory is enough. Dropping --user instead is NOT a fix: system scope
-	# then reports "Unit graphical-session.target not found", which is equally environmental.
+	unit_target="$path"
+	if [[ "$path" == *.d/*.conf ]]; then
+		local dropin_dir
+		dropin_dir=$(dirname "$path")
+		unit_target=$(basename "$dropin_dir" .d)
+	fi
 	rundir=$(mktemp -d)
-	out=$(XDG_RUNTIME_DIR="$rundir" systemd-analyze verify "${scope[@]}" "$path" 2>&1 | grep -v '/home/linuxbrew' || true)
+	out=$(XDG_RUNTIME_DIR="$rundir" systemd-analyze verify "${scope[@]}" "$unit_target" 2>&1 | grep -v '/home/linuxbrew' || true)
 	rm -rf "$rundir"
 	if [[ -n "$out" ]]; then
 		printf '        %s\n' "$out" >&2
