@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Single-Instance Launcher Wrapper for RustDesk Remote Desktop
+# Prevents spawning duplicate Flatpak containers and restores UI window when clicked.
+# ==============================================================================
+set -euo pipefail
+
+# Check if RustDesk process or systemd service is active
+if pgrep -f "com.rustdesk.RustDesk" >/dev/null 2>&1 || pgrep -x "rustdesk" >/dev/null 2>&1; then
+	# Restore / un-minimize window if already running
+	python3 -c "
+import subprocess
+script = '''
+var clients = workspace.stackingOrder;
+for (var i = 0; i < clients.length; i++) {
+    var c = clients[i];
+    if ((c.caption && c.caption.indexOf(\"RustDesk\") !== -1) || (c.resourceClass && c.resourceClass.indexOf(\"rustdesk\") !== -1)) {
+        c.minimized = false;
+        workspace.activeWindow = c;
+    }
+}
+'''
+with open('/tmp/kwin_restore_rustdesk.js', 'w') as f:
+    f.write(script)
+try:
+    subprocess.call(['qdbus', 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.loadScript', '/tmp/kwin_restore_rustdesk.js', 'restoreRustDesk'], stderr=subprocess.DEVNULL)
+    subprocess.call(['qdbus', 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.start'], stderr=subprocess.DEVNULL)
+    subprocess.call(['qdbus', 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.unloadScript', 'restoreRustDesk'], stderr=subprocess.DEVNULL)
+except Exception:
+    pass
+" 2>/dev/null || true
+
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send --app-name="RustDesk" --icon="com.rustdesk.RustDesk" "RustDesk" "Restaurando janela da bandeja do sistema (systray)." 2>/dev/null || true
+	fi
+	exit 0
+fi
+
+if systemctl --user is-enabled rustdesk.service >/dev/null 2>&1; then
+	exec systemctl --user start rustdesk.service
+else
+	exec /usr/bin/flatpak run com.rustdesk.RustDesk "$@"
+fi

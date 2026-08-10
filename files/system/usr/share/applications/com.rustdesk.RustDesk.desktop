@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=RustDesk
+GenericName=Remote Desktop
+Comment=Remote Desktop
+Exec=/usr/bin/rustdesk-wrapper %u
+Icon=com.rustdesk.RustDesk
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=Network;RemoteAccess;GTK;
+Keywords=internet;linux;dart;rust;remote-control;p2p;teamviewer;rust-lang;rdp;remote-desktop;vnc;
+StartupWMClass=com.rustdesk.RustDesk
+X-Flatpak=com.rustdesk.RustDesk

@@ -8,6 +8,9 @@ org.freedesktop.portal.Desktop=talk
 org.freedesktop.portal.ScreenCast=talk
 org.freedesktop.portal.RemoteDesktop=talk
 org.freedesktop.portal.Camera=talk
+org.freedesktop.Notifications=talk
+org.kde.StatusNotifierWatcher=talk
+org.freedesktop.StatusNotifierWatcher=talk
 
 [System Bus Policy]
 org.freedesktop.login1=talk

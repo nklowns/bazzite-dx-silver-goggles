@@ -112,6 +112,8 @@ readonly AUDIT_REGISTRY=(
 	"unit|/usr/lib/systemd/user/ide-tunnel@.service|Behaviour: IDE Tunnel Unit Parses Clean|Error"
 	"file|/usr/lib/systemd/user/lock-on-session-start.service|Asset: Session Lock Unit|Error"
 	"unit|/usr/lib/systemd/user/lock-on-session-start.service|Behaviour: Session Lock Unit Parses Clean|Error"
+	"file|/usr/lib/systemd/user/xdg-document-portal.service.d/10-resource-limits.conf|Policy: Document Portal Resource Safeguard|Error"
+	"unit|/usr/lib/systemd/user/xdg-document-portal.service.d/10-resource-limits.conf|Behaviour: Document Portal Override Parses Clean|Error"
 	"nostage|/usr/share/bluebuild/justfiles|Policy: No ujust Recipe Stages a Unit into \$HOME|Error"
 
 	"file|/usr/lib/systemd/user/uxplay.service|Asset: Casting UxPlay Unit|Error"
@@ -119,6 +121,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/flatpak/overrides/org.fcast.Receiver|Policy: FCast Receiver Flatpak Override|Error"
 	"file|/usr/share/flatpak/overrides/org.fcast.Sender|Policy: FCast Sender Flatpak Override|Error"
 	"file|/usr/share/flatpak/overrides/com.rustdesk.RustDesk|Policy: RustDesk Flatpak Override|Error"
+	"file|/usr/bin/rustdesk-wrapper|Asset: RustDesk Single-Instance Launcher Wrapper|Error"
+	"file|/usr/share/applications/com.rustdesk.RustDesk.desktop|Asset: RustDesk Single-Instance Desktop Entry Overlay|Error"
 	"file|/usr/share/flatpak/overrides/com.parsec.app|Policy: Parsec Flatpak Override|Error"
 	"file|/usr/share/flatpak/overrides/com.deskflow.deskflow|Policy: Deskflow Flatpak Override|Error"
 	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"

@@ -219,7 +219,10 @@ remote-rustdesk-setup:
     if ! flatpak info com.rustdesk.RustDesk >/dev/null 2>&1; then
         flatpak install -y com.rustdesk.RustDesk 2>/dev/null || flatpak install --user -y com.rustdesk.RustDesk 2>/dev/null || true
     fi
+    mkdir -p "$HOME/.config/autostart"
     rm -f "$HOME/.config/autostart/com.rustdesk.RustDesk.desktop" 2>/dev/null || true
+    ln -sf /dev/null "$HOME/.config/autostart/com.rustdesk.RustDesk.desktop"
+    flatpak override --user --talk-name=org.kde.StatusNotifierWatcher --talk-name=org.freedesktop.StatusNotifierWatcher --talk-name=org.freedesktop.Notifications com.rustdesk.RustDesk 2>/dev/null || true
     CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
     mkdir -p "$(dirname "$CONF")"
     if [ -f /usr/share/ublue-os/rustdesk/RustDesk2.toml.template ] && [ ! -s "$CONF" ]; then
@@ -228,14 +231,15 @@ remote-rustdesk-setup:
         touch "$CONF"
         if ! grep -q "direct-server" "$CONF" 2>/dev/null; then
             if grep -q "\[options\]" "$CONF" 2>/dev/null; then
-                sed -i '/\[options\]/a direct-server = "Y"\nallow-ip-directing = "Y"\ndirect-access-port = "21118"\nclose-to-tray = "Y"' "$CONF"
+                sed -i '/\[options\]/a direct-server = "Y"\nallow-ip-directing = "Y"\ndirect-access-port = "21118"\nclose-to-tray = "Y"\nhide-to-tray = "Y"\nstart-minimized = "Y"' "$CONF"
             else
-                echo -e "\n[options]\ndirect-server = \"Y\"\nallow-ip-directing = \"Y\"\ndirect-access-port = \"21118\"\nclose-to-tray = \"Y\"" >> "$CONF"
+                echo -e "\n[options]\ndirect-server = \"Y\"\nallow-ip-directing = \"Y\"\ndirect-access-port = \"21118\"\nclose-to-tray = \"Y\"\nhide-to-tray = \"Y\"\nstart-minimized = \"Y\"" >> "$CONF"
             fi
         fi
     fi
+    rm -f "$HOME/.config/systemd/user/rustdesk.service" 2>/dev/null || true
     systemctl --user daemon-reload
-    systemctl --user enable --now rustdesk.service || true
+    systemctl --user reenable --now rustdesk.service || true
     echo "✅ RustDesk installed, configured, and systemd background service activated."
     if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
         DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
