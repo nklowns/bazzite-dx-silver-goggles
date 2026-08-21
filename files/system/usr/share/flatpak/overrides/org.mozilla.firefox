@@ -1,0 +1,6 @@
+[Context]
+filesystems=home;xdg-download;xdg-desktop;xdg-documents;
+
+[Session Bus Policy]
+org.freedesktop.portal.Desktop=talk
+org.freedesktop.portal.Documents=talk
