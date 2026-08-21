@@ -109,21 +109,60 @@
       commitMessagePrefix: 'chore(deps): ',
     },
     {
-      description: 'Auto-update and automerge Project NOMAD stack image digests in the Quadlet units',
-      // Scoped by path, not by package name: the stack is a moving target (Ollama joined it
-      // when GPU work moved out of the Supply Depot, and Supply Depot apps may follow), and
-      // an enumerated package list silently stops covering whatever gets added next.
+      description: 'Pin MySQL to 8.0 LTS branch to prevent breaking InnoDB data migrations for Project NOMAD',
+      matchPackageNames: [
+        'docker.io/library/mysql',
+        'mysql',
+      ],
+      allowedVersions: '^8\\.0\\.',
+    },
+    {
+      description: 'Auto-update and batch Project NOMAD stack image digests in Quadlet units',
       matchFileNames: [
-        'files/system/etc/containers/systemd/users/*.container',
+        'files/system/etc/containers/systemd/users/nomad-*.container',
       ],
       matchUpdateTypes: [
         'digest',
         'pinDigest',
       ],
       pinDigests: true,
-      automerge: true,
-      ignoreTests: true,
+      groupName: 'Project NOMAD container digests',
+      schedule: [
+        'before 6am on monday',
+      ],
       commitMessagePrefix: 'chore(deps-nomad): ',
+    },
+    {
+      description: 'Auto-update MediaMTX video router container digest in Quadlet unit',
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/mediamtx.container',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
+      pinDigests: true,
+      groupName: 'MediaMTX container digest',
+      schedule: [
+        'before 6am on monday',
+      ],
+      commitMessagePrefix: 'chore(deps-casting): ',
+    },
+    {
+      description: 'Auto-update RustDesk server container digests in Quadlet units',
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/rustdesk-*.container',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
+      pinDigests: true,
+      groupName: 'RustDesk container digests',
+      schedule: [
+        'before 6am on monday',
+      ],
+      commitMessagePrefix: 'chore(deps-remote): ',
     },
     {
       description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',

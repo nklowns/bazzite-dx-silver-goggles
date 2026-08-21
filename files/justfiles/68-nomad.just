@@ -111,7 +111,7 @@ nomad-update:
     # "fetch what the current image pins", not "move to latest". A real version bump arrives
     # through a rebase, not through here.
     echo "Puxando as imagens pinadas pelas units..."
-    grep -h '^Image=' /etc/containers/systemd/users/*.container | cut -d= -f2- | while read -r img; do
+    grep -h '^Image=' /etc/containers/systemd/users/nomad-*.container | cut -d= -f2- | while read -r img; do
         echo "  $img"
         podman pull "$img"
     done
