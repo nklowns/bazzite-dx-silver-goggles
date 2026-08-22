@@ -1,29 +1,24 @@
-# ComfyUI Image & Video Diffusion Studio, integrated with Project NOMAD and Tailscale.
-#
-# WHY THIS EXISTS AS A ROOTLESS QUADLET
-# --------------------------------------
-# Runs under rootless Podman to prevent root daemons on immutable Silverblue/Bazzite.
-# Uses NVIDIA CDI device injection (Device=nvidia.com/gpu=all) for hardware acceleration
-# on the RTX 3060 Laptop GPU.
+# ComfyUI Image & Video Diffusion Studio (AI Studio).
+# Independent DX service decoupled from Project NOMAD.
 #
 # MEMORY ARCHITECTURE FOR 6GB VRAM + 64GB DDR5
 # ---------------------------------------------
 # - --enable-dynamic-vram: dynamically swaps memory blocks to prevent OOM
 # - --cache-ram 16 48: pins model weights in the 64GB DDR5 system RAM
-# - --cpu-text-encoder: offloads the heavy T5 text encoder to system RAM, keeping 100% of VRAM for DiT/UNet
+# - --cpu-text-encoder: offloads the heavy T5 text encoder to system RAM
 #
 # PUBLISHED ON TAILSCALE AT :61384
 # --------------------------------
 # Bound to 127.0.0.1:61384 and exposed securely over the tailnet via `ujust remote-comfyui-setup`.
 
 [Unit]
-Description=Project NOMAD — ComfyUI (Image & Video Diffusion Studio)
+Description=AI Studio — ComfyUI (Image & Video Diffusion Studio)
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
 Image=docker.io/yanwk/comfyui-boot:cu124-slim
-ContainerName=nomad_comfyui
+ContainerName=ai_comfyui
 Network=project-nomad_default.network
 NetworkAlias=comfyui
 PublishPort=127.0.0.1:61384:8188
@@ -32,11 +27,10 @@ AddDevice=nvidia.com/gpu=all
 Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-Volume=/var/srv/nomad/comfyui/ComfyUI:/root/ComfyUI:Z
-Volume=/var/srv/nomad/comfyui/pip:/root/.local:Z
-Volume=/var/srv/nomad/comfyui/user-scripts:/root/user-scripts:Z
+Volume=/var/srv/comfyui/ComfyUI:/root/ComfyUI:Z
+Volume=/var/srv/comfyui/user-scripts:/root/user-scripts:Z
 
-Environment=CLI_ARGS=--enable-dynamic-vram --cache-ram 16 48 --cpu-text-encoder
+Environment=CLI_ARGS=--fast
 
 [Service]
 Restart=on-failure
