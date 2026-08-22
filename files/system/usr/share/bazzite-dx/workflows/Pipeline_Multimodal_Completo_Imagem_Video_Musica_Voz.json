@@ -1,0 +1,143 @@
+{
+  "id": "e4f81c90-9f12-4c6e-8d91-multimodal001",
+  "revision": 0,
+  "last_node_id": 14,
+  "last_link_id": 16,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "CheckpointLoaderSimple",
+      "pos": [40, 300],
+      "size": [320, 98],
+      "widgets_values": ["ltx-video-2b-v0.9.1.safetensors"],
+      "outputs": [
+        {"name": "MODEL", "type": "MODEL", "links": [1]},
+        {"name": "CLIP", "type": "CLIP", "links": []},
+        {"name": "VAE", "type": "VAE", "links": [8]}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [40, 460],
+      "size": [320, 106],
+      "widgets_values": ["t5xxl_fp8_e4m3fn.safetensors", "ltxv", "default"],
+      "outputs": [{"name": "CLIP", "type": "CLIP", "links": [2, 3]}]
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "pos": [420, 150],
+      "size": [420, 150],
+      "widgets_values": ["cinematic drone shot flying through a futuristic neo-tokyo neon alley at night, rain reflections on pavement, volumetric fog, cinematic lighting, 8k uhd, photorealistic, 48fps"],
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 2}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [4]}]
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "pos": [420, 340],
+      "size": [420, 150],
+      "widgets_values": ["worst quality, low quality, blurry, static image, deformed, cartoon, jittery, flicker"],
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 3}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [5]}]
+    },
+    {
+      "id": 5,
+      "type": "EmptyLTXVLatentVideo",
+      "pos": [420, 530],
+      "size": [320, 130],
+      "widgets_values": [640, 384, 17, 1],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "links": [6]}]
+    },
+    {
+      "id": 6,
+      "type": "LTXVConditioning",
+      "pos": [880, 150],
+      "size": [280, 80],
+      "widgets_values": [24],
+      "inputs": [
+        {"name": "positive", "type": "CONDITIONING", "link": 4},
+        {"name": "negative", "type": "CONDITIONING", "link": 5}
+      ],
+      "outputs": [
+        {"name": "positive", "type": "CONDITIONING", "links": [7]},
+        {"name": "negative", "type": "CONDITIONING", "links": [9]}
+      ]
+    },
+    {
+      "id": 7,
+      "type": "KSampler",
+      "pos": [1200, 150],
+      "size": [320, 262],
+      "widgets_values": [710687979672080, "randomize", 20, 4, "euler", "normal", 1],
+      "inputs": [
+        {"name": "model", "type": "MODEL", "link": 1},
+        {"name": "positive", "type": "CONDITIONING", "link": 7},
+        {"name": "negative", "type": "CONDITIONING", "link": 9},
+        {"name": "latent_image", "type": "LATENT", "link": 6}
+      ],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "links": [10]}]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecodeTiled",
+      "pos": [1560, 150],
+      "size": [240, 150],
+      "widgets_values": [512, 64, 16, 4],
+      "inputs": [
+        {"name": "samples", "type": "LATENT", "link": 10},
+        {"name": "vae", "type": "VAE", "link": 8}
+      ],
+      "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [11]}]
+    },
+    {
+      "id": 11,
+      "type": "AudioStudio_TTS",
+      "pos": [1560, 360],
+      "size": [360, 220],
+      "widgets_values": ["O futuro da inteligência artificial soberana no Bazzite Linux.", "pt-br", true, "http://tts:5000"],
+      "outputs": [{"name": "AUDIO_PATH", "type": "STRING", "links": [12]}]
+    },
+    {
+      "id": 12,
+      "type": "AudioStudio_MusicGen",
+      "pos": [1560, 620],
+      "size": [360, 200],
+      "widgets_values": ["cyberpunk synthwave dark cinematic 80s bassline", 10, "http://music:5000"],
+      "outputs": [{"name": "AUDIO_PATH", "type": "STRING", "links": [13]}]
+    },
+    {
+      "id": 13,
+      "type": "AudioStudio_VideoAudioMux",
+      "pos": [1980, 250],
+      "size": [360, 240],
+      "widgets_values": [24, "Teaser_Multimodal_Bazzite_DX", "mp4"],
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 11},
+        {"name": "voice_path", "type": "STRING", "link": 12},
+        {"name": "music_path", "type": "STRING", "link": 13}
+      ],
+      "outputs": [{"name": "VIDEO_PATH", "type": "STRING", "links": []}]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 7, 0, "MODEL"],
+    [2, 2, 0, 3, 0, "CLIP"],
+    [3, 2, 0, 4, 0, "CLIP"],
+    [4, 3, 0, 6, 0, "CONDITIONING"],
+    [5, 4, 0, 6, 1, "CONDITIONING"],
+    [6, 5, 0, 7, 3, "LATENT"],
+    [7, 6, 0, 7, 1, "CONDITIONING"],
+    [8, 1, 2, 8, 1, "VAE"],
+    [9, 6, 1, 7, 2, "CONDITIONING"],
+    [10, 7, 0, 8, 0, "LATENT"],
+    [11, 8, 0, 13, 0, "IMAGE"],
+    [12, 11, 0, 13, 1, "STRING"],
+    [13, 12, 0, 13, 2, "STRING"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 0.6, "offset": [100, 100]}},
+  "version": 0.4
+}

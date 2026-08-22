@@ -1,22 +1,34 @@
 #!/usr/bin/env bash
-# Seeds default API server scripts from /usr/share/bazzite-dx/audio to /var/srv/audio/app if missing.
+# Seeds default API server scripts and ComfyUI workflow templates on first run.
 set -euo pipefail
 
 APP_DIR="/var/srv/audio/app"
-SOURCE_DIR="/usr/share/bazzite-dx/audio"
+SOURCE_AUDIO_DIR="/usr/share/bazzite-dx/audio"
 
-[ -d "$SOURCE_DIR" ] || exit 0
-mkdir -p "$APP_DIR"
+if [ -d "$SOURCE_AUDIO_DIR" ]; then
+	mkdir -p "$APP_DIR"
+	for f in "$SOURCE_AUDIO_DIR"/*.py; do
+		[ -f "$f" ] || continue
+		target="$APP_DIR/$(basename "$f")"
+		if [ ! -f "$target" ]; then
+			cp "$f" "$target"
+			chmod 644 "$target"
+		fi
+	done
+	[ -f "$APP_DIR/voice_chat.py" ] && chmod 755 "$APP_DIR/voice_chat.py"
+fi
 
-for f in "$SOURCE_DIR"/*.py; do
-	[ -f "$f" ] || continue
-	target="$APP_DIR/$(basename "$f")"
-	if [ ! -f "$target" ]; then
-		cp "$f" "$target"
-		chmod 644 "$target"
-	fi
-done
+SOURCE_WF_DIR="/usr/share/bazzite-dx/workflows"
+TARGET_WF_DIR="/var/srv/nomad/comfyui/ComfyUI/user/default/workflows"
+[ -d "/var/srv/comfyui/ComfyUI/user/default/workflows" ] && TARGET_WF_DIR="/var/srv/comfyui/ComfyUI/user/default/workflows"
 
-if [ -f "$APP_DIR/voice_chat.py" ]; then
-	chmod 755 "$APP_DIR/voice_chat.py"
+if [ -d "$SOURCE_WF_DIR" ]; then
+	mkdir -p "$TARGET_WF_DIR"
+	for wf in "$SOURCE_WF_DIR"/*.json; do
+		[ -f "$wf" ] || continue
+		target_wf="$TARGET_WF_DIR/$(basename "$wf")"
+		if [ ! -f "$target_wf" ]; then
+			cp "$wf" "$target_wf"
+		fi
+	done
 fi
