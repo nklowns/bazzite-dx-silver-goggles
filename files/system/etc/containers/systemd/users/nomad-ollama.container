@@ -89,6 +89,12 @@ Environment=OLLAMA_HOST=0.0.0.0
 # box also plays games on the same RTX 3060, and an idle assistant sitting on several GB of
 # VRAM is precisely the background cost the Boot Impact Policy exists to prevent.
 Environment=OLLAMA_KEEP_ALIVE=5m
+# Ampere (RTX 3060) optimizations: FlashAttention-2, Q8 KV Cache quantization for long context, and single concurrency
+Environment=OLLAMA_FLASH_ATTENTION=1
+Environment=OLLAMA_KV_CACHE_TYPE=q8_0
+Environment=OLLAMA_NUM_PARALLEL=1
+# CPU Thread optimization: pin to 6 physical P-cores on Intel i7-12700H, avoiding E-core scheduling latency
+Environment=OLLAMA_NUM_THREADS=6
 
 HealthCmd=ollama list
 HealthInterval=30s
