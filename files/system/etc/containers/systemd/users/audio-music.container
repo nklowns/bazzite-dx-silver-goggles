@@ -1,5 +1,5 @@
 # AI Studio — Local AI Music Generation & Stem Separation Microservice.
-# Generates high-fidelity instrumental soundtracks & separates stems using Demucs.
+# Intelligent Hybrid service (GPU accelerated with automatic CPU fallback).
 #
 # NETWORK & TAILSCALE-FIRST
 # -------------------------
@@ -19,6 +19,9 @@ Network=project-nomad_default.network
 NetworkAlias=music
 PublishPort=127.0.0.1:61387:5000
 
+AddDevice=nvidia.com/gpu=all
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 Volume=/var/srv/audio/app:/app:Z
 Volume=/var/srv/audio/music/models:/models:Z

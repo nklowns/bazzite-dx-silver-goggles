@@ -1,12 +1,11 @@
 import io, os, time, wave, torch, librosa, soundfile as sf
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from typing import Optional
 from piper import PiperVoice
 from seed_vc.modules.openvoice.api import ToneColorConverter
 
-app = FastAPI(title="AI Studio — Multi-Language TTS & Voice Cloning API")
+app = FastAPI(title="AI Studio — Hybrid Multi-Language TTS & Voice Cloning API")
 
 MODELS_DIR = "/models"
 if not os.path.exists(MODELS_DIR):
@@ -16,26 +15,41 @@ VOICES_DIR = "/voices"
 if not os.path.exists(VOICES_DIR):
     VOICES_DIR = "/var/srv/comfyui/audio/voices"
 
+def get_optimal_device(min_free_vram_mb=1200) -> str:
+    """Intelligent Dynamic Arbiter: Uses CUDA if free VRAM >= min_free_vram_mb, otherwise CPU."""
+    if not torch.cuda.is_available():
+        return "cpu"
+    try:
+        free_bytes, _ = torch.cuda.mem_get_info()
+        free_mb = free_bytes / (1024 * 1024)
+        if free_mb >= min_free_vram_mb:
+            return "cuda"
+    except Exception:
+        pass
+    return "cpu"
+
 # Inicializar Tone Converter
 ckpt_converter = f"{MODELS_DIR}/openvoice_v2/converter"
-converter = ToneColorConverter(f"{ckpt_converter}/config.json", device="cpu")
+current_device = get_optimal_device(1200)
+print(f"🎙️ Inicializando Tone Color Converter no dispositivo: {current_device.upper()}...")
+converter = ToneColorConverter(f"{ckpt_converter}/config.json", device=current_device)
 converter.load_ckpt(f"{ckpt_converter}/checkpoint.pth")
 
 # Cache de embeddings
 user_ref_audio = f"{VOICES_DIR}/user_voice_clean_7s.wav"
 tgt_user_se = None
 
-def get_se(audio_path):
+def get_se(audio_path, dev="cpu"):
     wav, sr = librosa.load(audio_path, sr=24000)
-    wav_tensor = torch.FloatTensor(wav).unsqueeze(0)
-    lengths = torch.LongTensor([wav_tensor.size(1)])
+    wav_tensor = torch.FloatTensor(wav).unsqueeze(0).to(dev)
+    lengths = torch.LongTensor([wav_tensor.size(1)]).to(dev)
     with torch.no_grad():
         se = converter.extract_se(wav_tensor, lengths)
     return se, wav_tensor, lengths
 
 if os.path.exists(user_ref_audio):
     try:
-        tgt_user_se, _, _ = get_se(user_ref_audio)
+        tgt_user_se, _, _ = get_se(user_ref_audio, current_device)
         print("✅ Embedding do usuário carregado no servidor TTS!")
     except Exception as e:
         print(f"⚠️ Aviso ao carregar embedding do usuário: {e}")
@@ -68,9 +82,13 @@ class SynthesizeRequest(BaseModel):
 
 @app.get("/health")
 def health():
+    dev = get_optimal_device(1200)
+    free_mb = round(torch.cuda.mem_get_info()[0] / (1024*1024), 1) if torch.cuda.is_available() else 0
     return {
         "status": "healthy",
-        "service": "AI Voice & TTS",
+        "service": "AI Voice & TTS (Hybrid)",
+        "active_device": dev,
+        "free_vram_mb": free_mb,
         "languages": list(PIPER_VOICES.keys()),
         "user_clone_ready": tgt_user_se is not None
     }
@@ -91,17 +109,20 @@ def generate_speech(text: str, lang: str = "pt-br", clone: bool = False) -> byte
     if not clone or tgt_user_se is None:
         return base_wav_bytes
     
-    # Aplicar Tone Color Converter
+    # Execução de conversão híbrida
+    dev = get_optimal_device(1200)
     src_wav, sr = sf.read(io.BytesIO(base_wav_bytes))
-    src_tensor = torch.FloatTensor(src_wav).unsqueeze(0)
-    src_lengths = torch.LongTensor([src_tensor.size(1)])
+    src_tensor = torch.FloatTensor(src_wav).unsqueeze(0).to(dev)
+    src_lengths = torch.LongTensor([src_tensor.size(1)]).to(dev)
+    tgt_se_dev = tgt_user_se.to(dev)
+    
     with torch.no_grad():
         src_se = converter.extract_se(src_tensor, src_lengths)
         converted_wav = converter.convert(
             src_waves=src_tensor,
             src_wave_lengths=src_lengths,
             src_se=src_se,
-            tgt_se=tgt_user_se,
+            tgt_se=tgt_se_dev,
             tau=0.3
         )
     

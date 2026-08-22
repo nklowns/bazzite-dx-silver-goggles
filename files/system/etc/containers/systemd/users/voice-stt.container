@@ -1,5 +1,5 @@
 # AI Studio — Local Speech-to-Text (STT / Faster-Whisper) Microservice.
-# Real-time microphone and audio file transcription running 100% on CPU.
+# Intelligent Hybrid service (GPU accelerated with automatic CPU fallback).
 #
 # NETWORK & TAILSCALE-FIRST
 # -------------------------
@@ -20,6 +20,9 @@ NetworkAlias=whisper
 NetworkAlias=stt
 PublishPort=127.0.0.1:61388:5000
 
+AddDevice=nvidia.com/gpu=all
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 Volume=/var/srv/audio/app:/app:Z
 Volume=/var/srv/audio/stt/models:/models:Z

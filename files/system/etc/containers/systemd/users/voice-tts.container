@@ -1,10 +1,10 @@
 # AI Studio — Local Multi-Language TTS & Voice Cloning Microservice.
-# Independent DX service running 100% on CPU (0 MB VRAM footprint).
+# Intelligent Hybrid service (GPU accelerated with automatic CPU fallback).
 #
 # MEMORY & HARDWARE ARCHITECTURE
 # ------------------------------
-# - Runs on CPU cores using AVX-512 and ONNX Runtime
-# - 0 MB VRAM allocated: leaves 100% of the RTX 3060 for Ollama / ComfyUI
+# - Uses CUDA when free VRAM >= 1.2 GB for sub-second synthesis
+# - Auto-fallbacks to CPU/DDR5 when ComfyUI or Ollama is active (0 MB VRAM)
 # - Multi-language synthesis: Piper PT-BR, EN-US, ES-ES + OpenVoice V2 Tone Converter
 #
 # NETWORK & TAILSCALE-FIRST
@@ -26,6 +26,9 @@ NetworkAlias=tts
 NetworkAlias=voice
 PublishPort=127.0.0.1:61386:5000
 
+AddDevice=nvidia.com/gpu=all
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 Volume=/var/srv/audio/app:/app:Z
 Volume=/var/srv/audio/tts/models:/models:Z
