@@ -1,0 +1,44 @@
+# AI Studio — Local Multi-Language TTS & Voice Cloning Microservice.
+# Independent DX service running 100% on CPU (0 MB VRAM footprint).
+#
+# MEMORY & HARDWARE ARCHITECTURE
+# ------------------------------
+# - Runs on CPU cores using AVX-512 and ONNX Runtime
+# - 0 MB VRAM allocated: leaves 100% of the RTX 3060 for Ollama / ComfyUI
+# - Multi-language synthesis: Piper PT-BR, EN-US, ES-ES + OpenVoice V2 Tone Converter
+#
+# NETWORK & TAILSCALE-FIRST
+# -------------------------
+# - Internal network alias: http://tts:5000 and http://voice:5000
+# - Published on host loopback: 127.0.0.1:61386
+# - Exposed securely over the tailnet via `ujust remote-audio-setup`
+
+[Unit]
+Description=AI Studio — Multi-Language TTS & Voice Cloning (Port 61386)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/library/python:3.12-slim
+ContainerName=ai_voice_tts
+Network=project-nomad_default.network
+NetworkAlias=tts
+NetworkAlias=voice
+PublishPort=127.0.0.1:61386:5000
+
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+
+Volume=/var/srv/audio/app:/app:Z
+Volume=/var/srv/audio/tts/models:/models:Z
+Volume=/var/srv/audio/voices:/voices:Z
+Volume=/var/srv/audio/output:/output:Z
+
+Exec=python3 /app/tts_server.py
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+
+# [Install] is omitted on purpose: respect Boot Impact Policy.
+# Start on-demand via `ujust tts-up`.

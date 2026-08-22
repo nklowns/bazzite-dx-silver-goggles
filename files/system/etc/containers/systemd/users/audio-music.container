@@ -1,0 +1,36 @@
+# AI Studio — Local AI Music Generation & Stem Separation Microservice.
+# Generates high-fidelity instrumental soundtracks & separates stems using Demucs.
+#
+# NETWORK & TAILSCALE-FIRST
+# -------------------------
+# - Internal network alias: http://music:5000
+# - Published on host loopback: 127.0.0.1:61387
+# - Exposed securely over the tailnet via `ujust remote-audio-setup`
+
+[Unit]
+Description=AI Studio — Music Generation & Stem Separation (Port 61387)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/library/python:3.12-slim
+ContainerName=ai_audio_music
+Network=project-nomad_default.network
+NetworkAlias=music
+PublishPort=127.0.0.1:61387:5000
+
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+
+Volume=/var/srv/audio/app:/app:Z
+Volume=/var/srv/audio/music/models:/models:Z
+Volume=/var/srv/audio/output:/output:Z
+
+Exec=python3 /app/music_server.py
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+
+# [Install] is omitted on purpose: respect Boot Impact Policy.
+# Start on-demand via `ujust music-up`.
