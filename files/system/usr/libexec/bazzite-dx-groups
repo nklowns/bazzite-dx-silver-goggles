@@ -420,6 +420,34 @@ ConfigureComfyuiStorage() {
 	fi
 }
 
+ConfigureAudioStorage() {
+	local root="/var/srv/audio"
+	[ -d "$root" ] || return 0
+
+	local tag="$root/CACHEDIR.TAG"
+	if [ -d "$root" ] && [ ! -f "$tag" ]; then
+		echo "Marking $root as a cache directory for backup tools..."
+		{
+			echo "Signature: 8a477f597d28d172789f06886806bc55"
+			echo "# AI Audio Studio offline content (TTS/STT ONNX models, MusicGen, voices)."
+			echo "# Re-downloadable; excluded from backups by tools honouring CACHEDIR.TAG."
+		} >"$tag" || true
+	fi
+	[ ! -f "$tag" ] || chown 1000:1000 "$tag" || true
+
+	command -v semanage >/dev/null 2>&1 || return 0
+	local spec="${root}(/.*)?" listing
+	if ! listing=$(semanage fcontext -l 2>/dev/null); then
+		return 0
+	fi
+	if ! grep -qF "$spec" <<<"$listing"; then
+		echo "Registering SELinux fcontext container_file_t for ${root}..."
+		semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
+			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
+		restorecon -R "$root" || true
+	fi
+}
+
 ConfigureFirewall() {
 	if command -v firewall-cmd >/dev/null; then
 		if ! firewall-cmd --zone=trusted --query-interface=tailscale0 >/dev/null 2>&1; then
@@ -441,6 +469,7 @@ ClearAutologinObstacles
 ConfigureCockpitPortLabel
 ConfigureNomadStorage
 ConfigureComfyuiStorage
+ConfigureAudioStorage
 ConfigureFirewall
 
 if IsStateSynchronized; then
