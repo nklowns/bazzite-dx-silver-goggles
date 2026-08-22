@@ -128,3 +128,5 @@ remote-comfyui-setup:
     /usr/libexec/bazzite-dx-serve ensure 61384
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "✅ ComfyUI AI Studio pronto em: https://$DNS_NAME:61384"
+
+alias remote-ai-setup := remote-comfyui-setup
