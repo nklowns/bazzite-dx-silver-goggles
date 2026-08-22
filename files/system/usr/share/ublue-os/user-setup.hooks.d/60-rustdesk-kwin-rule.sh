@@ -50,3 +50,14 @@ kwriteconfig6 --file kwinrulesrc --group General --key count "$COUNT"
 
 # Trigger KWin configuration reload
 qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
+
+# Provision loginctl host shim for RustDesk Flatpak console session verification
+SHIM_DIR="$HOME/.var/app/com.rustdesk.RustDesk/data/bin"
+mkdir -p "$SHIM_DIR"
+if [ ! -f "$SHIM_DIR/loginctl" ]; then
+	cat << 'EOF' > "$SHIM_DIR/loginctl"
+#!/bin/sh
+exec /usr/bin/flatpak-spawn --host loginctl "$@"
+EOF
+	chmod +x "$SHIM_DIR/loginctl"
+fi
