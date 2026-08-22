@@ -5,6 +5,7 @@
 tts-up:
     #!/usr/bin/env bash
     set -euo pipefail
+    [ -x /usr/libexec/audio-studio-bootstrap-env ] && /usr/libexec/audio-studio-bootstrap-env
     systemctl --user daemon-reload
     systemctl --user start voice-tts.service
     echo "✅ AI Voice & TTS Service ativo. Endpoint local: http://localhost:61386"
@@ -37,6 +38,7 @@ tts-status:
 music-up:
     #!/usr/bin/env bash
     set -euo pipefail
+    [ -x /usr/libexec/audio-studio-bootstrap-env ] && /usr/libexec/audio-studio-bootstrap-env
     systemctl --user daemon-reload
     systemctl --user start audio-music.service
     echo "✅ AI Music & Stems Service ativo. Endpoint local: http://localhost:61387"
@@ -61,6 +63,7 @@ music-status:
 whisper-up:
     #!/usr/bin/env bash
     set -euo pipefail
+    [ -x /usr/libexec/audio-studio-bootstrap-env ] && /usr/libexec/audio-studio-bootstrap-env
     systemctl --user daemon-reload
     systemctl --user start voice-stt.service
     echo "✅ Faster-Whisper STT Service ativo. Endpoint local: http://localhost:61388"
@@ -85,6 +88,7 @@ whisper-status:
 audio-all-up:
     #!/usr/bin/env bash
     set -euo pipefail
+    [ -x /usr/libexec/audio-studio-bootstrap-env ] && /usr/libexec/audio-studio-bootstrap-env
     systemctl --user daemon-reload
     systemctl --user start voice-tts.service audio-music.service voice-stt.service
     echo "✅ Todos os 3 microserviços de Áudio estão ativos:"
@@ -107,6 +111,7 @@ voice-chat *args:
     set -euo pipefail
     TARGET="/var/srv/audio/app/voice_chat.py"
     [ -f "$TARGET" ] || TARGET="/var/srv/comfyui/audio/app/voice_chat.py"
+    [ -f "$TARGET" ] || TARGET="/usr/share/bazzite-dx/audio/voice_chat.py"
     python3 "$TARGET" {{ args }}
 
 # 🔒 Expor toda a pilha de Áudio no tailnet via Tailscale Serve

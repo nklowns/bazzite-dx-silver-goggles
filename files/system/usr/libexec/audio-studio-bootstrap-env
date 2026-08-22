@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Seeds default API server scripts from /usr/share/bazzite-dx/audio to /var/srv/audio/app if missing.
+set -euo pipefail
+
+APP_DIR="/var/srv/audio/app"
+SOURCE_DIR="/usr/share/bazzite-dx/audio"
+
+[ -d "$SOURCE_DIR" ] || exit 0
+mkdir -p "$APP_DIR"
+
+for f in "$SOURCE_DIR"/*.py; do
+	[ -f "$f" ] || continue
+	target="$APP_DIR/$(basename "$f")"
+	if [ ! -f "$target" ]; then
+		cp "$f" "$target"
+		chmod 644 "$target"
+	fi
+done
+
+if [ -f "$APP_DIR/voice_chat.py" ]; then
+	chmod 755 "$APP_DIR/voice_chat.py"
+fi
