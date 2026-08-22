@@ -1,0 +1,54 @@
+{
+  "id": "audio-mixer-005",
+  "revision": 0,
+  "last_node_id": 4,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AudioStudio_TTS",
+      "pos": [100, 100],
+      "size": [400, 220],
+      "widgets_values": ["Muito boa noite! Está começando mais um episódio do nosso podcast sobre tecnologia e computação soberana.", "pt-br", true],
+      "outputs": [{"name": "audio", "type": "AUDIO", "links": [1]}]
+    },
+    {
+      "id": 2,
+      "type": "AudioStudio_MusicGen",
+      "pos": [100, 360],
+      "size": [400, 200],
+      "widgets_values": ["podcast intro lofi chillhop beat, mellow piano melody, subtle rhythm", 12],
+      "outputs": [{"name": "audio", "type": "AUDIO", "links": [2]}]
+    },
+    {
+      "id": 3,
+      "type": "AudioStudio_AudioMixer",
+      "pos": [560, 200],
+      "size": [360, 200],
+      "widgets_values": [1.0, 0.35],
+      "inputs": [
+        {"name": "voice_audio", "type": "AUDIO", "link": 1},
+        {"name": "music_audio", "type": "AUDIO", "link": 2}
+      ],
+      "outputs": [{"name": "mixed_audio", "type": "AUDIO", "links": [3]}]
+    },
+    {
+      "id": 4,
+      "type": "AudioStudio_SaveAudio",
+      "pos": [980, 200],
+      "size": [300, 150],
+      "widgets_values": ["Podcast_Episodio_Voz_Clonada_Com_Musica"],
+      "inputs": [{"name": "audio", "type": "AUDIO", "link": 3}],
+      "outputs": [{"name": "audio_path", "type": "STRING", "links": []}]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 3, 0, "AUDIO"],
+    [2, 2, 0, 3, 1, "AUDIO"],
+    [3, 3, 0, 4, 0, "AUDIO"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 0.8, "offset": [50, 50]}},
+  "version": 0.4
+}

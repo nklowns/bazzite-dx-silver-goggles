@@ -1,0 +1,30 @@
+{
+  "id": "audio-tts-es-003",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AudioStudio_TTS",
+      "pos": [100, 200],
+      "size": [400, 220],
+      "widgets_values": ["¡Hola! Esta es una demostración de clonación de voz en español ejecutada con cero consumo de VRAM.", "es-es", true],
+      "outputs": [{"name": "audio", "type": "AUDIO", "links": [1]}]
+    },
+    {
+      "id": 2,
+      "type": "AudioStudio_SaveAudio",
+      "pos": [560, 200],
+      "size": [300, 150],
+      "widgets_values": ["Voz_Clonada_Espanol"],
+      "inputs": [{"name": "audio", "type": "AUDIO", "link": 1}],
+      "outputs": [{"name": "audio_path", "type": "STRING", "links": []}]
+    }
+  ],
+  "links": [[1, 1, 0, 2, 0, "AUDIO"]],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 1.0, "offset": [50, 50]}},
+  "version": 0.4
+}

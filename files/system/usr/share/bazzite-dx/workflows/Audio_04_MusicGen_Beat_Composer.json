@@ -1,0 +1,30 @@
+{
+  "id": "audio-music-004",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AudioStudio_MusicGen",
+      "pos": [100, 200],
+      "size": [420, 200],
+      "widgets_values": ["chill lofi hip hop beat, mellow electric piano, smooth vinyl warmth, relaxing groove", 15],
+      "outputs": [{"name": "audio", "type": "AUDIO", "links": [1]}]
+    },
+    {
+      "id": 2,
+      "type": "AudioStudio_SaveAudio",
+      "pos": [580, 200],
+      "size": [300, 150],
+      "widgets_values": ["MusicGen_Lofi_Track"],
+      "inputs": [{"name": "audio", "type": "AUDIO", "link": 1}],
+      "outputs": [{"name": "audio_path", "type": "STRING", "links": []}]
+    }
+  ],
+  "links": [[1, 1, 0, 2, 0, "AUDIO"]],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 1.0, "offset": [50, 50]}},
+  "version": 0.4
+}
