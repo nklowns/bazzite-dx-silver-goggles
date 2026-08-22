@@ -114,7 +114,7 @@
         'docker.io/library/mysql',
         'mysql',
       ],
-      allowedVersions: '^8\\.0\\.',
+      allowedVersions: '/^8\\.0\\./',
     },
     {
       description: 'Auto-update and batch Project NOMAD stack image digests in Quadlet units',
