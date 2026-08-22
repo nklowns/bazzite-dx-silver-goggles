@@ -1,7 +1,7 @@
 # 🎨 AI Studio (ComfyUI Diffusion Studio, LoRAs & Model Pipelines)
 
 # Iniciar o ComfyUI AI Studio (Geração de Imagens & Vídeo com GPU NVIDIA)
-[group('AI Studio')]
+[group('Visual Studio')]
 comfyui-up:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -17,7 +17,7 @@ comfyui-up:
     echo "   Para acessar remotamente via Tailscale com TLS: ujust remote-comfyui-setup"
 
 # 🛑 Parar o ComfyUI AI Studio e liberar 100% da VRAM para a GPU
-[group('AI Studio')]
+[group('Visual Studio')]
 comfyui-down:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -25,7 +25,7 @@ comfyui-down:
     echo "🛑 ComfyUI AI Studio desativado. VRAM liberada para a GPU."
 
 # 📊 Diagnóstico do ComfyUI e status de VRAM
-[group('AI Studio')]
+[group('Visual Studio')]
 comfyui-status:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -45,7 +45,7 @@ comfyui-status:
     fi
 
 # 🔄 Atualizar o ComfyUI Core para o lançamento mais recente do Comfy-Org
-[group('AI Studio')]
+[group('Visual Studio')]
 comfyui-update:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -67,7 +67,7 @@ comfyui-update:
     echo "✅ ComfyUI atualizado para $LATEST_TAG com sucesso."
 
 # 📥 Baixar modelos dimensionados para os 6 GB de VRAM da RTX 3060
-[group('AI Studio')]
+[group('Visual Studio')]
 comfyui-pull-models:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -97,7 +97,7 @@ comfyui-pull-models:
     echo "✅ Modelos do AI Studio sincronizados em $TARGET_DIR."
 
 # 🧹 Purgar a VRAM imediatamente (descarrega modelos residentes da GPU)
-[group('AI Studio')]
+[group('Visual Studio')]
 comfyui-vram-purge:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -109,7 +109,7 @@ comfyui-vram-purge:
     fi
 
 # 🗂️ Shell no namespace rootless para manipular arquivos do AI Studio
-[group('AI Studio')]
+[group('Visual Studio')]
 comfyui-shell:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -117,7 +117,7 @@ comfyui-shell:
     podman unshare bash
 
 # 🔒 Expor o ComfyUI de forma privada e segura no tailnet via Tailscale Serve (:61384)
-[group('AI Studio')]
+[group('Visual Studio')]
 remote-comfyui-setup:
     #!/usr/bin/env bash
     set -euo pipefail

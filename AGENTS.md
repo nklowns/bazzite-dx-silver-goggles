@@ -46,6 +46,10 @@ This is a developer workstation — arbitrary projects spin up arbitrary dev ser
 | NOMAD Command Center | `61380` | `https://bazzite.drake-ayu.ts.net:61380` (`ujust remote-nomad-setup`) |
 | NOMAD dozzle (log viewer) | `61381` | not exposed over tailnet by default |
 | NOMAD Ollama (GPU inference) | `61382` | never — no authentication, no rate limiting. The Command Center reaches it over the container network (`http://ollama:11434`), not this port |
+| ComfyUI (Visual Studio AI) | `61384` | `https://bazzite.drake-ayu.ts.net:61384` (`ujust remote-ai-setup`) — FLUX.1 Schnell, CyberRealistic V9 & LTX-Video 2.5 @ 48 FPS |
+| Voice & TTS Studio | `61386` | `https://bazzite.drake-ayu.ts.net:61386` (`ujust remote-audio-setup`) — Multi-language TTS (Piper PT-BR/EN/ES) & OpenVoice V2 Tone Converter |
+| Music & Stems Studio | `61387` | `https://bazzite.drake-ayu.ts.net:61387` (`ujust remote-audio-setup`) — MusicGen Small & Demucs Stem Separation (0 MB VRAM) |
+| Faster-Whisper STT | `61388` | `https://bazzite.drake-ayu.ts.net:61388` (`ujust remote-audio-setup`) — Real-time AVX-512 speech transcription (0 MB VRAM) |
 | cockpit | `61390` | `https://bazzite.drake-ayu.ts.net:61390` (`ujust remote-cockpit-setup`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
 | KasmVNC WebRTC Desktop | `61391` | `https://bazzite.drake-ayu.ts.net:61391` (`ujust remote-kasmvnc-setup`) — Browser-native HTML5 desktop with bidirectional browser clipboard sync |
 | Apache Guacamole | `61392` | `https://bazzite.drake-ayu.ts.net:61392` (`ujust remote-guacamole-setup`) — HTML5 client for RDP/VNC backends. *Note: KDE Plasma 6 Wayland RDP (KRDP) / VNC (KRFB) require active screen session portals; Sunshine (`61395`) is preferred for remote host streaming.* |

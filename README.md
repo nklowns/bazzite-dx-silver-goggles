@@ -271,3 +271,45 @@ curl http://<host>:61382/api/tags    -> {"models":[]} (Ollama: no auth, no rate 
 So the containers publish on `127.0.0.1` instead, and `ujust remote-nomad-setup` is the one deliberate way out — which also gets you real TLS rather than plain HTTP. It is the same shape code-server and Cockpit already use. Nothing internal is affected: the Command Center talks to its apps over the container network, not through host ports.
 
 If you want to share NOMAD with specific machines rather than your whole tailnet, that is a Tailscale ACL decision. firewalld cannot express it.
+
+---
+
+# 🎨 Visual Studio (ComfyUI, FLUX.1 & LTX-Video)
+
+The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) with rootless GPU acceleration inside the shared `project-nomad_default.network` on port `61384`.
+
+- **FLUX.1 Schnell (FP8)**: Native 1024x1024 text-to-image synthesis in 22s–35s.
+- **CyberRealistic V9**: 2-stage photorealism up to 1024x1536 Hi-Res.
+- **LTX-Video 2.5**: 768x432 48 FPS smooth temporal video generation in ~23s.
+
+### `ujust` commands (Visual Studio)
+
+| Command | Action |
+| :--- | :--- |
+| `ujust comfyui-up` | Start the ComfyUI GPU container (`http://localhost:61384`) |
+| `ujust comfyui-down` | Stop ComfyUI and release all 6 GB VRAM |
+| `ujust comfyui-status` | Container status, GPU allocation and logs |
+| `ujust remote-ai-setup` | Expose ComfyUI over Tailnet with TLS (`https://…:61384`) |
+
+---
+
+# 🎙️ Audio Studio (TTS, Multi-Language Voice Cloning, MusicGen & Faster-Whisper)
+
+The **Audio Studio** provides three decoupled microservices running **100% on CPU cores and 64GB DDR5 (0 MB VRAM)**, leaving the RTX 3060 entirely free for gaming or visual diffusion:
+
+1. **🗣️ Voice & TTS (`:61386`)**: Piper native neural speech (PT-BR Faber, EN-US Lessac, ES-ES Davefx) + OpenVoice V2 Tone Converter for zero-shot voice cloning in ~2.4s.
+2. **🎵 Music & Stems (`:61387`)**: Meta MusicGen Small for text-to-music generation + Demucs for studio stem isolation in ~11.5s.
+3. **👂 Speech-to-Text (`:61388`)**: Faster-Whisper Small (int8 CPU) for real-time speech transcription (~480ms).
+
+### `ujust` commands (Audio Studio)
+
+| Command | Action |
+| :--- | :--- |
+| `ujust tts-up` / `tts-down` | Start / Stop the Multi-Language TTS & Voice Cloning service (`:61386`) |
+| `ujust music-up` / `music-down` | Start / Stop the MusicGen & Demucs service (`:61387`) |
+| `ujust whisper-up` / `whisper-down`| Start / Stop the Faster-Whisper STT service (`:61388`) |
+| `ujust audio-all-up` / `audio-all-down` | Start / Stop all 3 Audio microservices simultaneously |
+| `ujust voice-chat` | Interactive bi-directional voice loop (Mic ➔ Whisper ➔ Ollama MoE ➔ TTS ➔ Speakers) |
+| `ujust voice-chat --clone` | Interactive voice loop with the assistant speaking in your **own cloned voice** |
+| `ujust remote-audio-setup` | Expose all 3 Audio services over Tailnet with TLS (`:61386`, `:61387`, `:61388`) |
+
