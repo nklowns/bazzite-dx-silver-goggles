@@ -19,8 +19,6 @@ Network=project-nomad_default.network
 NetworkAlias=music
 PublishPort=127.0.0.1:61387:5000
 
-Environment=HF_HUB_OFFLINE=1
-Environment=TRANSFORMERS_OFFLINE=1
 
 Volume=/var/srv/audio/app:/app:Z
 Volume=/var/srv/audio/music/models:/models:Z

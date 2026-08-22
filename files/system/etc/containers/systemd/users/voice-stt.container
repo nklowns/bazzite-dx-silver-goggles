@@ -20,8 +20,6 @@ NetworkAlias=whisper
 NetworkAlias=stt
 PublishPort=127.0.0.1:61388:5000
 
-Environment=HF_HUB_OFFLINE=1
-Environment=TRANSFORMERS_OFFLINE=1
 
 Volume=/var/srv/audio/app:/app:Z
 Volume=/var/srv/audio/stt/models:/models:Z

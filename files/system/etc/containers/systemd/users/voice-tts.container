@@ -26,8 +26,6 @@ NetworkAlias=tts
 NetworkAlias=voice
 PublishPort=127.0.0.1:61386:5000
 
-Environment=HF_HUB_OFFLINE=1
-Environment=TRANSFORMERS_OFFLINE=1
 
 Volume=/var/srv/audio/app:/app:Z
 Volume=/var/srv/audio/tts/models:/models:Z
