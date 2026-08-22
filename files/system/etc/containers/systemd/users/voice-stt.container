@@ -13,7 +13,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/library/python:3.12-slim
+Image=docker.io/library/python:3.12-slim@sha256:2c941e860699f878900b0edc2403613c234d4b32eda3cc9fa7036991a2a63c4a
 ContainerName=ai_voice_stt
 Network=project-nomad_default.network
 NetworkAlias=whisper
