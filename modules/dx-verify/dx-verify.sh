@@ -127,6 +127,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/flatpak/overrides/com.deskflow.deskflow|Policy: Deskflow Flatpak Override|Error"
 	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"
 	"file|/usr/lib/firewalld/services/fcast.xml|Asset: Firewalld FCast Service Def|Error"
+	"file|/etc/pipewire/pipewire.conf.d/50-remote-mic.conf|Asset: PipeWire Virtual Remote Mic Config|Error"
+	"file|/etc/pipewire/pipewire-pulse.conf.d/50-rustdesk.conf|Asset: PipeWire-Pulse RustDesk Low-Latency Config|Error"
 
 	"file|/usr/libexec/bazzite-dx-virt-setup|Asset: Virt Setup Script|Error"
 	"file|/usr/libexec/bazzite-dx-manage-vfio|Asset: VFIO Manager|Error"

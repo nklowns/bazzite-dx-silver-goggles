@@ -3,6 +3,10 @@ filesystems=home;xdg-run/pipewire-0;xdg-run/systemd;/run/systemd/seats:ro;/run/u
 devices=all;
 sockets=x11;wayland;pulseaudio;
 
+[Environment]
+PULSE_LATENCY_MSEC=20
+PIPEWIRE_LATENCY=256/48000
+
 [Session Bus Policy]
 org.freedesktop.portal.Desktop=talk
 org.freedesktop.portal.ScreenCast=talk
