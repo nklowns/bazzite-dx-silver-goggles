@@ -165,6 +165,22 @@
       commitMessagePrefix: 'chore(deps-remote): ',
     },
     {
+      description: 'Auto-update ComfyUI AI Studio container digest in Quadlet unit',
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/comfyui.container',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
+      pinDigests: true,
+      groupName: 'AI Studio ComfyUI container digest',
+      schedule: [
+        'before 6am on monday',
+      ],
+      commitMessagePrefix: 'chore(deps-ai): ',
+    },
+    {
       description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',
       matchPackageNames: [
         'fedora',

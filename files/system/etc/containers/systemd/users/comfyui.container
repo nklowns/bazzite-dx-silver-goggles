@@ -17,7 +17,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/yanwk/comfyui-boot:cu124-slim
+Image=docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961
 ContainerName=ai_comfyui
 Network=project-nomad_default.network
 NetworkAlias=comfyui
