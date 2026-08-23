@@ -93,6 +93,26 @@ tts-logs:
 
 alias aistudio-audio-logs := tts-logs
 
+# 📥 Baixar modelos de voz e áudio para cache local (Piper PT-BR, EN, ES)
+[group('AI Studio Audio')]
+tts-pull-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CACHE_DIR="/var/srv/audio/cache"
+    mkdir -p "$CACHE_DIR"
+    echo "📥 Verificando e baixando modelos de voz para $CACHE_DIR..."
+    if ! systemctl --user is-active --quiet aistudio-audio.service; then
+        echo "Iniciando AI Studio Audio para download..."
+        systemctl --user start aistudio-audio.service
+    fi
+    # Aquece endpoints padrão no Speaches
+    curl -s -X POST http://localhost:61386/v1/audio/speech \
+        -H "Content-Type: application/json" \
+        -d '{"model": "speaches-ai/piper-pt-br-faber-medium", "input": "Inicialização de modelos de áudio concluída.", "voice": "faber"}' >/dev/null 2>&1 || true
+    echo "✅ Modelos do AI Studio Audio sincronizados com sucesso."
+
+alias aistudio-audio-pull-models := tts-pull-models
+
 # 🗂️ Shell no namespace rootless para manipular arquivos do Audio Studio
 [group('AI Studio Audio')]
 audio-shell:

@@ -227,6 +227,8 @@ comfyui-pull-models:
     echo ""
     echo "✅ Modelos do AI Studio sincronizados em $TARGET_DIR."
 
+alias aistudio-visual-pull-models := comfyui-pull-models
+
 # 🧹 Purgar a VRAM imediatamente (descarrega modelos residentes da GPU)
 [group('AI Studio Visual')]
 comfyui-vram-purge:

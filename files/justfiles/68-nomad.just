@@ -180,6 +180,8 @@ ollama-pull-models:
     echo "Para engenharia de software sênior (Tier 3, 14B):"
     echo "   podman exec nomad_ollama_gpu ollama pull richardyoung/qwen2.5-coder-14b-instruct-abliterated"
 
+alias nomad-pull-models := ollama-pull-models
+
 # 🧠 Criar a persona tática uncensored para o chat do NOMAD (nomad-tactical)
 [group('NOMAD')]
 nomad-build-persona:
