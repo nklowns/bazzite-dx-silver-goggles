@@ -1,0 +1,40 @@
+# AI Studio — Local Voice & Audio (TTS & STT) OpenAI-compatible Microservice.
+# Powered by Speaches AI (Piper, Kokoro-82M, Faster-Whisper).
+#
+# MEMORY & HARDWARE ARCHITECTURE
+# ------------------------------
+# - Runs 100% on CPU (i7-12700H 14-cores / DDR5), preserving 100% GPU VRAM for ComfyUI / LLMs.
+# - Provides standard OpenAI-compatible endpoints:
+#   - /v1/audio/speech (Piper & Kokoro TTS)
+#   - /v1/audio/transcriptions (Faster-Whisper STT)
+#
+# NETWORK & TAILSCALE-FIRST
+# -------------------------
+# - Internal network alias: http://aistudio-audio:8000, http://tts:8000, http://voice:8000, http://whisper:8000
+# - Published on host loopback: 127.0.0.1:61386
+# - Exposed securely over the tailnet via `ujust remote-audio-setup`
+
+[Unit]
+Description=AI Studio — Audio Studio (Speaches Voice TTS & STT, Port 61386)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
+ContainerName=aistudio_audio
+Network=project-nomad_default.network
+NetworkAlias=aistudio-audio
+NetworkAlias=tts
+NetworkAlias=voice
+NetworkAlias=whisper
+PublishPort=127.0.0.1:61386:8000
+
+Volume=/var/srv/audio/cache:/home/ubuntu/.cache/huggingface/hub:Z
+Volume=/var/srv/audio/output:/output:Z
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+
+# [Install] is omitted on purpose: respect Boot Impact Policy.
+# Start on-demand via `ujust tts-up` or `ujust aistudio-audio-up`.

@@ -77,5 +77,5 @@ modules:
       # range in AGENTS.md were both being contradicted by the running host without anything
       # noticing — a policy is only as real as the thing that checks it.
       - 69-audit.just
-      - 70-visual-studio.just
-      - 71-audio-studio.just
+      - 70-aistudio-visual.just
+      - 71-aistudio-audio.just

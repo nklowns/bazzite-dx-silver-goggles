@@ -12,12 +12,12 @@ SET_OUTPUT_SCRIPT="$SUNSHINE_DIR/set-output.sh"
 mkdir -p "$SUNSHINE_DIR"
 
 if [ ! -f "$APPS_FILE" ] || [ ! -s "$APPS_FILE" ]; then
-    echo '{"env":null,"apps":[]}' > "$APPS_FILE"
+	echo '{"env":null,"apps":[]}' >"$APPS_FILE"
 fi
 
 # Ensure set-output.sh helper exists
 if [ ! -f "$SET_OUTPUT_SCRIPT" ]; then
-    cat << 'EOF' > "$SET_OUTPUT_SCRIPT"
+	cat <<'EOF' >"$SET_OUTPUT_SCRIPT"
 #!/bin/bash
 CONF="$HOME/.config/sunshine/sunshine.conf"
 NAME="$1"
@@ -36,7 +36,7 @@ nohup systemctl --user restart homebrew.sunshine.service >/dev/null 2>&1 &
 disown
 exit 0
 EOF
-    chmod +x "$SET_OUTPUT_SCRIPT"
+	chmod +x "$SET_OUTPUT_SCRIPT"
 fi
 
 # Construct valid JSON app objects using jq
@@ -79,10 +79,10 @@ DUAL_APP=$(jq -n --arg cmd "$DUAL_CMD" --arg undo "$DUAL_UNDO" '{
 TMP_FILE=$(mktemp -p "$SUNSHINE_DIR" .apps.json.XXXXXX)
 
 jq --argjson nb "$NOTEBOOK_APP" \
-   --argjson aoc "$AOC_APP" \
-   --argjson dual "$DUAL_APP" '
+	--argjson aoc "$AOC_APP" \
+	--argjson dual "$DUAL_APP" '
   .apps = ((.apps // []) | map(select(.name != "Notebook (eDP)" and .name != "AOC (HDMI)" and .name != "Dual Canvas (32:9)")) + [$nb, $aoc, $dual])
-' "$APPS_FILE" > "$TMP_FILE"
+' "$APPS_FILE" >"$TMP_FILE"
 
 mv "$TMP_FILE" "$APPS_FILE"
 echo "✅ Sunshine multi-monitor applications provisioned in $APPS_FILE"

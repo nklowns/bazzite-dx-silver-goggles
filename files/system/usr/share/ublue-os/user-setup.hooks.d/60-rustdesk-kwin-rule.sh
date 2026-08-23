@@ -55,7 +55,7 @@ qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
 SHIM_DIR="$HOME/.var/app/com.rustdesk.RustDesk/data/bin"
 mkdir -p "$SHIM_DIR"
 if [ ! -f "$SHIM_DIR/loginctl" ]; then
-	cat << 'EOF' > "$SHIM_DIR/loginctl"
+	cat <<'EOF' >"$SHIM_DIR/loginctl"
 #!/bin/sh
 exec /usr/bin/flatpak-spawn --host loginctl "$@"
 EOF

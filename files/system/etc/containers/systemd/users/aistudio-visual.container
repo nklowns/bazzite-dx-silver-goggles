@@ -1,4 +1,4 @@
-# ComfyUI Image & Video Diffusion Studio (AI Studio).
+# AI Studio — Visual Studio (ComfyUI Image, Video & Facial Animation).
 # Independent DX service decoupled from Project NOMAD.
 #
 # MEMORY ARCHITECTURE FOR 6GB VRAM + 64GB DDR5
@@ -7,34 +7,45 @@
 # - --cache-ram 16 48: pins model weights in the 64GB DDR5 system RAM
 # - --cpu-text-encoder: offloads the heavy T5 text encoder to system RAM
 #
+# PERSISTENT SSD ENVIRONMENT:
+# ---------------------------
+# All validated Python dependencies (LivePortrait, MediaPipe, VideoHelperSuite, ChatTTS)
+# are stored permanently on SSD in /var/srv/comfyui/site-packages and mounted to /root/.local.
+# Zero runtime installations occur on boot.
+#
 # PUBLISHED ON TAILSCALE AT :61384
 # --------------------------------
 # Bound to 127.0.0.1:61384 and exposed securely over the tailnet via `ujust remote-comfyui-setup`.
 
 [Unit]
-Description=AI Studio — ComfyUI (Image & Video Diffusion Studio)
+Description=AI Studio — Visual Studio (ComfyUI Image, Video & Facial Animation)
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
 Image=docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961
-ContainerName=ai_comfyui
+ContainerName=aistudio_visual
 Network=project-nomad_default.network
+NetworkAlias=aistudio-visual
 NetworkAlias=comfyui
 PublishPort=127.0.0.1:61384:8188
 
 AddDevice=nvidia.com/gpu=all
 Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+Environment=PYTHONPATH=/root/.local/lib/python3.12/site-packages
+Environment=PYTHONUSERBASE=/root/.local
+Environment=PIP_TARGET=/root/.local/lib/python3.12/site-packages
 
 Volume=/var/srv/comfyui/ComfyUI:/root/ComfyUI:Z
 Volume=/var/srv/comfyui/user-scripts:/root/user-scripts:Z
+Volume=/var/srv/comfyui/site-packages:/root/.local/lib/python3.12/site-packages:Z
 
-Environment=CLI_ARGS=--fast
+Environment=CLI_ARGS=--fast --cache-classic --reserve-vram 1.5
 
 [Service]
 Restart=on-failure
 TimeoutStartSec=600
 
 # [Install] is omitted on purpose: respect Boot Impact Policy for gaming sessions.
-# Start on-demand via `ujust comfyui-up`.
+# Start on-demand via `ujust comfyui-up` or `ujust aistudio-visual-up`.
