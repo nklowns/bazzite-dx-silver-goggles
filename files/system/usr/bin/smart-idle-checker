@@ -9,10 +9,13 @@ REASONS=()
 
 # 1. Check for Active Sunshine Stream or Remote Desktop (RustDesk / Deskflow)
 if pgrep -x "sunshine" >/dev/null 2>&1; then
-	if grep -q "Streaming bitrate" /home/cloud/.config/sunshine/sunshine.log 2>/dev/null; then
-		INHIBIT=1
-		REASONS+=("Sunshine streaming session active")
-	fi
+	for user_home in /var/home/* /home/*; do
+		if [ -f "$user_home/.config/sunshine/sunshine.log" ] && grep -q "Streaming bitrate" "$user_home/.config/sunshine/sunshine.log" 2>/dev/null; then
+			INHIBIT=1
+			REASONS+=("Sunshine streaming session active")
+			break
+		fi
+	done
 fi
 
 if pgrep -f "rustdesk" >/dev/null 2>&1; then
