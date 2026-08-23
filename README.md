@@ -278,38 +278,49 @@ If you want to share NOMAD with specific machines rather than your whole tailnet
 
 The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) with rootless GPU acceleration inside the shared `project-nomad_default.network` on port `61384`.
 
-- **FLUX.1 Schnell (FP8)**: Native 1024x1024 text-to-image synthesis in 22s–35s.
-- **CyberRealistic V9**: 2-stage photorealism up to 1024x1536 Hi-Res.
-- **LTX-Video 2.5**: 768x432 48 FPS smooth temporal video generation in ~23s.
+- **CyberRealistic V9 & SD 1.5**: Photorealistic 8K UHD avatars generated in sub-10s with DDR5 pinned cache.
+- **LivePortrait Neural Animation**: 3D mesh deformation and lip synchronization driven by audio or reference video at ~9.7 FPS on RTX 3060.
+- **Persistent SSD Environment**: All Python toolkits and custom nodes are preserved in `/var/srv/comfyui/site-packages` on SSD, enabling sub-2s startup with **zero runtime pip installs at boot**.
 
-### `ujust` commands (Visual Studio)
+### `ujust` commands (AI Studio Visual)
 
 | Command | Action |
 | :--- | :--- |
-| `ujust comfyui-up` | Start the ComfyUI GPU container (`http://localhost:61384`) |
-| `ujust comfyui-down` | Stop ComfyUI and release all 6 GB VRAM |
-| `ujust comfyui-status` | Container status, GPU allocation and logs |
+| `ujust aistudio-visual-up` (ou `comfyui-up`) | Start the ComfyUI GPU container (`http://localhost:61384`) |
+| `ujust aistudio-visual-down` (ou `comfyui-down`) | Stop ComfyUI and release all 6 GB VRAM |
+| `ujust aistudio-visual-status` (ou `comfyui-status`) | Detailed diagnostics (VRAM usage, API health, rootless permissions) |
+| `ujust aistudio-visual-purge` (ou `comfyui-vram-purge`) | Instant VRAM purge (unload GPU models without stopping container) |
+| `ujust aistudio-visual-animate <img_8k> <audio_wav>` | Animate any portrait with speech and LivePortrait neural lip sync |
+| `ujust comfyui-sync` | Synchronize Python packages from declarative `requirements.txt` to SSD |
+| `ujust comfyui-install <pkg>` | Install/upgrade a package into `/var/srv/comfyui/site-packages` live with no OS reboot |
+| `ujust comfyui-container-shell` | Open interactive bash terminal inside the running container |
 | `ujust remote-ai-setup` | Expose ComfyUI over Tailnet with TLS (`https://…:61384`) |
 
 ---
 
-# 🎙️ Audio Studio (TTS, Multi-Language Voice Cloning, MusicGen & Faster-Whisper)
+# 🎙️ AI Studio Audio (Speaches Voice TTS & STT, ChatTTS Expressive & Music)
 
-The **Audio Studio** provides three decoupled microservices running **100% on CPU cores and 64GB DDR5 (0 MB VRAM)**, leaving the RTX 3060 entirely free for gaming or visual diffusion:
+The **AI Studio Audio** stack provides standard OpenAI-compatible endpoints (`/v1/audio/speech` and `/v1/audio/transcriptions`) running **100% on CPU cores and 64GB DDR5 (0 MB VRAM)**, leaving the RTX 3060 entirely free for gaming or visual diffusion:
 
-1. **🗣️ Voice & TTS (`:61386`)**: Piper native neural speech (PT-BR Faber, EN-US Lessac, ES-ES Davefx) + OpenVoice V2 Tone Converter for zero-shot voice cloning in ~2.4s.
-2. **🎵 Music & Stems (`:61387`)**: Meta MusicGen Small for text-to-music generation + Demucs for studio stem isolation in ~11.5s.
-3. **👂 Speech-to-Text (`:61388`)**: Faster-Whisper Small (int8 CPU) for real-time speech transcription (~480ms).
+1. **🗣️ OpenAI Speech Microservice (`:61386`)**: Speaches AI engine serving Piper TTS (Brazilian Portuguese Faber) and Faster-Whisper real-time STT.
+2. **🎭 Conversational Expressive Voice**: ChatTTS synthesis with natural laugh tags (`[laugh]`), emotional hesitations (`[oral_2]`), and speech pauses (`[break_4]`).
+3. **🧬 Zero-Shot Voice Cloning**: Sub-second voice cloning using Piper base phonetics and OpenVoice V2 tone conversion.
+4. **🎹 Instrumental Soundtracks**: Meta MusicGen on CPU with zero GPU VRAM impact.
+5. **📁 Strict XDG Output Directory Compliance**:
+   - Visual Outputs (8K Portraits & MP4 Videos): `${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio/`
+   - Acoustic Outputs (WAV & MP3 Audio): `${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio/`
 
-### `ujust` commands (Audio Studio)
+### `ujust` commands (AI Studio Audio)
 
 | Command | Action |
 | :--- | :--- |
-| `ujust tts-up` / `tts-down` | Start / Stop the Multi-Language TTS & Voice Cloning service (`:61386`) |
-| `ujust music-up` / `music-down` | Start / Stop the MusicGen & Demucs service (`:61387`) |
-| `ujust whisper-up` / `whisper-down`| Start / Stop the Faster-Whisper STT service (`:61388`) |
-| `ujust audio-all-up` / `audio-all-down` | Start / Stop all 3 Audio microservices simultaneously |
-| `ujust voice-chat` | Interactive bi-directional voice loop (Mic ➔ Whisper ➔ Ollama MoE ➔ TTS ➔ Speakers) |
-| `ujust voice-chat --clone` | Interactive voice loop with the assistant speaking in your **own cloned voice** |
-| `ujust remote-audio-setup` | Expose all 3 Audio services over Tailnet with TLS (`:61386`, `:61387`, `:61388`) |
+| `ujust aistudio-audio-up` (ou `tts-up`) | Start the Speaches Voice service (`:61386`) |
+| `ujust aistudio-audio-down` (ou `tts-down`) | Stop the Speaches Voice service |
+| `ujust aistudio-audio-status` (ou `tts-status`) | Check OpenAI endpoint models and disk health |
+| `ujust clone-voice <ref_audio> <text>` | Clone voice in zero-shot with Brazilian Portuguese foundation |
+| `ujust synthesize-expressive <text>` | Synthesize human-like speech with natural laughter and pauses |
+| `ujust generate-soundtrack <prompt>` | Generate instrumental music on CPU (0 MB VRAM) |
+| `ujust produce-master-video <img_8k> <voice_wav> <music_wav>` | Render final 48 FPS video with sidechain auto-ducking audio |
+| `ujust remote-audio-setup` | Expose Speaches Voice service over Tailnet with TLS (`:61386`) |
+
 

@@ -46,10 +46,8 @@ This is a developer workstation — arbitrary projects spin up arbitrary dev ser
 | NOMAD Command Center | `61380` | `https://bazzite.drake-ayu.ts.net:61380` (`ujust remote-nomad-setup`) |
 | NOMAD dozzle (log viewer) | `61381` | not exposed over tailnet by default |
 | NOMAD Ollama (GPU inference) | `61382` | never — no authentication, no rate limiting. The Command Center reaches it over the container network (`http://ollama:11434`), not this port |
-| ComfyUI (Visual Studio AI) | `61384` | `https://bazzite.drake-ayu.ts.net:61384` (`ujust remote-ai-setup`) — FLUX.1 Schnell, CyberRealistic V9 & LTX-Video 2.5 @ 48 FPS |
-| Voice & TTS Studio | `61386` | `https://bazzite.drake-ayu.ts.net:61386` (`ujust remote-audio-setup`) — Multi-language TTS (Piper PT-BR/EN/ES) & OpenVoice V2 Tone Converter |
-| Music & Stems Studio | `61387` | `https://bazzite.drake-ayu.ts.net:61387` (`ujust remote-audio-setup`) — MusicGen Small & Demucs Stem Separation (0 MB VRAM) |
-| Faster-Whisper STT | `61388` | `https://bazzite.drake-ayu.ts.net:61388` (`ujust remote-audio-setup`) — Real-time AVX-512 speech transcription (0 MB VRAM) |
+| AI Studio Visual (ComfyUI) | `61384` | `https://bazzite.drake-ayu.ts.net:61384` (`ujust remote-comfyui-setup` / `ujust remote-ai-setup`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
+| AI Studio Audio (Speaches) | `61386` | `https://bazzite.drake-ayu.ts.net:61386` (`ujust remote-audio-setup`) — OpenAI-compatible Speech API (Piper TTS, ChatTTS & Faster-Whisper STT, 100% CPU / 0 MB VRAM) |
 | cockpit | `61390` | `https://bazzite.drake-ayu.ts.net:61390` (`ujust remote-cockpit-setup`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
 | KasmVNC WebRTC Desktop | `61391` | `https://bazzite.drake-ayu.ts.net:61391` (`ujust remote-kasmvnc-setup`) — Browser-native HTML5 desktop with bidirectional browser clipboard sync |
 | Apache Guacamole | `61392` | `https://bazzite.drake-ayu.ts.net:61392` (`ujust remote-guacamole-setup`) — HTML5 client for RDP/VNC backends. *Note: KDE Plasma 6 Wayland RDP (KRDP) / VNC (KRFB) require active screen session portals; Sunshine (`61395`) is preferred for remote host streaming.* |
@@ -206,6 +204,25 @@ ostree performs a three-way merge on `/etc` at deployment time, so a local chang
    `*.wants` symlink untouched. Enabled template instances (`ide-tunnel@code.service`) are **not**
    listed by `list-unit-files 'ide-tunnel@*.service'` (that reports only the template, "indirect
    disabled"); enumerate the `*.target.wants/` symlinks instead.
+
+### 🎙️🎨 AI Studio Architecture (Visual & Audio)
+
+The AI Studio stack follows a **Single Unified Mode** architecture based on **Rootless Podman Quadlets** and persistent SSD storage:
+
+- **AI Studio Visual (`aistudio-visual.container`, Port :61384)**:
+  - Backed by ComfyUI, CyberRealistic V9, SD 1.5, and LivePortrait Neural Facial Animation.
+  - Accelerated via NVIDIA CUDA on RTX 3060 Laptop GPU.
+  - **Zero Boot-Time Pip Installs**: All Python packages live permanently on SSD in `/var/srv/comfyui/site-packages` and mount into `PYTHONPATH`. Starts in **< 2 seconds**.
+  - Recipes: `70-aistudio-visual.just` (`ujust aistudio-visual-up`, `ujust aistudio-visual-down`, `ujust aistudio-visual-status`, `ujust aistudio-visual-animate`).
+
+- **AI Studio Audio (`aistudio-audio.container`, Port :61386)**:
+  - Backed by Speaches AI (Piper TTS, Faster-Whisper STT, OpenAI-compatible `/v1/audio/*` endpoints) and ChatTTS (expressive conversational speech with laughter `[laugh]` and natural pauses).
+  - Runs **100% on CPU** (i7-12700H 14 cores / 64GB DDR5), preserving 100% GPU VRAM for visual generation and gaming.
+  - Recipes: `71-aistudio-audio.just` (`ujust aistudio-audio-up`, `ujust aistudio-audio-status`, `ujust clone-voice`, `ujust synthesize-expressive`).
+
+- **Deliverables Policy (Strict XDG Standards)**:
+  - All visual outputs (8K Portraits & MP4 Videos): `${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio/`
+  - All audio outputs (WAV/MP3 Speech & Soundtracks): `${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio/`
 
 ### Scripting Conventions
 
