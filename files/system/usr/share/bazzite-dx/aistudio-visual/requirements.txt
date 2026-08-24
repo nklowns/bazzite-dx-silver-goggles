@@ -5,7 +5,7 @@
 comfy-aimdo
 comfy-kitchen==0.2.31
 comfyui-frontend-package==1.49.6
-comfyui-workflow-templates==0.11.44
+comfyui-workflow-templates==0.11.45
 comfyui-embedded-docs==0.5.9
 blake3
 comfy-angle
