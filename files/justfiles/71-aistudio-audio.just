@@ -203,3 +203,14 @@ alias audio-up := tts-up
 alias audio-down := tts-down
 alias audio-status := tts-status
 alias audio-logs := tts-logs
+alias audio-pull-models := tts-pull-models
+alias audio-shell := audio-shell
+
+alias aistudio-audio := tts-status
+alias aistudio-audio-up := tts-up
+alias aistudio-audio-down := tts-down
+alias aistudio-audio-status := tts-status
+alias aistudio-audio-logs := tts-logs
+alias aistudio-audio-pull-models := tts-pull-models
+alias aistudio-audio-shell := audio-shell
+alias remote-aistudio-audio-setup := remote-audio-setup

@@ -18,7 +18,50 @@
 #   Sub-second startup with ZERO runtime pip installs.
 # - User deliverables strictly follow XDG specifications:
 #   - Visual (Imagens & Vídeos): $XDG_PICTURES_DIR/AI_Studio/
+#   - Audio (Vozes & Músicas): $XDG_MUSIC_DIR/AI_Studio/
 # ==============================================================================
+
+# 🚀 Iniciar a suíte completa do AI Studio (Visual + Audio)
+[group('AI Studio')]
+aistudio-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🎨 Iniciando AI Studio Visual..."
+    just comfyui-up
+    echo "🎙️ Iniciando AI Studio Audio..."
+    just tts-up
+    echo "✅ Suíte AI Studio (Visual + Audio) ativa."
+
+# 🛑 Parar a suíte completa do AI Studio (Visual + Audio)
+[group('AI Studio')]
+aistudio-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    just comfyui-down
+    just tts-down
+    echo "🛑 Suíte AI Studio desativada. Recursos 100% liberados."
+
+# 📊 Diagnóstico consolidado da suíte AI Studio (Visual + Audio + GPU)
+[group('AI Studio')]
+aistudio-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "=== 🎨 AI STUDIO VISUAL ==="
+    just comfyui-status
+    echo ""
+    echo "=== 🎙️ AI STUDIO AUDIO ==="
+    just tts-status
+
+# 📥 Baixar modelos para a suíte completa do AI Studio
+[group('AI Studio')]
+aistudio-pull-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just comfyui-pull-models
+    just tts-pull-models
+    echo "✅ Todos os modelos da suíte AI Studio sincronizados."
+
+alias aistudio := aistudio-status
 
 # 🎨 Iniciar o AI Studio Visual (ComfyUI :61384)
 [group('AI Studio Visual')]
@@ -262,6 +305,28 @@ remote-comfyui-setup:
     fi
     /usr/libexec/bazzite-dx-serve ensure 61384
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "✅ AI Studio Visual pronto em: https://$DNS_NAME:61384"
-
 alias remote-ai-setup := remote-comfyui-setup
+alias remote-aistudio-visual-setup := remote-comfyui-setup
+alias remote-visual-setup := remote-comfyui-setup
+
+# --- Domain & Namespace Aliases (aistudio-* / visual-*) ---
+alias aistudio-visual := comfyui-status
+alias aistudio-visual-sync := comfyui-sync
+alias aistudio-visual-install := comfyui-install
+alias aistudio-visual-update := comfyui-update
+alias aistudio-visual-shell := comfyui-shell
+alias aistudio-visual-container-shell := comfyui-container-shell
+
+alias visual := comfyui-status
+alias visual-up := comfyui-up
+alias visual-down := comfyui-down
+alias visual-status := comfyui-status
+alias visual-logs := comfyui-logs
+alias visual-pull-models := comfyui-pull-models
+alias visual-sync := comfyui-sync
+alias visual-install := comfyui-install
+alias visual-update := comfyui-update
+alias visual-purge := comfyui-vram-purge
+alias visual-shell := comfyui-shell
+alias visual-container-shell := comfyui-container-shell
+alias visual-animate := comfyui-animate-avatar

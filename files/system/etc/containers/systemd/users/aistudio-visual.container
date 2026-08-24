@@ -28,6 +28,7 @@ ContainerName=aistudio_visual
 Network=project-nomad_default.network
 NetworkAlias=aistudio-visual
 NetworkAlias=comfyui
+NetworkAlias=visual
 PublishPort=127.0.0.1:61384:8188
 
 AddDevice=nvidia.com/gpu=all

@@ -24,6 +24,7 @@ Image=ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
 ContainerName=aistudio_audio
 Network=project-nomad_default.network
 NetworkAlias=aistudio-audio
+NetworkAlias=audio
 NetworkAlias=tts
 NetworkAlias=voice
 NetworkAlias=whisper
