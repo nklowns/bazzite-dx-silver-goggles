@@ -1,7 +1,8 @@
 [Unit]
 Description=RustDesk Remote Desktop Server (Always Active Service)
 Documentation=https://rustdesk.com/docs/
-After=graphical-session.target plasma-kwin_wayland.service
+After=graphical-session.target plasma-kwin_wayland.service pipewire.service wireplumber.service pipewire-pulse.service
+Wants=pipewire.service wireplumber.service pipewire-pulse.service
 Requisite=graphical-session.target
 PartOf=graphical-session.target
 
