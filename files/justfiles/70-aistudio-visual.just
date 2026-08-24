@@ -14,7 +14,7 @@
 # - `--cache-classic`: Pins diffusion weights & text encoders in the 64GB DDR5 system RAM,
 #   eliminating repetitive NVMe disk reloads on every generation (2x speedup).
 # - `--reserve-vram 1.5`: Hard reserve to guarantee zero CUDA Out-Of-Memory crashes.
-# - PERSISTENT PYTHON STORAGE: All packages live in /var/srv/comfyui/site-packages on SSD.
+# - PERSISTENT PYTHON STORAGE: All packages live in /var/srv/visual/site-packages on SSD.
 #   Sub-second startup with ZERO runtime pip installs.
 # - User deliverables strictly follow XDG specifications:
 #   - Visual (Imagens & Vídeos): $XDG_PICTURES_DIR/AI_Studio/
@@ -69,8 +69,8 @@ comfyui-up:
     #!/usr/bin/env bash
     set -euo pipefail
     # Verify declarative storage existence
-    if [[ ! -d /var/srv/comfyui ]]; then
-        echo "❌ /var/srv/comfyui não existe — o provisionamento declarativo não rodou."
+    if [[ ! -d /var/srv/visual ]]; then
+        echo "❌ /var/srv/visual não existe — o provisionamento declarativo não rodou."
         echo "   Verifique: systemctl status bazzite-dx-groups.service"
         exit 1
     fi
@@ -118,13 +118,13 @@ comfyui-status:
     if command -v nvidia-smi >/dev/null 2>&1; then
         nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu --format=csv
     fi
-    echo "--- Disco /var/srv/comfyui ---"
-    du -sh /var/srv/comfyui/* 2>/dev/null || true
+    echo "--- Disco /var/srv/visual ---"
+    du -sh /var/srv/visual/* 2>/dev/null || true
     echo "--- arquivos inalcançáveis pelos containers rootless ---"
     SUB_START=$(awk -F: -v u="$USER" '$1==u {print $2; exit}' /etc/subuid 2>/dev/null)
     SUB_LEN=$(awk -F: -v u="$USER" '$1==u {print $3; exit}' /etc/subuid 2>/dev/null)
     if [[ -n "${SUB_START:-}" && -n "${SUB_LEN:-}" ]]; then
-        BAD=$(find /var/srv/comfyui -printf '%U %p\n' 2>/dev/null |
+        BAD=$(find /var/srv/visual -printf '%U %p\n' 2>/dev/null |
             awk -v me="$(id -u)" -v s="$SUB_START" -v e="$((SUB_START + SUB_LEN - 1))" \
                 '$1 != me && ($1 < s || $1 > e)')
         if [[ -n "$BAD" ]]; then
@@ -151,17 +151,17 @@ comfyui-sync:
     set -euo pipefail
     REQ_FILE="/usr/share/bazzite-dx/aistudio-visual/requirements.txt"
     if [[ ! -f "$REQ_FILE" ]]; then
-        REQ_FILE="/var/srv/comfyui/requirements.txt"
+        REQ_FILE="/var/srv/visual/requirements.txt"
     fi
-    echo "📦 Sincronizando pacotes do Visual Studio para /var/srv/comfyui/site-packages..."
-    mkdir -p /var/srv/comfyui/site-packages
+    echo "📦 Sincronizando pacotes do Visual Studio para /var/srv/visual/site-packages..."
+    mkdir -p /var/srv/visual/site-packages
     podman run --rm \
-        -v /var/srv/comfyui/site-packages:/target:Z \
+        -v /var/srv/visual/site-packages:/target:Z \
         -v "$REQ_FILE":/requirements.txt:ro,Z \
         docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961 \
         pip install -q --no-warn-script-location --target /target -r /requirements.txt
     # Limpa overrides acidentais de torch para manter a aceleração CUDA da imagem base
-    rm -rf /var/srv/comfyui/site-packages/torch* /var/srv/comfyui/site-packages/nvidia* /var/srv/comfyui/site-packages/functorch* /var/srv/comfyui/site-packages/cuda*
+    rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
     if systemctl --user is-active --quiet aistudio-visual.service; then
         echo "🔄 Reiniciando aistudio-visual.service..."
         systemctl --user restart aistudio-visual.service
@@ -173,13 +173,13 @@ comfyui-sync:
 comfyui-install package:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "📦 Instalando {{ package }} em /var/srv/comfyui/site-packages..."
-    mkdir -p /var/srv/comfyui/site-packages
+    echo "📦 Instalando {{ package }} em /var/srv/visual/site-packages..."
+    mkdir -p /var/srv/visual/site-packages
     podman run --rm \
-        -v /var/srv/comfyui/site-packages:/target:Z \
+        -v /var/srv/visual/site-packages:/target:Z \
         docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961 \
         pip install -q --no-warn-script-location --target /target "{{ package }}"
-    rm -rf /var/srv/comfyui/site-packages/torch* /var/srv/comfyui/site-packages/nvidia* /var/srv/comfyui/site-packages/functorch* /var/srv/comfyui/site-packages/cuda*
+    rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
     if systemctl --user is-active --quiet aistudio-visual.service; then
         systemctl --user restart aistudio-visual.service
     fi
@@ -215,7 +215,7 @@ comfyui-animate-avatar image audio output="":
         "/root/ComfyUI/output/temp_animated_export.mp4" \
         "{{ audio }}"
 
-    cp /var/srv/comfyui/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
+    cp /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
     echo "✅ Vídeo animado com fala salvo em: $OUT_FILE"
 
 alias aistudio-visual-animate := comfyui-animate-avatar
@@ -225,7 +225,7 @@ alias aistudio-visual-animate := comfyui-animate-avatar
 comfyui-update:
     #!/usr/bin/env bash
     set -euo pipefail
-    TARGET_DIR="/var/srv/comfyui/ComfyUI"
+    TARGET_DIR="/var/srv/visual/ComfyUI"
     if [ ! -d "$TARGET_DIR/.git" ]; then
         echo "❌ Diretório git do ComfyUI não encontrado em $TARGET_DIR"
         exit 1
@@ -246,7 +246,7 @@ comfyui-update:
 comfyui-pull-models:
     #!/usr/bin/env bash
     set -euo pipefail
-    TARGET_DIR="/var/srv/comfyui/models/checkpoints"
+    TARGET_DIR="/var/srv/visual/models/checkpoints"
     mkdir -p "$TARGET_DIR"
 
     download_model() {
@@ -291,7 +291,7 @@ alias aistudio-visual-purge := comfyui-vram-purge
 comfyui-shell:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Namespace de usuário do podman para manipular /var/srv/comfyui. Saia com 'exit'."
+    echo "Namespace de usuário do podman para manipular /var/srv/visual. Saia com 'exit'."
     podman unshare bash
 
 # 🔒 Expor o ComfyUI de forma privada e segura no tailnet via Tailscale Serve (:61384)

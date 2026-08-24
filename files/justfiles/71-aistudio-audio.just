@@ -144,7 +144,7 @@ clone-voice ref_audio text out_file="":
     OUT="${out_file:-$AUDIO_DIR/Voz_Clonada_PTBR.wav}"
     echo "🎙️ Clonando voz com base fonética brasileira (Piper + OpenVoice V2)..."
     podman exec aistudio_visual python3 /root/user-scripts/clone_voice.py "{{ ref_audio }}" "{{ text }}" /root/ComfyUI/output/temp_cloned.wav
-    cp /var/srv/comfyui/ComfyUI/output/temp_cloned.wav "$OUT"
+    cp /var/srv/visual/ComfyUI/output/temp_cloned.wav "$OUT"
     echo "✅ Áudio clonado salvo em: $OUT"
 
 # 🎭 Sintetizar fala conversacional expressiva com risos e pausas (ChatTTS)
@@ -157,7 +157,7 @@ synthesize-expressive text out_file="":
     OUT="${out_file:-$AUDIO_DIR/Fala_Expressiva_ChatTTS.wav}"
     echo "🎭 Sintetizando fala expressiva com risos naturais (ChatTTS)..."
     podman exec aistudio_visual python3 /root/user-scripts/synthesize_expressive.py "{{ text }}" /root/ComfyUI/output/temp_expressive.wav
-    cp /var/srv/comfyui/ComfyUI/output/temp_expressive.wav "$OUT"
+    cp /var/srv/visual/ComfyUI/output/temp_expressive.wav "$OUT"
     echo "✅ Áudio expressivo salvo em: $OUT"
 
 # 🎹 Gerar trilha sonora instrumental por prompt (Meta MusicGen na CPU)
@@ -170,7 +170,7 @@ generate-soundtrack prompt duration="10" out_file="":
     OUT="${out_file:-$AUDIO_DIR/Trilha_Gerada_IA.wav}"
     echo "🎹 Gerando trilha sonora com Meta MusicGen na CPU (0 MB VRAM)..."
     podman exec aistudio_visual python3 /root/user-scripts/generate_soundtrack.py "{{ prompt }}" "{{ duration }}" /root/ComfyUI/output/temp_music.wav
-    cp /var/srv/comfyui/ComfyUI/output/temp_music.wav "$OUT"
+    cp /var/srv/visual/ComfyUI/output/temp_music.wav "$OUT"
     echo "✅ Trilha musical salva em: $OUT"
 
 # 🎬 Produzir Master de Vídeo Final (Imagem + Voz Clonada + Trilha Ducking 48 FPS)

@@ -412,8 +412,8 @@ ConfigureNomadStorage() {
 	fi
 }
 
-ConfigureComfyuiStorage() {
-	local root="/var/srv/comfyui"
+ConfigureVisualStorage() {
+	local root="/var/srv/visual"
 	[ -d "$root" ] || return 0
 
 	local tag="$root/CACHEDIR.TAG"
@@ -421,7 +421,7 @@ ConfigureComfyuiStorage() {
 		echo "Marking $root as a cache directory for backup tools..."
 		{
 			echo "Signature: 8a477f597d28d172789f06886806bc55"
-			echo "# ComfyUI AI Studio offline content (model weights, checkpoints, LoRAs)."
+			echo "# AI Studio Visual offline content (model weights, checkpoints, LoRAs)."
 			echo "# Re-downloadable; excluded from backups by tools honouring CACHEDIR.TAG."
 		} >"$tag" || true
 	fi
@@ -490,7 +490,7 @@ ConfigureClusterSelinux
 ClearAutologinObstacles
 ConfigureCockpitPortLabel
 ConfigureNomadStorage
-ConfigureComfyuiStorage
+ConfigureVisualStorage
 ConfigureAudioStorage
 ConfigureFirewall
 

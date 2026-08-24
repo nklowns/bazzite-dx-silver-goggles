@@ -1,6 +1,6 @@
 # Declarative Python Package Set for ComfyUI Visual Studio
 # Hardware: Dell G15 5520 (NVIDIA GeForce RTX 3060 6GB VRAM + 64GB DDR5)
-# Installed once to /var/srv/comfyui/site-packages on SSD. Zero runtime boot installs.
+# Installed once to /var/srv/visual/site-packages on SSD. Zero runtime boot installs.
 
 comfy-aimdo
 comfy-kitchen==0.2.31

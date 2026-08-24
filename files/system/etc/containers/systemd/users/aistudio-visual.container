@@ -10,7 +10,7 @@
 # PERSISTENT SSD ENVIRONMENT:
 # ---------------------------
 # All validated Python dependencies (LivePortrait, MediaPipe, VideoHelperSuite, ChatTTS)
-# are stored permanently on SSD in /var/srv/comfyui/site-packages and mounted to /root/.local.
+# are stored permanently on SSD in /var/srv/visual/site-packages and mounted to /root/.local.
 # Zero runtime installations occur on boot.
 #
 # PUBLISHED ON TAILSCALE AT :61384
@@ -38,9 +38,9 @@ Environment=PYTHONPATH=/root/.local/lib/python3.12/site-packages
 Environment=PYTHONUSERBASE=/root/.local
 Environment=PIP_TARGET=/root/.local/lib/python3.12/site-packages
 
-Volume=/var/srv/comfyui/ComfyUI:/root/ComfyUI:Z
-Volume=/var/srv/comfyui/user-scripts:/root/user-scripts:Z
-Volume=/var/srv/comfyui/site-packages:/root/.local/lib/python3.12/site-packages:Z
+Volume=/var/srv/visual/ComfyUI:/root/ComfyUI:Z
+Volume=/var/srv/visual/user-scripts:/root/user-scripts:Z
+Volume=/var/srv/visual/site-packages:/root/.local/lib/python3.12/site-packages:Z
 
 Environment=CLI_ARGS=--fast --cache-classic --reserve-vram 1.5
 
