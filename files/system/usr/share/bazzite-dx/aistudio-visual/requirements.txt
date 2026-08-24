@@ -14,11 +14,7 @@ pykalman
 insightface
 onnxruntime-gpu
 dill
-soundfile
-ChatTTS
 imageio
 imageio-ffmpeg
 av
-piper-tts
-faster-whisper
 numpy<2.0.0

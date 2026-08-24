@@ -32,6 +32,7 @@ PublishPort=127.0.0.1:61386:8000
 
 Volume=/var/srv/audio/cache:/home/ubuntu/.cache/huggingface/hub:Z
 Volume=/var/srv/audio/output:/output:Z
+UserNS=keep-id
 
 [Service]
 Restart=on-failure

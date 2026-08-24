@@ -134,31 +134,48 @@ remote-audio-setup:
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "✅ AI Studio Audio pronto no Tailscale: https://$DNS_NAME:61386"
 
-# 🧬 Clonar voz zero-shot em sub-segundo (Piper Faber PT-BR + OpenVoice V2)
+# 🎙️ Sintetizar fala em alta definição SOTA (Kokoro-82M ONNX na CPU)
 [group('AI Studio Audio')]
-clone-voice ref_audio text out_file="":
+synthesize-hd text voice="af_heart" out_file="":
     #!/usr/bin/env bash
     set -euo pipefail
     AUDIO_DIR="${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio"
     mkdir -p "$AUDIO_DIR"
-    OUT="${out_file:-$AUDIO_DIR/Voz_Clonada_PTBR.wav}"
-    echo "🎙️ Clonando voz com base fonética brasileira (Piper + OpenVoice V2)..."
-    podman exec aistudio_visual python3 /root/user-scripts/clone_voice.py "{{ ref_audio }}" "{{ text }}" /root/ComfyUI/output/temp_cloned.wav
-    cp /var/srv/visual/ComfyUI/output/temp_cloned.wav "$OUT"
-    echo "✅ Áudio clonado salvo em: $OUT"
+    OUT="${out_file:-$AUDIO_DIR/Voz_HD_Kokoro_$(date +%s).wav}"
+    if ! systemctl --user is-active --quiet aistudio-audio.service; then
+        echo "Iniciando AI Studio Audio..."
+        systemctl --user start aistudio-audio.service
+        sleep 2
+    fi
+    echo "🎙️ Sintetizando voz neural de alta fidelidade (Kokoro-82M ONNX na CPU)..."
+    curl -s -X POST http://localhost:61386/v1/audio/speech \
+        -H "Content-Type: application/json" \
+        -d "{\"model\": \"speaches-ai/Kokoro-82M-v1.0-ONNX\", \"input\": \"{{ text }}\", \"voice\": \"{{ voice }}\"}" \
+        -o "$OUT"
+    echo "✅ Áudio HD salvo em: $OUT"
 
-# 🎭 Sintetizar fala conversacional expressiva com risos e pausas (ChatTTS)
+# 🎭 Sintetizar fala nativa brasileira expressiva (Piper PT-BR Faber na CPU)
 [group('AI Studio Audio')]
-synthesize-expressive text out_file="":
+synthesize-ptbr text out_file="":
     #!/usr/bin/env bash
     set -euo pipefail
     AUDIO_DIR="${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio"
     mkdir -p "$AUDIO_DIR"
-    OUT="${out_file:-$AUDIO_DIR/Fala_Expressiva_ChatTTS.wav}"
-    echo "🎭 Sintetizando fala expressiva com risos naturais (ChatTTS)..."
-    podman exec aistudio_visual python3 /root/user-scripts/synthesize_expressive.py "{{ text }}" /root/ComfyUI/output/temp_expressive.wav
-    cp /var/srv/visual/ComfyUI/output/temp_expressive.wav "$OUT"
-    echo "✅ Áudio expressivo salvo em: $OUT"
+    OUT="${out_file:-$AUDIO_DIR/Fala_PTBR_$(date +%s).wav}"
+    if ! systemctl --user is-active --quiet aistudio-audio.service; then
+        echo "Iniciando AI Studio Audio..."
+        systemctl --user start aistudio-audio.service
+        sleep 2
+    fi
+    echo "🎭 Sintetizando fala brasileira com cadência natural (Piper Faber na CPU)..."
+    curl -s -X POST http://localhost:61386/v1/audio/speech \
+        -H "Content-Type: application/json" \
+        -d "{\"model\": \"speaches-ai/piper-pt_BR-faber-medium\", \"input\": \"{{ text }}\", \"voice\": \"speaches-ai/piper-pt_BR-faber-medium\"}" \
+        -o "$OUT"
+    echo "✅ Áudio brasileiro salvo em: $OUT"
+
+alias clone-voice := synthesize-hd
+alias synthesize-expressive := synthesize-ptbr
 
 # 🎹 Gerar trilha sonora instrumental por prompt (Meta MusicGen na CPU)
 [group('AI Studio Audio')]
@@ -198,6 +215,82 @@ produce-master-video avatar_img voice_wav music_wav out_video="":
         -shortest \
         "$OUT"
     echo "✅ Vídeo Master renderizado em: $OUT"
+
+# 🧪 Executar Bateria de Testes & Benchmark de Áudio (Latência, RTF, Qualidade Multilíngue)
+[group('AI Studio Audio')]
+audio-benchmark:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    AUDIO_DIR="${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio/Benchmarks"
+    mkdir -p "$AUDIO_DIR"
+
+    if ! systemctl --user is-active --quiet aistudio-audio.service; then
+        echo "🎙️ Iniciando AI Studio Audio para benchmark..."
+        systemctl --user start aistudio-audio.service
+        sleep 2
+    fi
+
+    echo "=================================================================="
+    echo "🎯 BATERIA DE BENCHMARK & QUALIDADE DE ÁUDIO (CPU INTEL 14-CORES)"
+    echo "=================================================================="
+
+    run_test() {
+        local test_id="$1"
+        local model="$2"
+        local voice="$3"
+        local lang="$4"
+        local text="$5"
+        local out_file="$AUDIO_DIR/${test_id}_${lang}.wav"
+
+        echo -n "[$test_id - $lang] ($voice)... "
+        local start_ns
+        start_ns=$(date +%s%N)
+        local http_code
+        http_code=$(curl -s -w "%{http_code}" -o "$out_file" -X POST http://localhost:61386/v1/audio/speech \
+            -H "Content-Type: application/json" \
+            -d "{\"model\": \"$model\", \"input\": \"$text\", \"voice\": \"$voice\"}" 2>/dev/null || echo "000")
+        local end_ns
+        end_ns=$(date +%s%N)
+
+        if [ "$http_code" -eq 200 ] && [ -s "$out_file" ]; then
+            local dur_ms=$(( (end_ns - start_ns) / 1000000 ))
+            local dur_s
+            dur_s=$(ffprobe -i "$out_file" -show_entries format=duration -v quiet -of csv="p=0" 2>/dev/null || echo "0")
+            local rtf
+            rtf=$(awk -v gen="$dur_ms" -v dur="$dur_s" 'BEGIN { if (dur > 0) printf "%.3f", (gen/1000)/dur; else print "N/A" }')
+            echo "✔ OK! Latência: ${dur_ms}ms | Duração: ${dur_s}s | RTF: ${rtf}"
+        else
+            echo "❌ Falha (HTTP $http_code)"
+        fi
+    }
+
+    echo ""
+    echo "--- 1. Expressividade e Emoção (Piper PT-BR Faber) ---"
+    run_test "01_alegria" "speaches-ai/piper-pt_BR-faber-medium" "speaches-ai/piper-pt_BR-faber-medium" "PTBR" "Que dia maravilhoso para construir sistemas operacionais imutáveis, eficientes e rápidos!"
+    run_test "02_duvida" "speaches-ai/piper-pt_BR-faber-medium" "speaches-ai/piper-pt_BR-faber-medium" "PTBR" "Será que este servidor conseguirá se recuperar da falha sem nenhuma conexão externa?"
+    run_test "03_urgencia" "speaches-ai/piper-pt_BR-faber-medium" "speaches-ai/piper-pt_BR-faber-medium" "PTBR" "Alerta crítico de telemetria: a temperatura do núcleo excedeu o limite operacional!"
+
+    echo ""
+    echo "--- 2. Normalização de Números, Moedas e Datas ---"
+    run_test "04_numeros_datas" "speaches-ai/piper-pt_BR-faber-medium" "speaches-ai/piper-pt_BR-faber-medium" "PTBR" "Em 24/08/2026, foram investidos R$ 1.450,75 no projeto NOMAD v4.0.0 com 99.8% de SLA."
+
+    echo ""
+    echo "--- 3. Pausas, Pontuações e Respiração ---"
+    run_test "05_pausas" "speaches-ai/piper-pt_BR-faber-medium" "speaches-ai/piper-pt_BR-faber-medium" "PTBR" "Preparar container... Executar CDI. Verificação concluída; nenhum erro reportado."
+
+    echo ""
+    echo "--- 4. Consistência Multilíngue (EN / ES) ---"
+    run_test "06_ingles" "speaches-ai/piper-en_US-lessac-medium" "speaches-ai/piper-en_US-lessac-medium" "EN" "Deploying offline resilient tactical infrastructure with zero runtime latency."
+    run_test "07_espanhol" "speaches-ai/piper-es_ES-davefx-medium" "speaches-ai/piper-es_ES-davefx-medium" "ES" "Iniciando sistema táctico desconectado con soporte autónomo y alta disponibilidad."
+
+    echo ""
+    echo "--- 5. Kokoro-82M SOTA ONNX (Voz Natural Alta Definição) ---"
+    run_test "08_kokoro" "speaches-ai/Kokoro-82M-v1.0-ONNX" "af_heart" "EN" "Kokoro 82M is the state of the art lightweight neural voice model running in real time purely on CPU."
+
+    echo ""
+    echo "=================================================================="
+    echo "✅ Benchmark concluído! Áudios gravados em: $AUDIO_DIR"
+    echo "=================================================================="
 
 alias audio-up := tts-up
 alias audio-down := tts-down
