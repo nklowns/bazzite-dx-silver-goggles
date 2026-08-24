@@ -27,6 +27,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/udev/rules.d/51-android.rules|Asset: Android Rules|Error"
 	"file|/usr/lib/systemd/system/awccd.service|Asset: AWCC Service|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
+	"file|/usr/lib/modules-load.d/v4l2loopback.conf|Asset: V4L2Loopback Proactive Autoload|Error"
+	"file|/etc/modprobe.d/v4l2loopback.conf|Policy: V4L2Loopback Multi-Camera Pool|Error"
 	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"
 	"file|/usr/libexec/bazzite-dx-serve|Asset: Tailscale Serve Helper|Error"
 	"file|/usr/libexec/bazzite-dx-sunshine-apps|Asset: Sunshine Multi-Monitor Apps Helper|Error"
@@ -165,6 +167,7 @@ readonly AUDIT_REGISTRY=(
 
 	"content|/usr/share/ublue-os/bazaar/main.yaml::blocklist-dx.yaml|Policy: Bazaar DX Blocklist Registered|Error"
 	"content|/usr/lib/modules-load.d/ip_tables.conf::br_netfilter|Policy: Bridge Netfilter Autoload (docker egress)|Error"
+	"content|/etc/modprobe.d/v4l2loopback.conf::video_nr=9|Policy: OBS Virtual Camera Reserved Slot|Error"
 )
 
 # --- Providers ---

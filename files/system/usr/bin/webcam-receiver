@@ -18,7 +18,7 @@ echo "🎥 Configuring v4l2loopback virtual camera on ${DEVICE_PATH}..."
 
 # Ensure v4l2loopback module is loaded
 if ! lsmod | grep -q v4l2loopback; then
-	sudo -n modprobe v4l2loopback video_nr="${DEVICE_INDEX}" card_label="Webcam-Windows" 2>/dev/null || {
+	sudo -n modprobe v4l2loopback video_nr="${DEVICE_INDEX}" card_label="Cam-Virtual-1" 2>/dev/null || {
 		echo "⚠️ v4l2loopback kernel module not active (proceeding with existing video nodes)."
 	}
 fi
