@@ -9,6 +9,21 @@
     "VISUAL": "code --wait"
   },
 
+  "search.followSymlinks": false,
+  "search.exclude": {
+    "**/.git": true,
+    "**/.linuxbrew/**": true,
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.linuxbrew/**": true,
+    "**/node_modules/*/**": true
+  },
+
   "terminal.integrated.defaultProfile.linux": "fish",
   "terminal.integrated.profiles.linux": {
     "bash": {
