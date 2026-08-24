@@ -10,6 +10,7 @@ PartOf=graphical-session.target
 Type=simple
 ExecStartPre=-/usr/bin/flatpak kill com.rustdesk.RustDesk
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY:-wayland-0}" ] && exit 0; sleep 1; done; exit 1'
+ExecStartPre=-/usr/libexec/bazzite-dx-rustdesk-audio-fix
 ExecStart=/usr/bin/flatpak run com.rustdesk.RustDesk
 ExecStopPost=-/usr/bin/flatpak kill com.rustdesk.RustDesk
 Restart=always

@@ -89,6 +89,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/tmpfiles.d/aistudio-visual.conf|Policy: AI Studio Visual Storage Structure|Error"
 	"file|/usr/lib/tmpfiles.d/aistudio-audio.conf|Policy: AI Studio Audio Storage Structure|Error"
 	"file|/usr/lib/tmpfiles.d/rustdesk-server.conf|Policy: RustDesk Storage Structure|Error"
+	"file|/usr/lib/tmpfiles.d/mediamtx.conf|Policy: MediaMTX Storage Structure|Error"
 	"file|/usr/share/bazzite-dx/aistudio-visual/requirements.txt|Asset: AI Studio Visual Requirements|Error"
 	"file|/usr/libexec/project-nomad-bootstrap-env|Asset: Project NOMAD Secret Bootstrap|Error"
 	"file|/usr/share/applications/project-nomad.desktop|Asset: Project NOMAD Desktop Launcher|Error"
@@ -139,6 +140,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"
 	"file|/usr/lib/firewalld/services/fcast.xml|Asset: Firewalld FCast Service Def|Error"
 	"file|/etc/pipewire/pipewire-pulse.conf.d/50-rustdesk.conf|Asset: PipeWire-Pulse RustDesk Low-Latency Config|Error"
+	"unit|/usr/lib/systemd/user/rustdesk.service|Behavior: RustDesk Service Verify|Error"
+	"file|/usr/libexec/bazzite-dx-rustdesk-audio-fix|Asset: RustDesk Dynamic Audio-Input Fix Script|Error"
 
 	"file|/usr/libexec/bazzite-dx-virt-setup|Asset: Virt Setup Script|Error"
 	"file|/usr/libexec/bazzite-dx-manage-vfio|Asset: VFIO Manager|Error"

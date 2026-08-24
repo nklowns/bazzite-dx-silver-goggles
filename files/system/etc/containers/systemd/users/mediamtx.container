@@ -7,7 +7,7 @@ StartLimitBurst=5
 Image=docker.io/bluenviron/mediamtx:latest@sha256:1b029d11049be75630e9b73bb0d5f47b08a7db4eaee89a80bf8f53bc40e56414
 ContainerName=mediamtx_router
 Network=host
-Volume=%h/.config/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+Volume=/var/srv/mediamtx/mediamtx.yml:/mediamtx.yml:ro,Z
 
 [Service]
 Restart=on-failure

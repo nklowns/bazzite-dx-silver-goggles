@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Patches RustDesk2.toml's audio-input to match the live default sink's monitor, every start.
+#
+# WHY THIS EXISTS
+# ---------------
+# RustDesk stores the capture device as a free-text description string in its own config
+# (audio-input under [options]) and matches it against the audio backend's enumerated device
+# descriptions. If the stored string doesn't match byte-for-byte — missing the "Monitor of "
+# prefix PipeWire's pulse-compat layer prepends, a stale value from a previous default sink, or
+# a value copied from a different machine's hardware — RustDesk falls back to the first
+# enumerated monitor instead of erroring, so the host plays audio normally while the remote
+# guest hears nothing (or the wrong device). Hardcoding one machine's device string in the image
+# is exactly as fragile: it breaks the moment a different default sink is active (headphones,
+# HDMI, a docked USB DAC) or a different machine rebases this same image. So compute it fresh
+# from whatever is actually the default sink right now, on every service start.
+#
+# `pactl -f json` is used instead of the human `pactl list sinks` text output because the text
+# labels ("Nome:"/"Descrição:") are locale-translated — this session's pt_BR locale renders them
+# differently from an en_US one — while JSON keys stay stable across locales. The device
+# description *value* itself is never translated (it's hardware/driver metadata), so JSON just
+# removes a parsing hazard, not a data hazard.
+set -euo pipefail
+
+CONF="${HOME}/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
+[ -f "${CONF}" ] || exit 0
+
+sink="$(pactl get-default-sink 2>/dev/null)" || exit 0
+[ -n "${sink}" ] || exit 0
+
+description="$(pactl -f json list sinks 2>/dev/null | jq -r --arg n "${sink}" '.[] | select(.name==$n) | .description' | head -n1)"
+[ -n "${description}" ] || exit 0
+
+audio_input="Monitor of ${description}"
+# Escape for sed's replacement side: backslash first, then the delimiter and & (backreference).
+audio_input_escaped="${audio_input//\\/\\\\}"
+audio_input_escaped="${audio_input_escaped//|/\\|}"
+audio_input_escaped="${audio_input_escaped//&/\\&}"
+
+if grep -q '^audio-input' "${CONF}" 2>/dev/null; then
+	sed -i "s|^audio-input = .*|audio-input = '${audio_input_escaped}'|" "${CONF}"
+elif grep -q '^\[options\]' "${CONF}" 2>/dev/null; then
+	sed -i "/^\[options\]/a audio-input = '${audio_input_escaped}'" "${CONF}"
+else
+	printf '\n[options]\naudio-input = '"'"'%s'"'"'\n' "${audio_input}" >>"${CONF}"
+fi
