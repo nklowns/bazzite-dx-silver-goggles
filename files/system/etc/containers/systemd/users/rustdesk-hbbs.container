@@ -10,5 +10,15 @@ Network=host
 Exec=hbbs
 Volume=/var/srv/rustdesk:/root:Z
 
+# Accepted risk, not a bug: hbbs always binds its WebSocket port (21118, from
+# rendezvous_server.rs) alongside the native-client ports (21115/21116), with no CLI flag to
+# disable it independently — `-p` only shifts the whole range together. Verified reachable at
+# this host's tailnet address (no web client is used here, and upstream's own docs say to keep
+# 21118/21119 closed without one: rustdesk.com/docs/en/self-host/rustdesk-server-oss/install).
+# Not fronted by a reverse proxy, so the X-Real-IP/X-Forwarded-For spoofing risk documented there
+# applies to anyone already on the tailnet. Accepted because the tailnet is this host's trust
+# boundary already (see the tailscale0/trusted-zone note in CLAUDE.md); revisit if that stops
+# being true, or if hbbs ever ships a flag to disable the websocket listener.
+
 [Service]
 Restart=on-failure

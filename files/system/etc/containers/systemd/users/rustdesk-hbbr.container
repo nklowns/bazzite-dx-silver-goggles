@@ -10,5 +10,9 @@ Network=host
 Exec=hbbr
 Volume=/var/srv/rustdesk:/root:Z
 
+# Same accepted risk as rustdesk-hbbs.container: hbbr always binds a WebSocket port (21119)
+# alongside its relay port (21117), reachable on the tailnet, no reverse proxy in front. See
+# that file's comment for the full reasoning.
+
 [Service]
 Restart=on-failure
