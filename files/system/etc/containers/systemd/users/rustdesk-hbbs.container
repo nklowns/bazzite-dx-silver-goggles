@@ -8,7 +8,7 @@ Image=docker.io/rustdesk/rustdesk-server:latest@sha256:8ecdab65deb7c84652a626380
 ContainerName=rustdesk_hbbs
 Network=host
 Exec=hbbs
-Volume=%h/rustdesk-server:/root
+Volume=/var/srv/rustdesk:/root:Z
 
 [Service]
 Restart=on-failure

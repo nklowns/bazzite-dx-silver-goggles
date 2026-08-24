@@ -16,7 +16,7 @@
 # comment in nomad-admin.container.
 # ==============================================================================
 
-# 🏕️ Iniciar o Project NOMAD (Command Center + MySQL + Redis + Dozzle)
+# 🏕️ Iniciar o Project NOMAD (Command Center + MySQL + Redis)
 [group('NOMAD')]
 nomad-up:
     #!/usr/bin/env bash
@@ -37,10 +37,10 @@ nomad-up:
     systemctl --user daemon-reload
     # Starting the admin pulls in mysql, redis, the network and podman.socket through
     # Requires=; the databases use Notify=healthy, so this returns once they really answer.
-    systemctl --user start nomad-admin.service nomad-dozzle.service
+    systemctl --user start nomad-admin.service
     podman start nomad_qdrant 2>/dev/null || true
     echo "✅ Project NOMAD ativo em http://localhost:61380"
-    echo "   Logs (dozzle): http://localhost:61381"
+    echo "   Logs: journalctl --user -u nomad-admin.service -f (ou Cockpit na :61390)"
     echo "   Não sobe sozinho no próximo boot — rode 'ujust nomad-up' de novo."
 
 # 🛑 Parar o Project NOMAD
@@ -51,7 +51,7 @@ nomad-down:
     # admin last: stopping mysql/redis first would take the admin down with them via Requires=
     # and log a failure on the way out.
     podman stop nomad_qdrant 2>/dev/null || true
-    systemctl --user stop nomad-dozzle.service nomad-admin.service nomad-mysql.service nomad-redis.service
+    systemctl --user stop nomad-admin.service nomad-mysql.service nomad-redis.service
     echo "🛑 Project NOMAD desativado. Dados preservados em /var/srv/nomad."
 
 # 📊 Diagnóstico das units, uso de VRAM na RTX 3060 e volumes NOMAD
@@ -60,7 +60,7 @@ nomad-status:
     #!/usr/bin/env bash
     set -uo pipefail
     echo "--- Units ---"
-    for u in nomad-admin nomad-mysql nomad-redis nomad-dozzle; do
+    for u in nomad-admin nomad-mysql nomad-redis; do
         # is-active prints the state on stdout AND exits non-zero for anything but active, so
         # `|| true` is the right guard; `|| echo <fallback>` would print two words on one line.
         printf '%-16s %s\n' "$u" "$(systemctl --user is-active "$u.service" 2>/dev/null || true)"
@@ -117,7 +117,7 @@ nomad-update:
         echo "  $img"
         podman pull "$img"
     done
-    systemctl --user restart nomad-admin.service nomad-dozzle.service
+    systemctl --user restart nomad-admin.service
     echo "✅ Project NOMAD atualizado."
 
 # 🧠 Iniciar o Ollama com GPU (separado do NOMAD — ver nomad-ollama.container)
@@ -299,7 +299,7 @@ nomad-firewall-on:
         exit 1
     fi
     sudo firewall-cmd --reload
-    echo "✅ Portas 61380/61381 liberadas na rede local."
+    echo "✅ Porta 61380 liberada na rede local."
     echo "   Sobre o tailnet isto é desnecessário: tailscale0 já está na zona 'trusted'."
 
 # 🧯 Fechar as portas do NOMAD no firewall
