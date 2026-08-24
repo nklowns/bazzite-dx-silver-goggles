@@ -23,7 +23,7 @@ modules:
       # --- Cockpit Plugins (Bazzite pre-installed) ---
       - cockpit-bridge # Cockpit: Node monitoring bridge
       - cockpit-machines # Cockpit: VM management
-      - cockpit-ostree # Cockpit: rpm-ostree management
+      # - cockpit-ostree # Cockpit: rpm-ostree management (incompatible with OCI container-native images: fails with 'Remote ostree-image-signed:... not found')
       - cockpit-ws # Cockpit: Web service
       # - cockpit-packagekit # Cockpit: Package management
       # - cockpit-networkmanager # Cockpit: Network management

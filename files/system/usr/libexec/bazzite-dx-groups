@@ -166,6 +166,18 @@ ConfigureLibvirtNss() {
 	fi
 }
 
+ConfigureLibvirtSelinux() {
+	local dir="/var/cache/libvirt"
+	[ -d "$dir" ] || return 0
+
+	# Ensure /var/cache/libvirt and subdirectories inherit the virt_cache_t SELinux context
+	# (avoiding AVC denials when rpc-virtqemud writes capabilities xml in Cockpit Machines)
+	if ! stat -c %C "$dir" 2>/dev/null | grep -q "virt_cache_t"; then
+		echo "Restoring SELinux context for ${dir} (virt_cache_t)..."
+		restorecon -R "$dir" 2>/dev/null || true
+	fi
+}
+
 ConfigureSambaSelinux() {
 	if getsebool samba_enable_home_dirs 2>/dev/null | grep -q "off$"; then
 		echo "Enabling SELinux samba_enable_home_dirs boolean..."
@@ -195,6 +207,14 @@ ConfigureContainerSelinux() {
 	if getsebool container_use_devices 2>/dev/null | grep -q "off$"; then
 		echo "Enabling SELinux container_use_devices boolean (GPU passthrough into containers)..."
 		setsebool -P container_use_devices on || true
+	fi
+}
+
+ConfigureClusterSelinux() {
+	# Allows system daemons (such as lsblk invoked by Cockpit Storage) to query userdb sockets without denial
+	if getsebool daemons_enable_cluster_mode 2>/dev/null | grep -q "off$"; then
+		echo "Enabling SELinux daemons_enable_cluster_mode boolean..."
+		setsebool -P daemons_enable_cluster_mode on || true
 	fi
 }
 
@@ -463,8 +483,10 @@ ConfigureFirewall() {
 ConfigureQemuAcl
 ConfigureSelinux
 ConfigureLibvirtNss
+ConfigureLibvirtSelinux
 ConfigureSambaSelinux
 ConfigureContainerSelinux
+ConfigureClusterSelinux
 ClearAutologinObstacles
 ConfigureCockpitPortLabel
 ConfigureNomadStorage
