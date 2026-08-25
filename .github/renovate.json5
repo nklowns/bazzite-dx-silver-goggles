@@ -141,6 +141,14 @@
       allowedVersions: '/^8\\.0\\./',
     },
     {
+      description: 'Pin Redis to 7.x LTS branch to prevent breaking job queue storage for Project NOMAD',
+      matchPackageNames: [
+        'docker.io/library/redis',
+        'redis',
+      ],
+      allowedVersions: '/^7\\./',
+    },
+    {
       description: 'Auto-update and batch Project NOMAD stack image digests in Quadlet units',
       matchFileNames: [
         'files/system/etc/containers/systemd/users/nomad-*.container',
@@ -191,7 +199,7 @@
     {
       description: 'Auto-update ComfyUI AI Studio container digest in Quadlet unit',
       matchFileNames: [
-        'files/system/etc/containers/systemd/users/comfyui.container',
+        'files/system/etc/containers/systemd/users/aistudio-visual.container',
       ],
       matchUpdateTypes: [
         'digest',
