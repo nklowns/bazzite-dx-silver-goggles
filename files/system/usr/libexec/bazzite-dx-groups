@@ -495,6 +495,21 @@ ConfigureFirewall() {
 	fi
 }
 
+ConfigurePcpServices() {
+	# 1. Enable NVIDIA PMDA in pmcd if available and not yet registered
+	if [ -f "/var/lib/pcp/pmdas/nvidia/Install" ] && [ -f "/etc/pcp/pmcd/pmcd.conf" ]; then
+		if ! grep -q "^nvidia" /etc/pcp/pmcd/pmcd.conf; then
+			echo "Registering Performance Co-Pilot NVIDIA GPU PMDA..."
+			(cd /var/lib/pcp/pmdas/nvidia && printf "y\ny\n" | ./Install) >/dev/null 2>&1 || true
+		fi
+	fi
+
+	# 2. Ensure pmproxy is active for Cockpit metrics web UI
+	if systemctl is-active --quiet pmcd.service && ! systemctl is-active --quiet pmproxy.service; then
+		systemctl start pmproxy.service 2>/dev/null || true
+	fi
+}
+
 # --- Principal Flow ---
 
 ConfigureQemuAcl
@@ -511,6 +526,7 @@ ConfigureVisualStorage
 ConfigureAudioStorage
 ConfigureRustDeskStorage
 ConfigureFirewall
+ConfigurePcpServices
 
 if IsStateSynchronized; then
 	exit 0

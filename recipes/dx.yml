@@ -111,6 +111,7 @@ modules:
         - bazzite-dx-groups.service
         - pmcd.service
         - pmlogger.service
+        - pmproxy.service
         - cockpit.socket
         - docker.socket
         - podman.socket
