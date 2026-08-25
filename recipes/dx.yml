@@ -23,6 +23,7 @@ modules:
       # --- Cockpit Plugins (Bazzite pre-installed) ---
       - cockpit-bridge # Cockpit: Node monitoring bridge
       - cockpit-machines # Cockpit: VM management
+      - cockpit-pcp # Cockpit: Performance Co-Pilot integration for historical metrics
       # - cockpit-ostree # Cockpit: rpm-ostree management (incompatible with OCI container-native images: fails with 'Remote ostree-image-signed:... not found')
       - cockpit-ws # Cockpit: Web service
       # - cockpit-packagekit # Cockpit: Package management
@@ -72,6 +73,9 @@ modules:
       - nicstat # Network: Interface statistics
       - numactl # System: NUMA policy control
       - pcp # System: Performance Co-Pilot
+      - pcp-system-tools # System: Performance Co-Pilot diagnostic tools
+      - pcp-zeroconf # System: PCP automated services and logger configuration
+      - pcp-pmda-nvidia-gpu # GPU: Performance Metrics Domain Agent for NVIDIA GPU
       # - zeroboot # VM: Sub-millisecond snapshotting
       # - profile-bee # eBPF: Rust-based live CPU profiler
       - sysprof # System: Profiler
@@ -106,6 +110,8 @@ modules:
         - ublue-os-libvirt-workarounds.service # https://github.com/ublue-os/packages/blob/main/packages/ublue-os-libvirt-workarounds/src/usr/lib/systemd/system/ublue-os-libvirt-workarounds.service
         - swtpm-workaround.service # https://github.com/ublue-os/ucore/blob/main/ucore/system_files/usr/lib/systemd/system/swtpm-workaround.service
         - bazzite-dx-groups.service
+        - pmcd.service
+        - pmlogger.service
         - cockpit.socket
         - docker.socket
         - podman.socket

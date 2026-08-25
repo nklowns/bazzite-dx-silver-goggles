@@ -1,0 +1,4 @@
+(block bootupd
+    (allow bootupd_t proc_t (dir (read open getattr search)))
+    (allow bootupd_t proc_t (file (read open getattr)))
+)

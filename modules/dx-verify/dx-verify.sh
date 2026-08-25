@@ -155,6 +155,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/etc/modules-load.d/kvmfr.conf|Mask: KVMFR Autoload (opt-out default)|Error"
 	"file|/usr/share/selinux/packages/kvmfr.cil|Asset: SELinux KVMFR Policy|Error"
 	"file|/usr/share/selinux/packages/pipewire.cil|Asset: SELinux PipeWire Policy|Error"
+	"file|/usr/share/selinux/packages/bootupd.cil|Asset: SELinux Bootupd Policy|Error"
 
 	"file|/usr/share/ublue-os/homebrew/cli.Brewfile|Brew: CLI Suite|Error"
 	"file|/usr/share/ublue-os/homebrew/ai-tools.Brewfile|Brew: AI Suite|Error"
