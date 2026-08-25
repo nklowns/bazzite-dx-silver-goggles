@@ -196,9 +196,9 @@ comfyui-container-shell:
     fi
     podman exec -it aistudio_visual bash
 
-# 🎬 Animar retrato/avatar com fala e movimento facial neural via LivePortrait
+# 🎬 Animar retrato/avatar em 8K com expressões e fala neural (LivePortrait na RTX 3060)
 [group('AI Studio Visual')]
-comfyui-animate-avatar image audio output="":
+comfyui-animate-avatar image audio="" driving_video="" output="":
     #!/usr/bin/env bash
     set -euo pipefail
     VISUAL_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio"
@@ -209,16 +209,18 @@ comfyui-animate-avatar image audio output="":
         systemctl --user start aistudio-visual.service
     fi
 
-    echo "🎬 Executando LivePortrait na RTX 3060..."
+    echo "🎬 Executando LivePortrait 8K na RTX 3060..."
     podman exec aistudio_visual python3 /root/user-scripts/animate_avatar.py \
         "{{ image }}" \
         "/root/ComfyUI/output/temp_animated_export.mp4" \
-        "{{ audio }}"
+        "{{ audio }}" \
+        "{{ driving_video }}"
 
     cp /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
-    echo "✅ Vídeo animado com fala salvo em: $OUT_FILE"
+    echo "✅ Vídeo animado em alta fidelidade salvo em: $OUT_FILE"
 
 alias aistudio-visual-animate := comfyui-animate-avatar
+alias animate-avatar := comfyui-animate-avatar
 
 # 🔄 Atualizar o ComfyUI Core para o lançamento mais recente do Comfy-Org
 [group('AI Studio Visual')]
