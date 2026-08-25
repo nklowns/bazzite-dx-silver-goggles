@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/module-v1.json
+name: dx-cockpit
+shortdesc: Declarative orchestration of Cockpit web console extensions (ctop GPU monitor).
+example: |
+  type: dx-cockpit
+  source: local

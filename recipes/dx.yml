@@ -134,6 +134,9 @@ modules:
   - type: dx-udev
     source: local
 
+  - type: dx-cockpit
+    source: local
+
   - type: justfiles
     include:
       - 95-bazzite-dx.just
