@@ -20,7 +20,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
+Image=ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu@sha256:2163775b6df5e451a71200e8f675fed68dbd8ab184fc604453d549e486f22fd2
 ContainerName=aistudio_audio
 Network=project-nomad_default.network
 NetworkAlias=aistudio-audio
