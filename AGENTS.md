@@ -42,16 +42,16 @@ This is a developer workstation — arbitrary projects spin up arbitrary dev ser
 
 | Service | Local port | Tailnet |
 | :--- | :--- | :--- |
-| code-server | `61337` | `https://bazzite.drake-ayu.ts.net:61337` (explicit `--https=`, not bare root) |
-| NOMAD Command Center | `61380` | `https://bazzite.drake-ayu.ts.net:61380` (`ujust remote-nomad-setup`) |
+| code-server | `61337` | `https://bazzite.drake-ayu.ts.net:61337` (`ujust code-up`) |
+| NOMAD Command Center | `61380` | `https://bazzite.drake-ayu.ts.net:61380` (`ujust remote-nomad-setup` / `ujust nomad-up`) |
 | NOMAD dozzle (log viewer) | `61381` | not exposed over tailnet by default |
-| NOMAD Ollama (GPU inference) | `61382` | never — no authentication, no rate limiting. The Command Center reaches it over the container network (`http://ollama:11434`), not this port |
-| AI Studio Visual (ComfyUI) | `61384` | `https://bazzite.drake-ayu.ts.net:61384` (`ujust remote-comfyui-setup` / `ujust remote-ai-setup`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
-| AI Studio Audio (Speaches) | `61386` | `https://bazzite.drake-ayu.ts.net:61386` (`ujust remote-audio-setup`) — OpenAI-compatible Speech API (Piper TTS, ChatTTS & Faster-Whisper STT, 100% CPU / 0 MB VRAM) |
-| cockpit | `61390` | `https://bazzite.drake-ayu.ts.net:61390` (`ujust remote-cockpit-setup`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
+| NOMAD Ollama (GPU inference) | `61382` | never — no authentication, no rate limiting. The Command Center reaches it over the container network (`http://ollama:11434`), not this port (`ujust ollama-up`) |
+| AI Studio Visual (ComfyUI) | `61384` | `https://bazzite.drake-ayu.ts.net:61384` (`ujust visual-up` / `ujust remote-visual-setup`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
+| AI Studio Audio (Speaches) | `61386` | `https://bazzite.drake-ayu.ts.net:61386` (`ujust audio-up` / `ujust remote-audio-setup`) — OpenAI-compatible Speech API (Piper TTS, ChatTTS & Faster-Whisper STT, 100% CPU / 0 MB VRAM) |
+| cockpit | `61390` | `https://bazzite.drake-ayu.ts.net:61390` (`ujust cockpit-up`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
 | KasmVNC WebRTC Desktop | `61391` | `https://bazzite.drake-ayu.ts.net:61391` (`ujust remote-kasmvnc-setup`) — Browser-native HTML5 desktop with bidirectional browser clipboard sync |
-| Apache Guacamole | `61392` | `https://bazzite.drake-ayu.ts.net:61392` (`ujust remote-guacamole-setup`) — HTML5 client for RDP/VNC backends. *Note: KDE Plasma 6 Wayland RDP (KRDP) / VNC (KRFB) require active screen session portals; Sunshine (`61395`) is preferred for remote host streaming.* |
-| Sunshine Web UI | `61395` | `https://bazzite.drake-ayu.ts.net:61395` (`ujust remote-sunshine-setup`) — proxies `https+insecure://127.0.0.1:47990` with real TLS via `tailscale serve`. Sunshine Web UI restricted to loopback (`origin_web_ui_allowed = pc`) |
+| Apache Guacamole | `61392` | `https://bazzite.drake-ayu.ts.net:61392` (`ujust guacamole-up`) — HTML5 client for RDP/VNC backends. *Note: KDE Plasma 6 Wayland RDP (KRDP) / VNC (KRFB) require active screen session portals; Sunshine (`61395`) is preferred for remote host streaming.* |
+| Sunshine Web UI | `61395` | `https://bazzite.drake-ayu.ts.net:61395` (`ujust sunshine-up` / `ujust remote-sunshine-setup`) — proxies `https+insecure://127.0.0.1:47990` with real TLS via `tailscale serve`. Sunshine Web UI restricted to loopback (`origin_web_ui_allowed = pc`) |
 
 **Publish on `127.0.0.1`, not `0.0.0.0`, and do not rely on firewalld to make up the difference.** `tailscale0` lives in firewalld's `trusted` zone, which accepts everything, so anything bound to all interfaces is reachable by every device on the tailnet with no `tailscale serve` and no firewall rule. This was measured, not assumed — with the NOMAD stack briefly published on `0.0.0.0`, `http://<host>:61381/` returned the Dozzle log viewer and `http://<host>:61382/api/tags` answered from Ollama, both unauthenticated. The convention is therefore: services bind loopback, and `ujust remote-*-setup` publishes them through `tailscale serve`, which also gets them real TLS instead of plain HTTP. code-server (`bind-addr: 127.0.0.1:61337`) and Cockpit (`ListenStream=127.0.0.1:61390`) already work this way. Across a tailnet, actual access control is Tailscale ACLs — firewalld only ever governed the LAN.
 
