@@ -102,8 +102,11 @@ alias comfyui-down := visual-down
 visual-enable-boot:
     #!/usr/bin/env bash
     set -euo pipefail
+    DROPIN_DIR="$HOME/.config/containers/systemd/aistudio-visual.container.d"
+    mkdir -p "$DROPIN_DIR"
+    printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
+    systemctl --user daemon-reload
     just visual-up
-    systemctl --user enable aistudio-visual.service
     echo "⚡ AI Studio Visual habilitado para iniciar automaticamente no boot!"
 
 alias comfyui-enable-boot := visual-enable-boot
@@ -113,7 +116,9 @@ alias comfyui-enable-boot := visual-enable-boot
 visual-disable-boot:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user disable aistudio-visual.service
+    rm -f "$HOME/.config/containers/systemd/aistudio-visual.container.d/10-autostart.conf"
+    rmdir "$HOME/.config/containers/systemd/aistudio-visual.container.d" 2>/dev/null || true
+    systemctl --user daemon-reload
     echo "🔌 AI Studio Visual removido do boot automático. Use 'ujust visual-up' quando precisar."
 
 alias comfyui-disable-boot := visual-disable-boot
@@ -124,7 +129,13 @@ visual-status:
     #!/usr/bin/env bash
     set -uo pipefail
     echo "--- Units ---"
-    printf '%-16s %s\n' "aistudio-visual" "$(systemctl --user is-active aistudio-visual.service 2>/dev/null || true)"
+    STATE=$(systemctl --user is-active aistudio-visual.service 2>/dev/null || true)
+    if [[ -f "$HOME/.config/containers/systemd/aistudio-visual.container.d/10-autostart.conf" ]]; then
+        BOOT="enabled"
+    else
+        BOOT="disabled"
+    fi
+    printf '%-16s %s (boot: %s)\n' "aistudio-visual" "${STATE:-inactive}" "$BOOT"
     echo "--- Containers ---"
     podman ps --filter name=aistudio_visual --format 'table {{{{.Names}}\t{{{{.Status}}\t{{{{.Ports}}' 2>/dev/null || true
     echo "--- API & Versões do ComfyUI ---"

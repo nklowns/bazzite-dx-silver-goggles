@@ -59,8 +59,11 @@ nomad-down:
 nomad-enable-boot:
     #!/usr/bin/env bash
     set -euo pipefail
+    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-admin.container.d"
+    mkdir -p "$DROPIN_DIR"
+    printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
+    systemctl --user daemon-reload
     just nomad-up
-    systemctl --user enable nomad-admin.service
     echo "⚡ Project NOMAD habilitado para iniciar automaticamente no boot!"
 
 # 🔌 Desabilitar o Project NOMAD da inicialização automática do boot
@@ -68,7 +71,9 @@ nomad-enable-boot:
 nomad-disable-boot:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user disable nomad-admin.service
+    rm -f "$HOME/.config/containers/systemd/nomad-admin.container.d/10-autostart.conf"
+    rmdir "$HOME/.config/containers/systemd/nomad-admin.container.d" 2>/dev/null || true
+    systemctl --user daemon-reload
     echo "🔌 Project NOMAD removido do boot automático. Use 'ujust nomad-up' quando precisar."
 
 # 📊 Diagnóstico das units, uso de VRAM na RTX 3060 e volumes NOMAD
@@ -77,10 +82,19 @@ nomad-status:
     #!/usr/bin/env bash
     set -uo pipefail
     echo "--- Units ---"
+    if [[ -f "$HOME/.config/containers/systemd/nomad-admin.container.d/10-autostart.conf" ]]; then
+        BOOT="enabled"
+    else
+        BOOT="disabled"
+    fi
     for u in nomad-admin nomad-mysql nomad-redis; do
         # is-active prints the state on stdout AND exits non-zero for anything but active, so
         # `|| true` is the right guard; `|| echo <fallback>` would print two words on one line.
-        printf '%-16s %s\n' "$u" "$(systemctl --user is-active "$u.service" 2>/dev/null || true)"
+        if [[ "$u" == "nomad-admin" ]]; then
+            printf '%-16s %s (boot: %s)\n' "$u" "$(systemctl --user is-active "$u.service" 2>/dev/null || true)" "$BOOT"
+        else
+            printf '%-16s %s\n' "$u" "$(systemctl --user is-active "$u.service" 2>/dev/null || true)"
+        fi
     done
     echo "--- Containers ---"
     # Only the OPENING braces are escaped below, and the asymmetry is real. Measured: four
@@ -173,8 +187,12 @@ ollama-status:
     #!/usr/bin/env bash
     set -uo pipefail
     STATE=$(systemctl --user is-active nomad-ollama.service 2>/dev/null || true)
-    ENABLED=$(systemctl --user is-enabled nomad-ollama.service 2>/dev/null || true)
-    printf "%-12s %s (boot: %s)\n" "ollama:" "${STATE:-inactive}" "${ENABLED:-disabled}"
+    if [[ -f "$HOME/.config/containers/systemd/nomad-ollama.container.d/10-autostart.conf" ]]; then
+        BOOT="enabled"
+    else
+        BOOT="disabled"
+    fi
+    printf "%-12s %s (boot: %s)\n" "ollama:" "${STATE:-inactive}" "$BOOT"
     if [[ "$STATE" == "active" ]]; then
         echo "--- Modelos Locais Carregados ---"
         podman exec nomad_ollama_gpu ollama list 2>/dev/null || true
@@ -185,8 +203,11 @@ ollama-status:
 ollama-enable-boot:
     #!/usr/bin/env bash
     set -euo pipefail
+    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-ollama.container.d"
+    mkdir -p "$DROPIN_DIR"
+    printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
+    systemctl --user daemon-reload
     just ollama-up
-    systemctl --user enable nomad-ollama.service
     echo "⚡ Ollama habilitado para iniciar automaticamente no boot!"
 
 # 🔌 Desabilitar o Ollama do boot
@@ -194,7 +215,9 @@ ollama-enable-boot:
 ollama-disable-boot:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user disable nomad-ollama.service
+    rm -f "$HOME/.config/containers/systemd/nomad-ollama.container.d/10-autostart.conf"
+    rmdir "$HOME/.config/containers/systemd/nomad-ollama.container.d" 2>/dev/null || true
+    systemctl --user daemon-reload
     echo "🔌 Ollama removido do boot automático. Use 'ujust ollama-up' quando precisar."
 
 # 📥 Baixar modelos dimensionados para os 6 GB de VRAM da RTX 3060

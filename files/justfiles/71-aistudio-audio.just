@@ -56,8 +56,11 @@ alias tts-down := audio-down
 audio-enable-boot:
     #!/usr/bin/env bash
     set -euo pipefail
+    DROPIN_DIR="$HOME/.config/containers/systemd/aistudio-audio.container.d"
+    mkdir -p "$DROPIN_DIR"
+    printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
+    systemctl --user daemon-reload
     just audio-up
-    systemctl --user enable aistudio-audio.service
     echo "⚡ AI Studio Audio habilitado para iniciar automaticamente no boot!"
 
 alias tts-enable-boot := audio-enable-boot
@@ -67,7 +70,9 @@ alias tts-enable-boot := audio-enable-boot
 audio-disable-boot:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user disable aistudio-audio.service
+    rm -f "$HOME/.config/containers/systemd/aistudio-audio.container.d/10-autostart.conf"
+    rmdir "$HOME/.config/containers/systemd/aistudio-audio.container.d" 2>/dev/null || true
+    systemctl --user daemon-reload
     echo "🔌 AI Studio Audio removido do boot automático. Use 'ujust audio-up' quando precisar."
 
 alias tts-disable-boot := audio-disable-boot
@@ -78,7 +83,13 @@ audio-status:
     #!/usr/bin/env bash
     set -uo pipefail
     echo "--- Units ---"
-    printf '%-16s %s\n' "aistudio-audio" "$(systemctl --user is-active aistudio-audio.service 2>/dev/null || true)"
+    STATE=$(systemctl --user is-active aistudio-audio.service 2>/dev/null || true)
+    if [[ -f "$HOME/.config/containers/systemd/aistudio-audio.container.d/10-autostart.conf" ]]; then
+        BOOT="enabled"
+    else
+        BOOT="disabled"
+    fi
+    printf '%-16s %s (boot: %s)\n' "aistudio-audio" "${STATE:-inactive}" "$BOOT"
     echo "--- Containers ---"
     podman ps --filter name=aistudio_audio --format 'table {{{{.Names}}\t{{{{.Status}}\t{{{{.Ports}}' 2>/dev/null || true
     echo "--- Endpoints & Modelos OpenAI ---"

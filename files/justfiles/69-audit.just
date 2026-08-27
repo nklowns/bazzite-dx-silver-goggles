@@ -89,6 +89,12 @@ boot-audit:
     if [ -d "$HOME/.config/systemd/user" ]; then
         find "$HOME/.config/systemd/user" -path '*.wants/*' -printf '  %f\n' 2>/dev/null | sort -u
     fi
+    if [ -d "$HOME/.config/containers/systemd" ]; then
+        find "$HOME/.config/containers/systemd" -name "10-autostart.conf" 2>/dev/null | while IFS= read -r f; do
+            parent=$(basename "$(dirname "$f")")
+            printf '  %s (Quadlet drop-in)\n' "${parent%.container.d}.service"
+        done | sort -u
+    fi
 
     echo
     linger=$(loginctl show-user "$USER" -p Linger --value 2>/dev/null || echo unknown)
