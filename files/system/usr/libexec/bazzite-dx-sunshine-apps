@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # bazzite-dx-sunshine-apps: Declarative multi-monitor apps manager for Sunshine
-# Preserves existing Notebook (eDP-1) & AOC (HDMI-A-1) apps and adds Dual Canvas
+# Preserves existing Notebook (eDP-1) & AOC (HDMI-A-1) apps
 # ==============================================================================
 set -euo pipefail
 
@@ -16,8 +16,7 @@ if [ ! -f "$APPS_FILE" ] || [ ! -s "$APPS_FILE" ]; then
 fi
 
 # Ensure set-output.sh helper exists
-if [ ! -f "$SET_OUTPUT_SCRIPT" ]; then
-	cat <<'EOF' >"$SET_OUTPUT_SCRIPT"
+cat <<'EOF' >"$SET_OUTPUT_SCRIPT"
 #!/bin/bash
 CONF="$HOME/.config/sunshine/sunshine.conf"
 NAME="$1"
@@ -32,14 +31,23 @@ if [ -n "$NAME" ]; then
     echo "output_name = ${NAME}" >> "$CONF"
 fi
 
-nohup systemctl --user restart homebrew.sunshine.service >/dev/null 2>&1 &
+nohup systemctl --user restart sunshine.service >/dev/null 2>&1 &
 disown
 exit 0
 EOF
-	chmod +x "$SET_OUTPUT_SCRIPT"
-fi
+chmod +x "$SET_OUTPUT_SCRIPT"
 
 # Construct valid JSON app objects using jq
+AUTO_APP=$(jq -n --arg script "$SET_OUTPUT_SCRIPT" '{
+  "auto-detach": true,
+  "exclude-global-prep-cmd": false,
+  "exit-timeout": 5,
+  "image-path": "desktop-alt.png",
+  "name": "Desktop (Auto)",
+  "wait-all": true,
+  "prep-cmd": [{"do": $script, "undo": ""}]
+}')
+
 NOTEBOOK_APP=$(jq -n --arg path "$SUNSHINE_DIR/notebook.png" --arg script "$SET_OUTPUT_SCRIPT eDP-1" '{
   "auto-detach": true,
   "exclude-global-prep-cmd": false,
@@ -60,28 +68,12 @@ AOC_APP=$(jq -n --arg path "$SUNSHINE_DIR/aoc.png" --arg script "$SET_OUTPUT_SCR
   "prep-cmd": [{"do": $script, "undo": ""}]
 }')
 
-# shellcheck disable=SC2016
-DUAL_CMD="bash -c 'export WAYLAND_DISPLAY=\${WAYLAND_DISPLAY:-wayland-0}; export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$UID}; pkill krfb-virtualmonitor 2>/dev/null || true; krfb-virtualmonitor --resolution 3840x1080 --name \"Dual-Canvas\" --password dummy --port 5999 & sleep 1; $SET_OUTPUT_SCRIPT Virtual-Dual-Canvas'"
-
-# shellcheck disable=SC2016
-DUAL_UNDO="bash -c 'pkill krfb-virtualmonitor 2>/dev/null || true; $SET_OUTPUT_SCRIPT eDP-1'"
-
-DUAL_APP=$(jq -n --arg cmd "$DUAL_CMD" --arg undo "$DUAL_UNDO" '{
-  "auto-detach": true,
-  "exclude-global-prep-cmd": false,
-  "exit-timeout": 5,
-  "image-path": "desktop-alt.png",
-  "name": "Dual Canvas (32:9)",
-  "wait-all": true,
-  "prep-cmd": [{"do": $cmd, "undo": $undo}]
-}')
-
 TMP_FILE=$(mktemp -p "$SUNSHINE_DIR" .apps.json.XXXXXX)
 
-jq --argjson nb "$NOTEBOOK_APP" \
-	--argjson aoc "$AOC_APP" \
-	--argjson dual "$DUAL_APP" '
-  .apps = ((.apps // []) | map(select(.name != "Notebook (eDP)" and .name != "AOC (HDMI)" and .name != "Dual Canvas (32:9)")) + [$nb, $aoc, $dual])
+jq --argjson auto "$AUTO_APP" \
+	--argjson nb "$NOTEBOOK_APP" \
+	--argjson aoc "$AOC_APP" '
+  .apps = ([$auto] + ((.apps // []) | map(select(.name != "Desktop (Auto)" and .name != "Notebook (eDP)" and .name != "AOC (HDMI)" and .name != "Dual Canvas (32:9)"))) + [$nb, $aoc])
 ' "$APPS_FILE" >"$TMP_FILE"
 
 mv "$TMP_FILE" "$APPS_FILE"

@@ -134,7 +134,7 @@ remote-sunshine-setup:
     set -euo pipefail
     if ! ss -tln 2>/dev/null | grep -q ':47990 '; then
         echo "❌ Nada escutando em 47990. O Sunshine Web UI está ativo?"
-        echo "   Se necessário, inicie o serviço com: systemctl --user start homebrew.sunshine.service"
+        echo "   Se necessário, inicie o serviço com: ujust sunshine-up"
         exit 1
     fi
     CONF_FILE="$HOME/.config/sunshine/sunshine.conf"
@@ -147,14 +147,14 @@ remote-sunshine-setup:
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Sunshine Web UI ready at: https://$DNS_NAME:61395"
 
-# 🎮 Provision multi-monitor display shortcuts (Tela 1, Tela 2, Dual Canvas 32:9) in Sunshine apps.json
+# 🎮 Provision multi-monitor display shortcuts (Tela 1 Notebook, Tela 2 AOC) in Sunshine apps.json
 [group('Network')]
 remote-sunshine-multimon-setup:
     #!/usr/bin/env bash
     set -euo pipefail
     /usr/libexec/bazzite-dx-sunshine-apps
-    systemctl --user try-restart homebrew.sunshine.service || true
-    echo "✅ Sunshine multi-monitor apps ready. Connect via Moonlight to select Tela 1, Tela 2, or Dual Canvas!"
+    systemctl --user try-restart sunshine.service || true
+    echo "✅ Sunshine multi-monitor apps ready. Connect via Moonlight to select Tela 1 (Notebook) or Tela 2 (AOC)!"
 
 # ⚡ Check Wake-on-LAN (WoL) and background idle inhibitor status
 [group('Network')]
@@ -195,7 +195,7 @@ sunshine-up:
     #!/usr/bin/env bash
     set -euo pipefail
     systemctl --user daemon-reload
-    systemctl --user start homebrew.sunshine.service
+    systemctl --user start sunshine.service
     /usr/libexec/bazzite-dx-sunshine-apps || true
     echo "✅ Sunshine Game Streaming ativo."
     echo "   Para parear clientes ou configurar: Moonlight / https://localhost:47990"
@@ -205,7 +205,7 @@ sunshine-up:
 sunshine-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user stop homebrew.sunshine.service
+    systemctl --user stop sunshine.service
     echo "🛑 Sunshine Game Streaming desativado."
 
 # 📊 Diagnóstico do Sunshine Game Streaming
@@ -213,8 +213,8 @@ sunshine-down:
 sunshine-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    STATE=$(systemctl --user is-active homebrew.sunshine.service 2>/dev/null || true)
-    ENABLED=$(systemctl --user is-enabled homebrew.sunshine.service 2>/dev/null || true)
+    STATE=$(systemctl --user is-active sunshine.service 2>/dev/null || true)
+    ENABLED=$(systemctl --user is-enabled sunshine.service 2>/dev/null || true)
     printf "%-12s %s (boot: %s)\n" "sunshine:" "${STATE:-inactive}" "${ENABLED:-disabled}"
     if ss -tln 2>/dev/null | grep -q ':47990 '; then
         echo "   Web UI: http://localhost:47990"
@@ -225,8 +225,9 @@ sunshine-status:
 sunshine-enable-boot:
     #!/usr/bin/env bash
     set -euo pipefail
+    systemctl --user daemon-reload
+    systemctl --user enable sunshine.service
     just sunshine-up
-    systemctl --user enable homebrew.sunshine.service
     echo "⚡ Sunshine habilitado para iniciar automaticamente no login!"
 
 # 🔌 Desabilitar Sunshine do boot
@@ -234,7 +235,7 @@ sunshine-enable-boot:
 sunshine-disable-boot:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user disable homebrew.sunshine.service
+    systemctl --user disable sunshine.service
     echo "🔌 Sunshine removido do boot automático. Use 'ujust sunshine-up' quando precisar."
 
 # 🦀 Iniciar o RustDesk (Acesso Remoto Seguro) sob demanda

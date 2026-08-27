@@ -13,7 +13,7 @@ status)
 	echo "======================================================================"
 	echo ""
 	echo "1. 🎮 Sunshine (NVENC Streaming / Moonlight)"
-	if systemctl --user is-active --quiet homebrew.sunshine.service 2>/dev/null; then
+	if systemctl --user is-active --quiet sunshine.service 2>/dev/null || systemctl --user is-active --quiet homebrew.sunshine.service 2>/dev/null; then
 		echo "   Status: ✅ ACTIVE (Port 47989 / Web UI 61395)"
 	else
 		echo "   Status: ❌ INACTIVE (Start with: ujust sunshine-up)"

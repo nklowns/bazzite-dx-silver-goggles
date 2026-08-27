@@ -1,0 +1,24 @@
+[Unit]
+Description=Sunshine Game Streaming and Remote Desktop Server
+Documentation=https://docs.lizardbyte.dev/projects/sunshine/
+After=graphical-session.target plasma-kwin_wayland.service plasma-xdg-desktop-portal-kde.service pipewire.service wireplumber.service
+Wants=pipewire.service wireplumber.service
+Requisite=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+LimitNICE=-15
+Environment="__NV_PRIME_RENDER_OFFLOAD=1"
+Environment="__GLX_VENDOR_LIBRARY_NAME=nvidia"
+Environment="__VK_LAYER_NV_optimus=NVIDIA_only"
+Environment="LD_LIBRARY_PATH=/usr/lib64:/usr/lib64/dri"
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do busctl --user list 2>/dev/null | grep -q org.freedesktop.portal.Desktop && exit 0; sleep 1; done; echo "screencast portal interface not ready after 30s" >&2; exit 1'
+ExecStart=/home/linuxbrew/.linuxbrew/bin/sunshine %h/.config/sunshine/sunshine.conf
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=45
+
+[Install]
+WantedBy=graphical-session.target
+Alias=homebrew.sunshine.service
