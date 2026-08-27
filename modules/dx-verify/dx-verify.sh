@@ -59,6 +59,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/etc/skel/.config/Cursor/User/keybindings.json|Asset: Cursor Skel Keybindings|Error"
 	"file|/etc/skel/.config/Antigravity IDE/User/settings.json|Asset: Antigravity IDE Skel Settings|Error"
 	"file|/etc/skel/.config/Antigravity IDE/User/keybindings.json|Asset: Antigravity IDE Skel Keybindings|Error"
+	"file|/etc/skel/.config/gamemode.ini|Asset: GameMode Skel Config (AI VRAM Purge Trigger)|Error"
+	"file|/usr/bin/ai-vram-purge|Asset: AI VRAM Purge Helper Script|Error"
 
 	"file|/usr/lib/systemd/system/docker.socket|Unit: Docker Socket|Error"
 	"file|/usr/lib/systemd/system/podman.socket|Unit: Podman Socket|Error"

@@ -57,6 +57,10 @@ restore() {
 }
 trap restore EXIT INT TERM HUP
 
+if [[ -x /usr/bin/ai-vram-purge ]]; then
+	/usr/bin/ai-vram-purge || true
+fi
+
 if set_profile "$TARGET"; then
 	echo "g15-boost: profile $PREVIOUS -> $TARGET for the duration of: $1" >&2
 else
