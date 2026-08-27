@@ -79,38 +79,53 @@ autologin-teardown:
         echo "   agora sem travar. Para desligá-lo: System Settings → Login Screen."
     fi
 
-# 🔒 Expose Cockpit (system admin UI, :61390) privately via tailscale serve
+# 🌐 Iniciar o Cockpit (Painel de Administração Web :61390) sob demanda
 [group('Network')]
-remote-cockpit-setup:
+cockpit-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! systemctl is-active --quiet cockpit.socket 2>/dev/null; then
-        echo "cockpit.socket not active. Enable first: sudo systemctl enable --now cockpit.socket"
-        exit 1
-    fi
-    # Cockpit moved off 9090 into the reserved 61300-61399 range — 9090 is Prometheus' default
-    # and cockpit.socket squats it on every boot whether Cockpit is used or not. The drop-in
-    # doing the move is files/system/usr/lib/systemd/system/cockpit.socket.d/10-port.conf, so
-    # this only works on an image that carries it: check rather than announce a URL nobody can
-    # open.
-    if ! ss -tln 2>/dev/null | grep -q ':61390 '; then
-        echo "❌ Nada escutando em 61390. Esta imagem já tem o drop-in que move o Cockpit?"
-        echo "   Se acabou de rebasear, reinicie o socket:"
-        echo "       sudo systemctl daemon-reload && sudo systemctl restart cockpit.socket"
-        exit 1
-    fi
-    # Shared helper rather than an inline guard — see /usr/libexec/bazzite-dx-serve for why the
-    # three recipes stopped rolling their own (the old grep matched the proxy target and
-    # ignored the listener, so a service published on the wrong endpoint read as "already
-    # correct" and never migrated).
-    /usr/libexec/bazzite-dx-serve ensure 61390
-    # A host that ran the pre-move recipe still publishes 9090, now pointing at a dead port.
-    if [[ "$(/usr/libexec/bazzite-dx-serve status 9090)" != absent ]]; then
-        echo "⚠️  Ainda existe um serve publicando 9090, agora sem nada escutando. Remova com:"
-        echo "       sudo tailscale serve --https=9090 off"
-    fi
+    sudo systemctl start cockpit.socket
+    /usr/libexec/bazzite-dx-serve ensure 61390 || true
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "Cockpit ready at: https://$DNS_NAME:61390"
+    echo "✅ Cockpit ativo em: https://$DNS_NAME:61390 (local: https://localhost:61390)"
+
+# 🛑 Parar o Cockpit
+[group('Network')]
+cockpit-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    sudo systemctl stop cockpit.socket cockpit.service 2>/dev/null || true
+    echo "🛑 Cockpit desativado."
+
+# 📊 Diagnóstico do Cockpit
+[group('Network')]
+cockpit-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    SOCKET_STATE=$(systemctl is-active cockpit.socket 2>/dev/null || true)
+    SOCKET_ENABLED=$(systemctl is-enabled cockpit.socket 2>/dev/null || true)
+    printf "%-16s %s (boot: %s)\n" "cockpit.socket:" "${SOCKET_STATE:-inactive}" "${SOCKET_ENABLED:-disabled}"
+    if [[ "$SOCKET_STATE" == "active" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "   Painel Web: https://${DNS_NAME:-localhost}:61390"
+    fi
+
+# ⚡ Habilitar Cockpit no boot do sistema (Ative e esqueça)
+[group('Network')]
+cockpit-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just cockpit-up
+    sudo systemctl enable cockpit.socket
+    echo "⚡ Cockpit habilitado para iniciar automaticamente no boot do sistema!"
+
+# 🔌 Desabilitar Cockpit do boot do sistema
+[group('Network')]
+cockpit-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    sudo systemctl disable cockpit.socket
+    echo "🔌 Cockpit removido do boot automático. Use 'ujust cockpit-up' quando precisar."
 
 # 🔒 Expose Sunshine Web UI (:61395) privately via tailscale serve and provision multi-monitor apps
 [group('Network')]
@@ -174,20 +189,121 @@ remote-webcam-setup win_ip="100.108.150.113":
         exit 1
     fi
 
-# 🔒 Expose Apache Guacamole + KRDP / Real Host Desktop (:61392) privately via tailscale serve
+# 🎮 Iniciar o Sunshine Game Streaming sob demanda
 [group('Network')]
-remote-guacamole-setup:
+sunshine-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "🌐 Setting up Apache Guacamole on port 61392..."
-    echo "⚠️ Note: KRDP is unstable on Bazzite Wayland/NVIDIA (bazzite#2173 - black screens/PipeWire crashes)."
-    echo "💡 For reliable desktop access, prefer Sunshine in Desktop Mode or KasmVNC."
-    if ! systemctl --user is-active --quiet krdp.service 2>/dev/null; then
-        echo "⚙️ Enabling KDE Remote Desktop (KRDP) service..."
-        systemctl --user enable --now krdp.service 2>/dev/null || true
+    systemctl --user daemon-reload
+    systemctl --user start homebrew.sunshine.service
+    /usr/libexec/bazzite-dx-sunshine-apps || true
+    echo "✅ Sunshine Game Streaming ativo."
+    echo "   Para parear clientes ou configurar: Moonlight / https://localhost:47990"
+
+# 🛑 Parar o Sunshine Game Streaming
+[group('Network')]
+sunshine-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop homebrew.sunshine.service
+    echo "🛑 Sunshine Game Streaming desativado."
+
+# 📊 Diagnóstico do Sunshine Game Streaming
+[group('Network')]
+sunshine-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active homebrew.sunshine.service 2>/dev/null || true)
+    ENABLED=$(systemctl --user is-enabled homebrew.sunshine.service 2>/dev/null || true)
+    printf "%-12s %s (boot: %s)\n" "sunshine:" "${STATE:-inactive}" "${ENABLED:-disabled}"
+    if ss -tln 2>/dev/null | grep -q ':47990 '; then
+        echo "   Web UI: http://localhost:47990"
     fi
+
+# ⚡ Habilitar Sunshine no boot da sessão (Ative e esqueça)
+[group('Network')]
+sunshine-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just sunshine-up
+    systemctl --user enable homebrew.sunshine.service
+    echo "⚡ Sunshine habilitado para iniciar automaticamente no login!"
+
+# 🔌 Desabilitar Sunshine do boot
+[group('Network')]
+sunshine-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable homebrew.sunshine.service
+    echo "🔌 Sunshine removido do boot automático. Use 'ujust sunshine-up' quando precisar."
+
+# 🦀 Iniciar o RustDesk (Acesso Remoto Seguro) sob demanda
+[group('Network')]
+rustdesk-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! flatpak info com.rustdesk.RustDesk >/dev/null 2>&1; then
+        echo "Instalando com.rustdesk.RustDesk..."
+        flatpak install -y com.rustdesk.RustDesk 2>/dev/null || flatpak install --user -y com.rustdesk.RustDesk 2>/dev/null || true
+    fi
+    mkdir -p "$HOME/.config/autostart"
+    ln -sf /dev/null "$HOME/.config/autostart/com.rustdesk.RustDesk.desktop" 2>/dev/null || true
+    flatpak override --user --talk-name=org.kde.StatusNotifierWatcher --talk-name=org.freedesktop.StatusNotifierWatcher --talk-name=org.freedesktop.Notifications com.rustdesk.RustDesk 2>/dev/null || true
+    CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
+    mkdir -p "$(dirname "$CONF")"
+    if [ -f /usr/share/ublue-os/rustdesk/RustDesk2.toml.template ] && [ ! -s "$CONF" ]; then
+        cp /usr/share/ublue-os/rustdesk/RustDesk2.toml.template "$CONF"
+    fi
+    systemctl --user daemon-reload
+    systemctl --user start rustdesk.service
+    echo "✅ RustDesk ativo."
+    if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
+        DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+        TS_IP=$(tailscale ip -4 2>/dev/null | head -1)
+        echo "🔒 Tailnet: $DNS_NAME ($TS_IP)"
+        echo "💡 Direct IP Connection: No cliente RustDesk no Windows, use Direct IP -> '$TS_IP:21118'."
+    fi
+
+# 🛑 Parar o RustDesk
+[group('Network')]
+rustdesk-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop rustdesk.service
+    echo "🛑 RustDesk desativado."
+
+# 📊 Diagnóstico do RustDesk
+[group('Network')]
+rustdesk-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active rustdesk.service 2>/dev/null || true)
+    ENABLED=$(systemctl --user is-enabled rustdesk.service 2>/dev/null || true)
+    printf "%-12s %s (boot: %s)\n" "rustdesk:" "${STATE:-inactive}" "${ENABLED:-disabled}"
+
+# ⚡ Habilitar RustDesk no boot / login (Ative e esqueça)
+[group('Network')]
+rustdesk-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just rustdesk-up
+    systemctl --user enable rustdesk.service
+    echo "⚡ RustDesk habilitado para iniciar automaticamente no login!"
+
+# 🔌 Desabilitar RustDesk do boot / login
+[group('Network')]
+rustdesk-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable rustdesk.service
+    echo "🔌 RustDesk removido do boot automático. Use 'ujust rustdesk-up' quando precisar."
+
+# 🔒 Iniciar o Apache Guacamole (:61392) sob demanda
+[group('Network')]
+guacamole-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
     if ! ss -tln 2>/dev/null | grep -q ':61392 '; then
-        echo "🚀 Spawning rootless Apache Guacamole container on 127.0.0.1:61392..."
         podman run -d --name guacamole-desktop \
             --restart=unless-stopped \
             -p 127.0.0.1:61392:8080 \
@@ -196,57 +312,22 @@ remote-guacamole-setup:
     fi
     /usr/libexec/bazzite-dx-serve ensure 61392 61392 http || true
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "Guacamole ready at: https://$DNS_NAME:61392"
-    echo "Default login: guacadmin / guacadmin"
+    echo "✅ Guacamole pronto em: https://$DNS_NAME:61392 (login: guacadmin / guacadmin)"
 
-# 🎮 Setup Parsec client (Note: Linux supports CLIENT mode only to access Windows hosts)
+# 🛑 Parar o Apache Guacamole
 [group('Network')]
-remote-parsec-setup:
+guacamole-down:
     #!/usr/bin/env bash
-    set -euo pipefail
-    echo "🎮 Installing Parsec client..."
-    flatpak install --user -y flathub com.parsec.app || true
-    echo "✅ Parsec installed."
-    echo "⚠️ Note: Parsec on Linux operates as a CLIENT only (to connect to remote Windows hosts)."
-    echo "💡 Multi-monitor tip: Use 'Add Screens' (Ctrl+Shift+S) when connected to a remote host."
+    set -uo pipefail
+    podman stop guacamole-desktop 2>/dev/null || true
+    echo "🛑 Guacamole desativado."
 
-# 🦀 Setup RustDesk open-source remote desktop client
+# 📊 Diagnóstico do Apache Guacamole
 [group('Network')]
-remote-rustdesk-setup:
+guacamole-status:
     #!/usr/bin/env bash
-    set -euo pipefail
-    echo "🦀 Installing and preparing RustDesk (Tailscale-first remote access)..."
-    if ! flatpak info com.rustdesk.RustDesk >/dev/null 2>&1; then
-        flatpak install -y com.rustdesk.RustDesk 2>/dev/null || flatpak install --user -y com.rustdesk.RustDesk 2>/dev/null || true
-    fi
-    mkdir -p "$HOME/.config/autostart"
-    rm -f "$HOME/.config/autostart/com.rustdesk.RustDesk.desktop" 2>/dev/null || true
-    ln -sf /dev/null "$HOME/.config/autostart/com.rustdesk.RustDesk.desktop"
-    flatpak override --user --talk-name=org.kde.StatusNotifierWatcher --talk-name=org.freedesktop.StatusNotifierWatcher --talk-name=org.freedesktop.Notifications com.rustdesk.RustDesk 2>/dev/null || true
-    CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
-    mkdir -p "$(dirname "$CONF")"
-    if [ -f /usr/share/ublue-os/rustdesk/RustDesk2.toml.template ] && [ ! -s "$CONF" ]; then
-        cp /usr/share/ublue-os/rustdesk/RustDesk2.toml.template "$CONF"
-    else
-        touch "$CONF"
-        if ! grep -q "direct-server" "$CONF" 2>/dev/null; then
-            if grep -q "\[options\]" "$CONF" 2>/dev/null; then
-                sed -i '/\[options\]/a direct-server = "Y"\nallow-ip-directing = "Y"\ndirect-access-port = "21118"\nclose-to-tray = "Y"\nhide-to-tray = "Y"\nstart-minimized = "Y"' "$CONF"
-            else
-                echo -e "\n[options]\ndirect-server = \"Y\"\nallow-ip-directing = \"Y\"\ndirect-access-port = \"21118\"\nclose-to-tray = \"Y\"\nhide-to-tray = \"Y\"\nstart-minimized = \"Y\"" >> "$CONF"
-            fi
-        fi
-    fi
-    rm -f "$HOME/.config/systemd/user/rustdesk.service" 2>/dev/null || true
-    systemctl --user daemon-reload
-    systemctl --user reenable --now rustdesk.service || true
-    echo "✅ RustDesk installed, configured, and systemd background service activated."
-    if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
-        DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-        TS_IP=$(tailscale ip -4 2>/dev/null | head -1)
-        echo "🔒 Tailnet: $DNS_NAME ($TS_IP)"
-        echo "💡 Direct IP Connection: In RustDesk client on Windows, click '...' next to ID box -> 'Direct IP Access' and enter '$TS_IP:21118'."
-    fi
+    set -uo pipefail
+    podman ps --filter name=guacamole-desktop --format 'table {{{{.Names}}\t{{{{.Status}}\t{{{{.Ports}}' 2>/dev/null || true
 
 # ⌨️ Setup Deskflow (Software KVM for sharing mouse & keyboard across PCs over Tailscale)
 [group('Network')]
@@ -415,9 +496,206 @@ toggle-keyboard state="toggle":
 
 # ==============================================================================
 # GROUP 5: Remote IDE Access (code-server + VS Code family Remote Tunnels)
+#
+# The stack follows the same on-demand up / down / status philosophy:
+# - `ujust code-server-up` / `ujust code-server-down`: Start/stop code-server on demand.
+# - `ujust ide-tunnel-up <name>` / `ujust ide-tunnel-down <name>`: Start/stop tunnels on demand.
+# - `ujust code-server-enable-boot` / `ujust code-server-disable-boot`: Opt-in to start automatically on boot.
+# - Password and endpoints are managed cleanly via `ujust code-server-password` / `ujust remote-ide-status`.
 # ==============================================================================
 
-# Install/enable code-server (127.0.0.1:61337) exposed via `tailscale serve`, and stage tunnel units
+# 🌐 Iniciar o code-server (:61337) sob demanda e expor no Tailscale
+[group('Remote IDE')]
+code-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REF_DIR="/usr/share/ublue-os/remote-ide"
+    CONF_DIR="$HOME/.config/code-server"
+
+    if ! command -v code-server >/dev/null 2>&1; then
+        echo "❌ code-server não encontrado. Rode 'ujust setup-personal-suite install' primeiro."
+        exit 1
+    fi
+
+    mkdir -p "$CONF_DIR"
+    umask 077
+    if [[ ! -f "$CONF_DIR/config.yaml" ]]; then
+        PASS=$(openssl rand -base64 18)
+        sed "s|__GENERATE__|$PASS|" "$REF_DIR/code-server-config.yaml.tmpl" >"$CONF_DIR/config.yaml"
+        chmod 600 "$CONF_DIR/config.yaml"
+        echo "🔑 Senha gerada para o code-server: $PASS"
+    fi
+
+    systemctl --user daemon-reload
+    systemctl --user start code-server.service
+
+    if /usr/libexec/bazzite-dx-serve ensure 61337; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//')
+        echo "✅ code-server ativo em: https://$DNS_NAME:61337 (local: http://127.0.0.1:61337)"
+    else
+        echo "✅ code-server ativo em http://127.0.0.1:61337 (aviso: Tailscale Serve não configurado)"
+    fi
+    echo "   Para ver a senha de acesso: ujust code-password"
+
+alias code-server-up := code-up
+
+# 🛑 Parar o code-server e liberar memória
+[group('Remote IDE')]
+code-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop code-server.service
+    echo "🛑 code-server desativado. Recursos liberados."
+
+alias code-server-down := code-down
+
+# 🔑 Exibir ou redefinir a senha do code-server
+[group('Remote IDE')]
+code-password new_password="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CONF_DIR="$HOME/.config/code-server"
+    CONF_FILE="$CONF_DIR/config.yaml"
+    NEW_PASS="{{ new_password }}"
+
+    if [[ ! -f "$CONF_FILE" ]]; then
+        echo "❌ Configuração do code-server não encontrada em $CONF_FILE."
+        echo "   Inicie com 'ujust code-up' primeiro."
+        exit 1
+    fi
+
+    if [[ -n "$NEW_PASS" ]]; then
+        sed -i "s/^password:.*/password: $NEW_PASS/" "$CONF_FILE"
+        chmod 600 "$CONF_FILE"
+        systemctl --user try-restart code-server.service || true
+        echo "✅ Senha do code-server atualizada com sucesso!"
+    else
+        CURRENT_PASS=$(sed -n 's/^password:[[:space:]]*//p' "$CONF_FILE" | head -1)
+        echo "🔑 Senha atual do code-server: $CURRENT_PASS"
+        echo "💡 Para alterar: ujust code-password <sua-nova-senha>"
+    fi
+
+alias code-server-password := code-password
+
+# ⚡ Habilitar code-server para iniciar automaticamente no boot (Ative e esqueça)
+[group('Remote IDE')]
+code-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just code-up
+    systemctl --user enable code-server.service
+    echo "⚡ code-server habilitado para iniciar automaticamente no boot!"
+
+alias code-server-enable-boot := code-enable-boot
+
+# 🔌 Desabilitar code-server da inicialização automática do boot
+[group('Remote IDE')]
+code-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable code-server.service
+    echo "🔌 code-server removido do boot automático. Use 'ujust code-up' quando precisar."
+
+alias code-server-disable-boot := code-disable-boot
+
+# 🚀 Iniciar um VS Code Remote Tunnel (code, code-insiders) sob demanda
+[group('Remote IDE')]
+ide-tunnel-up name="code-insiders":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    NAME="{{ name }}"
+    REF_DIR="/usr/share/ublue-os/remote-ide"
+    TUNNEL_ENV_DIR="$HOME/.config/ide-tunnel"
+    ENV_FILE="$TUNNEL_ENV_DIR/$NAME.env"
+
+    if [[ "$NAME" == "antigravity" ]]; then
+        echo "❌ antigravity-ide tunnel está aguardando binário dedicado upstream."
+        exit 1
+    fi
+
+    mkdir -p "$TUNNEL_ENV_DIR"
+    if [[ ! -f "$ENV_FILE" ]]; then
+        if [[ -f "$REF_DIR/ide-tunnel-$NAME.env" ]]; then
+            install -Dm644 "$REF_DIR/ide-tunnel-$NAME.env" "$ENV_FILE"
+        else
+            echo "❌ Configuração de túnel '$NAME' não encontrada."
+            exit 1
+        fi
+    fi
+
+    systemctl --user daemon-reload
+    systemctl --user start "ide-tunnel@$NAME.service"
+    echo "✅ Túnel '$NAME' iniciado."
+    sleep 2
+    URL=$(journalctl --user -u "ide-tunnel@$NAME" --no-pager 2>/dev/null | grep -F "Open:" | tail -1 | sed 's/.*Open:[[:space:]]*//')
+    if [[ -n "$URL" ]]; then
+        echo "🔗 Acesse em: $URL"
+    else
+        echo "ℹ️ Verifique o link de conexão ou autenticação em: journalctl --user -u ide-tunnel@$NAME -f"
+    fi
+
+# 🛑 Parar um VS Code Remote Tunnel
+[group('Remote IDE')]
+ide-tunnel-down name="code-insiders":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    NAME="{{ name }}"
+    systemctl --user stop "ide-tunnel@$NAME.service"
+    echo "🛑 Túnel '$NAME' desativado."
+
+# ⚡ Habilitar um VS Code Remote Tunnel no boot (Ative e esqueça)
+[group('Remote IDE')]
+ide-tunnel-enable-boot name="code-insiders":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    NAME="{{ name }}"
+    just ide-tunnel-up "$NAME"
+    systemctl --user enable "ide-tunnel@$NAME.service"
+    echo "⚡ Túnel '$NAME' habilitado para iniciar automaticamente no boot!"
+
+# 🔌 Desabilitar um VS Code Remote Tunnel do boot
+[group('Remote IDE')]
+ide-tunnel-disable-boot name="code-insiders":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    NAME="{{ name }}"
+    systemctl --user disable "ide-tunnel@$NAME.service"
+    echo "🔌 Túnel '$NAME' removido do boot automático."
+
+# Setup completo e login interativo no GitHub para Remote Tunnel
+[group('Remote IDE')]
+remote-ide-tunnel name:
+    #!/usr/bin/env bash
+    set -e
+    NAME="{{ name }}"
+    ENV_FILE="$HOME/.config/ide-tunnel/$NAME.env"
+    REF_DIR="/usr/share/ublue-os/remote-ide"
+
+    mkdir -p "$HOME/.config/ide-tunnel"
+    if [[ ! -f "$ENV_FILE" && -f "$REF_DIR/ide-tunnel-$NAME.env" ]]; then
+        install -Dm644 "$REF_DIR/ide-tunnel-$NAME.env" "$ENV_FILE"
+    fi
+
+    if [[ ! -f "$ENV_FILE" ]]; then
+        echo "Unknown or unstaged tunnel '$NAME'."
+        exit 1
+    fi
+
+    if [[ "$NAME" == "antigravity" ]]; then
+        echo "antigravity-ide tunnel is broken upstream (missing antigravity-tunnel binary)."
+        exit 1
+    fi
+
+    # shellcheck source=/dev/null
+    source "$ENV_FILE"
+    echo "Logging in to GitHub for $IDE_BINARY tunnel '$TUNNEL_NAME'..."
+    "$IDE_BINARY" tunnel user login --provider github
+
+    systemctl --user daemon-reload
+    systemctl --user start "ide-tunnel@$NAME.service"
+    echo "Tunnel '$TUNNEL_NAME' configurado e iniciado. Verifique 'ujust remote-ide-status'."
+
+# Instalar e preparar infraestrutura de Remote IDE
 [group('Remote IDE')]
 remote-ide-setup:
     #!/usr/bin/env bash
@@ -434,164 +712,61 @@ remote-ide-setup:
 
     mkdir -p "$UNIT_DIR" "$CONF_DIR" "$TUNNEL_ENV_DIR"
 
-    # Both units now ship read-only in /usr/lib/systemd/user/, so there is nothing to
-    # install: `systemctl --user enable` is the whole opt-in, and the unit can never drift
-    # from what the image ships. Earlier versions of this recipe copied them into $HOME
-    # under `if [[ ! -f ]]`, which froze each host on whatever the image shipped the first
-    # time it ran — that is how a host ended up running code-server.service from before
-    # commit 7f52615 (no ProtectKernel*/LockPersonality) long after the fix was published.
-    #
-    # A leftover copy in $HOME does not merely linger: ~/.config/systemd/user takes
-    # PRECEDENCE over /usr/lib/systemd/user, so it would keep shadowing the image unit
-    # forever. Remove it, and re-enable so the *.target.wants symlink stops pointing at the
-    # file that just went away.
-    MIGRATED=""
+    # Remove legacy copies from $HOME if present
     for unit in code-server.service ide-tunnel@.service; do
         if [[ -f "$UNIT_DIR/$unit" && ! -L "$UNIT_DIR/$unit" ]]; then
             rm -f "$UNIT_DIR/$unit"
-            MIGRATED="yes"
             echo "Removed legacy $UNIT_DIR/$unit (now provided by the image)"
         fi
     done
     systemctl --user daemon-reload
-    if [[ -n "$MIGRATED" ]]; then
-        # reenable, not enable: enable leaves an existing (now dangling) symlink alone.
-        systemctl --user reenable code-server.service >/dev/null 2>&1 || true
-        # Enabled instances of a template are NOT listed by
-        # `list-unit-files 'ide-tunnel@*.service'` — that reports only the template itself
-        # ("indirect disabled"). The enabled instances exist solely as symlinks under
-        # *.target.wants, so enumerate those.
-        for link in "$UNIT_DIR"/*.target.wants/ide-tunnel@*.service; do
-            [[ -e "$link" || -L "$link" ]] || continue
-            systemctl --user reenable "$(basename "$link")" >/dev/null 2>&1 || true
-        done
-    fi
 
-    # config.yaml is BOTH user secret and image policy, which is why "never overwrite" was the
-    # wrong rule for it. The password is the only line this host owns; bind-addr, auth, cert and
-    # the disable-telemetry/disable-update-check pair are policy from the template. Guarding the
-    # whole file behind `! -f` trapped that policy: commit 7f52615 added both disable-* keys and
-    # a host set up before it kept reporting telemetry indefinitely, with nothing to signal it.
-    #
-    # So: generate on first run, and on every later run rebuild from the template while carrying
-    # the existing password across. That converges on image policy without ever regenerating a
-    # working credential.
     umask 077
     if [[ ! -f "$CONF_DIR/config.yaml" ]]; then
         PASS=$(openssl rand -base64 18)
         sed "s|__GENERATE__|$PASS|" "$REF_DIR/code-server-config.yaml.tmpl" >"$CONF_DIR/config.yaml"
         chmod 600 "$CONF_DIR/config.yaml"
-        echo "Generated code-server password (save it, shown once): $PASS"
-    else
-        PASS=$(sed -n 's/^password:[[:space:]]*//p' "$CONF_DIR/config.yaml" | head -1)
-        PASS_NOTE="Password preserved."
-        if [[ -z "$PASS" ]]; then
-            PASS=$(openssl rand -base64 18)
-            PASS_NOTE="No password was present, so a new one was generated (shown once): $PASS"
-        fi
-        # Staged inside $CONF_DIR, not /tmp: the file holds the password, and umask 077 above
-        # only covers the mode, not who can see the path.
-        RENDERED=$(mktemp -p "$CONF_DIR" .config.yaml.XXXXXX)
-        sed "s|__GENERATE__|$PASS|" "$REF_DIR/code-server-config.yaml.tmpl" >"$RENDERED"
-        if cmp -s "$RENDERED" "$CONF_DIR/config.yaml"; then
-            rm -f "$RENDERED"
-        else
-            # Report the keys that changed, without printing values (one of them is the password).
-            CHANGED=$(diff <(sed 's/:.*//' "$CONF_DIR/config.yaml" | sort) <(sed 's/:.*//' "$RENDERED" | sort) | grep '^>' | sed 's/^> //' | paste -sd, -)
-            install -m600 "$RENDERED" "$CONF_DIR/config.yaml"
-            rm -f "$RENDERED"
-            echo "Reconciled $CONF_DIR/config.yaml with image policy${CHANGED:+ (added: $CHANGED)}. $PASS_NOTE"
-            CONF_CHANGED="yes"
-        fi
-    fi
-
-    systemctl --user enable --now code-server.service
-    # enable --now does not restart an already-running unit, so a policy change would sit
-    # unapplied until the next login. Written as `if`, not `[[ ... ]] && cmd`: under `set -e` the
-    # latter exits the whole recipe with status 1 whenever the variable is empty.
-    if [[ -n "${CONF_CHANGED:-}" ]]; then
-        systemctl --user try-restart code-server.service
-    fi
-    # `tailscale serve` needs root unless `sudo tailscale set --operator=$USER` has been run
-    # once, and it is re-asserted on every run of this recipe. Under `set -e` a permission
-    # error aborted everything after this line — the tunnel env staging and the final
-    # instructions never ran. Measured here: serve was already proxying 61337 from an earlier
-    # root invocation, so the call was both redundant and fatal.
-    # Explicit --https=61337 keeps code-server off the bare tailnet domain (443/root), which is
-    # reserved so a per-project dev server can `tailscale serve` its own port.
-    #
-    # The inline grep this replaced looked for the proxy TARGET and ignored the listener, so on
-    # a host that had already published code-server at the root it matched, reported "already
-    # proxies 61337", and never migrated anything — the fix was inert exactly where it was
-    # needed. /usr/libexec/bazzite-dx-serve asks `serve status --json` for the listener/target
-    # pair instead, and reports a misplaced mapping rather than mistaking it for success.
-    if ! /usr/libexec/bazzite-dx-serve ensure 61337; then
-        echo "code-server segue de pé em 127.0.0.1:61337; falta só o proxy do tailnet."
+        echo "Generated code-server password (save it): $PASS"
     fi
 
     for name in code code-insiders antigravity; do
-        if [[ ! -f "$TUNNEL_ENV_DIR/$name.env" ]]; then
+        if [[ ! -f "$TUNNEL_ENV_DIR/$name.env" && -f "$REF_DIR/ide-tunnel-$name.env" ]]; then
             install -Dm644 "$REF_DIR/ide-tunnel-$name.env" "$TUNNEL_ENV_DIR/$name.env"
         fi
     done
     systemctl --user daemon-reload
+    echo "✅ Ambiente Remote IDE pronto para uso."
+    echo "   Para iniciar: ujust code-server-up"
 
-    DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo ""
-    echo "code-server ready at: https://$DNS_NAME"
-    echo "Next: run 'ujust remote-ide-tunnel code' (or code-insiders) to log in and enable a tunnel."
-    echo "If typing still feels off for your layout, prefer 'ujust remote-ide-tunnel code' — the desktop client isn't subject to browser layout detection."
-
-# Log into GitHub and enable a VS Code family Remote Tunnel (code, code-insiders; antigravity pending upstream fix)
-[group('Remote IDE')]
-remote-ide-tunnel name:
-    #!/usr/bin/env bash
-    set -e
-    NAME="{{ name }}"
-    ENV_FILE="$HOME/.config/ide-tunnel/$NAME.env"
-
-    if [[ ! -f "$ENV_FILE" ]]; then
-        echo "Unknown or unstaged tunnel '$NAME'. Run 'ujust remote-ide-setup' first."
-        exit 1
-    fi
-
-    if [[ "$NAME" == "antigravity" ]]; then
-        echo "antigravity-ide tunnel is broken upstream (missing antigravity-tunnel binary)."
-        echo "Not attempting login. Will work once the cask ships the tunnel binary."
-        exit 1
-    fi
-
-    # shellcheck source=/dev/null
-    source "$ENV_FILE"
-    echo "Logging in to GitHub for $IDE_BINARY tunnel '$TUNNEL_NAME'..."
-    "$IDE_BINARY" tunnel user login --provider github
-
-    systemctl --user daemon-reload
-    systemctl --user enable --now "ide-tunnel@$NAME.service"
-    echo "Tunnel '$TUNNEL_NAME' enabled. Check 'ujust remote-ide-status' for the access URL."
-
-# Show status of code-server and all configured IDE tunnels
+# 📊 Diagnóstico dedicado do code-server e Remote Tunnels
 [group('Remote IDE')]
 remote-ide-status:
     #!/usr/bin/env bash
-    echo "== code-server =="
-    # `is-active` prints the state on stdout AND exits non-zero for anything but active, so
-    # `|| echo inactive` printed it twice ("inactive" then "inactive"). Reproduced here before
-    # the fix. Capture with `|| true` and substitute only when the output is truly empty.
+    set -uo pipefail
+    echo "=== 🌐 CODE-SERVER ==="
     CS_STATE=$(systemctl --user is-active code-server.service 2>/dev/null || true)
     CS_ENABLED=$(systemctl --user is-enabled code-server.service 2>/dev/null || true)
-    printf "%-12s %s (%s)\n" "state:" "${CS_STATE:-unknown}" "${CS_ENABLED:-unknown}"
-    printf "local check: "
-    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:61337/login || echo "unreachable"
-    tailscale serve status
+    printf "%-12s %s (boot: %s)\n" "status:" "${CS_STATE:-inactive}" "${CS_ENABLED:-disabled}"
+    if [[ "$CS_STATE" == "active" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "url:         https://${DNS_NAME:-localhost}:61337"
+        PASS=$(sed -n 's/^password:[[:space:]]*//p' "$HOME/.config/code-server/config.yaml" 2>/dev/null || echo "(não encontrada)")
+        echo "senha:       $PASS"
+    fi
 
     echo ""
-    echo "== IDE Remote Tunnels =="
+    echo "=== 🚇 VS CODE REMOTE TUNNELS ==="
     for name in code code-insiders antigravity; do
         ENV_FILE="$HOME/.config/ide-tunnel/$name.env"
         [[ -f "$ENV_FILE" ]] || continue
-        # Same trap as above: `|| echo inactive` would capture BOTH strings into STATE.
         STATE=$(systemctl --user is-active "ide-tunnel@$name.service" 2>/dev/null || true)
-        echo "-- $name: ${STATE:-inactive}"
-        journalctl --user -u "ide-tunnel@$name" --no-pager 2>/dev/null | grep -F "Open:" | tail -1
+        ENABLED=$(systemctl --user is-enabled "ide-tunnel@$name.service" 2>/dev/null || true)
+        printf "%-15s %s (boot: %s)\n" "$name:" "${STATE:-inactive}" "${ENABLED:-disabled}"
+        if [[ "$STATE" == "active" ]]; then
+            URL=$(journalctl --user -u "ide-tunnel@$name" --no-pager 2>/dev/null | grep -F "Open:" | tail -1 | sed 's/.*Open:[[:space:]]*//')
+            [[ -n "$URL" ]] && echo "   🔗 $URL"
+        fi
     done
+
+alias ide-status := remote-ide-status
+alias code-status := remote-ide-status

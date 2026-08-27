@@ -16,14 +16,14 @@ status)
 	if systemctl --user is-active --quiet homebrew.sunshine.service 2>/dev/null; then
 		echo "   Status: ✅ ACTIVE (Port 47989 / Web UI 61395)"
 	else
-		echo "   Status: ❌ INACTIVE (Start with: systemctl --user start homebrew.sunshine.service)"
+		echo "   Status: ❌ INACTIVE (Start with: ujust sunshine-up)"
 	fi
 	echo ""
 	echo "2. 🌐 Apache Guacamole + KRDP (HTML5 Client - Note: KRDP unstable on Wayland/NVIDIA bazzite#2173)"
 	if ss -tln 2>/dev/null | grep -q ':61392 '; then
 		echo "   Status: ✅ ACTIVE (Port 61392)"
 	else
-		echo "   Status: ⚪ INACTIVE (Setup with: ujust remote-guacamole-setup)"
+		echo "   Status: ⚪ INACTIVE (Start with: ujust guacamole-up)"
 	fi
 	echo ""
 	echo "3. 🎥 Webcam Bridge (Windows RTSP -> /dev/video10)"
@@ -47,9 +47,9 @@ status)
 		echo "   Parsec:   ⚪ ABSENT (Setup with: ujust remote-parsec-setup)"
 	fi
 	if flatpak info com.rustdesk.RustDesk >/dev/null 2>&1; then
-		echo "   RustDesk: ✅ INSTALLED (Direct IP via Tailnet - Requires Wayland portal prompt)"
+		echo "   RustDesk: ✅ INSTALLED (Direct IP via Tailnet - Start with: ujust rustdesk-up)"
 	else
-		echo "   RustDesk: ⚪ ABSENT (Setup with: ujust remote-rustdesk-setup)"
+		echo "   RustDesk: ⚪ ABSENT (Install & start with: ujust rustdesk-up)"
 	fi
 	if flatpak info com.deskflow.deskflow >/dev/null 2>&1; then
 		echo "   Deskflow: ✅ INSTALLED (Software KVM input sharing via Tailscale :24800)"

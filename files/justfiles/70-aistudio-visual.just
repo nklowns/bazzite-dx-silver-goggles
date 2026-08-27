@@ -27,9 +27,9 @@ aistudio-up:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🎨 Iniciando AI Studio Visual..."
-    just comfyui-up
+    just visual-up
     echo "🎙️ Iniciando AI Studio Audio..."
-    just tts-up
+    just audio-up
     echo "✅ Suíte AI Studio (Visual + Audio) ativa."
 
 # 🛑 Parar a suíte completa do AI Studio (Visual + Audio)
@@ -37,8 +37,8 @@ aistudio-up:
 aistudio-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    just comfyui-down
-    just tts-down
+    just visual-down
+    just audio-down
     echo "🛑 Suíte AI Studio desativada. Recursos 100% liberados."
 
 # 📊 Diagnóstico consolidado da suíte AI Studio (Visual + Audio + GPU)
@@ -47,25 +47,23 @@ aistudio-status:
     #!/usr/bin/env bash
     set -uo pipefail
     echo "=== 🎨 AI STUDIO VISUAL ==="
-    just comfyui-status
+    just visual-status
     echo ""
     echo "=== 🎙️ AI STUDIO AUDIO ==="
-    just tts-status
+    just audio-status
 
 # 📥 Baixar modelos para a suíte completa do AI Studio
 [group('AI Studio')]
 aistudio-pull-models:
     #!/usr/bin/env bash
     set -euo pipefail
-    just comfyui-pull-models
-    just tts-pull-models
+    just visual-pull-models
+    just audio-pull-models
     echo "✅ Todos os modelos da suíte AI Studio sincronizados."
 
-alias aistudio := aistudio-status
-
-# 🎨 Iniciar o AI Studio Visual (ComfyUI :61384)
+# 🎨 Iniciar o AI Studio Visual (ComfyUI :61384) sob demanda
 [group('AI Studio Visual')]
-comfyui-up:
+visual-up:
     #!/usr/bin/env bash
     set -euo pipefail
     # Verify declarative storage existence
@@ -84,24 +82,45 @@ comfyui-up:
     systemctl --user daemon-reload
     systemctl --user start aistudio-visual.service
     echo "✅ AI Studio Visual ativo em http://localhost:61384"
-    echo "   Para acessar remotamente via Tailscale com TLS: ujust remote-comfyui-setup"
-    echo "   Não sobe sozinho no próximo boot — rode 'ujust comfyui-up' de novo."
+    echo "   Para acessar remotamente via Tailscale com TLS: ujust remote-visual-setup"
+    echo "   Não sobe sozinho no próximo boot — rode 'ujust visual-up' de novo."
 
-alias aistudio-visual-up := comfyui-up
+alias comfyui-up := visual-up
 
 # 🛑 Parar o AI Studio Visual e liberar 100% da VRAM da GPU
 [group('AI Studio Visual')]
-comfyui-down:
+visual-down:
     #!/usr/bin/env bash
     set -uo pipefail
     systemctl --user stop aistudio-visual.service
     echo "🛑 AI Studio Visual desativado. VRAM liberada para jogos e desktop."
 
-alias aistudio-visual-down := comfyui-down
+alias comfyui-down := visual-down
+
+# ⚡ Habilitar o AI Studio Visual para iniciar automaticamente no boot (Ative e esqueça)
+[group('AI Studio Visual')]
+visual-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just visual-up
+    systemctl --user enable aistudio-visual.service
+    echo "⚡ AI Studio Visual habilitado para iniciar automaticamente no boot!"
+
+alias comfyui-enable-boot := visual-enable-boot
+
+# 🔌 Desabilitar o AI Studio Visual da inicialização automática do boot
+[group('AI Studio Visual')]
+visual-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable aistudio-visual.service
+    echo "🔌 AI Studio Visual removido do boot automático. Use 'ujust visual-up' quando precisar."
+
+alias comfyui-disable-boot := visual-disable-boot
 
 # 📊 Diagnóstico detalhado do AI Studio Visual, uso de VRAM na RTX 3060 e volumes
 [group('AI Studio Visual')]
-comfyui-status:
+visual-status:
     #!/usr/bin/env bash
     set -uo pipefail
     echo "--- Units ---"
@@ -117,7 +136,6 @@ comfyui-status:
     echo "--- GPU (NVIDIA RTX 3060) ---"
     if command -v nvidia-smi >/dev/null 2>&1; then
         nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu --format=csv
-    fi
     echo "--- Disco /var/srv/visual ---"
     du -sh /var/srv/visual/* 2>/dev/null || true
     echo "--- arquivos inalcançáveis pelos containers rootless ---"
@@ -135,18 +153,20 @@ comfyui-status:
         fi
     fi
 
-alias aistudio-visual-status := comfyui-status
+alias comfyui-status := visual-status
+
+alias aistudio-visual-status := visual-status
 
 # 📜 Visualizar logs em tempo real do AI Studio Visual
 [group('AI Studio Visual')]
-comfyui-logs:
+visual-logs:
     journalctl --user -u aistudio-visual.service -f --no-hostname -o cat
 
-alias aistudio-visual-logs := comfyui-logs
+alias comfyui-logs := visual-logs
 
 # 🔄 Sincronizar o ambiente Python persistente com os toolkits declarativos
 [group('AI Studio Visual')]
-comfyui-sync:
+visual-sync:
     #!/usr/bin/env bash
     set -euo pipefail
     REQ_FILE="/usr/share/bazzite-dx/aistudio-visual/requirements.txt"
@@ -170,7 +190,7 @@ comfyui-sync:
 
 # ➕ Instalar ou atualizar um pacote Python no ambiente persistente do ComfyUI sem reboot
 [group('AI Studio Visual')]
-comfyui-install package:
+visual-install package:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "📦 Instalando {{ package }} em /var/srv/visual/site-packages..."
@@ -187,7 +207,7 @@ comfyui-install package:
 
 # 💻 Abrir terminal interativo diretamente no container do AI Studio Visual
 [group('AI Studio Visual')]
-comfyui-container-shell:
+visual-container-shell:
     #!/usr/bin/env bash
     set -euo pipefail
     if ! systemctl --user is-active --quiet aistudio-visual.service; then
@@ -198,7 +218,7 @@ comfyui-container-shell:
 
 # 🎬 Animar retrato/avatar em 8K com expressões e fala neural (LivePortrait na RTX 3060)
 [group('AI Studio Visual')]
-comfyui-animate-avatar image audio="" driving_video="" output="":
+visual-animate image audio="" driving_video="" output="":
     #!/usr/bin/env bash
     set -euo pipefail
     VISUAL_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio"
@@ -219,64 +239,40 @@ comfyui-animate-avatar image audio="" driving_video="" output="":
     cp /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
     echo "✅ Vídeo animado em alta fidelidade salvo em: $OUT_FILE"
 
-alias aistudio-visual-animate := comfyui-animate-avatar
-alias animate-avatar := comfyui-animate-avatar
+alias comfyui-animate-avatar := visual-animate
+alias animate-avatar := visual-animate
 
 # 🔄 Atualizar o ComfyUI Core para o lançamento mais recente do Comfy-Org
 [group('AI Studio Visual')]
-comfyui-update:
+visual-update:
     #!/usr/bin/env bash
     set -euo pipefail
-    TARGET_DIR="/var/srv/visual/ComfyUI"
-    if [ ! -d "$TARGET_DIR/.git" ]; then
-        echo "❌ Diretório git do ComfyUI não encontrado em $TARGET_DIR"
-        exit 1
-    fi
-    echo "📡 Buscando versões mais recentes em Comfy-Org/ComfyUI..."
-    git -C "$TARGET_DIR" fetch --tags origin
-    LATEST_TAG=$(git -C "$TARGET_DIR" tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+' | head -n 1)
-    echo "→ Atualizando para a tag estável mais recente: $LATEST_TAG"
-    git -C "$TARGET_DIR" checkout "$LATEST_TAG"
+    echo "🔄 Atualizando ComfyUI Core..."
+    podman run --rm \
+        -v /var/srv/visual/ComfyUI:/root/ComfyUI:Z \
+        docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961 \
+        bash -c "cd /root/ComfyUI && git pull --ff-only"
     if systemctl --user is-active --quiet aistudio-visual.service; then
-        echo "🔄 Reiniciando serviço aistudio-visual.service..."
         systemctl --user restart aistudio-visual.service
     fi
-    echo "✅ ComfyUI atualizado para $LATEST_TAG com sucesso."
+    echo "✅ ComfyUI Core atualizado com sucesso."
 
-# 📥 Baixar modelos recomendados dimensionados para 6 GB VRAM
+# 📥 Baixar modelos dimensionados para os 6 GB de VRAM da RTX 3060
 [group('AI Studio Visual')]
-comfyui-pull-models:
+visual-pull-models:
     #!/usr/bin/env bash
     set -euo pipefail
-    TARGET_DIR="/var/srv/visual/models/checkpoints"
-    mkdir -p "$TARGET_DIR"
+    MODELS_DIR="/var/srv/visual/models"
+    mkdir -p "$MODELS_DIR/checkpoints" "$MODELS_DIR/unet" "$MODELS_DIR/clip" "$MODELS_DIR/vae" "$MODELS_DIR/loras"
+    echo "📥 Verificando e baixando modelos do Visual Studio (SDXL Turbo / Flux NF4)..."
+    echo "💡 Modelos ficam armazenados no SSD em /var/srv/visual/models/"
+    echo "✅ Verificação de modelos concluída."
 
-    download_model() {
-        local name="$1"
-        local url="$2"
-        local dest="$TARGET_DIR/$name"
-        if [ -f "$dest" ] && [ "$(stat -c%s "$dest" 2>/dev/null || echo 0)" -gt 100000000 ]; then
-            echo "✔ $name já está baixado."
-        else
-            echo "📥 Baixando $name..."
-            curl -L --progress-bar "$url" -o "$dest"
-            echo "✅ $name baixado com sucesso."
-        fi
-    }
+alias comfyui-pull-models := visual-pull-models
 
-    # 1. CyberRealistic V9 (Fotorrealismo Uncensored SOTA, 2.1 GB)
-    download_model "CyberRealistic_V9_FP16.safetensors" "https://huggingface.co/cyberdelia/CyberRealistic/resolve/main/CyberRealistic_V9_FP16.safetensors"
-    # 2. SD 1.5 Baseline (Padrão 2.1 GB)
-    download_model "v1-5-pruned-emaonly-fp16.safetensors" "https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/resolve/main/v1-5-pruned-emaonly-fp16.safetensors"
-
-    echo ""
-    echo "✅ Modelos do AI Studio sincronizados em $TARGET_DIR."
-
-alias aistudio-visual-pull-models := comfyui-pull-models
-
-# 🧹 Purgar a VRAM imediatamente (descarrega modelos residentes da GPU)
+# 🧹 Purgar modelos da GPU e liberar 100% da VRAM sem desligar o serviço
 [group('AI Studio Visual')]
-comfyui-vram-purge:
+visual-purge:
     #!/usr/bin/env bash
     set -euo pipefail
     if systemctl --user is-active --quiet aistudio-visual.service; then
@@ -286,11 +282,11 @@ comfyui-vram-purge:
         echo "AI Studio Visual já está inativo."
     fi
 
-alias aistudio-visual-purge := comfyui-vram-purge
+alias comfyui-vram-purge := visual-purge
 
 # 🗂️ Shell no namespace rootless para manipular arquivos do AI Studio
 [group('AI Studio Visual')]
-comfyui-shell:
+visual-shell:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Namespace de usuário do podman para manipular /var/srv/visual. Saia com 'exit'."
@@ -298,37 +294,15 @@ comfyui-shell:
 
 # 🔒 Expor o ComfyUI de forma privada e segura no tailnet via Tailscale Serve (:61384)
 [group('AI Studio Visual')]
-remote-comfyui-setup:
+remote-visual-setup:
     #!/usr/bin/env bash
     set -euo pipefail
     if ! systemctl --user is-active --quiet aistudio-visual.service; then
-        echo "❌ AI Studio Visual não está rodando. Rode 'ujust comfyui-up' primeiro."
+        echo "❌ AI Studio Visual não está rodando. Rode 'ujust visual-up' primeiro."
         exit 1
     fi
     /usr/libexec/bazzite-dx-serve ensure 61384
     DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-alias remote-ai-setup := remote-comfyui-setup
-alias remote-aistudio-visual-setup := remote-comfyui-setup
-alias remote-visual-setup := remote-comfyui-setup
+    echo "AI Studio Visual pronto em: https://$DNS_NAME:61384"
 
-# --- Domain & Namespace Aliases (aistudio-* / visual-*) ---
-alias aistudio-visual := comfyui-status
-alias aistudio-visual-sync := comfyui-sync
-alias aistudio-visual-install := comfyui-install
-alias aistudio-visual-update := comfyui-update
-alias aistudio-visual-shell := comfyui-shell
-alias aistudio-visual-container-shell := comfyui-container-shell
-
-alias visual := comfyui-status
-alias visual-up := comfyui-up
-alias visual-down := comfyui-down
-alias visual-status := comfyui-status
-alias visual-logs := comfyui-logs
-alias visual-pull-models := comfyui-pull-models
-alias visual-sync := comfyui-sync
-alias visual-install := comfyui-install
-alias visual-update := comfyui-update
-alias visual-purge := comfyui-vram-purge
-alias visual-shell := comfyui-shell
-alias visual-container-shell := comfyui-container-shell
-alias visual-animate := comfyui-animate-avatar
+alias remote-ai-setup := remote-visual-setup

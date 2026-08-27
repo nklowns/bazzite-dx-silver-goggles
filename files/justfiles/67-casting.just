@@ -75,61 +75,77 @@ casting-status:
     echo ""
     echo "Config template: $CASTING_DIR/uxplayrc.tmpl -> ~/.config/uxplayrc"
 
+# 📺 Iniciar o receptor AirPlay (UxPlay) sob demanda (LAN)
+[group('Casting')]
+airplay-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CASTING_DIR="/usr/share/ublue-os/casting"
+    RC_FILE="$HOME/.config/uxplayrc"
+
+    if ! command -v uxplay >/dev/null 2>&1; then
+        echo "❌ uxplay não encontrado no sistema."
+        exit 1
+    fi
+
+    mkdir -p "$HOME/.config"
+    if [[ ! -f "$RC_FILE" ]]; then
+        install -Dm644 "$CASTING_DIR/uxplayrc.tmpl" "$RC_FILE"
+    fi
+
+    systemctl --user daemon-reload
+    systemctl --user start uxplay.service
+    echo "✅ UxPlay (AirPlay) ativo como \"Silver Goggles\"."
+    echo "   Primeira conexão do dispositivo: o PIN de 4 dígitos aparece em:"
+    echo "       journalctl --user -u uxplay -f"
+
+# 🛑 Parar o receptor AirPlay (UxPlay)
+[group('Casting')]
+airplay-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop uxplay.service
+    echo "🛑 UxPlay (AirPlay) desativado."
+
+# 📊 Diagnóstico do receptor AirPlay (UxPlay)
+[group('Casting')]
+airplay-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active uxplay.service 2>/dev/null || true)
+    ENABLED=$(systemctl --user is-enabled uxplay.service 2>/dev/null || true)
+    printf "%-12s %s (boot: %s)\n" "airplay:" "${STATE:-inactive}" "${ENABLED:-disabled}"
+
+# ⚡ Habilitar o AirPlay no boot / login da sessão (Ative e esqueça)
+[group('Casting')]
+airplay-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just airplay-up
+    systemctl --user enable uxplay.service
+    echo "⚡ UxPlay (AirPlay) habilitado para iniciar automaticamente no login gráfico!"
+
+# 🔌 Desabilitar o AirPlay do boot / login
+[group('Casting')]
+airplay-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable uxplay.service
+    echo "🔌 UxPlay (AirPlay) removido do boot automático. Use 'ujust airplay-up' quando quiser transmitir."
+
 # Enable the UxPlay AirPlay receiver (LAN-only) with pin authentication
 [group('Casting')]
 airplay-setup:
     #!/usr/bin/env bash
     set -e
-    CASTING_DIR="/usr/share/ublue-os/casting"
-    UNIT_DIR="$HOME/.config/systemd/user"
-    RC_FILE="$HOME/.config/uxplayrc"
-
-    if ! command -v uxplay >/dev/null 2>&1; then
-        echo "uxplay not found. This image should ship it — check 'rpm -q uxplay'."
-        exit 1
-    fi
-
-    mkdir -p "$UNIT_DIR" "$HOME/.config"
-
-    if [[ ! -f "$RC_FILE" ]]; then
-        install -Dm644 "$CASTING_DIR/uxplayrc.tmpl" "$RC_FILE"
-        echo "Installed $RC_FILE (NVDEC + xvimagesink + pipewiresink, pin auth on)"
-    else
-        echo "Keeping existing $RC_FILE — compare against $CASTING_DIR/uxplayrc.tmpl if something misbehaves."
-    fi
-
-    # The rc file above is user config, so it is never overwritten. The unit is the opposite:
-    # it holds no tunables at all (every knob lives in uxplayrc), and it now ships read-only
-    # in /usr/lib/systemd/user/, so there is nothing to install and nothing that can drift.
-    # A copy in $HOME would *shadow* the image unit — ~/.config/systemd/user has precedence —
-    # which is exactly how this host kept running an ExecStart with no `stdbuf` wrapper after
-    # the fix shipped. Delete the legacy copy and reenable so the graphical-session.target.wants
-    # symlink stops pointing at the file that just went away.
-    if [[ -f "$UNIT_DIR/uxplay.service" && ! -L "$UNIT_DIR/uxplay.service" ]]; then
-        rm -f "$UNIT_DIR/uxplay.service"
-        systemctl --user daemon-reload
-        systemctl --user reenable uxplay.service >/dev/null 2>&1 || true
-        echo "Removed legacy $UNIT_DIR/uxplay.service (now provided by the image)"
-    fi
-
-    systemctl --user daemon-reload
-    systemctl --user enable --now uxplay.service
-
-    echo ""
-    echo "UxPlay is up as \"Silver Goggles\"."
-    echo "  * LAN ONLY. AirPlay discovery is mDNS, which Tailscale does not carry, and the"
-    echo "    iOS picker accepts no manual address. There is no tailnet path for this."
-    echo "  * First connection from each client prints a 4-digit pin here:"
-    echo "        journalctl --user -u uxplay -f"
-    echo "    Authenticated clients are remembered in ~/.uxplay.register."
-    echo "  * Turn it off with 'ujust airplay-off'."
+    just airplay-enable-boot
 
 # Stop and disable the UxPlay AirPlay receiver
 [group('Casting')]
 airplay-off:
     #!/usr/bin/env bash
-    systemctl --user disable --now uxplay.service 2>/dev/null || true
-    echo "UxPlay disabled. ~/.config/uxplayrc and ~/.uxplay.register are left in place."
+    just airplay-disable-boot
+    just airplay-down
 
 # Install the FCast receiver flatpak (and optionally the sender), then print sender addresses
 [group('Casting')]

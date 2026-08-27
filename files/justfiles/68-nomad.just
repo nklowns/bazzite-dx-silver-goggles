@@ -54,6 +54,23 @@ nomad-down:
     systemctl --user stop nomad-admin.service nomad-mysql.service nomad-redis.service
     echo "🛑 Project NOMAD desativado. Dados preservados em /var/srv/nomad."
 
+# ⚡ Habilitar o Project NOMAD para iniciar automaticamente no boot (Ative e esqueça)
+[group('NOMAD')]
+nomad-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just nomad-up
+    systemctl --user enable nomad-admin.service
+    echo "⚡ Project NOMAD habilitado para iniciar automaticamente no boot!"
+
+# 🔌 Desabilitar o Project NOMAD da inicialização automática do boot
+[group('NOMAD')]
+nomad-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable nomad-admin.service
+    echo "🔌 Project NOMAD removido do boot automático. Use 'ujust nomad-up' quando precisar."
+
 # 📊 Diagnóstico das units, uso de VRAM na RTX 3060 e volumes NOMAD
 [group('NOMAD')]
 nomad-status:
@@ -149,6 +166,36 @@ ollama-up:
 ollama-down:
     systemctl --user stop nomad-ollama.service
     echo "🛑 Ollama parado. VRAM liberada."
+
+# 📊 Diagnóstico do Ollama (LLMs locais)
+[group('NOMAD')]
+ollama-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active nomad-ollama.service 2>/dev/null || true)
+    ENABLED=$(systemctl --user is-enabled nomad-ollama.service 2>/dev/null || true)
+    printf "%-12s %s (boot: %s)\n" "ollama:" "${STATE:-inactive}" "${ENABLED:-disabled}"
+    if [[ "$STATE" == "active" ]]; then
+        echo "--- Modelos Locais Carregados ---"
+        podman exec nomad_ollama_gpu ollama list 2>/dev/null || true
+    fi
+
+# ⚡ Habilitar o Ollama no boot (Ative e esqueça)
+[group('NOMAD')]
+ollama-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just ollama-up
+    systemctl --user enable nomad-ollama.service
+    echo "⚡ Ollama habilitado para iniciar automaticamente no boot!"
+
+# 🔌 Desabilitar o Ollama do boot
+[group('NOMAD')]
+ollama-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable nomad-ollama.service
+    echo "🔌 Ollama removido do boot automático. Use 'ujust ollama-up' quando precisar."
 
 # 📥 Baixar modelos dimensionados para os 6 GB de VRAM da RTX 3060
 [group('NOMAD')]

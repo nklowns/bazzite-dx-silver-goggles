@@ -21,9 +21,9 @@
 #   - Visual (Imagens & Vídeos): $XDG_PICTURES_DIR/AI_Studio/
 # ==============================================================================
 
-# 🎙️ Iniciar o AI Studio Audio (Speaches Voice TTS & STT, :61386)
+# 🎙️ Iniciar o AI Studio Audio (Speaches Voice TTS & STT, :61386) sob demanda
 [group('AI Studio Audio')]
-tts-up:
+audio-up:
     #!/usr/bin/env bash
     set -euo pipefail
     # Verify declarative storage existence
@@ -37,23 +37,44 @@ tts-up:
     echo "✅ AI Studio Audio (TTS & STT) ativo em http://localhost:61386"
     echo "   Endpoints OpenAI: /v1/audio/speech | /v1/audio/transcriptions"
     echo "   Para expor no Tailscale com TLS: ujust remote-audio-setup"
-    echo "   Não sobe sozinho no próximo boot — rode 'ujust tts-up' de novo."
+    echo "   Não sobe sozinho no próximo boot — rode 'ujust audio-up' de novo."
 
-alias aistudio-audio-up := tts-up
+alias tts-up := audio-up
 
 # 🛑 Parar o AI Studio Audio
 [group('AI Studio Audio')]
-tts-down:
+audio-down:
     #!/usr/bin/env bash
     set -uo pipefail
     systemctl --user stop aistudio-audio.service
     echo "🛑 AI Studio Audio desativado."
 
-alias aistudio-audio-down := tts-down
+alias tts-down := audio-down
+
+# ⚡ Habilitar o AI Studio Audio para iniciar automaticamente no boot (Ative e esqueça)
+[group('AI Studio Audio')]
+audio-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just audio-up
+    systemctl --user enable aistudio-audio.service
+    echo "⚡ AI Studio Audio habilitado para iniciar automaticamente no boot!"
+
+alias tts-enable-boot := audio-enable-boot
+
+# 🔌 Desabilitar o AI Studio Audio da inicialização automática do boot
+[group('AI Studio Audio')]
+audio-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user disable aistudio-audio.service
+    echo "🔌 AI Studio Audio removido do boot automático. Use 'ujust audio-up' quando precisar."
+
+alias tts-disable-boot := audio-disable-boot
 
 # 📊 Diagnóstico do serviço de Áudio, endpoints OpenAI e volumes
 [group('AI Studio Audio')]
-tts-status:
+audio-status:
     #!/usr/bin/env bash
     set -uo pipefail
     echo "--- Units ---"
@@ -84,18 +105,18 @@ tts-status:
         fi
     fi
 
-alias aistudio-audio-status := tts-status
+alias tts-status := audio-status
 
 # 📜 Visualizar logs em tempo real do Speaches Audio
 [group('AI Studio Audio')]
-tts-logs:
+audio-logs:
     journalctl --user -u aistudio-audio.service -f --no-hostname -o cat
 
-alias aistudio-audio-logs := tts-logs
+alias tts-logs := audio-logs
 
 # 📥 Baixar modelos de voz e áudio para cache local (Piper PT-BR, EN, ES)
 [group('AI Studio Audio')]
-tts-pull-models:
+audio-pull-models:
     #!/usr/bin/env bash
     set -euo pipefail
     CACHE_DIR="/var/srv/audio/cache"
@@ -111,7 +132,7 @@ tts-pull-models:
         -d '{"model": "speaches-ai/piper-pt-br-faber-medium", "input": "Inicialização de modelos de áudio concluída.", "voice": "faber"}' >/dev/null 2>&1 || true
     echo "✅ Modelos do AI Studio Audio sincronizados com sucesso."
 
-alias aistudio-audio-pull-models := tts-pull-models
+alias tts-pull-models := audio-pull-models
 
 # 🗂️ Shell no namespace rootless para manipular arquivos do Audio Studio
 [group('AI Studio Audio')]
@@ -291,13 +312,3 @@ audio-benchmark:
     echo "=================================================================="
     echo "✅ Benchmark concluído! Áudios gravados em: $AUDIO_DIR"
     echo "=================================================================="
-
-alias audio-up := tts-up
-alias audio-down := tts-down
-alias audio-status := tts-status
-alias audio-logs := tts-logs
-alias audio-pull-models := tts-pull-models
-
-alias aistudio-audio := tts-status
-alias aistudio-audio-shell := audio-shell
-alias remote-aistudio-audio-setup := remote-audio-setup
