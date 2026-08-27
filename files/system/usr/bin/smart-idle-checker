@@ -2,68 +2,66 @@
 set -euo pipefail
 
 # Smart Idle Checker for Bazzite Host (Dell G15)
-# Validates whether the host is safe to suspend or if active background jobs exist.
+# Validates whether the host is safe to suspend or if active network/compute jobs exist.
+# Avoids false positives from passive daemons, idle containers, or stale log files.
 
 INHIBIT=0
 REASONS=()
 
-# 1. Check for Active Sunshine Stream or Remote Desktop (RustDesk / Deskflow)
-if pgrep -x "sunshine" >/dev/null 2>&1; then
-	for user_home in /var/home/* /home/*; do
-		if [ -f "$user_home/.config/sunshine/sunshine.log" ] && grep -q "Streaming bitrate" "$user_home/.config/sunshine/sunshine.log" 2>/dev/null; then
-			INHIBIT=1
-			REASONS+=("Sunshine streaming session active")
-			break
-		fi
-	done
-fi
-
-if pgrep -f "rustdesk" >/dev/null 2>&1; then
+# 1. Check for Active Streaming Sessions (Sunshine: UDP ports 47998/48000/48010)
+# Instead of searching static log files, we verify if a client is connected or actively streaming.
+if ss -H -u 'sport = :47998 or sport = :48000 or sport = :48010' 2>/dev/null | grep -q '[0-9]'; then
 	INHIBIT=1
-	REASONS+=("Active RustDesk session")
+	REASONS+=("Sunshine streaming session active")
 fi
 
-if pgrep -f "deskflow" >/dev/null 2>&1; then
+# 2. Check for Active Remote Desktop / KVM Connections (RustDesk / Deskflow / code-server)
+# We inspect ESTABLISHED TCP sockets to ports (RustDesk: 21116-21119, Deskflow: 24800, Code: 61337)
+if ss -Htn state established '( sport = :21116 or sport = :21117 or sport = :21118 or sport = :21119 or sport = :24800 or sport = :24801 )' 2>/dev/null | grep -q '[0-9]'; then
 	INHIBIT=1
-	REASONS+=("Active Deskflow KVM session")
+	REASONS+=("Active Remote Desktop / KVM session")
 fi
 
-# 2. Check for Active SSH Sessions
+# 3. Check for Active Remote SSH / Terminal Sessions (pts with remote IP)
 if who 2>/dev/null | grep -q -E "pts/[0-9]+.*\(.*\)"; then
 	INHIBIT=1
 	REASONS+=("Active SSH session")
 fi
 
-# 3. Check for Active Background Dev Containers (Docker / Podman)
-if command -v docker >/dev/null 2>&1; then
-	ACTIVE_CONTAINERS=$(docker ps -q 2>/dev/null | wc -l)
-	if [ "$ACTIVE_CONTAINERS" -gt 0 ]; then
-		INHIBIT=1
-		REASONS+=("Active Docker containers ($ACTIVE_CONTAINERS running)")
-	fi
-fi
-
+# 4. Check for Active Heavy Containers (Docker / Podman with real CPU activity >= 15%)
+# Idle containers (like MySQL, Redis, or standby daemons) must NOT block system sleep.
 if command -v podman >/dev/null 2>&1; then
-	ACTIVE_PODMAN=$(podman ps -q 2>/dev/null | wc -l)
-	if [ "$ACTIVE_PODMAN" -gt 0 ]; then
+	HEAVY_PODMAN=$(podman stats --no-stream --format "{{.Name}}: {{.CPUPerc}}" 2>/dev/null | awk -F': ' '{gsub(/%/, "", $2); if ($2+0 >= 15.0) print $1"("$2"%)"}' | paste -sd, - || true)
+	if [[ -n "$HEAVY_PODMAN" ]]; then
 		INHIBIT=1
-		REASONS+=("Active Podman containers ($ACTIVE_PODMAN running)")
+		REASONS+=("Active Podman container compute: $HEAVY_PODMAN")
 	fi
 fi
 
-# 4. Check for Active Dev Build Processes / Compilers
-if pgrep -f "(cargo|go build|npm run|node|pytest|python3|gcc|g\+\+|make|ninja|cmake)" >/dev/null 2>&1; then
-	INHIBIT=1
-	REASONS+=("Active dev build / compilation process")
+if command -v docker >/dev/null 2>&1; then
+	HEAVY_DOCKER=$(docker stats --no-stream --format "{{.Name}}: {{.CPUPerc}}" 2>/dev/null | awk -F': ' '{gsub(/%/, "", $2); if ($2+0 >= 15.0) print $1"("$2"%)"}' | paste -sd, - || true)
+	if [[ -n "$HEAVY_DOCKER" ]]; then
+		INHIBIT=1
+		REASONS+=("Active Docker container compute: $HEAVY_DOCKER")
+	fi
 fi
 
-# 5. Check CPU Load Average (1-minute average >= 2.0)
-LOAD=$(awk '{print $1}' /proc/loadavg 2>/dev/null | cut -d. -f1)
-if [ "${LOAD:-0}" -ge 2 ]; then
+# 5. Check for Active Dev Build Processes / Compilers (with real CPU usage >= 20%)
+# Simple background node/python daemons are ignored; active builds (cargo, rustc, gcc, etc.) inhibit.
+ACTIVE_BUILDS=$(ps -eo pcpu,comm --no-headers 2>/dev/null | awk '$1 >= 20.0 && $2 ~ /^(cargo|rustc|go|gcc|g\+\+|clang|make|ninja|cmake|buildah)$/ {print $2"("$1"%)"}' | paste -sd, - || true)
+if [[ -n "$ACTIVE_BUILDS" ]]; then
 	INHIBIT=1
-	REASONS+=("High CPU load average ($LOAD)")
+	REASONS+=("Active compiler / build workload: $ACTIVE_BUILDS")
 fi
 
+# 6. Check System Load Average (1-minute average >= 3.0)
+LOAD=$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo "0")
+if awk "BEGIN {exit !($LOAD >= 3.0)}"; then
+	INHIBIT=1
+	REASONS+=("High system load average ($LOAD)")
+fi
+
+# Output Result
 if [ "$INHIBIT" -eq 1 ]; then
 	echo "⛔ SUSPEND INHIBITED: ${REASONS[*]}"
 	exit 1
