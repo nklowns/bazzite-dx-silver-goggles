@@ -213,12 +213,12 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
   - Backed by ComfyUI, CyberRealistic V9, SD 1.5, and LivePortrait Neural Facial Animation.
   - Accelerated via NVIDIA CUDA on RTX 3060 Laptop GPU.
   - **Zero Boot-Time Pip Installs**: All Python packages live permanently on SSD in `/var/srv/visual/site-packages` and mount into `PYTHONPATH`. Starts in **< 2 seconds**.
-  - Recipes: `70-aistudio-visual.just` (`ujust aistudio-visual-up`, `ujust aistudio-visual-down`, `ujust aistudio-visual-status`, `ujust aistudio-visual-animate`).
+  - Recipes: `70-aistudio-visual.just` (`ujust visual-up`, `ujust visual-down`, `ujust visual-status`, `ujust visual-animate`, `ujust visual-enable-boot`).
 
 - **AI Studio Audio (`aistudio-audio.container`, Port :61386)**:
   - Backed by Speaches AI (Piper TTS, Faster-Whisper STT, OpenAI-compatible `/v1/audio/*` endpoints) and ChatTTS (expressive conversational speech with laughter `[laugh]` and natural pauses).
   - Runs **100% on CPU** (i7-12700H 14 cores / 64GB DDR5), preserving 100% GPU VRAM for visual generation and gaming.
-  - Recipes: `71-aistudio-audio.just` (`ujust aistudio-audio-up`, `ujust aistudio-audio-status`, `ujust clone-voice`, `ujust synthesize-expressive`).
+  - Recipes: `71-aistudio-audio.just` (`ujust audio-up`, `ujust audio-down`, `ujust audio-status`, `ujust clone-voice`, `ujust audio-enable-boot`).
 
 - **Deliverables Policy (Strict XDG Standards)**:
   - All visual outputs (8K Portraits & MP4 Videos): `${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio/`

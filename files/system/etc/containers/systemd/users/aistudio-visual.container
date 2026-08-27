@@ -15,7 +15,7 @@
 #
 # PUBLISHED ON TAILSCALE AT :61384
 # --------------------------------
-# Bound to 127.0.0.1:61384 and exposed securely over the tailnet via `ujust remote-comfyui-setup`.
+# Bound to 127.0.0.1:61384 and exposed securely over the tailnet via `ujust remote-ai-setup`.
 
 [Unit]
 Description=AI Studio — Visual Studio (ComfyUI Image, Video & Facial Animation)

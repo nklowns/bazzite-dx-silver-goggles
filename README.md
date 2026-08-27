@@ -286,11 +286,13 @@ The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 
 
 | Command | Action |
 | :--- | :--- |
-| `ujust aistudio-visual-up` (ou `comfyui-up`) | Start the ComfyUI GPU container (`http://localhost:61384`) |
-| `ujust aistudio-visual-down` (ou `comfyui-down`) | Stop ComfyUI and release all 6 GB VRAM |
-| `ujust aistudio-visual-status` (ou `comfyui-status`) | Detailed diagnostics (VRAM usage, API health, rootless permissions) |
-| `ujust aistudio-visual-purge` (ou `comfyui-vram-purge`) | Instant VRAM purge (unload GPU models without stopping container) |
-| `ujust aistudio-visual-animate <img_8k> <audio_wav>` | Animate any portrait with speech and LivePortrait neural lip sync |
+| `ujust visual-up` (ou `comfyui-up`) | Start the ComfyUI GPU container (`http://localhost:61384`) |
+| `ujust visual-down` (ou `comfyui-down`) | Stop ComfyUI and release all 6 GB VRAM |
+| `ujust visual-status` (ou `comfyui-status`) | Detailed diagnostics (VRAM usage, API health, rootless permissions) |
+| `ujust visual-purge` (ou `comfyui-vram-purge`) | Instant VRAM purge (unload GPU models without stopping container) |
+| `ujust visual-animate <img_8k> <audio_wav>` | Animate any portrait with speech and LivePortrait neural lip sync |
+| `ujust visual-enable-boot` | Opt-in to start ComfyUI automatically on boot via Quadlet drop-in |
+| `ujust visual-disable-boot` | Remove ComfyUI from automatic boot startup |
 | `ujust comfyui-sync` | Synchronize Python packages from declarative `requirements.txt` to SSD |
 | `ujust comfyui-install <pkg>` | Install/upgrade a package into `/var/srv/visual/site-packages` live with no OS reboot |
 | `ujust comfyui-container-shell` | Open interactive bash terminal inside the running container |
@@ -314,9 +316,11 @@ The **AI Studio Audio** stack provides standard OpenAI-compatible endpoints (`/v
 
 | Command | Action |
 | :--- | :--- |
-| `ujust aistudio-audio-up` (ou `tts-up`) | Start the Speaches Voice service (`:61386`) |
-| `ujust aistudio-audio-down` (ou `tts-down`) | Stop the Speaches Voice service |
-| `ujust aistudio-audio-status` (ou `tts-status`) | Check OpenAI endpoint models and disk health |
+| `ujust audio-up` (ou `tts-up`) | Start the Speaches Voice service (`:61386`) |
+| `ujust audio-down` (ou `tts-down`) | Stop the Speaches Voice service |
+| `ujust audio-status` (ou `tts-status`) | Check OpenAI endpoint models, rootless permissions, and boot state |
+| `ujust audio-enable-boot` | Opt-in to start AI Studio Audio automatically on boot via Quadlet drop-in |
+| `ujust audio-disable-boot` | Remove AI Studio Audio from automatic boot startup |
 | `ujust clone-voice <ref_audio> <text>` | Clone voice in zero-shot with Brazilian Portuguese foundation |
 | `ujust synthesize-expressive <text>` | Synthesize human-like speech with natural laughter and pauses |
 | `ujust generate-soundtrack <prompt>` | Generate instrumental music on CPU (0 MB VRAM) |
