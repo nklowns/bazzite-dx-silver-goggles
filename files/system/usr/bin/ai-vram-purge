@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# /usr/bin/ai-vram-purge — Free 100% of GPU VRAM by unloading AI workloads (ComfyUI / Ollama).
+# Called by GameMode hooks or manual gaming launchers before booting heavy 3D titles.
+set -uo pipefail
+
+PURGED=0
+
+# 1. Stop AI Studio Visual (ComfyUI) if active
+if systemctl --user is-active --quiet aistudio-visual.service 2>/dev/null; then
+	echo "🎮 GameMode: Descarregando AI Studio Visual (ComfyUI) da VRAM..." >&2
+	systemctl --user stop aistudio-visual.service 2>/dev/null || true
+	PURGED=1
+fi
+
+# 2. Stop NOMAD Ollama (GPU inference) if active
+if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null; then
+	echo "🎮 GameMode: Descarregando Ollama (LLMs) da VRAM..." >&2
+	systemctl --user stop nomad-ollama.service 2>/dev/null || true
+	PURGED=1
+fi
+
+if [[ "$PURGED" -eq 1 ]]; then
+	echo "✅ VRAM 100% liberada para a sessão de jogos." >&2
+fi
