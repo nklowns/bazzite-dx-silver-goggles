@@ -100,6 +100,9 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system/nvidia-persistenced.service.d/10-device-nodes.conf|Asset: NVIDIA Persistenced Device-Node Override|Error"
 	"file|/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/10-after-persistenced.conf|Asset: CDI Generation Ordering Override|Error"
 	"file|/usr/lib/systemd/system/cockpit.socket.d/10-port.conf|Asset: Cockpit Port Relocation (61390)|Error"
+	"file|/usr/lib/systemd/system/uupd.service.d/10-smart-idle.conf|Policy: System Auto-Update Idle Inhibit Guard|Error"
+	"file|/usr/lib/systemd/system/brew-upgrade.service.d/10-smart-idle.conf|Policy: Brew Upgrade Idle Inhibit Guard|Error"
+	"file|/usr/lib/systemd/system/brew-upgrade.timer.d/10-schedule.conf|Policy: Brew Upgrade Night Schedule Calibration|Error"
 	# Not decoration: without it the WebSocket upgrade is refused on the origin check and
 	# Cockpit is unusable behind the tailnet proxy, while still serving a login page that
 	# looks fine. Presence is a weak assert, but losing this file is a silent breakage.
