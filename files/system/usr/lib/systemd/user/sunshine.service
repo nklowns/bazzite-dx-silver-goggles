@@ -1,8 +1,8 @@
 [Unit]
 Description=Sunshine Game Streaming and Remote Desktop Server
 Documentation=https://docs.lizardbyte.dev/projects/sunshine/
-After=graphical-session.target plasma-kwin_wayland.service plasma-xdg-desktop-portal-kde.service pipewire.service wireplumber.service
-Wants=pipewire.service wireplumber.service
+After=graphical-session.target plasma-kwin_wayland.service plasma-xdg-desktop-portal-kde.service pipewire.service wireplumber.service pipewire-pulse.service
+Wants=pipewire.service wireplumber.service pipewire-pulse.service
 Requisite=graphical-session.target
 PartOf=graphical-session.target
 
@@ -21,4 +21,4 @@ TimeoutStartSec=45
 
 [Install]
 WantedBy=graphical-session.target
-Alias=homebrew.sunshine.service
+Alias=homebrew.sunshine.service homebrew.sunshine-beta.service
