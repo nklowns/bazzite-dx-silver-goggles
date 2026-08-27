@@ -146,7 +146,8 @@ visual-status:
     fi
     echo "--- GPU (NVIDIA RTX 3060) ---"
     if command -v nvidia-smi >/dev/null 2>&1; then
-        nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu --format=csv
+        nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu --format=csv 2>/dev/null || true
+    fi
     echo "--- Disco /var/srv/visual ---"
     du -sh /var/srv/visual/* 2>/dev/null || true
     echo "--- arquivos inalcançáveis pelos containers rootless ---"

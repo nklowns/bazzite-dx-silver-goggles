@@ -329,6 +329,38 @@ guacamole-status:
     set -uo pipefail
     podman ps --filter name=guacamole-desktop --format 'table {{{{.Names}}\t{{{{.Status}}\t{{{{.Ports}}' 2>/dev/null || true
 
+# 🌐 Expor o Cockpit Web Admin (:61390) via Tailscale
+[group('Network')]
+remote-cockpit-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /usr/libexec/bazzite-dx-serve ensure 61390 61390 http || true
+    DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || echo "localhost")
+    echo "✅ Cockpit Web Admin pronto em: https://$DNS_NAME:61390"
+
+# 🛑 Desativar a exposição do Cockpit Web Admin no Tailscale
+[group('Network')]
+remote-cockpit-teardown:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /usr/libexec/bazzite-dx-serve off 61390 || true
+    echo "🛑 Cockpit removido do Tailscale serve."
+
+# 📊 Diagnóstico do Cockpit Web Admin
+[group('Network')]
+remote-cockpit-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    SOCKET_STATE=$(systemctl is-active cockpit.socket 2>/dev/null || true)
+    SOCKET_ENABLED=$(systemctl is-enabled cockpit.socket 2>/dev/null || true)
+    printf "%-16s %s (socket: %s)\n" "cockpit.socket:" "${SOCKET_STATE:-inactive}" "${SOCKET_ENABLED:-disabled}"
+    SERVE_STATE=$(/usr/libexec/bazzite-dx-serve status 61390 61390 http 2>/dev/null || echo "absent")
+    printf "%-16s %s\n" "tailscale serve:" "$SERVE_STATE"
+    if [[ "$SOCKET_STATE" == "active" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "   URL: https://${DNS_NAME:-localhost}:61390"
+    fi
+
 # ⌨️ Setup Deskflow (Software KVM for sharing mouse & keyboard across PCs over Tailscale)
 [group('Network')]
 remote-deskflow-setup:
