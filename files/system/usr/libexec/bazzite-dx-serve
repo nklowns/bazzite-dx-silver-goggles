@@ -72,6 +72,26 @@ Ensure() {
 	local target_port="${2:-$listen_port}"
 	local target_scheme="${3:-http}"
 	local target_uri="${target_scheme}://127.0.0.1:${target_port}"
+
+	# Check Tailscale health before trying to publish
+	if ! command -v tailscale >/dev/null 2>&1; then
+		echo "❌ Tailscale não está instalado no PATH." >&2
+		return 1
+	fi
+
+	local ts_state
+	ts_state=$(tailscale status --json 2>/dev/null | jq -r '.BackendState // "Stopped"' 2>/dev/null || echo "Stopped")
+	if [[ "$ts_state" != "Running" ]]; then
+		echo "⚠️  Tailscale não está rodando (Estado: ${ts_state}). Inicie o Tailscale com 'sudo tailscale up'." >&2
+		return 1
+	fi
+
+	local is_online
+	is_online=$(tailscale status --json 2>/dev/null | jq -r '.Self.Online // false' 2>/dev/null || echo "false")
+	if [[ "$is_online" != "true" ]]; then
+		echo "⚠️  Este nó está offline no Tailscale. Verifique sua conexão com a rede." >&2
+	fi
+
 	local state
 	state=$(Status "$listen_port" "$target_port" "$target_scheme")
 	case "$state" in
