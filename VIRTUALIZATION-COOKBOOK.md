@@ -276,7 +276,7 @@ Para desenvolvedores trabalhando remotamente ou administrando recursos em trâns
 O Cockpit roda como um serviço web local e escuta em todas as interfaces de rede por padrão ao ser ativado:
 *   **Acesso Remoto:** Abra o navegador em qualquer máquina na sua Tailnet e acesse `https://<IP-Tailscale-do-Host>:9090`.
 *   **DX do Desenvolvedor:**
-    *   Faça login usando suas credenciais do usuário local do host (ex: usuário `cloud`).
+    *   Faça login usando suas credenciais do usuário local do host (ex: seu usuário local).
     *   Permite ligar, pausar ou desligar VMs graficamente e acessar o terminal serial/VNC emulado das VMs diretamente na aba do navegador, sem requerer clientes de desktop adicionais.
 
 ### 2. QEMU/Libvirt GUI Remoto (SPICE/VNC)
@@ -288,7 +288,7 @@ Se você precisa da interface de tela nativa da VM, mas não quer configurar ser
 *   **DX do Desenvolvedor:** O Libvirt criará um túnel SSH criptografado seguro sobre a rede do Tailscale de forma transparente, roteando os pacotes gráficos SPICE do Host para a janela do seu cliente local com latência mínima.
 
 ### 3. Acesso CLI às VMs Guest (SSH ProxyJump & Resolução de Nomes libvirt-nss)
-O seu sistema `bazzite-dx-silver-goggles` configura automaticamente no boot a resolução de nomes via **`libvirt-nss`** (através da automação do [bazzite-dx-groups.service](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/lib/systemd/system/bazzite-dx-groups.service)). Isso significa que o Host Bazzite consegue resolver o IP de qualquer VM na rede NAT local usando apenas o hostname da VM (ex: `ssh developer@nome-da-vm`).
+O seu sistema `bazzite-dx-silver-goggles` configura automaticamente no boot a resolução de nomes via **`libvirt-nss`** (através da automação do [bazzite-dx-groups.service](files/system/usr/lib/systemd/system/bazzite-dx-groups.service)). Isso significa que o Host Bazzite consegue resolver o IP de qualquer VM na rede NAT local usando apenas o hostname da VM (ex: `ssh developer@nome-da-vm`).
 
 Para acessar o SSH de qualquer VM remotamente via Tailscale utilizando essa facilidade, sem precisar descobrir o IP interno da VM:
 
@@ -296,7 +296,7 @@ Para acessar o SSH de qualquer VM remotamente via Tailscale utilizando essa faci
     ```bash
     ssh -J seu-usuario@<IP-Tailscale-do-Host> usuario-da-vm@<nome-da-vm>
     ```
-    *Exemplo:* `ssh -J cloud@100.64.12.34 developer@windows-vm`
+    *Exemplo:* `ssh -J <username>@<host-tailnet-ip> developer@windows-vm`
 *   **Superpoder de DX: Automatizando no SSH Config do seu Laptop Remoto:**
     Você pode adicionar a seguinte configuração no seu arquivo `~/.ssh/config` local no seu laptop de viagem:
     ```text
@@ -846,10 +846,10 @@ sudo semodule -r kvmfr 2>/dev/null || true
 > Em vez de apagar o arquivo completamente (o que excluiria todas as opções padrão e outras customizações importantes), edite `/etc/libvirt/qemu.conf` e remova a entrada `"/dev/kvmfr0"` da lista `cgroup_device_acl`. Delete o arquivo com `sudo rm` apenas se tiver certeza de que ele foi criado do zero pelo script e não contém nenhuma outra configuração.
 
 ### C. Desinstalar o Looking Glass Client do Host
-Como o `looking-glass-client` já vem pré-instalado como um pacote base embutido na imagem `bazzite-dx-silver-goggles` (declarado em [recipes/silver-goggles.yml](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/recipes/silver-goggles.yml#L29)), você não pode desinstalá-lo no host via `rpm-ostree uninstall`.
+Como o `looking-glass-client` já vem pré-instalado como um pacote base embutido na imagem `bazzite-dx-silver-goggles` (declarado em [recipes/silver-goggles.yml](recipes/silver-goggles.yml#L29)), você não pode desinstalá-lo no host via `rpm-ostree uninstall`.
 
 Para removê-lo de forma declarativa e definitiva da imagem:
-1. Remova a linha `- looking-glass-client` sob a seção de pacotes em [recipes/silver-goggles.yml](file:///home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/recipes/silver-goggles.yml#L29).
+1. Remova a linha `- looking-glass-client` sob a seção de pacotes em [recipes/silver-goggles.yml](recipes/silver-goggles.yml#L29).
 2. Recompile a imagem localmente e aplique no seu host:
    ```bash
    just build
@@ -907,3 +907,92 @@ Nos sistemas baseados em Fedora Atomic (ostree-like), a imagem é declarativa e 
    ```bash
    sudo systemctl restart virtqemud.socket virtqemud.service
    ```
+
+---
+
+## 🍏 macOS Virtualization: OSX-KVM & OpenCore no Dell G15 5520
+
+Esta seção documenta a arquitetura, provisionamento e otimização de máquinas virtuais **macOS (Ventura 13, Sonoma 14 e Sequoia 15)** executadas sobre o KVM no Bazzite-DX Silver-Goggles.
+
+```mermaid
+graph TD
+    A[Bazzite Host - Dell G15 5520] -->|KVM + OVMF UEFI 4M| B[OpenCore Bootloader]
+    B -->|Haswell/Penryn AVX2+AES| C[Kernel Darwin / XNU]
+    C -->|Apple Online Recovery / Offline ISO| D[macOS Guest]
+    A -->|Pool Único 100GB NVMe + TRIM| D
+    D -->|ICH9 EHCI + UHCI Companion| E[Teclado & Mouse USB Virtuais]
+    A -->|Cockpit Web Console :61390| F[Interface Remota Celular / Web]
+```
+
+### 🏛️ Arquitetura & Diretrizes de Projeto
+
+1. **Storage: Pool Único Dinâmico com Reutilização Sequencial**
+   * Em conformidade com a política de contenção de espaço em disco, todas as versões testadas compartilham um único arquivo esparso de 100 GB no pool canônico do hypervisor em `/var/lib/libvirt/images/macos/macos-disk.qcow2`.
+   * O disco inicia consumindo menos de 200 KB físicos e cresce dinamicamente conforme blocos reais são gravados pelo macOS.
+   * O barramento está configurado com `discard="unmap"`, permitindo que o sistema de arquivos **APFS** do macOS execute TRIM livremente para devolver blocos vazios ao host Btrfs/NVMe.
+
+2. **Topologia de CPU para Arquitetura Híbrida Intel 12ª Geração (Alder Lake):**
+   * O Dell G15 5520 possui núcleos de Performance (P-Cores) e Eficiência (E-Cores).
+   * Para evitar *kernel panics* e lentidão no escalonador do macOS, a VM fixa os 8 vCPUs exclusivamente nos P-Cores (`cpuset 2-9`) e delega as threads do emulador do QEMU para os E-Cores (`cpuset 12-15`):
+     ```xml
+     <cputune>
+       <vcpupin vcpu='0' cpuset='2-3'/>
+       <vcpupin vcpu='1' cpuset='2-3'/>
+       <vcpupin vcpu='2' cpuset='4-5'/>
+       <vcpupin vcpu='3' cpuset='4-5'/>
+       <vcpupin vcpu='4' cpuset='6-7'/>
+       <vcpupin vcpu='5' cpuset='6-7'/>
+       <vcpupin vcpu='6' cpuset='8-9'/>
+       <vcpupin vcpu='7' cpuset='8-9'/>
+       <emulatorpin cpuset='12-15'/>
+     </cputune>
+     ```
+   * O modelo de CPU utilizado é o `Penryn` (ou `Haswell-noTSX` no Sonoma/Sequoia) com flags explícitas: `avx`, `avx2`, `aes`, `invtsc`, `bmi1`, `bmi2`, `sse4.2`. No OpenCore, a quirk `ProvideCurrentCpuInfo=true` é obrigatória para calibrar a frequência do barramento TSC da Apple.
+
+3. **Subsolo USB e Contorno do Bluetooth Setup Assistant:**
+   * A extensão de portas USB (`USBPorts.kext`) mapeia controladores nativos ICH9 (`AppleUSBEHCIPCI` e `AppleUSBUHCIPCI`).
+   * Configurar apenas `qemu-xhci` faz com que o macOS entre na tela de espera de teclado/mouse Bluetooth (`support.apple.com/macsetup`).
+   * A solução declarativa implementada no `macos.xml` define a topologia de companion controllers ICH9 (`ich9-ehci1` + `ich9-uhci1..3`), garantindo reconhecimento instantâneo de ponteiro e teclado pelo instalador:
+     ```xml
+     <controller type='usb' index='0' model='ich9-ehci1'>
+       <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x7'/>
+     </controller>
+     <controller type='usb' index='0' model='ich9-uhci1'>
+       <master startport='0'/>
+       <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x0' multifunction='on'/>
+     </controller>
+     ```
+
+4. **Workflow Passo a Passo para Usuários e InfraTech:**
+   * **Passo 1: Obtenção da Mídia da Apple (`BaseSystem.dmg`):**
+     O usuário pode baixar o instalador de recuperação oficial da Apple para a versão desejada (13 Ventura, 14 Sonoma ou 15 Sequoia) via script upstream:
+     ```bash
+     python3 OSX-KVM/fetch-macOS-v2.py
+     ```
+   * **Passo 2: Conversão de DMG para Raw IMG (`dmg2img`):**
+     O utilitário `dmg2img` (pré-instalado nativamente na imagem do host) descompacta a imagem da Apple em segundos:
+     ```bash
+     dmg2img -i BaseSystem.dmg -o /var/lib/libvirt/images/macos/BaseSystem.img
+     ```
+     *(Ou use o menu interativo `ujust install-macos-utils` que faz a conversão automaticamente).*
+   * **Passo 3: Staging de Firmware OVMF e Correção de SELinux:**
+     Copie os arquivos de firmware especializados (`OVMF_CODE_4M.fd`, `OVMF_VARS-1024x768.fd`) e `OpenCore.qcow2` para o pool de virtualização e aplique os rótulos SELinux `virt_image_t`:
+     ```bash
+     sudo restorecon -Rv /var/lib/libvirt/images/macos
+     sudo chown -R qemu:qemu /var/lib/libvirt/images/macos
+     ```
+   * **Passo 4: Registro da VM no Libvirt:**
+     No utilitário `ujust install-macos-utils`, selecione **Register / Define Libvirt Domain** e escolha se deseja registrar `macos-ventura`, `macos-sonoma` ou `macos-sequoia`.
+   * **Passo 5: Proteção de Disco (Trava de Concorrência):**
+     Para garantir que o disco compartilhado de 100 GB não seja corrompido, o utilitário possui uma trava de segurança que impede a inicialização de duas VMs macOS simultâneas.
+   * **Passo 6: Acesso e Monitoramento:**
+     Acesse a interface gráfica remota via Cockpit Web Console:
+     `https://<tailscale-fqdn>:61390/machines` (ou `https://127.0.0.1:61390/machines`).
+   * **Passo 7: Desligamento de Emergência:**
+     No ambiente de recuperação, comandos ACPI padrão são ignorados pelo instalador da Apple. Use:
+     ```bash
+     virsh -c qemu:///system destroy macos-ventura
+     ```
+     *(ou selecione 'Force Stop / Destroy VM' no `ujust install-macos-utils`).*
+
+

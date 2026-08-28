@@ -62,6 +62,8 @@ modules:
       - guestfs-tools # VM: guestfish and disk image utilities
       - virt-viewer # VM: Graphical console
       - udisks2-btrfs # Storage: Btrfs plugin for udisks2 and Cockpit Storage
+      - dmg2img # VM/Storage: Apple DMG decompressor for macOS virtualization
+      - genisoimage # VM/Storage: ISO generator for cloud-init and unattended installers
 
       # --- OS-Level Observability (eBPF & Trace Core) ---
       - bcc # eBPF: Collection tools

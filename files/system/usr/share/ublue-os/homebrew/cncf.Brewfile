@@ -14,6 +14,8 @@ tap "Starlexxx/tap"                          # For lazy-k8s
 
 # --- Virtualization & Infrastructure Management ---
 brew "opentofu"                              # Open-source Terraform alternative
+brew "terragrunt"                            # Thin wrapper for OpenTofu/Terraform orchestration
+brew "ansible"                               # Infrastructure automation and guest configuration
 cask "gcloud-cli"                            # Google Cloud CLI
 brew "lima"                                  # Linux VMs for isolation workflows
 brew "virtctl"                               # CLI for KubeVirt (Kubernetes Virtualization)

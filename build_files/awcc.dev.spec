@@ -56,11 +56,11 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %exclude %{_libdir}/libusb-1.0.a
 
 %changelog
-* Sat Mar 21 2026 Cloud <cloud@bazzite-local.com> - 1.17.0-1.dev.113c6aa
+* Sat Mar 21 2026 Silver Goggles <maintainer@bazzite-local.com> - 1.17.0-1.dev.113c6aa
 - Rebase onto upstream v1.17.0
 - Refactored EffectController to use dynamic zones from database.json
-* Sun Mar 15 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1.dev.2b95bd1
+* Sun Mar 15 2026 Silver Goggles <maintainer@bazzite-local.com> - 1.16.9-1.dev.2b95bd1
 - Implement dynamic keyboard lighting zones
 - Refactor EffectController to use dynamic zones from database.json
-* Mon Mar 09 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1
+* Mon Mar 09 2026 Silver Goggles <maintainer@bazzite-local.com> - 1.16.9-1
 - Initial RPM release for uBlue

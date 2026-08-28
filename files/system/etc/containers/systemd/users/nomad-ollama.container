@@ -77,7 +77,7 @@ Volume=/var/srv/nomad/ollama:/root/.ollama
 # is loaded. With tailscale0 in firewalld's `trusted` zone, publishing on all interfaces put
 # exactly that on the tailnet. Measured before the change:
 #
-#     curl http://bazzite.drake-ayu.ts.net:61382/api/tags   -> {"models":[]}
+#     curl http://<tailscale-fqdn>:61382/api/tags   -> {"models":[]}
 #
 # The admin never used this mapping — it reaches Ollama at http://ollama:11434 over the
 # container network — so binding loopback costs nothing and closes the hole. Host-side tools

@@ -158,6 +158,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/libexec/bazzite-dx-manage-vfio|Asset: VFIO Manager|Error"
 	"file|/usr/libexec/bazzite-dx-kvmfr-setup|Asset: KVMFR Setup|Error"
 	"file|/usr/libexec/bazzite-dx-win-utils|Asset: Win Guest Utils|Error"
+	"file|/usr/libexec/bazzite-dx-macos-utils|Asset: macOS Guest Utils|Error"
+	"file|/usr/share/ublue-os/macos/macos.xml|Asset: macOS Libvirt Template|Error"
 	"file|/usr/lib/udev/rules.d/99-kvmfr.rules|Asset: KVMFR Udev Rules|Error"
 	"file|/usr/lib/modules-load.d/kvmfr.conf|Asset: KVMFR Module Config|Error"
 	"file|/etc/udev/rules.d/99-kvmfr.rules|Mask: KVMFR Udev (opt-out default)|Error"

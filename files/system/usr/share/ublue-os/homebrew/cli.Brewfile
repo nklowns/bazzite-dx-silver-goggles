@@ -58,6 +58,7 @@ brew "xh"                               # Friendly and fast tool for sending HTT
 brew "hurl"                             # Run and test HTTP requests from simple plain text files
 brew "curlie"                           # Power of curl, ease of httpie
 brew "mtr"                              # Network diagnostic tool (ping + traceroute)
+brew "picocom"                          # Serial console communication for VM serial pipes
 brew "viddy"                            # Modern watch command with history and coloring
 flatpak "io.github.Archeb.opentrace"    # Visual network traceroute (GUI companion to mtr)
 flatpak "io.github.tobagin.digger"      # Modern DNS client (GUI companion to doggo)

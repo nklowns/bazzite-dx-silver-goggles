@@ -66,7 +66,7 @@ Network=project-nomad_default.network
 # so a port published on all interfaces is reachable from every device on the tailnet with no
 # `tailscale serve` and no firewall rule at all. Confirmed while this was still 61380:8080:
 #
-#     curl http://bazzite.drake-ayu.ts.net:61380/   -> HTTP 302
+#     curl http://<tailscale-fqdn>:61380/   -> HTTP 302
 #
 # The Command Center has no authentication in front of it at that point. Binding loopback
 # makes `ujust remote-nomad-setup` the single deliberate entrance, which also gets it real

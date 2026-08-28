@@ -46,10 +46,10 @@ O target `just build-awcc` é **dual**: opera em modo estável ou local dependen
 just build-awcc 2>&1 | tee output/build-awcc.log
 
 # Modo dev — compila a partir de source local do fork nklowns/AWCC:
-just build-awcc ~/dev/linux/uBlueOs/dell_related/AWCC 2>&1 | tee output/build-awcc-dev.log
+just build-awcc /path/to/AWCC 2>&1 | tee output/build-awcc-dev.log
 
 # Usando o spec de dev explicitamente:
-AWCC_SPEC=awcc.dev.spec just build-awcc ~/dev/linux/uBlueOs/dell_related/AWCC 2>&1 | tee output/build-awcc-dev.log
+AWCC_SPEC=awcc.dev.spec just build-awcc /path/to/AWCC 2>&1 | tee output/build-awcc-dev.log
 ```
 
 O RPM resultante é salvo em `files/rpm-ostree/awcc-dev.rpm` automaticamente.

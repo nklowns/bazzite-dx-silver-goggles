@@ -53,9 +53,9 @@ It offers custom fan controls, light effects, and G-Mode support for Linux users
 %exclude %{_libdir}/libusb-1.0.a
 
 %changelog
-* Sat Mar 21 2026 Cloud <cloud@bazzite-local.com> - 1.17.0-1
+* Sat Mar 21 2026 Silver Goggles <maintainer@bazzite-local.com> - 1.17.0-1
 - Update to upstream v1.17.0 (tr1xem/AWCC)
 - Use RPM macros for all install paths (replaces hardcoded /etc paths)
 - Add %%config(noreplace) for database.json
-* Mon Mar 09 2026 Cloud <cloud@bazzite-local.com> - 1.16.9-1
+* Mon Mar 09 2026 Silver Goggles <maintainer@bazzite-local.com> - 1.16.9-1
 - Initial RPM release for uBlue

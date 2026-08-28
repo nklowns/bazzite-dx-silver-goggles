@@ -13,8 +13,8 @@
 # That grep matches the proxy TARGET and ignores which listener it hangs off. Measured on this
 # host, the difference is not academic:
 #
-#     https://bazzite.drake-ayu.ts.net        -> proxy http://127.0.0.1:61337   <- ROOT
-#     https://bazzite.drake-ayu.ts.net:9090   -> proxy http://127.0.0.1:9090
+#     https://<tailscale-fqdn>        -> proxy http://127.0.0.1:61337   <- ROOT
+#     https://<tailscale-fqdn>:9090   -> proxy http://127.0.0.1:9090
 #
 # code-server was published on the bare tailnet domain, which this layer reserves so a project
 # can claim it. The recipe was later fixed to pass `--https=61337`, and the fix is inert: the
