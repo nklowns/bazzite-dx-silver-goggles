@@ -926,10 +926,10 @@ graph TD
 
 ### 🏛️ Arquitetura & Diretrizes de Projeto
 
-1. **Storage: Pool Único Dinâmico com Reutilização Sequencial**
-   * Em conformidade com a política de contenção de espaço em disco, todas as versões testadas compartilham um único arquivo esparso de 100 GB no pool canônico do hypervisor em `/var/lib/libvirt/images/macos/macos-disk.qcow2`.
-   * O disco inicia consumindo menos de 200 KB físicos e cresce dinamicamente conforme blocos reais são gravados pelo macOS.
-   * O barramento está configurado com `discard="unmap"`, permitindo que o sistema de arquivos **APFS** do macOS execute TRIM livremente para devolver blocos vazios ao host Btrfs/NVMe.
+1. **Storage: RAW Image via I/O Nativo (Estabilidade Btrfs)**
+   * Para evitar corrupção severa de metadados devido à interação do APFS TRIM com o Copy-on-Write (CoW) do Btrfs, abandonamos o uso de `.qcow2`.
+   * O formato oficial agora é **RAW** alocado em `/var/lib/libvirt/images/macos/macos-disk.img`.
+   * A tag `<driver name='qemu' type='raw' cache='none' io='native' discard='unmap'/>` maximiza a estabilidade combinada com o TRIM nativo.
 
 2. **Topologia de CPU para Arquitetura Híbrida Intel 12ª Geração (Alder Lake):**
    * O Dell G15 5520 possui núcleos de Performance (P-Cores) e Eficiência (E-Cores).
@@ -949,17 +949,13 @@ graph TD
      ```
    * O modelo de CPU utilizado é o `Penryn` (ou `Haswell-noTSX` no Sonoma/Sequoia) com flags explícitas: `avx`, `avx2`, `aes`, `invtsc`, `bmi1`, `bmi2`, `sse4.2`. No OpenCore, a quirk `ProvideCurrentCpuInfo=true` é obrigatória para calibrar a frequência do barramento TSC da Apple.
 
-3. **Subsolo USB e Contorno do Bluetooth Setup Assistant:**
-   * A extensão de portas USB (`USBPorts.kext`) mapeia controladores nativos ICH9 (`AppleUSBEHCIPCI` e `AppleUSBUHCIPCI`).
-   * Configurar apenas `qemu-xhci` faz com que o macOS entre na tela de espera de teclado/mouse Bluetooth (`support.apple.com/macsetup`).
-   * A solução declarativa implementada no `macos.xml` define a topologia de companion controllers ICH9 (`ich9-ehci1` + `ich9-uhci1..3`), garantindo reconhecimento instantâneo de ponteiro e teclado pelo instalador:
+3. **Topologia USB e Contorno do Bluetooth Setup Assistant:**
+   * Historicamente, as implementações usavam `ich9` para mapear portas antigas. Contudo, o **macOS Ventura e superiores** falham intermitentemente no reconhecimento inicial de teclados (apresentando a tela de emparelhamento Bluetooth) se usarmos controladores obsoletos.
+   * A solução implementada utiliza exclusivamente o **`qemu-xhci`**.
+   * **Requisito do OpenCore:** Para que isso funcione sem Kernel Panics ou perda de portas, o EFI do OpenCore deve estar munido das Kexts `USBToolBox.kext` e `UTBMap.kext` pré-geradas mapeando o xHCI virtual.
      ```xml
-     <controller type='usb' index='0' model='ich9-ehci1'>
-       <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x7'/>
-     </controller>
-     <controller type='usb' index='0' model='ich9-uhci1'>
-       <master startport='0'/>
-       <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x0' multifunction='on'/>
+     <controller type='usb' index='0' model='qemu-xhci'>
+       <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x0'/>
      </controller>
      ```
 
@@ -992,6 +988,9 @@ graph TD
      remote-viewer vnc://127.0.0.1:5900
      ```
      *(A política `sharePolicy='ignore'` configurada no `macos.xml` garante que a conexão visual do agente e a sua visualização local convivam pacificamente na mesma porta VNC).*
+     
+     > [!TIP]
+     > **Automação Headless de Disco:** Como a GUI do macOS Recovery pode sofrer lag sem aceleração 3D (não há Virtio-GPU para macOS), a instrução de ouro para os agentes é utilizar o `vm-vision` para abrir o **Terminal** via barra de menus e rodar `diskutil eraseDisk APFS "Macintosh HD" disk0`, eliminando a necessidade de cliques complexos no Disk Utility.
    * **Passo 7: Desligamento de Emergência:**
      No ambiente de recuperação, comandos ACPI padrão são ignorados pelo instalador da Apple. Use:
      ```bash

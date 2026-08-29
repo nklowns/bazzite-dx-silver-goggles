@@ -70,10 +70,10 @@
       <boot order='1'/>
     </disk>
 
-    <!-- macOS Target Virtual SSD (Single dynamic shared pool with TRIM support) -->
+    <!-- macOS Target Virtual SSD (RAW format recommended for Btrfs stability) -->
     <disk type='file' device='disk'>
-      <driver name='qemu' type='qcow2' cache='writeback' io='threads' discard='unmap'/>
-      <source file='/var/lib/libvirt/images/macos/macos-disk.qcow2'/>
+      <driver name='qemu' type='raw' cache='none' io='native' discard='unmap'/>
+      <source file='/var/lib/libvirt/images/macos/macos-disk.img'/>
       <target dev='sdb' bus='sata'/>
       <boot order='2'/>
     </disk>
@@ -88,21 +88,9 @@
 
     <controller type='sata' index='0'/>
 
-    <!-- Native ICH9 USB Companion Controllers matching OpenCore USBPorts.kext -->
-    <controller type='usb' index='0' model='ich9-ehci1'>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x7'/>
-    </controller>
-    <controller type='usb' index='0' model='ich9-uhci1'>
-      <master startport='0'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x0' multifunction='on'/>
-    </controller>
-    <controller type='usb' index='0' model='ich9-uhci2'>
-      <master startport='2'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x1'/>
-    </controller>
-    <controller type='usb' index='0' model='ich9-uhci3'>
-      <master startport='4'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x2'/>
+    <!-- Modern qemu-xhci USB Controller for macOS Ventura/Sonoma (Requires USBToolBox.kext mapping in OpenCore) -->
+    <controller type='usb' index='0' model='qemu-xhci'>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x0'/>
     </controller>
 
     <!-- Network Adapter: User-mode SLIRP with Apple-native vmxnet3 mapped directly to Root Bus 0 slot 0x03 -->
