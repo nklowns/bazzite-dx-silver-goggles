@@ -102,7 +102,14 @@ case "$OPTION" in
 	TMP_DIR=$(mktemp -d)
 	(
 		cd "$TMP_DIR"
-		quickget macos "$VERSION"
+		if command -v quickget &>/dev/null; then
+			quickget macos "$VERSION"
+		else
+			echo "quickget not found in PATH — fetching ephemeral quickget runner..."
+			curl -fsSL "https://raw.githubusercontent.com/quickemu-project/quickemu/master/quickget" -o quickget
+			chmod +x quickget
+			./quickget macos "$VERSION"
+		fi
 		if [[ -f "BaseSystem.dmg" ]]; then
 			echo "Converting BaseSystem.dmg -> BaseSystem.img..."
 			dmg2img -i "BaseSystem.dmg" -o "$MACOS_DIR/BaseSystem.img"

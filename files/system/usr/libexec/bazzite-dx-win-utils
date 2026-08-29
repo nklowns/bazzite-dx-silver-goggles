@@ -39,7 +39,16 @@ fi
 case "$OPTION" in
 *"Windows 11" | windows-fetch)
 	echo "=== Downloading Windows 11 via quickget ==="
-	quickget windows 11
+	if command -v quickget &>/dev/null; then
+		quickget windows 11
+	else
+		echo "quickget not found in PATH — fetching ephemeral quickget runner..."
+		TMP_DIR=$(mktemp -d)
+		curl -fsSL "https://raw.githubusercontent.com/quickemu-project/quickemu/master/quickget" -o "$TMP_DIR/quickget"
+		chmod +x "$TMP_DIR/quickget"
+		(cd "$TMP_DIR" && ./quickget windows 11)
+		rm -rf "$TMP_DIR"
+	fi
 	;;
 
 *"VirtIO" | virtio)
