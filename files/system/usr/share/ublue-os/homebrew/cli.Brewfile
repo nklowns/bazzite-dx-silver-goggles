@@ -111,3 +111,4 @@ brew "supabase/tap/supabase"            # Supabase: Data Operations CLI
 cask "android-platform-tools"           # Mobile: ADB & Fastboot
 brew "scrcpy"                           # Mobile: Android screen+audio mirroring (ADB; works over tailnet)
 brew "cdrtools"                         # Media: ISO creation (provides genisoimage)
+brew "quickemu"                         # Virtualization: quickget (ISO fetcher) and quickemu runner
