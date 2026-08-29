@@ -105,10 +105,10 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x2'/>
     </controller>
 
-    <!-- Network Adapter (Apple vmxnet3 compatible) -->
-    <interface type='bridge'>
-      <source bridge='virbr0'/>
+    <!-- Network Adapter: User-mode SLIRP with Apple-native vmxnet3 mapped directly to Root Bus 0 slot 0x03 -->
+    <interface type='user'>
       <model type='vmxnet3'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
     </interface>
 
     <input type='tablet' bus='usb'>
@@ -118,8 +118,8 @@
       <address type='usb' bus='0' port='2'/>
     </input>
 
-    <!-- Graphics and Display for Cockpit Web Console -->
-    <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'>
+    <!-- Graphics and Display with shared session policy to eliminate console locks -->
+    <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1' sharePolicy='ignore'>
       <listen type='address' address='127.0.0.1'/>
     </graphics>
     <video>
