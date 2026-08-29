@@ -37,38 +37,38 @@ else
 fi
 
 case "$OPTION" in
-*"Windows 11"|windows-fetch)
+*"Windows 11" | windows-fetch)
 	echo "=== Downloading Windows 11 via quickget ==="
 	quickget windows 11
 	;;
 
-*"VirtIO"|virtio)
+*"VirtIO" | virtio)
 	echo "Opening download link for latest stable VirtIO drivers..."
 	echo "Link: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso"
 	xdg-open "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso" 2>/dev/null || true
 	;;
 
-*"Looking Glass B7 Host"|looking-glass-host)
+*"Looking Glass B7 Host" | looking-glass-host)
 	echo "Opening Looking Glass B7 Host Setup download..."
 	echo "Note: Ensure you download the 'Host' version for Windows."
 	echo "Link: https://looking-glass.io/downloads"
 	xdg-open "https://looking-glass.io/downloads" 2>/dev/null || true
 	;;
 
-*"Looking Glass B7 Client"|looking-glass-client)
+*"Looking Glass B7 Client" | looking-glass-client)
 	echo "${bold}Looking Glass Client Status:${normal}"
 	echo "Looking Glass Client is ${green}pre-installed${normal} directly in the Bazzite-DX Silver Goggles system image!"
 	echo "To launch the client: looking-glass-client"
 	echo "Use ${bold}Scroll Lock${normal} to capture and release mouse/keyboard input."
 	;;
 
-*"Virtual Display"|idd)
+*"Virtual Display" | idd)
 	echo "Opening IddSampleDriver (Virtual Display) repository..."
 	echo "Link: https://github.com/ge9/IddSampleDriver/releases"
 	xdg-open "https://github.com/ge9/IddSampleDriver/releases" 2>/dev/null || true
 	;;
 
-*"XML Snippets"|snippets)
+*"XML Snippets" | snippets)
 	echo "${bold}1. IVSHMEM (Looking Glass / KVMFR)${normal}"
 	echo "<shmem name='looking-glass'><model type='ivshmem-plain'/><size unit='M'>128</size></shmem>"
 	echo ""

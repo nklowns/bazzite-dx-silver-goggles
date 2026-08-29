@@ -22,5 +22,3 @@ install-macos-utils:
 # Manage GPU Passthrough (Bind/Unbind NVIDIA GPU to VFIO)
 manage-vfio-gpu ACTION="":
     /usr/libexec/bazzite-dx-manage-vfio {{ ACTION }}
-
-

@@ -44,7 +44,7 @@ else
 fi
 
 case "$OPTION" in
-*"Status"|status)
+*"Status" | status)
 	echo "${bold}Hypervisor macOS Domains:${normal}"
 	virsh -c "$LIBVIRT_URI" list --all | grep -E "macos|Id" || true
 	echo ""
@@ -56,7 +56,7 @@ case "$OPTION" in
 	echo "  👉 https://127.0.0.1:61390/machines"
 	;;
 
-*"Start"|start)
+*"Start" | start)
 	TARGET_VM="${2:-}"
 	if [[ -z "$TARGET_VM" ]]; then
 		TARGET_VM=$(Choose "macos-ventura" "macos-sonoma" "macos-sequoia")
@@ -72,7 +72,7 @@ case "$OPTION" in
 	echo "${green}VM started! Console: https://127.0.0.1:61390/machines${normal}"
 	;;
 
-*"Safe Stop"|stop)
+*"Safe Stop" | stop)
 	TARGET_VM="${2:-}"
 	if [[ -z "$TARGET_VM" ]]; then
 		TARGET_VM=$(Choose "macos-ventura" "macos-sonoma" "macos-sequoia")
@@ -82,7 +82,7 @@ case "$OPTION" in
 	echo "${green}Safe stop signal dispatched.${normal}"
 	;;
 
-*"Force Stop"|destroy)
+*"Force Stop" | destroy)
 	TARGET_VM="${2:-}"
 	if [[ -z "$TARGET_VM" ]]; then
 		TARGET_VM=$(Choose "macos-ventura" "macos-sonoma" "macos-sequoia")
@@ -92,7 +92,7 @@ case "$OPTION" in
 	echo "${green}VM stopped.${normal}"
 	;;
 
-*"Download macOS"|fetch)
+*"Download macOS" | fetch)
 	VERSION="${2:-}"
 	if [[ -z "$VERSION" ]]; then
 		VERSION=$(Choose "ventura" "sonoma" "sequoia" "monterey")
@@ -114,7 +114,7 @@ case "$OPTION" in
 	rm -rf "$TMP_DIR"
 	;;
 
-*"Prepare Storage"|prepare)
+*"Prepare Storage" | prepare)
 	sudo mkdir -p "$MACOS_DIR"
 	DISK_PATH="${MACOS_DIR}/macos-disk.img"
 	echo "${bold}Checking Target RAW Virtual Disk (${DISK_PATH})...${normal}"
@@ -142,7 +142,7 @@ case "$OPTION" in
 	echo "${green}SELinux labels and permissions synchronized.${normal}"
 	;;
 
-*"Register / Define"|define)
+*"Register / Define" | define)
 	if [[ ! -f "$XML_TEMPLATE" ]]; then
 		XML_TEMPLATE="./virtualization/templates/macos.xml"
 	fi
@@ -153,7 +153,7 @@ case "$OPTION" in
 	DOMAIN_NAME=$(echo "$TARGET_VERSION" | awk '{print $1}')
 	echo "${bold}Defining domain ${DOMAIN_NAME} from template...${normal}"
 	TEMP_XML=$(mktemp)
-	sed "s|<name>macos-ventura</name>|<name>${DOMAIN_NAME}</name>|g" "$XML_TEMPLATE" > "$TEMP_XML"
+	sed "s|<name>macos-ventura</name>|<name>${DOMAIN_NAME}</name>|g" "$XML_TEMPLATE" >"$TEMP_XML"
 	virsh -c "$LIBVIRT_URI" define "$TEMP_XML"
 	rm -f "$TEMP_XML"
 	echo "${green}Domain ${DOMAIN_NAME} defined successfully in Libvirt!${normal}"
