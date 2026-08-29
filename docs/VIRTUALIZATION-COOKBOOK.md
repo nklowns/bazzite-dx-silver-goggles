@@ -931,9 +931,35 @@ graph TD
    * O formato oficial agora é **RAW** alocado em `/var/lib/libvirt/images/macos/macos-disk.img`.
    * A tag `<driver name='qemu' type='raw' cache='none' io='native' discard='unmap'/>` maximiza a estabilidade combinada com o TRIM nativo.
 
-2. **Topologia de CPU para Arquitetura Híbrida Intel 12ª Geração (Alder Lake):**
-   * O Dell G15 5520 possui núcleos de Performance (P-Cores) e Eficiência (E-Cores).
-   * Para evitar *kernel panics* e lentidão no escalonador do macOS, a VM fixa os 8 vCPUs exclusivamente nos P-Cores (`cpuset 2-9`) e delega as threads do emulador do QEMU para os E-Cores (`cpuset 12-15`):
+2. **Topologia de CPU e Modelo Golden para Intel 12ª Geração (Alder Lake):**
+   * O Dell G15 5520 possui arquitetura híbrida (P-Cores e E-Cores).
+   * **Por que `host-passthrough` e `Penryn` falham:**
+     * `host-passthrough` expõe a assimetria dos P/E-cores e topologia variável de cache L2/L3, provocando *kernel panics* no `securityd_service` e *double faults* no `launchd` do macOS Ventura/Sonoma.
+     * `Penryn` é obsoleto e não possui suporte a SSE4.2, AVX2 e BMI2 exigidos pelo sistema de Cryptex e compilador dyld moderno do macOS 13+.
+   * **Modelo Golden Oficial:** Utilize **`Cascadelake-Server-noTSX`** (definido em [templates/macos.xml](virtualization/templates/macos.xml)) com conjunto simétrico de instruções:
+     ```xml
+     <cpu mode='custom' match='exact' check='none'>
+       <model fallback='forbid'>Cascadelake-Server-noTSX</model>
+       <vendor>GenuineIntel</vendor>
+       <topology sockets='1' dies='1' clusters='1' cores='4' threads='2'/>
+       <feature policy='require' name='vme'/>
+       <feature policy='require' name='vmx'/>
+       <feature policy='require' name='fma'/>
+       <feature policy='require' name='avx'/>
+       <feature policy='require' name='avx2'/>
+       <feature policy='require' name='aes'/>
+       <feature policy='require' name='xsave'/>
+       <feature policy='require' name='xsaveopt'/>
+       <feature policy='require' name='bmi1'/>
+       <feature policy='require' name='bmi2'/>
+       <feature policy='require' name='invtsc'/>
+       <feature policy='require' name='ssse3'/>
+       <feature policy='require' name='sse4.1'/>
+       <feature policy='require' name='sse4.2'/>
+       <feature policy='require' name='popcnt'/>
+     </cpu>
+     ```
+   * O isolamento de CPU é garantido fixando os 8 vCPUs nos P-Cores (`cpuset 2-9`) e o emulador nos E-Cores (`cpuset 12-15`):
      ```xml
      <cputune>
        <vcpupin vcpu='0' cpuset='2-3'/>
@@ -947,9 +973,14 @@ graph TD
        <emulatorpin cpuset='12-15'/>
      </cputune>
      ```
-   * O modelo de CPU utilizado é o `Penryn` (ou `Haswell-noTSX` no Sonoma/Sequoia) com flags explícitas: `avx`, `avx2`, `aes`, `invtsc`, `bmi1`, `bmi2`, `sse4.2`. No OpenCore, a quirk `ProvideCurrentCpuInfo=true` é obrigatória para calibrar a frequência do barramento TSC da Apple.
 
-3. **Topologia USB e Contorno do Bluetooth Setup Assistant:**
+3. **Correções Críticas no OpenCore EFI (`config.plist`):**
+   * **`Cpuid1Mask` (16 bytes obrigatórios):** O valor Base64 deve ter exatamente 16 bytes: `/////wAAAAAAAAAAAAAAAA==`. Valores de 15 bytes com padding incorreto (como `/////wAAAAAAAAAAAAAAAAA=`) quebram o parser do OpenCore e desativam o spoofing de CPUID silenciosamente.
+   * **`MCEReporterDisabler.kext`:** A kext desativadora de Machine Check Exceptions deve ser referenciada exatamente como `MCEReporterDisabler.kext` no `BundlePath` (o nome `AppleMCEReporterDisabler.kext` causa Kernel Panic no driver MCE da Apple).
+   * **Cryptex & Sealed System Volume (SSV):** No `boot-args` da NVRAM, inclua `-cryptx` e `ipc_control_port_options=0` para que o `CryptexFixup.kext` monte adequadamente os volumes `/System/Volumes/Preboot/Cryptexes/OS/` do macOS Ventura/Sonoma.
+   * **Script de Build EFI (`opencore-image-ng.sh`):** Todas as variáveis de diretório devem estar entre aspas duplas (`"$img"`, `"$format"`) e alocação de tamanho deve ser inteira (`402653184`) para suportar diretórios com espaços como `/Virtual Machines/`.
+
+4. **Topologia USB e Contorno do Bluetooth Setup Assistant:**
    * Historicamente, as implementações usavam `ich9` para mapear portas antigas. Contudo, o **macOS Ventura e superiores** falham intermitentemente no reconhecimento inicial de teclados (apresentando a tela de emparelhamento Bluetooth) se usarmos controladores obsoletos.
    * A solução implementada utiliza exclusivamente o **`qemu-xhci`**.
    * **Requisito do OpenCore:** Para que isso funcione sem Kernel Panics ou perda de portas, o EFI do OpenCore deve estar munido das Kexts `USBToolBox.kext` e `UTBMap.kext` pré-geradas mapeando o xHCI virtual.
