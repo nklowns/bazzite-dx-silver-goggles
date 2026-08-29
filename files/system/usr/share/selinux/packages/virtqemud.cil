@@ -1,0 +1,13 @@
+(block virtqemud_rules
+    ;; Allow virtqemud to execute hook scripts in /etc/libvirt/hooks/
+    (allow virtqemud_t virt_hook_t (file (execute execute_no_trans open read getattr map)))
+
+    ;; Allow virtqemud to inspect binderfs device directory for Android/Waydroid subsystem
+    (allow virtqemud_t binderfs_t (dir (getattr search open read)))
+
+    ;; Allow virtlogd to write guest serial/console logs in virt_image_t and svirt_image_t directory pools
+    (allow virtlogd_t virt_image_t (dir (search read open getattr write add_name)))
+    (allow virtlogd_t virt_image_t (file (open read write create getattr append)))
+    (allow virtlogd_t svirt_image_t (dir (search read open getattr write add_name)))
+    (allow virtlogd_t svirt_image_t (file (open read write create getattr append)))
+)
