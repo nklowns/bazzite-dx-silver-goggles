@@ -114,6 +114,24 @@
       <model type='vga' vram='65536' heads='1' primary='yes'/>
     </video>
 
+    <!-- Guest Agent Channel -->
+    <channel type='unix'>
+      <target type='virtio' name='org.qemu.guest_agent.0'/>
+    </channel>
+
+    <!-- Virtio-Serial & File for vm-vision logs -->
+    <controller type='virtio-serial' index='0'/>
+    <serial type='file'>
+      <source path='/var/log/libvirt/qemu/macos-console.log'/>
+      <target type='isa-serial' port='0'>
+        <model name='isa-serial'/>
+      </target>
+    </serial>
+    <console type='file'>
+      <source path='/var/log/libvirt/qemu/macos-console.log'/>
+      <target type='serial' port='0'/>
+    </console>
+
     <memballoon model='none'/>
   </devices>
 
