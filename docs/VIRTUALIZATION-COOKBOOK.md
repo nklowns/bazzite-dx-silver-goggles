@@ -960,42 +960,64 @@ graph TD
      ```
 
 4. **Workflow Passo a Passo para Usuários e InfraTech:**
-   * **Passo 1: Obtenção da Mídia da Apple (`BaseSystem.dmg`):**
-     O usuário pode baixar o instalador de recuperação oficial da Apple para a versão desejada (13 Ventura, 14 Sonoma ou 15 Sequoia) via script upstream:
+   * **Passo 1: Obtenção Automática da Mídia da Apple via `quickget`:**
+     O utilitário comunitário `quickget` baixa a mídia oficial da Apple e converte automaticamente:
      ```bash
-     python3 OSX-KVM/fetch-macOS-v2.py
+     quickget macos ventura   # ou sonoma / sequoia
+     # Ou via menu interativo:
+     ujust macos-utils        # escolha "Download macOS Recovery Media"
      ```
-   * **Passo 2: Conversão de DMG para Raw IMG (`dmg2img`):**
-     O utilitário `dmg2img` (pré-instalado nativamente na imagem do host) descompacta a imagem da Apple em segundos:
+   * **Passo 2: Staging de Firmware OVMF e Correção de SELinux:**
+     Copie os arquivos de firmware especializados (`OVMF_CODE_4M.fd`, `OVMF_VARS-1024x768.fd`) e `OpenCore.qcow2` para o pool de virtualização e sincronize as permissões:
      ```bash
-     dmg2img -i BaseSystem.dmg -o /var/lib/libvirt/images/macos/BaseSystem.img
+     ujust macos-utils        # escolha "Prepare Storage Pool, Firmware & Permissions"
      ```
-     *(Ou use o menu interativo `ujust install-macos-utils` que faz a conversão automaticamente).*
-   * **Passo 3: Staging de Firmware OVMF e Correção de SELinux:**
-     Copie os arquivos de firmware especializados (`OVMF_CODE_4M.fd`, `OVMF_VARS-1024x768.fd`) e `OpenCore.qcow2` para o pool de virtualização e aplique os rótulos SELinux `virt_image_t`:
+   * **Passo 3: Registro da VM no Libvirt:**
+     No utilitário `ujust macos-utils`, selecione **Register / Define Libvirt Domain** e escolha `macos-ventura`, `macos-sonoma` ou `macos-sequoia` (template em `/usr/share/ublue-os/virtualization/templates/macos.xml`).
+   * **Passo 4: Gestão de Snapshots Imutáveis em Btrfs (Rails via `vm-rail`):**
+     Para permitir testes destrutivos com reversão em milissegundos sem gastar espaço em disco (custo 0 bytes via Btrfs CoW / `reflink`):
      ```bash
-     sudo restorecon -Rv /var/lib/libvirt/images/macos
-     sudo chown -R qemu:qemu /var/lib/libvirt/images/macos
+     # 1. Inicializar Rail com Snapshot Base
+     vm-rail init macos-ventura default
+
+     # 2. Reverter instantaneamente para o estado limpo
+     vm-rail revert macos-ventura
+
+     # 3. Capturar novo snapshot após configurar algo no macOS
+     vm-rail capture macos-ventura "pos-setup-assistant"
+
+     # 4. Listar todas as rails e gerações de snapshots
+     vm-rail list macos-ventura
      ```
-   * **Passo 4: Registro da VM no Libvirt:**
-     No utilitário `ujust install-macos-utils`, selecione **Register / Define Libvirt Domain** e escolha se deseja registrar `macos-ventura`, `macos-sonoma` ou `macos-sequoia`.
-   * **Passo 5: Proteção de Disco (Trava de Concorrência):**
-     Para garantir que o disco compartilhado de 100 GB não seja corrompido, o utilitário possui uma trava de segurança que impede a inicialização de duas VMs macOS simultâneas.
-   * **Passo 6: Acesso, Monitoramento e Agentes (MCP):**
-     O provisionamento inicial e testes da VM podem ser executados autonomamente por agentes de IA usando a ferramenta de linha de comando `vm-vision` (focada em integração de agentes via MCP over stdio).
-     Para você visualizar a tela em paralelo ao agente **sem interferir na latência e sem causar sobrecarga de Web Panels**, utilize o cliente consolidado de latência zero:
+   * **Passo 5: Instalação Automatizada Zero-Touch (Bootstrap Headless via `vm-vision`):**
+     O agente de IA executa o provisionamento de ponta a ponta:
+     ```bash
+     vm-vision bootstrap-macos macos-ventura
+     ```
+     O orquestrador automatiza:
+     1. Reversão do disco para uma geração limpa (`vm-rail revert`).
+     2. Seleção do OpenCore Base System no menu de boot.
+     3. Bypass da tela de seleção de idioma.
+     4. Abertura do Terminal via navegação nativa de teclado na barra de menus.
+     5. Formatação do disco em APFS (`Macintosh HD`) e execução do `startosinstall --agreetolicense --nointeraction`.
+   * **Passo 6: Acesso, Monitoramento e Agentes (MCP / `vm-vision`):**
+     Para monitorar logs do console serial em tempo real ou inspecionar a interface:
+     ```bash
+     vm-vision logs macos-ventura -n 50
+     vm-vision scan macos-ventura
+     ```
+     Para visualização local em paralelo sem travas de sessão:
      ```bash
      remote-viewer vnc://127.0.0.1:5900
      ```
-     *(A política `sharePolicy='ignore'` configurada no `macos.xml` garante que a conexão visual do agente e a sua visualização local convivam pacificamente na mesma porta VNC).*
-     
-     > [!TIP]
-     > **Automação Headless de Disco:** Como a GUI do macOS Recovery pode sofrer lag sem aceleração 3D (não há Virtio-GPU para macOS), a instrução de ouro para os agentes é utilizar o `vm-vision` para abrir o **Terminal** via barra de menus e rodar `diskutil eraseDisk APFS "Macintosh HD" disk0`, eliminando a necessidade de cliques complexos no Disk Utility.
-   * **Passo 7: Desligamento de Emergência:**
-     No ambiente de recuperação, comandos ACPI padrão são ignorados pelo instalador da Apple. Use:
+   * **Passo 7: Desligamento Seguro (Prevenção de Falhas no Host):**
+     Para desligar a VM com segurança sem causar resets no subsistema gráfico do host:
      ```bash
-     virsh -c qemu:///system destroy macos-ventura
+     ujust macos-utils        # escolha "Safe Stop / Poweroff (QMP quit)"
+     # ou via terminal:
+     virsh -c qemu:///system qemu-monitor-command macos-ventura '{"execute": "quit"}'
      ```
-     *(ou selecione 'Force Stop / Destroy VM' no `ujust install-macos-utils`).*
+
+
 
 

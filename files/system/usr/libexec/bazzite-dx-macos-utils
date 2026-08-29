@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Download, configure and manage macOS Guests on KVM/Bazzite
+# ==============================================================================
+# bazzite-dx-macos-utils: Lean macOS Hypervisor Helper (Bazzite-DX)
+# Leverages quickget for official Apple CDN media and Libvirt for domain orchestration
+# ==============================================================================
 set -euo pipefail
 
-b="${b:-}"
-n="${n:-}"
+bold="${bold:-}"
+normal="${normal:-}"
 green="${green:-}"
 yellow="${yellow:-}"
 red="${red:-}"
-bold="${bold:-}"
-normal="${normal:-}"
 
 Choose() { :; }
 # shellcheck disable=SC1091
@@ -18,106 +19,115 @@ fi
 
 MACOS_DIR="${MACOS_DIR:-/var/lib/libvirt/images/macos}"
 LIBVIRT_URI="qemu:///system"
+XML_TEMPLATE="/usr/share/ublue-os/virtualization/templates/macos.xml"
 
-echo "${bold}🍏 macOS Guest Utility Suite (Bazzite-DX Silver-Goggles)${normal}"
-echo "High-performance macOS virtual machines on Dell G15 (Intel 12th Gen / OpenCore / KVM)."
-echo "Storage pool directory: ${MACOS_DIR}"
-echo "----------------------------------------------------------------------"
+COMMAND="${1:-}"
 
-OPTION=$(
-	Choose \
-		"Status & Cockpit Web Console URL" \
-		"Start macOS VM (Ventura / Sonoma / Sequoia)" \
-		"Force Stop / Destroy VM (Emergency Powerdown)" \
-		"Convert Apple .dmg to .img (via dmg2img)" \
-		"Prepare Storage Pool, Firmware & SELinux" \
-		"Register / Define Libvirt Domain (XML)" \
-		"Show Libvirt XML Snippets & Troubleshooting"
-)
+if [[ -z "$COMMAND" ]]; then
+	echo "${bold}🍏 macOS Virtualization Helper (Bazzite-DX Silver-Goggles)${normal}"
+	echo "Hardware-accelerated macOS on Dell G15 (Intel 12th Gen Hybrid / OpenCore / KVM)."
+	echo "Storage Pool: ${MACOS_DIR}"
+	echo "----------------------------------------------------------------------"
+
+	OPTION=$(
+		Choose \
+			"Status & Web Console URL" \
+			"Start macOS VM (Ventura / Sonoma / Sequoia)" \
+			"Safe Stop / Poweroff (QMP quit)" \
+			"Force Stop / Destroy VM" \
+			"Download macOS Recovery Media (via quickget)" \
+			"Prepare Storage Pool, Firmware & Permissions" \
+			"Register / Define Libvirt Domain"
+	)
+else
+	OPTION="$COMMAND"
+fi
 
 case "$OPTION" in
-*"Status"*)
+*"Status"|status)
 	echo "${bold}Hypervisor macOS Domains:${normal}"
 	virsh -c "$LIBVIRT_URI" list --all | grep -E "macos|Id" || true
 	echo ""
-	echo "${bold}🌐 Cockpit Web Console (Tailscale & Local):${normal}"
+	echo "${bold}🌐 Cockpit Web Console (Local & Tailscale):${normal}"
 	TS_FQDN=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//' || true)
 	if [[ -n "$TS_FQDN" ]]; then
 		echo "  👉 https://${TS_FQDN}:61390/machines"
 	fi
 	echo "  👉 https://127.0.0.1:61390/machines"
-	echo ""
 	;;
-*"Start"*)
-	TARGET_VM=$(
-		Choose \
-			"macos-ventura" \
-			"macos-sonoma" \
-			"macos-sequoia"
-	)
-	# Mutex check: protect shared 100GB disk from concurrent corruption
+
+*"Start"|start)
+	TARGET_VM="${2:-}"
+	if [[ -z "$TARGET_VM" ]]; then
+		TARGET_VM=$(Choose "macos-ventura" "macos-sonoma" "macos-sequoia")
+	fi
 	RUNNING_VMS=$(virsh -c "$LIBVIRT_URI" list --name | grep -E "^macos-" || true)
-	if [[ -n "$RUNNING_VMS" ]]; then
+	if [[ -n "$RUNNING_VMS" && "$RUNNING_VMS" != "$TARGET_VM" ]]; then
 		echo "${red}${bold}SECURITY GUARD:${normal} Another macOS domain is already running: ${RUNNING_VMS}"
-		echo "To protect the shared NVMe pool from corruption, only one macOS VM can run at a time."
-		echo "Stop it first with 'Force Stop / Destroy VM' before starting ${TARGET_VM}."
+		echo "Stop it first before starting ${TARGET_VM}."
 		exit 1
 	fi
 	echo "${bold}Starting ${TARGET_VM}...${normal}"
 	virsh -c "$LIBVIRT_URI" start "$TARGET_VM" || true
-	echo "${green}VM started! Connect via Cockpit Web Console:${normal}"
-	echo "https://127.0.0.1:61390/machines"
+	echo "${green}VM started! Console: https://127.0.0.1:61390/machines${normal}"
 	;;
-*"Force Stop"*)
-	TARGET_VM=$(
-		Choose \
-			"macos-ventura" \
-			"macos-sonoma" \
-			"macos-sequoia"
-	)
+
+*"Safe Stop"|stop)
+	TARGET_VM="${2:-}"
+	if [[ -z "$TARGET_VM" ]]; then
+		TARGET_VM=$(Choose "macos-ventura" "macos-sonoma" "macos-sequoia")
+	fi
+	echo "${bold}Sending safe QMP shutdown to ${TARGET_VM}...${normal}"
+	virsh -c "$LIBVIRT_URI" qemu-monitor-command "$TARGET_VM" '{"execute": "quit"}' 2>/dev/null || virsh -c "$LIBVIRT_URI" shutdown "$TARGET_VM" || true
+	echo "${green}Safe stop signal dispatched.${normal}"
+	;;
+
+*"Force Stop"|destroy)
+	TARGET_VM="${2:-}"
+	if [[ -z "$TARGET_VM" ]]; then
+		TARGET_VM=$(Choose "macos-ventura" "macos-sonoma" "macos-sequoia")
+	fi
 	echo "${yellow}Sending emergency destroy signal to ${TARGET_VM}...${normal}"
 	virsh -c "$LIBVIRT_URI" destroy "$TARGET_VM" || true
-	echo "${green}VM stopped and all CPU/RAM/VRAM resources freed.${normal}"
+	echo "${green}VM stopped.${normal}"
 	;;
-*"Convert Apple .dmg"*)
-	echo "${bold}Convert Apple Recovery or Installer DMG to raw IMG${normal}"
-	read -rp "Path to .dmg file: " DMG_INPUT
-	if [[ ! -f "$DMG_INPUT" ]]; then
-		echo "${red}File not found: ${DMG_INPUT}${normal}"
-		exit 1
+
+*"Download macOS"|fetch)
+	VERSION="${2:-}"
+	if [[ -z "$VERSION" ]]; then
+		VERSION=$(Choose "ventura" "sonoma" "sequoia" "monterey")
 	fi
-	mkdir -p "$MACOS_DIR"
-	BASENAME_DMG=$(basename "$DMG_INPUT" .dmg)
-	IMG_OUTPUT="${MACOS_DIR}/${BASENAME_DMG}.img"
-	echo "Converting ${DMG_INPUT} -> ${IMG_OUTPUT} using dmg2img..."
-	dmg2img -i "$DMG_INPUT" -o "$IMG_OUTPUT"
-	echo "${green}Conversion complete: ${IMG_OUTPUT}${normal}"
-	if [[ "$MACOS_DIR" == "$LIBVIRT_STORAGE" ]]; then
-		echo "Restoring SELinux context..."
-		sudo restorecon -v "$IMG_OUTPUT" || true
-	fi
-	;;
-*"Prepare Storage"*)
+	echo "=== Downloading macOS ${VERSION} via quickget ==="
 	sudo mkdir -p "$MACOS_DIR"
-	DISK_PATH="${MACOS_DIR}/macos-disk.qcow2"
-	echo "${bold}Checking Single-Pool Target Disk (${DISK_PATH})...${normal}"
-	if [[ -f "$DISK_PATH" ]]; then
-		read -rp "Disk exists. Recreate clean 100GB disk? (y/N): " CONFIRM
-		if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
-			sudo rm -f "$DISK_PATH"
-			sudo qemu-img create -f qcow2 "$DISK_PATH" 100G
-			echo "${green}Recreated 100GB sparse disk (<200KB initial physical size).${normal}"
-		else
-			echo "Keeping existing disk."
+	TMP_DIR=$(mktemp -d)
+	(
+		cd "$TMP_DIR"
+		quickget macos "$VERSION"
+		if [[ -f "BaseSystem.dmg" ]]; then
+			echo "Converting BaseSystem.dmg -> BaseSystem.img..."
+			dmg2img -i "BaseSystem.dmg" -o "$MACOS_DIR/BaseSystem.img"
+			sudo chown -R qemu:qemu "$MACOS_DIR"
+			sudo restorecon -Rv "$MACOS_DIR"
+			echo "${green}BaseSystem installed to ${MACOS_DIR}/BaseSystem.img${normal}"
 		fi
+	)
+	rm -rf "$TMP_DIR"
+	;;
+
+*"Prepare Storage"|prepare)
+	sudo mkdir -p "$MACOS_DIR"
+	DISK_PATH="${MACOS_DIR}/macos-disk.img"
+	echo "${bold}Checking Target RAW Virtual Disk (${DISK_PATH})...${normal}"
+	if [[ -f "$DISK_PATH" ]]; then
+		echo "Disk exists (${DISK_PATH})."
 	else
-		sudo qemu-img create -f qcow2 "$DISK_PATH" 100G
-		echo "${green}Created 100GB sparse disk (<200KB initial physical size).${normal}"
+		sudo qemu-img create -f raw "$DISK_PATH" 100G
+		echo "${green}Created 100GB RAW disk.${normal}"
 	fi
 
 	echo ""
-	echo "${bold}Checking Required OVMF Firmware & EFI Assets:${normal}"
-	for asset in "OVMF_CODE_4M.fd" "OVMF_VARS-1024x768.fd" "OpenCore.qcow2"; do
+	echo "${bold}Checking Firmware & EFI Assets in ${MACOS_DIR}:${normal}"
+	for asset in "OVMF_CODE_4M.fd" "OVMF_VARS-1024x768.fd" "OpenCore.qcow2" "BaseSystem.img"; do
 		if [[ -f "${MACOS_DIR}/${asset}" ]]; then
 			echo "  ✅ ${asset} found."
 		else
@@ -131,44 +141,26 @@ case "$OPTION" in
 	sudo restorecon -Rv "$MACOS_DIR" 2>/dev/null || true
 	echo "${green}SELinux labels and permissions synchronized.${normal}"
 	;;
-*"Register / Define"*)
-	XML_FILE="/usr/share/ublue-os/macos/macos.xml"
-	if [[ ! -f "$XML_FILE" ]]; then
-		XML_FILE="./macos.xml"
+
+*"Register / Define"|define)
+	if [[ ! -f "$XML_TEMPLATE" ]]; then
+		XML_TEMPLATE="./virtualization/templates/macos.xml"
 	fi
-	if [[ ! -f "$XML_FILE" ]]; then
-		read -rp "Path to macos.xml template: " XML_FILE
+	TARGET_VERSION="${2:-}"
+	if [[ -z "$TARGET_VERSION" ]]; then
+		TARGET_VERSION=$(Choose "macos-ventura" "macos-sonoma" "macos-sequoia")
 	fi
-	TARGET_VERSION=$(
-		Choose \
-			"macos-ventura (macOS 13)" \
-			"macos-sonoma (macOS 14)" \
-			"macos-sequoia (macOS 15)"
-	)
 	DOMAIN_NAME=$(echo "$TARGET_VERSION" | awk '{print $1}')
-	echo "${bold}Registering Libvirt domain ${DOMAIN_NAME} from ${XML_FILE}...${normal}"
+	echo "${bold}Defining domain ${DOMAIN_NAME} from template...${normal}"
 	TEMP_XML=$(mktemp)
-	sed "s|<name>macos</name>|<name>${DOMAIN_NAME}</name>|g" "$XML_FILE" > "$TEMP_XML"
+	sed "s|<name>macos-ventura</name>|<name>${DOMAIN_NAME}</name>|g" "$XML_TEMPLATE" > "$TEMP_XML"
 	virsh -c "$LIBVIRT_URI" define "$TEMP_XML"
 	rm -f "$TEMP_XML"
-	echo "${green}Domain ${DOMAIN_NAME} successfully defined in Libvirt!${normal}"
+	echo "${green}Domain ${DOMAIN_NAME} defined successfully in Libvirt!${normal}"
 	;;
-*"Show Libvirt XML Snippets"*)
-	echo "${bold}1. Intel 12th Gen Hybrid Core Pinning (Dell G15)${normal}"
-	echo "Pins 8 vCPUs exclusively on P-Cores (2-9) with emulator on E-Cores (12-15):"
-	echo "------------------------------------------------"
-	echo "<cputune>"
-	echo "  <vcpupin vcpu='0' cpuset='2-3'/>"
-	echo "  <vcpupin vcpu='1' cpuset='2-3'/>"
-	echo "  <emulatorpin cpuset='12-15'/>"
-	echo "</cputune>"
-	echo "------------------------------------------------"
-	echo ""
-	echo "${bold}2. ICH9 USB Companion Controllers (USBPorts.kext matching)${normal}"
-	echo "Eliminates Apple Bluetooth Setup Assistant hang:"
-	echo "------------------------------------------------"
-	echo "<controller type='usb' index='0' model='ich9-ehci1'/>"
-	echo "<controller type='usb' index='0' model='ich9-uhci1'/>"
-	echo "------------------------------------------------"
+
+*)
+	echo "Usage: bazzite-dx-macos-utils [status|start|stop|destroy|fetch|prepare|define] [args...]"
+	exit 1
 	;;
 esac

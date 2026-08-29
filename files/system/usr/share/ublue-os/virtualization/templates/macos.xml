@@ -1,5 +1,5 @@
 <domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
-  <name>macos-ventura</name>
+  <name>macos</name>
   <uuid>7c40d048-b4b6-455b-b9d9-0b1a20261300</uuid>
   <title>macOS Guest (Ventura / Sonoma / Sequoia)</title>
   <description>macOS guest on KVM with OpenCore EFI, CPU pinning for Dell G15 12th Gen Intel hybrid cores, single-pool dynamic disk, and Cockpit Web Console integration.</description>
@@ -70,10 +70,10 @@
       <boot order='1'/>
     </disk>
 
-    <!-- macOS Target Virtual SSD (RAW format recommended for Btrfs stability) -->
+    <!-- macOS Target Virtual SSD (Single dynamic shared pool with TRIM support) -->
     <disk type='file' device='disk'>
-      <driver name='qemu' type='raw' cache='none' io='native' discard='unmap'/>
-      <source file='/var/lib/libvirt/images/macos/macos-disk.img'/>
+      <driver name='qemu' type='qcow2' cache='writeback' io='threads' discard='unmap'/>
+      <source file='/var/lib/libvirt/images/macos/macos-disk.qcow2'/>
       <target dev='sdb' bus='sata'/>
       <boot order='2'/>
     </disk>
@@ -88,9 +88,21 @@
 
     <controller type='sata' index='0'/>
 
-    <!-- Modern qemu-xhci USB Controller for macOS Ventura/Sonoma (Requires USBToolBox.kext mapping in OpenCore) -->
-    <controller type='usb' index='0' model='qemu-xhci'>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x0'/>
+    <!-- Native ICH9 USB Companion Controllers matching OpenCore USBPorts.kext -->
+    <controller type='usb' index='0' model='ich9-ehci1'>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x7'/>
+    </controller>
+    <controller type='usb' index='0' model='ich9-uhci1'>
+      <master startport='0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x0' multifunction='on'/>
+    </controller>
+    <controller type='usb' index='0' model='ich9-uhci2'>
+      <master startport='2'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x1'/>
+    </controller>
+    <controller type='usb' index='0' model='ich9-uhci3'>
+      <master startport='4'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x1d' function='0x2'/>
     </controller>
 
     <!-- Network Adapter: User-mode SLIRP with Apple-native vmxnet3 mapped directly to Root Bus 0 slot 0x03 -->
@@ -113,24 +125,6 @@
     <video>
       <model type='vga' vram='65536' heads='1' primary='yes'/>
     </video>
-
-    <!-- Guest Agent Channel -->
-    <channel type='unix'>
-      <target type='virtio' name='org.qemu.guest_agent.0'/>
-    </channel>
-
-    <!-- Virtio-Serial & File for vm-vision logs -->
-    <controller type='virtio-serial' index='0'/>
-    <serial type='file'>
-      <source path='/var/log/libvirt/qemu/macos-console.log'/>
-      <target type='isa-serial' port='0'>
-        <model name='isa-serial'/>
-      </target>
-    </serial>
-    <console type='file'>
-      <source path='/var/log/libvirt/qemu/macos-console.log'/>
-      <target type='serial' port='0'/>
-    </console>
 
     <memballoon model='none'/>
   </devices>
