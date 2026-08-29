@@ -985,9 +985,13 @@ graph TD
      No utilitário `ujust install-macos-utils`, selecione **Register / Define Libvirt Domain** e escolha se deseja registrar `macos-ventura`, `macos-sonoma` ou `macos-sequoia`.
    * **Passo 5: Proteção de Disco (Trava de Concorrência):**
      Para garantir que o disco compartilhado de 100 GB não seja corrompido, o utilitário possui uma trava de segurança que impede a inicialização de duas VMs macOS simultâneas.
-   * **Passo 6: Acesso e Monitoramento:**
-     Acesse a interface gráfica remota via Cockpit Web Console:
-     `https://<tailscale-fqdn>:61390/machines` (ou `https://127.0.0.1:61390/machines`).
+   * **Passo 6: Acesso, Monitoramento e Agentes (MCP):**
+     O provisionamento inicial e testes da VM podem ser executados autonomamente por agentes de IA usando a ferramenta de linha de comando `vm-vision` (focada em integração de agentes via MCP over stdio).
+     Para você visualizar a tela em paralelo ao agente **sem interferir na latência e sem causar sobrecarga de Web Panels**, utilize o cliente consolidado de latência zero:
+     ```bash
+     remote-viewer vnc://127.0.0.1:5900
+     ```
+     *(A política `sharePolicy='ignore'` configurada no `macos.xml` garante que a conexão visual do agente e a sua visualização local convivam pacificamente na mesma porta VNC).*
    * **Passo 7: Desligamento de Emergência:**
      No ambiente de recuperação, comandos ACPI padrão são ignorados pelo instalador da Apple. Use:
      ```bash
