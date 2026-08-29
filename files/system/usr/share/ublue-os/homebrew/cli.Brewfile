@@ -4,10 +4,10 @@
 # --- Taps (Trusted Sources) ---
 tap "ublue-os/tap"
 tap "ublue-os/experimental-tap"
-tap "kernel/tap"                        # For Hypeman
 tap "spinframework/tap"                 # For Spin
 tap "supabase/tap"                      # For Supabase
 tap "valkyrie00/bbrew"                  # For bbrew
+tap "quickemu-project/quickemu"         # For Quickemu & Quickget
 
 # --- Shell Foundations ---
 brew "bat"                              # Better cat with syntax highlighting
@@ -111,4 +111,4 @@ brew "supabase/tap/supabase"            # Supabase: Data Operations CLI
 cask "android-platform-tools"           # Mobile: ADB & Fastboot
 brew "scrcpy"                           # Mobile: Android screen+audio mirroring (ADB; works over tailnet)
 brew "cdrtools"                         # Media: ISO creation (provides genisoimage)
-brew "quickemu"                         # Virtualization: quickget (ISO fetcher) and quickemu runner
+brew "quickemu-project/quickemu/quickemu" # Virtualization: quickget & quickemu runner
