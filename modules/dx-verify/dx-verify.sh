@@ -108,7 +108,6 @@ readonly AUDIT_REGISTRY=(
 	# looks fine. Presence is a weak assert, but losing this file is a silent breakage.
 	"file|/etc/cockpit/cockpit.conf|Policy: Cockpit Reverse-Proxy Origin Handling|Error"
 	"file|/usr/share/cockpit/ctop/manifest.json|Asset: Cockpit Top (ctop) Extension|Error"
-	"file|/usr/share/cockpit/sensors/manifest.json|Asset: Cockpit Sensors Extension|Error"
 	"file|/usr/lib/firewalld/services/project-nomad.xml|Asset: Project NOMAD Firewalld Policy|Error"
 
 	"target|graphical.target|Policy: Default Graphical Target|Warn"

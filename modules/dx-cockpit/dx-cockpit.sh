@@ -6,7 +6,6 @@ set -euo pipefail
 
 # --- Pinned Extension Releases ---
 readonly CTOP_VERSION="1.1.6"
-readonly SENSORS_VERSION="1.1"
 
 InstallCtop() {
 	echo "Installing Cockpit Top (ctop v${CTOP_VERSION}) extension..."
@@ -33,33 +32,7 @@ InstallCtop() {
 	echo "Cockpit Top (ctop v${CTOP_VERSION}) installed successfully."
 }
 
-InstallSensors() {
-	echo "Installing Cockpit Sensors (v${SENSORS_VERSION}) extension..."
-	local target_dir="/usr/share/cockpit/sensors"
-	local temp_tar
-	temp_tar=$(mktemp --suffix=.tar.xz)
-	local download_url="https://github.com/ocristopfer/cockpit-sensors/releases/download/${SENSORS_VERSION}/cockpit-sensors.tar.xz"
-
-	curl -fsSL "$download_url" -o "$temp_tar"
-
-	local temp_extract
-	temp_extract=$(mktemp -d)
-	tar -xf "$temp_tar" -C "$temp_extract"
-
-	mkdir -p "$target_dir"
-	cp -r "$temp_extract/cockpit-sensors/dist/"* "$target_dir/"
-
-	rm -rf "$temp_tar" "$temp_extract"
-
-	if [[ ! -f "$target_dir/manifest.json" ]]; then
-		echo "ERROR: cockpit-sensors installation failed - manifest.json missing from $target_dir"
-		exit 1
-	fi
-	echo "Cockpit Sensors (v${SENSORS_VERSION}) installed successfully."
-}
-
 # --- Execution ---
 echo "::group::🚀 [dx-cockpit] Provisioning Declarative Cockpit Extensions..."
 InstallCtop
-InstallSensors
 echo "::endgroup::"

@@ -61,18 +61,6 @@
       depNameTemplate: 'ismetozalp/ctop',
       datasourceTemplate: 'github-releases',
     },
-    {
-      customType: 'regex',
-      description: 'Track Cockpit Sensors releases in dx-cockpit module',
-      managerFilePatterns: [
-        '/^modules/dx-cockpit/dx-cockpit\\.sh$/',
-      ],
-      matchStrings: [
-        'SENSORS_VERSION="(?<currentValue>[^"]+)"',
-      ],
-      depNameTemplate: 'ocristopfer/cockpit-sensors',
-      datasourceTemplate: 'github-releases',
-    },
   ],
   packageRules: [
     {
@@ -223,14 +211,6 @@
       description: 'Auto-update Cockpit Top (ctop) release in dx-cockpit module',
       matchPackageNames: [
         'ismetozalp/ctop',
-      ],
-      automerge: true,
-      commitMessagePrefix: 'chore(deps-cockpit): ',
-    },
-    {
-      description: 'Auto-update Cockpit Sensors release in dx-cockpit module',
-      matchPackageNames: [
-        'ocristopfer/cockpit-sensors',
       ],
       automerge: true,
       commitMessagePrefix: 'chore(deps-cockpit): ',
