@@ -563,8 +563,9 @@ Conventions this layer follows:
   dropped, and it worked, which is not the same as being acceptable: it advertised
   `_raop._tcp` on port 5000 with **`pw=false`** — an anonymous receiver any host on the LAN can
   push audio to, in direct contradiction of the pin-or-nothing rule the rest of this layer
-  follows. It also advertised as `…@Bazzite.drake-ayu.ts`, leaking the tailnet hostname into LAN
-  mDNS (the same defect `nh` fixes for UxPlay), and it published on every interface including
+  follows. It also advertised as `…@Bazzite.<tailnet-name>.ts`, leaking the tailnet hostname into LAN
+  so that avahi clients saw both `Bazzite.local` and `Bazzite.<tailnet-name>.ts`. Disabling mDNS explicitly
+  or binding to a specific interface is required, but it published on every interface including
   `docker0`, `br-*` and container veths. Its unit was `disabled`, so none of that was live — but a
   receiver that is one `systemctl start` away from anonymous LAN audio is not worth carrying for a
   protocol generation UxPlay already serves. Re-adding it means shipping an

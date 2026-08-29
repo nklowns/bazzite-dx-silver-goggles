@@ -1,5 +1,5 @@
 <domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
-  <name>macos</name>
+  <name>macos-ventura</name>
   <uuid>7c40d048-b4b6-455b-b9d9-0b1a20261300</uuid>
   <title>macOS Guest (Ventura / Sonoma / Sequoia)</title>
   <description>macOS guest on KVM with OpenCore EFI, CPU pinning for Dell G15 12th Gen Intel hybrid cores, single-pool dynamic disk, and Cockpit Web Console integration.</description>
