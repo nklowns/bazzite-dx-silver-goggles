@@ -18,7 +18,7 @@ graph TD
     subgraph Opção B [Avançado: Passthrough Físico & Looking Glass]
         B1[Bazzite Host - Intel iGPU] -->|Interface KDE Wayland| B2(Looking Glass Client)
         B3[VM Windows - NVIDIA RTX 3060] -->|Renderização Física 3D| B4(Looking Glass Host)
-        B4 -->|Frames de Vídeo| B5[/dev/kvmfr0 - SHM VRAM]
+        B4 -->|Frames de Vídeo| B5["/dev/kvmfr0 - SHM VRAM"]
         B5 -->|Transmissão Sem Latência| B2
     end
 ```
