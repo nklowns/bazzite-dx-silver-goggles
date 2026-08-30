@@ -1055,4 +1055,4 @@ graph TD
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **macOS Ventura (13.x)** | XNU 22.x | `Cascadelake-Server-noTSX` (Symmetric) | `qemu-xhci` / `ich9-ehci1` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Sonoma (14.x)** | XNU 23.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
-| **macOS Sequoia (15.x)** | XNU 24.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | 🔬 Preparado | Em pipeline |
+| **macOS Sequoia (15.x)** | XNU 24.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
