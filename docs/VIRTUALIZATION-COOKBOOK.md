@@ -1051,22 +1051,26 @@ graph TD
 
 | Versão macOS | Kernel / XNU | Topologia CPU Validada | USB Controller | Rede (SLIRP) | Status E2E | Prova Web (`bazzite.gg`) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **macOS Ventura (13.x)** | XNU 22.x | `Cascadelake-Server-noTSX` (Symmetric) | `qemu-xhci` / `ich9-ehci1` | `vmxnet3` | ⚠️ Ver nota | Alcançado, mas não no snapshot |
+| **macOS Ventura (13.x)** | XNU 22.x | `Cascadelake-Server-noTSX` (Symmetric) | `qemu-xhci` / `ich9-ehci1` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Sonoma (14.x)** | XNU 23.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Sequoia (15.x)** | XNU 24.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Tahoe (16.x, hoje macOS 26)** | XNU 25.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | 🔬 Experimental | Boot OK / Requer SMBIOS Apple Silicon/T2 Bypass |
 
-> **Nota sobre o Ventura.** A validação E2E aconteceu — foi a primeira das três —
-> mas **antes de existir mecanismo de snapshot**. Quando o golden foi capturado,
-> o disco já tinha seguido adiante, então aquele estado nunca chegou a ser
-> congelado. Medido hoje: o golden boota no Setup Assistant e o disco live entra
-> em kernel panic (`force_system_dataset() failed`). Enquanto não for refeito, o
-> Ventura não serve de linha de base — ver F-011 em
-> [`VIRT-FINDINGS.md`](./VIRT-FINDINGS.md).
+> **Histórico do Ventura, que vale como lição de processo.** A validação E2E
+> aconteceu — foi a primeira das três — mas **antes de existir mecanismo de
+> snapshot**. Quando o golden foi capturado, o disco já tinha seguido adiante, e
+> aquele estado nunca chegou a ser congelado: o snapshot bootava no Setup
+> Assistant. Refeito e revalidado em 2026-08-30.
 >
-> A lição é de processo, não do guest: **validação sem captura não sobrevive.**
-> Um resultado só é reproduzível se o estado que o produziu for congelado no
-> mesmo momento.
+> **Validação sem captura não sobrevive.** Um resultado só é reproduzível se o
+> estado que o produziu for congelado no mesmo momento.
+>
+> Duas armadilhas encontradas ao refazer, que valem para qualquer guest macOS:
+> a lista de região começa em **Afghanistan**, e aceitá-la deixa o sistema em
+> calendário persa; e o macOS **ignora ACPI** (`virsh shutdown` e
+> `system_powerdown`), com o menu Apple abrindo só por teclado (`ctrl+f2`) — um
+> clique dentro do menu aberto assim apenas o fecha. Se a parada for abrupta,
+> **boote o snapshot depois para provar que ele sobe limpo**, em vez de supor.
 
 6. **Snapshots de estado limpo (Btrfs CoW):**
 Como os discos ficam num filesystem Btrfs, congelar e restaurar um estado
