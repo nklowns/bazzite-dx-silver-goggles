@@ -1,0 +1,216 @@
+# ==============================================================================
+# Matriz Declarativa de Benchmark de Virtualização — macOS / KVM / Vulkan
+# ==============================================================================
+# Estado desejado das corridas de benchmark. O runner lê este arquivo; nada de
+# parâmetro solto na linha de comando.
+#
+# Achados e regressões: docs/VIRT-FINDINGS.md
+# Procedimentos maduros:  docs/VIRTUALIZATION-COOKBOOK.md
+# ==============================================================================
+
+version: 1
+
+host:
+  model: Dell G15 5520
+  cpu: Intel Core i7-12700H          # Alder Lake híbrido, 14C/20T
+  gpu: NVIDIA GeForce RTX 3060 Laptop
+  vram_mib: 6144
+  ram_gib: 16                        # limite duro da Fase 2 — ver phases.concurrency
+  os: Bazzite-DX (Fedora Atomic)
+  filesystem: btrfs                  # habilita rails por reflink CoW
+
+# ------------------------------------------------------------------------------
+# Alvos: cada versão de macOS, nas duas pernas (libvirt e reims-vgpu)
+# ------------------------------------------------------------------------------
+# source_snapshot declara a PROCEDÊNCIA do rail reims a partir do golden libvirt.
+# Verificado antes de cada corrida — ver F-005.
+targets:
+  - id: ventura
+    release: "13"
+    xnu: "22"
+    libvirt_domain: macos-ventura
+    libvirt_rail: default
+    libvirt_snapshot: ventura-golden-installed
+    reims_rail: macos-13
+    source_snapshot: "/var/home/cloud/dev/Virtual Machines/macos/.rails/default/snapshots/ventura-golden-installed/macos-disk.qcow2"
+    provenance: verified             # ressemeado do golden em 2026-08-30 — ver F-005
+    disk_gib: 26.7
+
+  - id: sonoma
+    release: "14"
+    xnu: "23"
+    libvirt_domain: macos-sonoma
+    libvirt_rail: default
+    libvirt_snapshot: sonoma-golden-installed
+    reims_rail: macos-14
+    source_snapshot: "/var/home/cloud/dev/Virtual Machines/macos/sonoma/.rails/default/snapshots/sonoma-golden-installed/macos-sonoma-disk.qcow2"
+    provenance: verified             # md5(64MiB) confere com o golden
+    disk_gib: 31.1
+
+  - id: sequoia
+    release: "15"
+    xnu: "24"
+    libvirt_domain: macos-sequoia
+    libvirt_rail: default
+    libvirt_snapshot: sequoia-golden-installed
+    reims_rail: macos-15
+    source_snapshot: "/var/home/cloud/dev/Virtual Machines/macos/sequoia/.rails/default/snapshots/sequoia-golden-installed/macos-sequoia-disk.qcow2"
+    provenance: verified
+    disk_gib: 32.5
+
+  - id: tahoe
+    release: "16"
+    xnu: "25"
+    libvirt_domain: macos-tahoe
+    reims_rail: null
+    provenance: blocked              # ver F-003 — instalador exige atestação T2
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# Dispositivos gráficos comparados
+# ------------------------------------------------------------------------------
+devices:
+  - id: reims-vgpu-pci
+    role: treatment
+    description: Paravirtualização Metal->Vulkan, backend NVIDIA nativo do host
+    boot: reims                      # reims-vgpu/vm/boot-x86.sh
+    qemu: /var/home/cloud/dev/tools/reims-vgpu/vendor/qemu/build/qemu-system-x86_64
+    option_rom: /var/home/cloud/dev/tools/reims-vgpu/crates/reims-vgpu-efi/out/reims-vgpu-gop.rom
+    gop_mode: 1920x1080 BGRA8
+    presentation: winit-wayland      # janela winit; QEMU em -display none
+
+  - id: vmware-svga
+    role: control
+    description: Console legado OSX-KVM, sem aceleração 3D
+    boot: reims
+    presentation: qemu-gtk
+
+# ------------------------------------------------------------------------------
+# Observabilidade — ver F-004
+# ------------------------------------------------------------------------------
+# O caminho reims não é libvirt: sem dumpxml, sem porta VNC descoberta. Não é
+# preciso anexar VNC: o boot-x86.sh já abre `-qmp unix:<sock>`, e QMP sozinho dá
+# visão (screendump), controle (input-send-event) e telemetria (query-cpus-fast).
+# Nada é patcheado no repo upstream do reims-vgpu.
+observability:
+  transport: qmp                     # F-004: um socket, não um canal VNC lateral
+  qmp_socket_glob: "/var/home/cloud/dev/tools/reims-vgpu/vm/run/qmp-*.sock"
+  driver: vm-vision                  # OCR + click topográfico, via --qmp <sock>
+  # A janela winit é o plano de renderização MEDIDO. Não medir FPS pelo caminho de
+  # captura: o screendump tem cadência própria e contaminaria a métrica.
+  fps_source: winit-window
+
+# ------------------------------------------------------------------------------
+# Carga de trabalho — idêntica nas duas pernas, senão não é comparação
+# ------------------------------------------------------------------------------
+workload:
+  browser: Safari
+
+  # ENVELOPE DE AUTOMAÇÃO (medido em 2026-08-30, não presumido).
+  # Superfície completa disponível: ponteiro, chords e teclas simples.
+  # A condição é o TRANSPORTE: input vai por QMP, não por RFB.
+  #   - ponteiro  -> QMP abs   (F-007; RFB PointerEvent não move nada)
+  #   - chords    -> QMP qcode (F-008; keysym RFB Super_L não é Command)
+  # Não trocar por RFB "para reduzir latência" sem reler os dois achados.
+  input_envelope:
+    plain_keys: true
+    enter: true
+    pointer: true                  # F-007 resolvido — backend qmp_abs
+    modifier_chords: true          # F-008 resolvido — backend qmp_qcode
+    transport: qmp
+
+  steps:
+    # O golden reverte para a TELA DE LOGIN, não para o desktop. Esperar por
+    # "Finder" expira em 360 s: a barra de menu mostra o app em foco (Safari,
+    # após restauração de sessão), então "Finder" pode nunca aparecer.
+    - id: login-screen
+      type: wait-text
+      text: "Password"
+      timeout_s: 400               # medido: 49 s no boot limpo do Sequoia
+
+    - id: login
+      type: type-then-enter        # campo de senha já vem com foco: sem clique
+      text: "123456"
+
+    - id: desktop-ready
+      type: wait-text
+      text: "Safari"               # barra de menu do app em foco
+      timeout_s: 180
+
+    # Saúde do OS: Safari restaura a sessão e RE-BUSCA a página na rede, o que
+    # exercita a pilha de rede do guest sem exigir clique nem atalho.
+    - id: web-health
+      type: assert-text
+      text: "bazzite"
+      timeout_s: 120
+      evidence: [screenshot, video]
+
+    # Desbloqueados em 2026-08-30 (F-007 + F-008). Navegação validada por dois
+    # caminhos independentes: Cmd+L + digitar + Enter, e click-text via OCR.
+    - id: fresh-navigation
+      type: navigate
+      url: https://en.wikipedia.org/wiki/Fedora_Linux
+      assert_text: "Fedora"
+      timeout_s: 120
+      evidence: [screenshot, video]
+
+    - id: webgl-render
+      type: navigate
+      url: https://webglsamples.org/aquarium/aquarium.html
+      duration_s: 60
+      evidence: [screenshot, video]
+
+# ------------------------------------------------------------------------------
+# Telemetria coletada durante toda a carga
+# ------------------------------------------------------------------------------
+telemetry:
+  interval_s: 1
+  gpu:
+    command: nvidia-smi
+    fields: [utilization.gpu, memory.used, power.draw, temperature.gpu]
+    format: csv
+  host:
+    - /proc/pressure/cpu
+    - /proc/pressure/memory
+    - /proc/pressure/io
+  guest:
+    - vcpu_time                      # via QMP query-cpus-fast
+
+# ------------------------------------------------------------------------------
+# Fases
+# ------------------------------------------------------------------------------
+phases:
+  - id: 1
+    name: Benchmark sequencial isolado
+    mode: sequential                 # uma VM por vez, host ocioso
+    matrix:
+      targets: [ventura, sonoma, sequoia]
+      devices: [reims-vgpu-pci, vmware-svga]
+    runs: 6
+    boot_class: testing              # revert automático do rail a cada boot
+
+  - id: 2
+    name: Concorrência e headroom do host
+    mode: concurrent
+    concurrent_vms: 2
+    # 16 GiB de RAM total. Dois guests macOS + host é apertado.
+    # Abortar e reportar em vez de deixar o host travar.
+    abort_if:
+      memory_pressure_avg10_gt: 20.0
+      vram_free_mib_lt: 256
+    success_criteria:
+      - host web browsing continua fluido
+      - sem swap thrashing
+      - input do host sem stutter perceptível
+
+# ------------------------------------------------------------------------------
+# Saída — determinística, um diretório por corrida
+# ------------------------------------------------------------------------------
+output:
+  root: /var/home/cloud/dev/Virtual Machines/macos/artifacts/bench
+  layout: "{date}/{target}-{device}"
+  files:
+    telemetry: telemetry.csv
+    summary: summary.json
+    screenshots: "shots/"
+    video: "render.mp4"
