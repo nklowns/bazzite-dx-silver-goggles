@@ -1056,14 +1056,17 @@ graph TD
 | **macOS Sequoia (15.x)** | XNU 24.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Tahoe (16.x, hoje macOS 26)** | XNU 25.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | 🔬 Experimental | Boot OK / Requer SMBIOS Apple Silicon/T2 Bypass |
 
-> **Nota sobre o Ventura.** O estado E2E acima foi alcançado, mas **não é o que está
-> congelado no snapshot golden**: ele boota no Setup Assistant, e o disco live
-> entra em kernel panic (`force_system_dataset() failed`). Reproduzido por dois
-> caminhos independentes. Enquanto o golden não for refeito, o Ventura não serve
-> de linha de base — ver F-011 em [`VIRT-FINDINGS.md`](./VIRT-FINDINGS.md).
+> **Nota sobre o Ventura.** A validação E2E aconteceu — foi a primeira das três —
+> mas **antes de existir mecanismo de snapshot**. Quando o golden foi capturado,
+> o disco já tinha seguido adiante, então aquele estado nunca chegou a ser
+> congelado. Medido hoje: o golden boota no Setup Assistant e o disco live entra
+> em kernel panic (`force_system_dataset() failed`). Enquanto não for refeito, o
+> Ventura não serve de linha de base — ver F-011 em
+> [`VIRT-FINDINGS.md`](./VIRT-FINDINGS.md).
 >
-> Vale a distinção geral: **um estado ter sido atingido não é o mesmo que o
-> snapshot contê-lo.**
+> A lição é de processo, não do guest: **validação sem captura não sobrevive.**
+> Um resultado só é reproduzível se o estado que o produziu for congelado no
+> mesmo momento.
 
 6. **Snapshots de estado limpo (Btrfs CoW):**
 Como os discos ficam num filesystem Btrfs, congelar e restaurar um estado
