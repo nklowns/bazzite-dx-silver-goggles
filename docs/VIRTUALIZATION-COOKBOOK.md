@@ -1005,37 +1005,35 @@ graph TD
      ```
    * **Passo 3: Registro da VM no Libvirt:**
      No utilitário `ujust macos-utils`, selecione **Register / Define Libvirt Domain** e escolha `macos-ventura`, `macos-sonoma` ou `macos-sequoia` (template em `/usr/share/ublue-os/virtualization/templates/macos.xml`).
-   * **Passo 4: Gestão de Snapshots Imutáveis em Btrfs (Rails via `vm-rail`):**
-     Para permitir testes destrutivos com reversão em milissegundos sem gastar espaço em disco (custo 0 bytes via Btrfs CoW / `reflink`):
+   * **Passo 4: Snapshots imutáveis em Btrfs (custo 0 byte):**
+     Para permitir testes destrutivos com reversão em milissegundos. Com a VM
+     desligada:
      ```bash
-     # 1. Inicializar Rail com Snapshot Base
-     vm-rail init macos-ventura default
+     # congelar um estado validado (imutável, extents compartilhados)
+     cp --reflink=auto disco.qcow2 golden.qcow2 && chmod 444 golden.qcow2
 
-     # 2. Reverter instantaneamente para o estado limpo
-     vm-rail revert macos-ventura
-
-     # 3. Capturar novo snapshot após configurar algo no macOS
-     vm-rail capture macos-ventura "pos-setup-assistant"
-
-     # 4. Listar todas as rails e gerações de snapshots
-     vm-rail list macos-ventura
+     # reverter para ele quantas vezes quiser
+     cp --reflink=auto -f golden.qcow2 disco.qcow2
      ```
-   * **Passo 5: Instalação Automatizada Zero-Touch (Bootstrap Headless via `vm-vision`):**
-     O agente de IA executa o provisionamento de ponta a ponta:
-     ```bash
-     vm-vision bootstrap-macos macos-ventura
-     ```
-     O orquestrador automatiza:
-     1. Reversão do disco para uma geração limpa (`vm-rail revert`).
+     Automatizar isso em torno dos discos de um domínio é papel de ferramenta
+     pessoal, não desta imagem. Se o guest for macOS, congele o `OVMF_VARS.fd`
+     **junto** do disco: o par precisa ser coerente (ver F-009).
+   * **Passo 5: Instalação automatizada (headless):**
+     O provisionamento sem interação é feito por ferramenta externa dirigindo o
+     guest por QMP (visão por `screendump` + OCR, input por `input-send-event`).
+     A sequência que precisa ser automatizada:
+     1. Reversão do disco para uma geração limpa (reflink do golden).
      2. Seleção do OpenCore Base System no menu de boot.
      3. Bypass da tela de seleção de idioma.
      4. Abertura do Terminal via navegação nativa de teclado na barra de menus.
      5. Formatação do disco em APFS (`Macintosh HD`) e execução do `startosinstall --agreetolicense --nointeraction`.
-   * **Passo 6: Acesso, Monitoramento e Agentes (MCP / `vm-vision`):**
-     Para monitorar logs do console serial em tempo real ou inspecionar a interface:
+   * **Passo 6: Acesso e monitoramento:**
+     O console serial do domínio é declarado no template e pode ser lido
+     diretamente; para inspeção de tela sem cliente gráfico, o `screendump` por
+     QMP devolve o framebuffer:
      ```bash
-     vm-vision logs macos-ventura -n 50
-     vm-vision scan macos-ventura
+     virsh -c qemu:///system qemu-monitor-command macos-ventura \
+       '{"execute":"screendump","arguments":{"filename":"/tmp/vm.ppm"}}'
      ```
      Para visualização local em paralelo sem travas de sessão:
      ```bash
@@ -1053,39 +1051,56 @@ graph TD
 
 | Versão macOS | Kernel / XNU | Topologia CPU Validada | USB Controller | Rede (SLIRP) | Status E2E | Prova Web (`bazzite.gg`) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **macOS Ventura (13.x)** | XNU 22.x | `Cascadelake-Server-noTSX` (Symmetric) | `qemu-xhci` / `ich9-ehci1` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
+| **macOS Ventura (13.x)** | XNU 22.x | `Cascadelake-Server-noTSX` (Symmetric) | `qemu-xhci` / `ich9-ehci1` | `vmxnet3` | ⚠️ Ver nota | Alcançado, mas não no snapshot |
 | **macOS Sonoma (14.x)** | XNU 23.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Sequoia (15.x)** | XNU 24.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
-| **macOS Tahoe (16.x)** | XNU 25.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | 🔬 Experimental | Boot OK / Requer SMBIOS Apple Silicon/T2 Bypass |
+| **macOS Tahoe (16.x, hoje macOS 26)** | XNU 25.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | 🔬 Experimental | Boot OK / Requer SMBIOS Apple Silicon/T2 Bypass |
 
-6. **Gerenciamento de Snapshots Golden Rails (`vm-rail`):**
-Cada imagem validada possui um rail imutável em Btrfs CoW (0 bytes extras de disco consumidos para duplicatas). Para restaurar qualquer imagem ao estado limpo pós-instalação:
+> **Nota sobre o Ventura.** O estado E2E acima foi alcançado, mas **não é o que está
+> congelado no snapshot golden**: ele boota no Setup Assistant, e o disco live
+> entra em kernel panic (`force_system_dataset() failed`). Reproduzido por dois
+> caminhos independentes. Enquanto o golden não for refeito, o Ventura não serve
+> de linha de base — ver F-011 em [`VIRT-FINDINGS.md`](./VIRT-FINDINGS.md).
+>
+> Vale a distinção geral: **um estado ter sido atingido não é o mesmo que o
+> snapshot contê-lo.**
+
+6. **Snapshots de estado limpo (Btrfs CoW):**
+Como os discos ficam num filesystem Btrfs, congelar e restaurar um estado
+validado custa 0 byte extra — `cp --reflink=auto` compartilha os extents, e
+divergem só as gravações posteriores.
+
 ```bash
-# Restaurar macOS Ventura
-vm-rail revert macos-ventura ventura-golden-installed
+# congelar (VM desligada)
+cp --reflink=auto disco.qcow2 golden.qcow2 && chmod 444 golden.qcow2
 
-# Restaurar macOS Sonoma
-vm-rail revert macos-sonoma sonoma-golden-installed
-
-# Restaurar macOS Sequoia
-vm-rail revert macos-sequoia sequoia-golden-installed
+# restaurar
+cp --reflink=auto -f golden.qcow2 disco.qcow2
 ```
 
-7. **Aceleração Gráfica Paravirtualizada com `reims-vgpu` (Vulkan Backend):**
-O `reims-vgpu` (`steelbrain/reims-vgpu`) emula o driver paravirtual nativo do macOS (`AppleParavirtGPU.kext`) através de um dispositivo customizado QEMU (`reims-vgpu-pci`), decodificando comandos Metal do guest diretamente no host Linux via Vulkan (`metal2vulkan`):
-* **Compilação do QEMU com Device Reims:**
-  ```bash
-  cd "/var/home/cloud/dev/tools/reims-vgpu"
-  REIMS_VGPU_BACKEND=vulkan ./scripts/qemu-build/qemu-build.sh --target x86_64 --backend vulkan
-  ```
-* **Boot Acelerado nos Rails Golden:**
-  ```bash
-  # Boot macOS 13/14/15 com janela nativa Wayland/Vulkan acelerada
-  ./vm/boot-x86.sh --rail macos-13 --testing --device reims-vgpu-pci
-  ./vm/boot-x86.sh --rail macos-14 --testing --device reims-vgpu-pci
-  ./vm/boot-x86.sh --rail macos-15 --testing --device reims-vgpu-pci
-  ```
-* **Status do Subsistema Gráfico:**
-  - ✅ **UEFI GOP Option ROM**: Compilado (`crates/reims-vgpu-efi/out/reims-vgpu-gop.rom`, 1920x1080 BGRA8).
-  - ✅ **Janela de Apresentação Host**: Wayland + Vulkan Swapchain integrado (`1920x1080, 3 swapchain images`).
-  - ✅ **Isolamento de Segurança**: Btrfs CoW automático com descarte de clone na saída.
+Armadilha que já custou caro aqui: **procedência de arquivo não é procedência de
+estado.** Um snapshot pode bater byte a byte com o disco de origem e ainda assim
+estar no ponto errado do ciclo de vida — foi o que aconteceu com o golden do
+Ventura. Verifique o que a imagem *contém*, não só de onde ela veio.
+
+7. **Aceleração gráfica no guest macOS:**
+Passthrough VFIO não resolve macOS + NVIDIA: não há driver macOS para GPUs
+recentes da NVIDIA, então a placa passada ao guest fica sem uso. Para Windows e
+Linux o passthrough segue sendo o caminho, e a imagem já o cobre de forma
+declarativa (`ujust setup-virtualization vfio-on`, `kvmfr-on`).
+
+Para macOS a alternativa é paravirtualização com tradução Metal → Vulkan no
+host, via dispositivo QEMU customizado. Isso exige compilar uma árvore QEMU
+própria e, portanto, vive fora desta imagem — é ferramenta de bancada, não
+mecanismo de sistema.
+
+Dois pontos de integração que importam se você for por esse caminho:
+
+* O `<emulator>` do domínio é sobrescrevível e o template já usa
+  `<qemu:commandline>` (para o `isa-applesmc`), que é o mesmo mecanismo para
+  injetar um dispositivo customizado. Feito assim, o guest continua sendo um
+  domínio libvirt normal — visível no Cockpit, gerenciável por `virsh`.
+* Dispositivos que apresentam em janela própria do host deixam o console do QEMU
+  vazio: `screendump`, VNC e o console do Cockpit devolvem preto. Verifique se o
+  dispositivo oferece modo de renderizar pelo console do QEMU antes de assumir
+  que é incompatível — medido, a aceleração pode ser preservada nesse modo.

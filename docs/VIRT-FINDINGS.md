@@ -75,8 +75,8 @@ virsh -c qemu:///system dumpxml macos-sonoma | grep -A2 "controller type='usb'"
 ```
 
 ### Notas
-`reims-vgpu/vm/boot-x86.sh` ainda monta `-device qemu-xhci` + `-device usb-ehci`
-na linha base. Ver **F-004** — o caminho acelerado não herda o fix do XML libvirt.
+O fix vive no XML do domínio. Quem bootar o mesmo disco por fora do libvirt —
+QEMU direto, por exemplo — **não herda nada disto** e reencontra a regressão.
 
 ---
 
@@ -101,9 +101,9 @@ Modelo de CPU **simétrico** com feature set explícito, em vez de passthrough:
 - Desabilitar: `hle`, `rtm`
 - OpenCore: spoof Comet Lake `0x000906EA`, SMBIOS `iMacPro1,1`, `CryptexFixup`
 
-Fixado em `virtualization/templates/macos.xml` (commit `e2ad251`).
-No `reims-vgpu`, equivalente em `boot-x86.sh`:
-`-cpu ${CPU_MODEL},-hle,-rtm,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on`.
+Fixado em `virtualization/templates/macos.xml` (commit `e2ad251`) e afirmado no
+build pelo `dx-verify`. Bootando o disco por fora do libvirt, o equivalente é
+`-cpu <modelo>,-hle,-rtm,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on`.
 
 ### Detecção rápida
 ```bash
@@ -143,8 +143,11 @@ de firmware antes de prosseguir.
 3. Aguardar patches upstream do OpenCore para XNU 25.
 
 ### Detecção rápida
+Capture o framebuffer e procure a mensagem — ela é estável e não aparece em
+nenhum outro estado:
 ```bash
-vm-vision wait-text macos-tahoe "could not be recovered" --timeout 300
+virsh -c qemu:///system qemu-monitor-command macos-tahoe \
+  '{"execute":"screendump","arguments":{"filename":"/tmp/tahoe.ppm"}}'
 ```
 
 ### Notas
@@ -154,9 +157,9 @@ afetados. Não gastar ciclo aqui antes das Fases 1–2 fecharem.
 ---
 
 <a id="f-009"></a>
-## F-009 — Boot pelo `boot-x86.sh` cai no seletor do OpenCore
+## F-009 — Boot fora do libvirt cai no seletor do OpenCore
 
-**Severidade** 🟡 Média · **Afeta** corridas de benchmark pelo caminho reims-vgpu
+**Severidade** 🟡 Média · **Afeta** bootar um disco macOS fora do libvirt
 **Estado** 🔬 Parcial — reproduzido e explicado, não reproduz em todos os rails
 **Descoberto em** 2026-08-30
 
@@ -181,23 +184,25 @@ BdsDxe: loading Boot0000 "UEFI QEMU HARDDISK QM00017 " from
 ```
 
 A entrada NVRAM `Boot0080` grava o **caminho de dispositivo** do controlador
-AHCI: `Pci(0x1F,0x2)`, que é onde o libvirt o coloca. O `boot-x86.sh` monta o
-`ich9-ahci` em `Pci(0x3,0x0)`. Caminho diferente ⇒ entrada inválida ⇒ o firmware
-cai no `Boot0000` (disco do OpenCore) ⇒ OpenCanopy abre e aguarda seleção.
+AHCI: `Pci(0x1F,0x2)`, que é onde o libvirt o coloca. Um QEMU montado à mão
+costuma pôr o `ich9-ahci` noutro slot (medido: `Pci(0x3,0x0)`). Caminho diferente
+⇒ entrada inválida ⇒ o firmware cai no `Boot0000` (disco do OpenCore) ⇒
+OpenCanopy abre e aguarda seleção.
 
 No libvirt isso nunca aparece porque lá o `Boot0080` resolve e o firmware entra
 direto no `boot.efi` do macOS — o seletor do OpenCore sequer é exibido.
 
 ### Escopo real — CORRIGIDO
 Uma versão anterior deste achado dizia que o rail `macos-13` atravessava o boot
-normalmente. **Errado**, e a origem do erro importa: veio de uma corrida do
-`vm-bench` que reportava aprovação sem verificar nada (ver F-006/notas do runner).
+normalmente. **Errado**, e a origem do erro importa: veio de uma corrida
+automatizada que reportava aprovação sem verificar nada.
 Medido depois: `macos-13` para no mesmo seletor.
 
 O seletor também aparece **sob libvirt** — o `macos-ventura` exibe três entradas
 (EFI, macOS Base System, Macintosh HD) e fica esperando. Portanto não é
-característica do caminho reims. O que varia por alvo é apenas se o OpenCore
-**auto-seleciona**: sonoma e sequoia atravessam sozinhos, ventura não.
+característica de um caminho de boot específico. O que varia por alvo é apenas
+se o OpenCore **auto-seleciona**: sonoma e sequoia atravessam sozinhos, ventura
+não.
 
 A causa do `Boot0080` inválido segue válida e explica por que o firmware cai no
 OpenCore em vez de ir direto ao macOS. O que **não** era do NVRAM é a falta de
@@ -214,16 +219,14 @@ input — isso é **F-010**.
 ### Solução declarativa
 **Ainda não existe** para o rail afetado. Direções candidatas, em ordem de custo:
 
-1. Ressemear `OVMF_VARS.fd` do rail a partir de um boot que tenha gravado
-   `Boot0080` **com o caminho de dispositivo do `boot-x86.sh`** — isto é, deixar
-   o próprio caminho reims escrever seu NVRAM uma vez, em `--capture`, e
-   congelar o resultado no snapshot.
+1. Regravar o `OVMF_VARS.fd` a partir de um boot feito **na mesma topologia PCI**
+   em que ele será usado, e congelar esse NVRAM junto do disco. O par
+   disco+NVRAM é que precisa ser coerente, não o disco sozinho.
 2. Ajustar `Misc/Boot/Timeout` no `config.plist` dentro do `OpenCore.qcow2` do
    rail, para o seletor auto-selecionar em vez de esperar. Resolve o sintoma
    sem depender do NVRAM.
 3. Nascer o teclado no EHCI em vez do XHCI, para dar input ao firmware — exige
-   mexer na linha de comando do `boot-x86.sh` (repo upstream) e só vale se a
-   direção 1 ou 2 falhar.
+   alterar a linha de comando do QEMU e só vale se a direção 1 ou 2 falhar.
 
 ### Detecção rápida
 ```bash
@@ -231,8 +234,7 @@ rg -n "failed to load Boot0080" <RUN_DIR>/serial-*.log
 ```
 
 ### Notas
-O `vm-bench` não trava nisso: o passo `login-screen` expira pelo `timeout_s` e
-a corrida é marcada `failed` com o último frame salvo, em vez de consumir o
-`hard_timeout_s` inteiro. Uma corrida que não alcança o SO **falha rápido** e
-deixa evidência — a matriz inteira não é perdida por causa de um rail.
+Quem automatizar isto deve **falhar rápido**: um passo que espera a tela de login
+precisa de timeout próprio e evidência salva, senão um boot preso no firmware
+consome o limite inteiro da corrida e é indistinguível de um boot lento.
 
