@@ -1057,3 +1057,16 @@ graph TD
 | **macOS Sonoma (14.x)** | XNU 23.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Sequoia (15.x)** | XNU 24.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
 | **macOS Tahoe (16.x)** | XNU 25.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | 🔬 Experimental | Boot OK / Requer SMBIOS Apple Silicon/T2 Bypass |
+
+6. **Gerenciamento de Snapshots Golden Rails (`vm-rail`):**
+Cada imagem validada possui um rail imutável em Btrfs CoW (0 bytes extras de disco consumidos para duplicatas). Para restaurar qualquer imagem ao estado limpo pós-instalação:
+```bash
+# Restaurar macOS Ventura
+vm-rail revert macos-ventura ventura-golden-installed
+
+# Restaurar macOS Sonoma
+vm-rail revert macos-sonoma sonoma-golden-installed
+
+# Restaurar macOS Sequoia
+vm-rail revert macos-sequoia sequoia-golden-installed
+```
