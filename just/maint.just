@@ -26,7 +26,7 @@ check:
       echo "Validating BlueBuild recipe..."
       bluebuild validate recipes/recipe.yml || rc=1
       echo "Validating generated build recipe (what CI actually ships)..."
-      just generate-recipe "bazzite-nvidia" "latest" || rc=1
+      just generate-recipe "bazzite-nvidia-open" "latest" || rc=1
       bluebuild validate recipes/build-recipe.yml || rc=1
     fi
     echo "Running ShellCheck on Bash scripts..."

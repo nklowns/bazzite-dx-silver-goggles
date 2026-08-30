@@ -104,7 +104,7 @@
       ignoreTests: true,
     },
     {
-      description: 'Auto-update and automerge Bazzite-Nvidia base image digest in image-versions.yaml',
+      description: 'Auto-update and automerge Bazzite-Nvidia-Open base image digest in image-versions.yaml',
       matchFileNames: [
         'image-versions.yaml',
       ],
@@ -113,7 +113,7 @@
         'pinDigest',
       ],
       matchPackageNames: [
-        'ghcr.io/ublue-os/bazzite-nvidia',
+        'ghcr.io/ublue-os/bazzite-nvidia-open',
       ],
       pinDigests: true,
       automerge: true,

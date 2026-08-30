@@ -59,7 +59,7 @@ jobs:
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
 
       - name: Generate Recipe
-        run: just generate-recipe "bazzite-nvidia" "latest"
+        run: just generate-recipe "bazzite-nvidia-open" "latest"
 
       - name: Build Custom Image
         uses: blue-build/github-action@836161eb076426a451e6a0054f722b1153b8b3ad # v1.12.0

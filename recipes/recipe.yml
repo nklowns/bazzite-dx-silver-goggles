@@ -4,7 +4,7 @@ name: bazzite-dx-silver-goggles
 description: "Personal DX layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NVIDIA — Slim Edition. Powered by BlueBuild."
 
 # Slim Edition Policy: only KDE/NVIDIA variant
-base-image: ghcr.io/ublue-os/bazzite-nvidia
+base-image: ghcr.io/ublue-os/bazzite-nvidia-open
 # Digest pinned by Renovate — see .github/renovate.json5
 image-version: latest # digest managed via image-versions.yaml (updated by Renovate)
 

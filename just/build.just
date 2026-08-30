@@ -4,14 +4,14 @@
 
 # Build image using BlueBuild CLI (Surface Recipe)
 [group('Build')]
-build target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_image tag)
+build target_image="bazzite-nvidia-open" tag=default_tag: (generate-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
     bluebuild build recipes/build-recipe.yml
 
 # Build image without using cache (prunes all build artifacts first)
 [group('Build')]
-build-nocache target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_image tag)
+build-nocache target_image="bazzite-nvidia-open" tag=default_tag: (generate-recipe target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Pruning all build artifacts and cache..."
@@ -27,7 +27,7 @@ generate-recipe target_image tag:
 [group('Build')]
 build-fork user branch:
     #!/usr/bin/env bash
-    echo "Override base-image in recipes/recipe.yml to ghcr.io/{{ user }}/bazzite-nvidia:{{ branch }}"
+    echo "Override base-image in recipes/recipe.yml to ghcr.io/{{ user }}/bazzite-nvidia-open:{{ branch }}"
     echo "Then run: just build"
 
 # Run GitHub Actions locally using act (uses BlueBuild job)

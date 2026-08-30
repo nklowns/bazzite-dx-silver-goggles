@@ -3,7 +3,7 @@
 # Loads a user-built image into the rootful Podman storage for local rebase.
 set -euo pipefail
 
-TARGET_IMAGE="${1:-bazzite-nvidia}"
+TARGET_IMAGE="${1:-bazzite-nvidia-open}"
 TAG="${2:-latest}"
 PODMAN="${PODMAN:-podman}"
 UID_VAL=$(id -u)

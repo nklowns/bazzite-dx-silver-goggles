@@ -5,7 +5,17 @@
 # that actually ships — keeping a second copy here only created a way for the two to
 # disagree. Renovate tracks those files directly via a customManager.
 images:
-  - name: bazzite-nvidia
-    image: ghcr.io/ublue-os/bazzite-nvidia
+  # Open kernel modules, not the closed ones. Two reasons, in order of weight:
+  #   1. Upstream treats this as the current path for RTX-series hardware — Bazzite's own
+  #      hardware helper (installer/system_files/shared/usr/bin/on_gui_login.sh) labels
+  #      *-nvidia-open* "modern nvidia desktop image" and plain *-nvidia:* "legacy".
+  #   2. HMM (Heterogeneous Memory Management) only works on the open modules. On the closed
+  #      build the UVM driver silently declines it: `uvm_disable_hmm` reads N, but modinfo
+  #      warns "HMM will not be enabled if is not supported in this driver build
+  #      configuration". Confirmed on the G15 (GA106, CC 8.6 — well past the Turing+ floor).
+  # Both :latest tags are built by the same pipeline seconds apart, so this does not trade
+  # away freshness; the open repo just does not publish the versioned -44 tags.
+  - name: bazzite-nvidia-open
+    image: ghcr.io/ublue-os/bazzite-nvidia-open
     tag: latest
-    digest: sha256:222e293e29b3ada7c14fd03a46f2c8b030c8e2935ebba825b8f8e1b13ba6a6e9
+    digest: sha256:010616ed07152c36c6fbe2a4116d20c038ca5eb2a83a3fa3997d545ed75de51d

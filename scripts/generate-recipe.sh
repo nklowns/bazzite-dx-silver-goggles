@@ -3,7 +3,7 @@
 # Generates the BlueBuild build-recipe.yml with OCI metadata and pinned digests.
 set -euo pipefail
 
-TARGET_IMAGE="${1:-bazzite-nvidia}"
+TARGET_IMAGE="${1:-bazzite-nvidia-open}"
 TAG="${2:-latest}"
 
 # Metadata Resolution
