@@ -1049,6 +1049,10 @@ graph TD
      virsh -c qemu:///system qemu-monitor-command macos-ventura '{"execute": "quit"}'
      ```
 
+5. **Matriz de Validação e Compatibilidade E2E:**
 
-
-
+| Versão macOS | Kernel / XNU | Topologia CPU Validada | USB Controller | Rede (SLIRP) | Status E2E | Prova Web (`bazzite.gg`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **macOS Ventura (13.x)** | XNU 22.x | `Cascadelake-Server-noTSX` (Symmetric) | `qemu-xhci` / `ich9-ehci1` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
+| **macOS Sonoma (14.x)** | XNU 23.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | ✅ 100% OK | Sim (Safari Desktop) |
+| **macOS Sequoia (15.x)** | XNU 24.x | `Cascadelake-Server-noTSX` (Symmetric) | `ich9-ehci1` + `ich9-uhci1..3` | `vmxnet3` | 🔬 Preparado | Em pipeline |
