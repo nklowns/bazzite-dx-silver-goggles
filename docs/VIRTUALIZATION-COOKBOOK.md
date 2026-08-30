@@ -1070,3 +1070,22 @@ vm-rail revert macos-sonoma sonoma-golden-installed
 # Restaurar macOS Sequoia
 vm-rail revert macos-sequoia sequoia-golden-installed
 ```
+
+7. **Aceleração Gráfica Paravirtualizada com `reims-vgpu` (Vulkan Backend):**
+O `reims-vgpu` (`steelbrain/reims-vgpu`) emula o driver paravirtual nativo do macOS (`AppleParavirtGPU.kext`) através de um dispositivo customizado QEMU (`reims-vgpu-pci`), decodificando comandos Metal do guest diretamente no host Linux via Vulkan (`metal2vulkan`):
+* **Compilação do QEMU com Device Reims:**
+  ```bash
+  cd "/var/home/cloud/dev/tools/reims-vgpu"
+  REIMS_VGPU_BACKEND=vulkan ./scripts/qemu-build/qemu-build.sh --target x86_64 --backend vulkan
+  ```
+* **Boot Acelerado nos Rails Golden:**
+  ```bash
+  # Boot macOS 13/14/15 com janela nativa Wayland/Vulkan acelerada
+  ./vm/boot-x86.sh --rail macos-13 --testing --device reims-vgpu-pci
+  ./vm/boot-x86.sh --rail macos-14 --testing --device reims-vgpu-pci
+  ./vm/boot-x86.sh --rail macos-15 --testing --device reims-vgpu-pci
+  ```
+* **Status do Subsistema Gráfico:**
+  - ✅ **UEFI GOP Option ROM**: Compilado (`crates/reims-vgpu-efi/out/reims-vgpu-gop.rom`, 1920x1080 BGRA8).
+  - ✅ **Janela de Apresentação Host**: Wayland + Vulkan Swapchain integrado (`1920x1080, 3 swapchain images`).
+  - ✅ **Isolamento de Segurança**: Btrfs CoW automático com descarte de clone na saída.
