@@ -1,25 +1,28 @@
-# 🔬 Virtualization Findings Ledger
+# 🔬 Virtualization Findings — Guest & Firmware Domain
 
-Registro **grepável** de sintoma → causa → solução declarativa, para o pipeline de VMs
-(macOS/Windows/Linux sobre KVM/QEMU no Dell G15 5520 / Bazzite-DX).
+Registro **grepável** de sintoma → causa → solução declarativa para virtualização
+nesta imagem. Escopo: fatos do **domínio** — comportamento de guest, firmware e
+topologia de hardware — que valem para qualquer usuário e que a imagem pode
+codificar de forma declarativa.
 
 > **Como usar**: bateu um erro? `rg -i "<trecho literal do erro>" docs/VIRT-FINDINGS.md`.
-> Cada achado tem o texto exato do sintoma para o grep casar.
+> Cada achado guarda o texto exato do sintoma para o grep casar.
 >
-> **Como escrever**: um achado por seção, id `F-NNN` imutável, sempre com os 5 campos
-> (Sintoma / Causa / Solução declarativa / Detecção rápida / Estado). Achado que amadurece
-> e vira procedimento migra para [`VIRTUALIZATION-COOKBOOK.md`](./VIRTUALIZATION-COOKBOOK.md)
-> — mas a entrada aqui **permanece**, com link, para o grep continuar funcionando.
+> **Como escrever**: um achado por seção, id `F-NNN` **imutável**, sempre com
+> Sintoma / Causa / Solução declarativa / Detecção rápida / Estado. Achado que
+> amadurece e vira procedimento migra para
+> [`VIRTUALIZATION-COOKBOOK.md`](./VIRTUALIZATION-COOKBOOK.md) — a entrada aqui
+> permanece, com link, para o grep continuar funcionando.
 
-**Convenções de caminho**
+**O que NÃO entra aqui.** Achado que depende de um usuário, de um caminho em
+`$HOME`, ou de ferramenta pessoal de automação não é domínio da imagem. Esses
+vivem no ledger do harness, em `~/dev/IDEs/global-harness/vm/FINDINGS.md`. Os ids
+são globais e não são reaproveitados, então as lacunas na numeração abaixo são
+intencionais — aquele id existe, do outro lado.
 
-| Papel | Caminho |
-|---|---|
-| SSOT de ferramentas (`vm-rail`, `vm-vision`) | `~/dev/IDEs/global-harness/bin/` → sync via `sync-harness.sh` |
-| Domínios libvirt macOS | `qemu:///system` — `macos-ventura`, `macos-sonoma`, `macos-sequoia`, `macos-tahoe` |
-| Discos + rails libvirt | `/var/home/cloud/dev/Virtual Machines/macos[/sonoma|/sequoia]/.rails/` |
-| Stack acelerada Vulkan | `/var/home/cloud/dev/tools/reims-vgpu` (QEMU in-tree próprio) |
-| Matriz de benchmark | [`../virtualization/benchmarks/matrix.yml`](../virtualization/benchmarks/matrix.yml) |
+**Verificação automática.** F-001 e F-002 não dependem de alguém lembrar: o
+`dx-verify` afirma no build que `templates/macos.xml` carrega a topologia
+correta e **não** carrega a que quebra. Ver `modules/dx-verify/dx-verify.sh`.
 
 ---
 
@@ -30,12 +33,7 @@ Registro **grepável** de sintoma → causa → solução declarativa, para o pi
 | [F-001](#f-001) | `qemu-xhci` derruba o input no macOS Sonoma+ (`kernel_task` 700%) | 🔴 Alta | ✅ Resolvido |
 | [F-002](#f-002) | Topologia P/E-core assimétrica causa panic do XNU | 🔴 Alta | ✅ Resolvido |
 | [F-003](#f-003) | macOS Tahoe 16: `Unable to Recover: Your Mac could not be recovered` | 🟡 Média | 🔬 Aberto |
-| [F-004](#f-004) | `vm-vision` não enxerga guests do `reims-vgpu` (sem VNC, sem domínio libvirt) | 🔴 Alta | ✅ Resolvido |
-| [F-005](#f-005) | Rail `macos-13` do reims-vgpu semeado do disco **live**, não do golden | 🟡 Média | ✅ Resolvido |
-| [F-006](#f-006) | `vm-vision` perde teclas: eventos RFB em lote num único `sendall` | 🔴 Alta | ✅ Resolvido |
-| [F-007](#f-007) | Ponteiro não responde a eventos RFB nos guests macOS | 🔴 Alta | ✅ Resolvido |
-| [F-008](#f-008) | Chords com modificador não chegam via keysym RFB (`Super_L` ≠ Command) | 🔴 Alta | ✅ Resolvido |
-
+| [F-009](#f-009) | Seletor do OpenCore espera seleção; NVRAM com caminho de dispositivo obsoleto | 🟡 Média | ✅ Explicado |
 ---
 
 <a id="f-001"></a>
@@ -155,317 +153,86 @@ afetados. Não gastar ciclo aqui antes das Fases 1–2 fecharem.
 
 ---
 
-<a id="f-004"></a>
-## F-004 — `vm-vision` não enxerga guests do `reims-vgpu`
+<a id="f-009"></a>
+## F-009 — Boot pelo `boot-x86.sh` cai no seletor do OpenCore
 
-**Severidade** 🔴 Alta · **Afeta** todo benchmark acelerado · **Estado** ✅ Resolvido
-**Descoberto e corrigido em** 2026-08-30
-
-### Sintoma
-Qualquer verbo de visão (`scan`, `wait-text`, `click-text`, `record`, `screenshot`)
-falha ou retorna vazio contra um guest iniciado por
-`reims-vgpu/vm/boot-x86.sh`. Nenhum erro óbvio de conexão — simplesmente não há alvo.
-
-### Causa
-Dois pressupostos embutidos no `vm-vision`, ambos violados pelo caminho acelerado:
-
-1. **Descoberta do alvo**: `get_vnc_port()` resolve a porta lendo
-   `virsh dumpxml <vm>` → `<graphics type='vnc' port=…>`. O `boot-x86.sh` sobe QEMU
-   **raw**, sem domínio libvirt — `dumpxml` retorna erro, a porta vira `None`.
-2. **Transporte**: mesmo com a porta conhecida, não há servidor VNC. O `boot-x86.sh`
-   apresenta o framebuffer numa janela **winit/Wayland** (`REIMS_VGPU_WINDOW=1`, com
-   QEMU em `-display none`) ou via `-display gtk`. Nenhum dos dois fala RFB.
-
-Consequência de projeto: a Fase 1 do benchmark assume automação por OCR nas duas
-pernas (Vulkan e `vmware-svga`), mas só a perna libvirt é observável hoje.
-
-### Solução declarativa
-O plano inicial era anexar um `-vnc` ao `boot-x86.sh` como canal lateral. **Não é
-necessário** — e a correção do desenho importa, porque teria criado drift num repo
-upstream limpo (`steelbrain/reims-vgpu`) sem ganho.
-
-O `boot-x86.sh` **já** abre `-qmp unix:$QMP_SOCK,server=on,wait=off`, e QMP é um
-plano de controle completo por si só. Confirmado na árvore do QEMU 11.0.50 vendorizado:
-
-| Comando | Origem | Serve para |
-|---|---|---|
-| `screendump` (com `format`, PNG desde 7.1) | `qapi/ui.json:198` | visão |
-| `input-send-event` | `qapi/ui.json:1312` | controle |
-| `query-status` | — | estado do guest |
-| `query-cpus-fast` | `qapi/machine.json:142` | telemetria de vCPU |
-
-Implementado no `vm-vision` (SSOT) como **transporte QMP de backend duplo**: todo
-verbo que dependia de QMP passa por `qmp_run()`, que despacha para
-
-- `virsh qemu-monitor-command <domínio>` — libvirt, caminho default, inalterado;
-- socket unix falando QMP — QEMU raw, sem libvirt.
-
-Seleção por `--qmp <socket>` (ou `VM_VISION_QMP`), aceita antes ou depois do
-subcomando. `--vnc-port <N>` (ou `VM_VISION_VNC_PORT`) segue disponível para o
-caminho RFB de baixa latência quando houver VNC.
-
-**Zero patches no repo upstream.** O caminho libvirt foi testado por regressão
-(boot, `status`, `screenshot`) e segue intacto.
-
-### Detecção rápida
-```bash
-virsh -c qemu:///system dumpxml <vm> >/dev/null 2>&1 || echo "alvo não-libvirt: use --vnc-port"
-```
-
-### Notas
-Medir FPS **pela janela winit**, não pelo VNC — o VNC tem cadência própria e
-contaminaria a métrica de renderização.
-
----
-
-<a id="f-005"></a>
-## F-005 — Rail `macos-13` do reims-vgpu semeado do disco live, não do golden
-
-**Severidade** 🟡 Média · **Afeta** comparabilidade da Fase 1 · **Estado** ✅ Resolvido
-**Descoberto e corrigido em** 2026-08-30
+**Severidade** 🟡 Média · **Afeta** corridas de benchmark pelo caminho reims-vgpu
+**Estado** 🔬 Parcial — reproduzido e explicado, não reproduz em todos os rails
+**Descoberto em** 2026-08-30
 
 ### Sintoma
-Comparação silenciosamente inválida: `macos-14` e `macos-15` batem md5 com seus
-goldens, `macos-13` não. Nenhum erro é emitido — o benchmark rodaria e produziria
-números não comparáveis entre versões.
+O guest sobe, apresenta framebuffer, mas para no seletor gráfico do OpenCore
+(OpenCanopy: dois ícones de disco, `EFI` e `Macintosh HD`, marca d'água
+`REL-106-2025-11-03`) e **fica lá indefinidamente**. Nenhum input o move: nem
+teclado nem ponteiro por QMP, nem `sendkey` por HMP.
 
-Medido (primeiros 64 MiB, mesmo tamanho de arquivo nos três):
-
-| rail | md5 (64 MiB) vs golden | md5 vs disco live | veredito |
-|---|---|---|---|
-| `macos-13` | ❌ difere | ✅ bate | drift |
-| `macos-14` | ✅ bate | — | ok |
-| `macos-15` | ✅ bate | — | ok |
+Enganoso porque o guest está **saudável** — `query-status` diz `running`,
+`info registers` mostra CPU executando o laço do OpenCanopy, e o framebuffer só
+não muda porque nada acontece. Parece VM travada; é VM esperando.
 
 ### Causa
-Os `base/` dos rails do reims-vgpu foram copiados em 30 ago 01:53–01:54. O golden do
-Ventura foi congelado em 29 ago 20:30 — houve boot e escrita no disco live no intervalo,
-e a cópia pegou o disco live. Sonoma e Sequoia foram capturados em 30 ago 01:36 e não
-foram bootados depois, então live e golden coincidem por acaso, não por garantia.
-
-Causa estrutural: os dois sistemas de rail (`vm-rail` para libvirt, `vm/disks/rails/`
-para reims-vgpu) são **independentes**, sem procedência declarada. Nada amarra um
-`base/` reims ao snapshot libvirt que o originou.
-
-### Solução declarativa
-1. Ressemear `macos-13/snapshots/base/macos.img` a partir do golden imutável:
-   ```bash
-   cp --reflink=auto -f \
-     "/var/home/cloud/dev/Virtual Machines/macos/.rails/default/snapshots/ventura-golden-installed/macos-disk.qcow2" \
-     "/var/home/cloud/dev/tools/reims-vgpu/vm/disks/rails/macos-13/snapshots/base/macos.img"
-   chmod 444 <destino>
-   ```
-   Reversível: o golden é imutável (444) e o conteúdo atual do `base` continua existindo
-   no disco live do libvirt. Nada é perdido.
-2. Declarar procedência em [`../virtualization/benchmarks/matrix.yml`](../virtualization/benchmarks/matrix.yml)
-   (campo `source_snapshot` por rail) e verificá-la antes de cada corrida.
-
-### Detecção rápida
-```bash
-# comparar rail reims vs golden libvirt (barato: primeiros 64 MiB + tamanho)
-head -c 64M <rail>/snapshots/base/macos.img | md5sum
-head -c 64M <golden>/macos-*.qcow2 | md5sum
-```
-
-### Resultado da correção (2026-08-30)
-Resseed executado. `macos-13/snapshots/base/macos.img` agora casa com o golden:
+O serial nomeia o problema:
 
 ```
-antes:  ce4155800587321771033068f0c60426   (== disco live do libvirt)
-depois: a3d8625ee84e914628a5f80296068c14
-golden: a3d8625ee84e914628a5f80296068c14   ✅
+BdsDxe: failed to load Boot0080 "Mac OS X" from
+  PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x1,0x0,0x0)/HD(2,GPT,...)/...boot.efi: Not Fo[und]
+BdsDxe: loading Boot0000 "UEFI QEMU HARDDISK QM00017 " from
+  PciRoot(0x0)/Pci(0x3,0x0)/Sata(0x2,0xFFFF,0x0)
 ```
 
-Os três rails estão em `provenance: verified` no `matrix.yml`.
+A entrada NVRAM `Boot0080` grava o **caminho de dispositivo** do controlador
+AHCI: `Pci(0x1F,0x2)`, que é onde o libvirt o coloca. O `boot-x86.sh` monta o
+`ich9-ahci` em `Pci(0x3,0x0)`. Caminho diferente ⇒ entrada inválida ⇒ o firmware
+cai no `Boot0000` (disco do OpenCore) ⇒ OpenCanopy abre e aguarda seleção.
 
-### Notas
-`head -c 64M` cobre header qcow2 + L1 + início da L2 — suficiente para pegar drift de
-escrita, **não** é prova criptográfica de identidade total. Para o benchmark basta;
-para atestação, hash completo.
+No libvirt isso nunca aparece porque lá o `Boot0080` resolve e o firmware entra
+direto no `boot.efi` do macOS — o seletor do OpenCore sequer é exibido.
 
-**Melhoria estrutural pendente**: a verificação de procedência deve ser um *preflight*
-automático do runner (comparar `source_snapshot` × `base/` antes de cada corrida), não
-uma inspeção manual. Sem isso, o drift volta na próxima vez que alguém bootar um golden
-em modo escrita. Endereçado no harness de benchmark.
+### Escopo real — CORRIGIDO
+Uma versão anterior deste achado dizia que o rail `macos-13` atravessava o boot
+normalmente. **Errado**, e a origem do erro importa: veio de uma corrida do
+`vm-bench` que reportava aprovação sem verificar nada (ver F-006/notas do runner).
+Medido depois: `macos-13` para no mesmo seletor.
 
----
+O seletor também aparece **sob libvirt** — o `macos-ventura` exibe três entradas
+(EFI, macOS Base System, Macintosh HD) e fica esperando. Portanto não é
+característica do caminho reims. O que varia por alvo é apenas se o OpenCore
+**auto-seleciona**: sonoma e sequoia atravessam sozinhos, ventura não.
 
-<a id="f-006"></a>
-## F-006 — `vm-vision` perde teclas: eventos RFB em lote num único `sendall`
+A causa do `Boot0080` inválido segue válida e explica por que o firmware cai no
+OpenCore em vez de ir direto ao macOS. O que **não** era do NVRAM é a falta de
+input — isso é **F-010**.
 
-**Severidade** 🔴 Alta · **Afeta** toda automação de teclado · **Estado** ✅ Resolvido
-**Descoberto e corrigido em** 2026-08-30
-
-### Sintoma
-Texto digitado chega **truncado**, sem erro em lugar nenhum. Medido no Safari do
-macOS Sequoia: `vm-vision type ... "example.com"` produziu `examp` na barra de
-endereço. A chamada retorna `{"status": "success", "typed_length": 11}`.
-
-Truncamento silencioso se parece com guest travado, não com input descartado — foi
-exatamente essa a leitura errada durante o diagnóstico.
-
-### Causa
-`FastVNCClient.type_string()` montava a string inteira num `bytearray` e fazia **um
-único `sendall`**, sem intervalo entre teclas. O teclado USB HID emulado não absorve
-pares keydown/keyup entregues nessa cadência e o excedente é descartado. Mesmo padrão
-em `send_keys()`.
-
-### Solução declarativa
-Uma escrita RFB **por tecla**, com pausa entre elas, em
-`~/dev/IDEs/global-harness/bin/vm-vision` (SSOT):
-
-- `type_string()`: um `sendall` por caractere + `time.sleep(KEY_DELAY_S)`.
-- `send_keys()`: flush paginado de 8 em 8 bytes (um KeyEvent RFB por escrita).
-- Knob: `VM_VISION_KEY_DELAY_MS`, default **12 ms**. Aumentar se ainda cair
-  caractere; baixar para guests Linux, que toleram muito mais.
-
-Não voltar a agrupar num `sendall` só — foi a regressão original.
-
-### Detecção rápida
-Digite uma string conhecida num campo de texto e compare com o que aparece. Se o
-final some, é isto.
-
-### Notas
-Pacing **não** conserta chords com modificador nestes guests — ver **F-008**. Uma
-versão anterior deste achado atribuía a barra de endereço esvaziada e o menu Apple
-aberto a um `Cmd` preso por key-up descartado. **A evidência posterior derrubou essa
-explicação**: com o pacing aplicado, nenhum chord tem efeito algum, então o `Cmd`
-nunca chegou para ficar preso. O truncamento acima é medido; a causa daqueles dois
-sintomas segue em aberto.
-
----
-
-<a id="f-007"></a>
-## F-007 — Ponteiro não responde a eventos RFB nos guests macOS
-
-**Severidade** 🔴 Alta · **Afeta** `click`, `click-id`, `click-text`, `bootstrap-macos`
-**Estado** ✅ Resolvido · **Descoberto e corrigido em** 2026-08-30
-
-### Sintoma
-Nenhum clique chega ao alvo. O cursor fica parado no canto superior esquerdo,
-sobre o logo da Apple, e **não se move um pixel** por mais eventos que se envie.
-`vm-vision click` retorna `{"status": "success"}` em todos os casos.
-
-Sintomas secundários que enganam o diagnóstico: o menu Apple abre "sozinho", um
-Enter posterior ativa o item destacado, e a janela do Safari perde foco. Tudo isso
-lê como guest possuído ou travado — mas o guest está **ocioso e saudável** (relógio
-avança, tela repinta, teclado responde).
-
-### Causa
-Não determinada. O que foi **descartado com medição**:
-
+### O que foi descartado por medição
 | Hipótese | Teste | Resultado |
 |---|---|---|
-| Guest travado / `kernel_task` a 700% (F-001) | `top -H` nas threads do QEMU | Todas as vCPU a **0%**. O `ps %CPU` de 237% era média de vida do processo, não instantâneo — leitura errada minha |
-| Fix EHCI ausente | `dumpxml \| grep controller` | `ich9-ehci1` + 3 UHCI **já aplicados** |
-| USB não enumerado | HMP `info usb` | Tablet e teclado presentes, 480 Mb/s |
-| Ponteiro é relativo, cliques absolutos derivam | `query-mice` | Tablet HID é `current: true, absolute: true` |
-| QEMU roteia para o tablet e descarta `rel` | HMP `mouse_set 2` (PS/2) + eventos `rel` | Cursor **continua imóvel** |
-| Pilha HID travou pela tempestade de eventos | revert ao golden + boot limpo | Cursor **já nasce imóvel** |
-
-Medição decisiva — dois frames com um `rel +600,+360` entre eles:
-
-```
-bbox das diferencas: (573, 710, 575, 726)
-```
-
-Uma região de **2×16 px**: o cursor de texto piscando no campo de senha. O ponteiro
-não se moveu. O macOS simplesmente não consome nenhum dispositivo apontador aqui.
-
-### Causa raiz (2026-08-30)
-Nenhuma das três direções candidatas era o problema. O guest está inteiro:
-`ioreg -c IOHIDDevice` dentro do macOS lista **"QEMU USB Tablet"** e
-**"QEMU USB Keyboard"** — enumeração e binding de driver corretos.
-
-O problema é **transporte**. O `FastVNCClient` do `vm-vision` entrega PointerEvent
-por RFB, e esses eventos não movem o cursor neste guest. Os mesmos movimentos
-enviados por **QMP `input-send-event` com eixos `abs`** funcionam perfeitamente.
-
-O mapeamento é linear: `value = coord / dimensão * 0x7FFF` (`INPUT_EVENT_ABS_MAX`).
-Verificado no meio e fora do centro:
-
-| enviado | esperado (tela 1280x800) | cursor observado |
-|---|---|---|
-| `abs=(16383,16383)` = `0x7FFF/2` | (640, 400) | **(640, 405)** ✅ |
-| `abs=(23040,24575)` | (900, 600) | **(900, 610)** ✅ |
-
-Detalhe que custa tempo: **o primeiro evento `abs` depois de uma troca de
-dispositivo é absorvido pelo guest.** Enviar a posição duas vezes resolve.
+| NVRAM do rail está velho | trocar `OVMF_VARS.fd` pelo do libvirt | seletor continua |
+| OpenCore do rail difere do golden | md5 | `macos-14`/`macos-15` **idênticos** ao golden |
+| Input não chega no firmware por rota de teclado | remover `usb-kbd` para o PS/2 assumir | sem efeito |
+| OVMF sem driver XHCI (teclado nasce no XHCI) | `device_add usb-kbd,bus=ehci.0` | **inconclusivo**: hot-add depois da varredura do firmware não é reenumerado |
 
 ### Solução declarativa
-`pointer_move_abs()` no `vm-vision` (SSOT) passou a emitir `abs` por QMP, e
-`vnc_pointer_action()` faz o clique com eventos `btn` pelo mesmo caminho
-(`backend: qmp_abs`). O caminho RFB continua no código mas é opt-in
-(`VM_VISION_ABSOLUTE_POINTER`), porque não move nada aqui.
+**Ainda não existe** para o rail afetado. Direções candidatas, em ordem de custo:
 
-Serve aos dois backends de F-004 — libvirt e QEMU raw — sem código extra.
-
-Validado ponta a ponta: `vm-vision click-text macos-sequoia "Wikipedia"` fez OCR
-(confiança 0.97), clicou em (772, 297) e carregou `wikipedia.org` ao vivo.
+1. Ressemear `OVMF_VARS.fd` do rail a partir de um boot que tenha gravado
+   `Boot0080` **com o caminho de dispositivo do `boot-x86.sh`** — isto é, deixar
+   o próprio caminho reims escrever seu NVRAM uma vez, em `--capture`, e
+   congelar o resultado no snapshot.
+2. Ajustar `Misc/Boot/Timeout` no `config.plist` dentro do `OpenCore.qcow2` do
+   rail, para o seletor auto-selecionar em vez de esperar. Resolve o sintoma
+   sem depender do NVRAM.
+3. Nascer o teclado no EHCI em vez do XHCI, para dar input ao firmware — exige
+   mexer na linha de comando do `boot-x86.sh` (repo upstream) e só vale se a
+   direção 1 ou 2 falhar.
 
 ### Detecção rápida
 ```bash
-# dois frames com um movimento entre eles; se só o caret piscar, o ponteiro está morto
-vm-vision screenshot <vm> -o /tmp/a.png
-# ... enviar rel move ...
-vm-vision screenshot <vm> -o /tmp/b.png
-# comparar com PIL: ImageChops.difference(a, b).getbbox()
+rg -n "failed to load Boot0080" <RUN_DIR>/serial-*.log
 ```
 
 ### Notas
-`query-mice` reporta o dispositivo **que o QEMU entregaria**, não o que o guest
-consome. Foi o que me levou ao diagnóstico errado de "ponteiro relativo" — anotado
-aqui porque a distinção não é óbvia e vai enganar de novo.
+O `vm-bench` não trava nisso: o passo `login-screen` expira pelo `timeout_s` e
+a corrida é marcada `failed` com o último frame salvo, em vez de consumir o
+`hard_timeout_s` inteiro. Uma corrida que não alcança o SO **falha rápido** e
+deixa evidência — a matriz inteira não é perdida por causa de um rail.
 
-O código já continha a pista: o caminho `bootstrap-macos` tinha um homing relativo
-(`rel -2000,-2000` e passos de `+5`) que só existe se alguém já bateu neste muro.
-Esse workaround também não move o cursor hoje.
-
----
-
-<a id="f-008"></a>
-## F-008 — Chords com modificador não chegam via keysym RFB
-
-**Severidade** 🔴 Alta · **Afeta** toda automação que dependa de atalho
-**Estado** ✅ Resolvido · **Descoberto e corrigido em** 2026-08-30
-
-### Sintoma
-`vm-vision send-key <vm> cmd l` e `cmd t` não produzem **efeito nenhum** no Safari:
-a barra de endereço não foca, nenhuma aba abre. Sem erro; a chamada reporta sucesso
-e lista as teclas enviadas. Teclas simples e `enter` no mesmo guest funcionam.
-
-Testado em boot limpo do golden, **depois** do pacing de F-006 — portanto não é
-overflow de eventos.
-
-### Causa
-**Namespace errado.** `send_keys()` emitia keysyms X11 por RFB e mapeava Command
-para `Super_L` (`0xffeb`). O macOS não reconhece esse keysym como Command.
-
-O QMP usa outro namespace — **qcodes do QEMU** — e ali a mesma tecla chama-se
-`meta_l`. Pelo caminho qcode o chord idêntico funciona.
-
-### Solução declarativa
-`qmp_send_chord()` no `vm-vision` (SSOT): chords vão por
-`input-send-event` com `{"key": {"type": "qcode", ...}}`, e `send_key()` tenta
-esse caminho primeiro (`backend: qmp_qcode`), caindo para RFB só se a tecla não
-estiver no `QCODE_MAP`. Modificadores são soltos em ordem inversa à de pressão,
-para nada ficar preso.
-
-Validação — `Cmd+T` abriu aba nova e focou a barra de endereço, comprovado por
-diff de framebuffer (`bbox 151,77 -> 1092,105`, a barra de abas surgindo). Depois,
-`Cmd+L` → digitar → Enter navegou para `example.com` ao vivo.
-
-### Detecção rápida
-```bash
-vm-vision send-key <vm> cmd t   # nova aba no Safari: inócuo e visível
-# nenhuma aba nova == chords não chegam
-```
-
-### Notas
-Isto e **F-007** têm a mesma moral: nos guests macOS o **transporte RFB do
-`vm-vision` não entrega input** — nem ponteiro, nem modificador — enquanto o QMP
-entrega os dois. Teclas simples por RFB funcionam, o que mascara o problema e faz
-parecer bug de guest.
-
-Regra prática: **input por QMP, visão por screendump.** O RFB fica só como
-caminho opcional de baixa latência para guests que comprovadamente o aceitem.

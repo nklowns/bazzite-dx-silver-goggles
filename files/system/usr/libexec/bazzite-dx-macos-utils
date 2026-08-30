@@ -102,14 +102,15 @@ case "$OPTION" in
 	TMP_DIR=$(mktemp -d)
 	(
 		cd "$TMP_DIR"
-		if command -v quickget &>/dev/null; then
-			quickget macos "$VERSION"
-		else
-			echo "quickget not found in PATH — fetching ephemeral quickget runner..."
-			curl -fsSL "https://raw.githubusercontent.com/quickemu-project/quickemu/master/quickget" -o quickget
-			chmod +x quickget
-			./quickget macos "$VERSION"
+		# quickget is a dependency; never curl-and-execute it (atomic host).
+		if ! command -v quickget &>/dev/null; then
+			echo "${red}quickget not found in PATH.${normal}" >&2
+			echo "This recipe orchestrates the libvirt side; obtaining install media is up to you." >&2
+			echo "Install quickemu (which provides quickget) and re-run, or place the media in" >&2
+			echo "${MACOS_DIR} yourself and use 'prepare'." >&2
+			exit 1
 		fi
+		quickget macos "$VERSION"
 		if [[ -f "BaseSystem.dmg" ]]; then
 			echo "Converting BaseSystem.dmg -> BaseSystem.img..."
 			dmg2img -i "BaseSystem.dmg" -o "$MACOS_DIR/BaseSystem.img"

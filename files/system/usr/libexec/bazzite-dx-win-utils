@@ -39,16 +39,14 @@ fi
 case "$OPTION" in
 *"Windows 11" | windows-fetch)
 	echo "=== Downloading Windows 11 via quickget ==="
-	if command -v quickget &>/dev/null; then
-		quickget windows 11
-	else
-		echo "quickget not found in PATH — fetching ephemeral quickget runner..."
-		TMP_DIR=$(mktemp -d)
-		curl -fsSL "https://raw.githubusercontent.com/quickemu-project/quickemu/master/quickget" -o "$TMP_DIR/quickget"
-		chmod +x "$TMP_DIR/quickget"
-		(cd "$TMP_DIR" && ./quickget windows 11)
-		rm -rf "$TMP_DIR"
+	# quickget is a dependency; never curl-and-execute it (atomic host).
+	if ! command -v quickget &>/dev/null; then
+		echo "quickget not found in PATH." >&2
+		echo "This recipe orchestrates the libvirt side; obtaining install media is up to you." >&2
+		echo "Install quickemu (which provides quickget) and re-run." >&2
+		exit 1
 	fi
+	quickget windows 11
 	;;
 
 *"VirtIO" | virtio)

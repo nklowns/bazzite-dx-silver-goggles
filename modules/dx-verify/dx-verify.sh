@@ -160,6 +160,11 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/libexec/bazzite-dx-macos-utils|Asset: macOS Guest Utils|Error"
 	"file|/usr/share/ublue-os/virtualization/templates/macos.xml|Asset: macOS Libvirt Template|Error"
 	"file|/usr/share/ublue-os/virtualization/templates/windows.xml|Asset: Windows Libvirt Template|Error"
+	# XNU quirks, scoped to macos.xml — Windows legitimately uses both (F-001, F-002)
+	"content|/usr/share/ublue-os/virtualization/templates/macos.xml::Cascadelake|Guest macOS: symmetric CPU model|Error"
+	"content|/usr/share/ublue-os/virtualization/templates/macos.xml::ich9-ehci1|Guest macOS: EHCI USB topology|Error"
+	"nocontent|/usr/share/ublue-os/virtualization/templates/macos.xml::host-passthrough|Guest macOS: no hybrid CPU passthrough|Error"
+	"nocontent|/usr/share/ublue-os/virtualization/templates/macos.xml::qemu-xhci|Guest macOS: no XHCI controller|Error"
 	"file|/usr/share/ublue-os/virtualization/bootstrap/windows/autounattend.xml|Asset: Windows Bootstrap Answer File|Error"
 	"file|/usr/share/ublue-os/virtualization/bootstrap/linux/ks.cfg|Asset: Linux Kickstart Bootstrap File|Error"
 	"file|/usr/share/ublue-os/virtualization/bootstrap/macos/install.sh|Asset: macOS Bootstrap Script|Error"
@@ -201,6 +206,14 @@ CheckTarget() { [[ -L "/etc/systemd/system/default.target" ]] && [[ $(readlink /
 CheckContent() {
 	local path="${1%%::*}" pattern="${1#*::}"
 	[[ -f "$path" ]] && grep -q "$pattern" "$path"
+}
+
+# NoContent provider: target is "path::pattern"; passes when pattern is ABSENT.
+# Missing file passes — existence is the `file|` provider's job.
+CheckNoContent() {
+	local path="${1%%::*}" pattern="${1#*::}"
+	[[ -f "$path" ]] || return 0
+	! grep -q "$pattern" "$path"
 }
 
 # Desktop provider is silent if file is missing (Parity with original behavior)
@@ -274,6 +287,7 @@ RunAudit() {
 		bin) success=$(CheckBinary "$target" && echo 1 || echo 0) ;;
 		target) success=$(CheckTarget "$target" && echo 1 || echo 0) ;;
 		content) success=$(CheckContent "$target" && echo 1 || echo 0) ;;
+		nocontent) success=$(CheckNoContent "$target" && echo 1 || echo 0) ;;
 		desktop) success=$(CheckDesktop "$target" && echo 1 || echo 0) ;;
 		unit) success=$(CheckUnit "$target" && echo 1 || echo 0) ;;
 		nostage) success=$(CheckNoStage "$target" && echo 1 || echo 0) ;;
