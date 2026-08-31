@@ -8,4 +8,4 @@ images:
   - name: bazzite-nvidia
     image: ghcr.io/ublue-os/bazzite-nvidia
     tag: latest
-    digest: sha256:222e293e29b3ada7c14fd03a46f2c8b030c8e2935ebba825b8f8e1b13ba6a6e9
+    digest: sha256:a23550169e49dd2d6cfc952fcdf69cbd75bb1cbe3aca1f180eced65df8bcc027
