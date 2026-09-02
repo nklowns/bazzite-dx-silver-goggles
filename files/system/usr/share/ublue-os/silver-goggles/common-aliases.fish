@@ -10,6 +10,27 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
     set -q BLUEFIN_SHELL_ENABLE_UGREP; or set -g BLUEFIN_SHELL_ENABLE_UGREP 1
     set -q BLUEFIN_SHELL_ENABLE_BAT; or set -g BLUEFIN_SHELL_ENABLE_BAT 1
 
+    # --- Graphical Display & Session Auto-Heal (Wayland / X11 / D-Bus) ---
+    if test -n "$XDG_RUNTIME_DIR"
+        if test -z "$WAYLAND_DISPLAY"
+            # Pick the most recent Wayland socket by mtime (command ls bypasses eza alias)
+            set -l _latest_sock (command ls -1t $XDG_RUNTIME_DIR/wayland-* 2>/dev/null | string match -rv '\.lock$' | head -n1)
+            if test -n "$_latest_sock"; and test -S "$_latest_sock"
+                set -gx WAYLAND_DISPLAY (basename "$_latest_sock")
+                test -z "$XDG_SESSION_TYPE"; and set -gx XDG_SESSION_TYPE "wayland"
+                test -z "$XDG_CURRENT_DESKTOP"; and set -gx XDG_CURRENT_DESKTOP "KDE"
+            end
+        end
+
+        if test -z "$DISPLAY"; and test -S /tmp/.X11-unix/X0
+            set -gx DISPLAY ":0"
+        end
+
+        if test -z "$DBUS_SESSION_BUS_ADDRESS"; and test -S "$XDG_RUNTIME_DIR/bus"
+            set -gx DBUS_SESSION_BUS_ADDRESS "unix:path=$XDG_RUNTIME_DIR/bus"
+        end
+    end
+
     # --- Core Navigation & Basics ---
     alias ..='cd ..'
     alias ...='cd ../..'

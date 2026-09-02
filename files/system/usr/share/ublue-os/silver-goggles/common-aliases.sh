@@ -12,6 +12,28 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 	[ -z "${BLUEFIN_SHELL_ENABLE_UGREP:-}" ] && BLUEFIN_SHELL_ENABLE_UGREP=1
 	[ -z "${BLUEFIN_SHELL_ENABLE_BAT:-}" ] && BLUEFIN_SHELL_ENABLE_BAT=1
 
+	# --- Graphical Display & Session Auto-Heal (Wayland / X11 / D-Bus) ---
+	if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+		if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+			# Pick the most recent Wayland socket by mtime (command ls bypasses eza alias)
+			_latest_sock=$(command ls -1t "${XDG_RUNTIME_DIR}"/wayland-* 2>/dev/null | grep -v '\.lock$' | head -n1 || true)
+			if [ -n "$_latest_sock" ] && [ -S "$_latest_sock" ]; then
+				export WAYLAND_DISPLAY="${_latest_sock##*/}"
+				[ -z "${XDG_SESSION_TYPE:-}" ] && export XDG_SESSION_TYPE="wayland"
+				[ -z "${XDG_CURRENT_DESKTOP:-}" ] && export XDG_CURRENT_DESKTOP="KDE"
+			fi
+			unset _latest_sock
+		fi
+
+		if [ -z "${DISPLAY:-}" ] && [ -S "/tmp/.X11-unix/X0" ]; then
+			export DISPLAY=":0"
+		fi
+
+		if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -S "${XDG_RUNTIME_DIR}/bus" ]; then
+			export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+		fi
+	fi
+
 	# --- Core Navigation & Basics ---
 	alias ..='cd ..'
 	alias ...='cd ../..'
