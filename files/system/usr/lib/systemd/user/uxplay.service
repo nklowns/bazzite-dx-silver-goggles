@@ -1,6 +1,6 @@
 [Unit]
 Description=UxPlay AirPlay 2 mirroring receiver (LAN-only — mDNS does not cross the tailnet)
-Documentation=man:uxplay(1) https://github.com/antimof/UxPlay
+Documentation=man:uxplay(1) https://github.com/FDH2/UxPlay
 # Same graphical-session race documented at length in
 # /usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh:
 # on NVIDIA/prime, plasma-kwin_wayland.service is reported active 20-30s before the
