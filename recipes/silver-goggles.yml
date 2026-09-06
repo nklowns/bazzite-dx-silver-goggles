@@ -29,16 +29,11 @@ modules:
       - looking-glass-client # High-performance Looking Glass client for KVMFR
 
   # ==========================================
-  # LAYER 3: HARDWARE (DELL G15 / AWCC)
+  # LAYER 3: HARDWARE & SERVICES (DELL G15)
   # ==========================================
-  - type: rpm-ostree
-    install:
-      - awcc-dev.rpm
-
   - type: systemd
     system:
       enabled:
-        - awccd.service
         # Regenerates /etc/cdi/nvidia.yaml from the live system, without which GPU
         # containers die on a stale spec:
         #     $ podman run --rm --device nvidia.com/gpu=all alpine ls /dev

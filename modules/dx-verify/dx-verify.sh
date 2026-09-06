@@ -25,7 +25,6 @@ readonly AUDIT_REGISTRY=(
 	"group|usershares|Security Group: Usershares|Error"
 
 	"file|/usr/lib/udev/rules.d/51-android.rules|Asset: Android Rules|Error"
-	"file|/usr/lib/systemd/system/awccd.service|Asset: AWCC Service|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
 	"file|/usr/lib/modules-load.d/v4l2loopback.conf|Asset: V4L2Loopback Proactive Autoload|Error"
 	"file|/etc/modprobe.d/v4l2loopback.conf|Policy: V4L2Loopback Multi-Camera Pool|Error"

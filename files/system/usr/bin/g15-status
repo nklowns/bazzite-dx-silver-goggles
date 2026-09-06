@@ -9,29 +9,7 @@ NC='\033[0m' # No Color
 
 printf "%b=== Silver-Goggles G15 Status ===%b\n" "${BLUE}" "${NC}"
 
-# 1. AWCC Service
-if systemctl is-active --quiet awccd; then
-	printf "AWCC Service: %bActive%b (%b%s%b)\n" "${GREEN}" "${NC}" "${BLUE}" "$(rpm -q awcc)" "${NC}"
-else
-	printf "AWCC Service: %bInactive%b\n" "${RED}" "${NC}"
-fi
-
-# 2. Thermald Status (Should be masked)
-THERMAL_STATUS=$(systemctl is-enabled thermald || true)
-if [[ "$THERMAL_STATUS" == "masked" ]]; then
-	printf "Thermald Mask: %bCorrect (Masked)%b\n" "${GREEN}" "${NC}"
-else
-	printf "Thermald Mask: %bIncorrect (%s)%b\n" "${RED}" "$THERMAL_STATUS" "${NC}"
-fi
-
-# 3. Database Integrity
-if [[ -f "/etc/awcc/database.json" ]]; then
-	printf "Database File: %bPresent%b\n" "${GREEN}" "${NC}"
-else
-	printf "Database File: %bMissing%b\n" "${RED}" "${NC}"
-fi
-
-# 4. Native Platform Profile
+# 1. Native Platform Profile
 if [[ -f "/sys/firmware/acpi/platform_profile" ]]; then
 	PROFILE=$(cat /sys/firmware/acpi/platform_profile)
 	printf "Platform Profile: %bActive (%s)%b\n" "${GREEN}" "$PROFILE" "${NC}"
@@ -39,7 +17,22 @@ else
 	printf "Platform Profile: %bNot Supported / Offline%b\n" "${RED}" "${NC}"
 fi
 
-# 5. Image Version
+# 2. Thermald Status (Should be masked)
+THERMAL_STATUS=$(systemctl is-enabled thermald 2>/dev/null || true)
+if [[ "$THERMAL_STATUS" == "masked" ]]; then
+	printf "Thermald Mask: %bCorrect (Masked)%b\n" "${GREEN}" "${NC}"
+else
+	printf "Thermald Mask: %bIncorrect (%s)%b\n" "${RED}" "$THERMAL_STATUS" "${NC}"
+fi
+
+# 3. Dell LED Controller (AW-ELC 187c:0550)
+if compgen -G "/sys/bus/hid/devices/*187C:0550*" > /dev/null 2>&1; then
+	printf "LED Controller: %bDetected (Dell G15 AW-ELC 187c:0550)%b\n" "${GREEN}" "${NC}"
+else
+	printf "LED Controller: %bNot Detected%b\n" "${RED}" "${NC}"
+fi
+
+# 4. Image Version
 if [[ -f "/usr/lib/os-release" ]]; then
 	VERSION=$(grep "VARIANT_ID" /usr/lib/os-release | cut -d= -f2 | tr -d '"')
 	printf "Image Variant: %b%s%b\n" "${BLUE}" "$VERSION" "${NC}"

@@ -10,8 +10,9 @@
 
 - **Dell G15 (5520) Specific Tweaks**:
   - Install Dell management utilities (`smbios-utils-python`).
-  - [AWCC (Alienware Command Center)](https://github.com/nklowns/AWCC): Native control for thermal modes and G-Mode, installed as a pre-compiled RPM.
-  - **State Integrity**: Masks `thermald` and manages `/etc/awcc/database.json` via priority overrides.
+  - **Native Thermal & Power**: In-tree `alienware-wmi-wmax` platform profiles, `tuned-ppd`, and G-Mode support (`g15-boost`).
+  - **RGB Lighting**: Full 4-zone keyboard control via native OpenRGB (AW-ELC `187c:0550`), persisting via hardware EEPROM without background daemons.
+  - **State Integrity**: Masks `thermald` to prevent conflicts with native ACPI platform profiles.
   - **Declarative Tuning**: Boot-time Kernel Arguments via `bootc` (`/usr/lib/bootc/kargs.d/`).
 
 ---
@@ -28,7 +29,6 @@ graph TD
     C --> C2[files: Static Overlays]
     C --> C5[justfiles: Host Recipes]
     C --> C6[Local Scripts: Encapsulated Logic]
-    C --> C3[script: AWCC RPM Install]
 ```
 
 ## Modular Architecture (BlueBuild)
@@ -47,7 +47,7 @@ The build is orchestrated by [`recipes/recipe.yml`](recipes/recipe.yml), combini
 3. **Service Orchestration**:
    - Services are enabled via **Systemd Presets** (`files/system/usr/lib/systemd/system-preset/`).
    - Conflicting services are **masked in-image** (symlinked to `/dev/null`) for absolute determinism:
-     - `thermald.service`: Prevents conflicts with AWCC fan control.
+     - `thermald.service`: Prevents aggressive userspace RAPL throttling, allowing native EC/PROCHOT and platform-profile thermal management.
      - `systemd-udev-settle.service`: Fixes boot hangs with VFIO/IOMMU kargs.
 
 ---
@@ -68,9 +68,8 @@ rpm-ostree rebase ostree-image-signed:docker://ghcr.io/nklowns/bazzite-dx-silver
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | **Check**       | `just check` (syntax + shellcheck + flatpak validation)                                          |
 | **Build**       | `just build`, `just build-nocache`                                                               |
-| **Apply**       | `just rebase-local` (full image rebase), `just hot-swap-awcc <path>` (live RPM swap, no reboot) |
-| **Safety**      | `just rollback-local`, `just rebase-official`, `just uninstall-awcc`                             |
-| **AWCC**        | `just build-awcc` (stable), `just build-awcc <src>` (local dev), `just install-awcc` (apply live) |
+| **Apply**       | `just rebase-local` (full image rebase)                                                          |
+| **Safety**      | `just rollback-local`, `just rebase-official`                                                     |
 
 ### `bluebuild` CLI (required for `just build`)
 
@@ -78,16 +77,6 @@ rpm-ostree rebase ostree-image-signed:docker://ghcr.io/nklowns/bazzite-dx-silver
 podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
 # Installs to /usr/local/bin/bluebuild
 ```
-
-### AWCC RPM Hot-Swap (Deep Dive)
-
-The `hot-swap-awcc` recipe enables rapid AWCC iteration without a full image rebuild:
-
-1. **Containerized Build**: Compiles from local AWCC source via `rpmbuild` in an ephemeral Fedora container (version matched to base image).
-2. **Filesystem Unlocking**: Uses `rpm-ostree usroverlay` to temporarily unlock the immutable filesystem.
-3. **Live Application**: Installs via `rpm -Uvh --force` and restarts `awccd.service`.
-
-The same `files/rpm-ostree/awcc-dev.rpm` used in hot-swap is committed to the repo and installed during the CI image build.
 
 ---
 

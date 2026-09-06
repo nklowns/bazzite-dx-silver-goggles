@@ -21,10 +21,6 @@ just lint           # ShellCheck all scripts
 just format         # shfmt all scripts
 just clean          # Remove build artifacts
 
-just build-awcc                    # Build stable AWCC RPM (version matched to base image)
-just build-awcc /path/to/AWCC      # Build dev AWCC RPM from local source
-just hot-swap-awcc /path/to/AWCC   # Build + apply AWCC live (no reboot)
-just uninstall-awcc                # Revert hot-swap (live, rpm-ostree apply-live --reset)
 
 just status         # Image config, local images, tooling versions
 just g15-status     # Dell G15 hardware health check
@@ -108,7 +104,7 @@ recipe.yml              ← Entry point (declarative orchestration)
 ├── files module        ← Overlays files/system/ onto /
 ├── dx.yml              ← EXTENSIONS: Cockpit, Docker, Libvirt, eBPF tools, fonts
 │   └── local modules   ← Encapsulated logic: dx-flavor (branding/policy), dx-udev
-├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, AWCC RPM (rpm-ostree), thermald mask
+├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, in-tree services, thermald mask
 ├── casting.yml         ← CASTING: AirPlay/FCast/scrcpy receivers + iOS bridges (opt-in via ujust)
 ├── nomad.yml           ← OFFLINE KNOWLEDGE & AI: Project NOMAD (Quadlet units + ujust; nothing enabled)
 ├── initramfs module
@@ -124,7 +120,7 @@ recipe.yml              ← Entry point (declarative orchestration)
 1. **CORE** — Fedora/uBlue base modules (`bazzite-nvidia` upstream).
 2. **EXTENSIONS** — extra packages and repos (`dx.yml`).
 3. **TUNING** — kernel and performance optimization (native `kargs` module).
-4. **HARDWARE** — Dell G15 customization (AWCC, dGPU, services).
+4. **HARDWARE** — Dell G15 customization (in-tree thermals, dGPU, services).
 5. **IDENTITY** — visual identity and branding.
 6. **OFFLINE KNOWLEDGE & AI** — Project NOMAD offline stack (`nomad.yml`).
 
@@ -136,20 +132,18 @@ recipe.yml              ← Entry point (declarative orchestration)
 | `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
-| `files/system/etc/modules-load.d/` | Kernel module **opt-outs**: an empty `/etc/modules-load.d/<x>.conf` masks the same-named file under `/usr/lib/modules-load.d/`. `kvmfr.conf` is 0 bytes on purpose (dx-verify registers it as "Mask: KVMFR Autoload"), so do not "fix" it. Modules this layer actually wants loaded are declared under `/usr/lib/modules-load.d/` — e.g. `br_netfilter` in `ip_tables.conf`. Nothing here loads `acpi_call`, and nothing can: see the AWCC note below |
+| `files/system/etc/modules-load.d/` | Kernel module **opt-outs**: an empty `/etc/modules-load.d/<x>.conf` masks the same-named file under `/usr/lib/modules-load.d/`. `kvmfr.conf` is 0 bytes on purpose (dx-verify registers it as "Mask: KVMFR Autoload"), so do not "fix" it. Modules this layer actually wants loaded are declared under `/usr/lib/modules-load.d/` — e.g. `br_netfilter` in `ip_tables.conf`. |
 | `files/system/usr/lib/systemd/user/` | **User units, image-resident and read-only.** `ujust` only activates them — never copies them into `$HOME`, which would shadow the image copy and freeze the host on it. Note `start` vs `enable`: see the lingering subsection under Boot Impact Policy |
 | `files/system/etc/containers/systemd/users/` | **Rootless Quadlet units** (`.container`/`.network`) for the NOMAD stack, turned into `.service` by a systemd generator. Under `/etc` and not `/usr` because rootless Quadlet has **no `/usr` search path** — `man podman-systemd.unit` lists only `$XDG_RUNTIME_DIR/containers/systemd/`, `~/.config/containers/systemd/`, `/etc/containers/systemd/users/$(UID)` and `/etc/containers/systemd/users/`. The rootful list *does* include `/usr/share/containers/systemd/`, so going rootful would restore the `/usr` placement — at the cost of the security property that made podman the right engine (see the socket note in README). This is not a breach of Atomic State Policy item 1, which forbids mutating `/etc` imperatively at runtime, not shipping into it via the `files` module |
 | `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 68-nomad.just, 95-bazzite-dx.just), injected via the `justfiles` module |
 | `files/system/usr/share/ublue-os/casting/` | Staged casting **config template** (`uxplayrc.tmpl`) copied into `$HOME` by `ujust` on request. The units themselves live in `usr/lib/systemd/user/` |
-| `files/rpm-ostree/` | Pre-compiled RPMs committed to git (awcc-dev.rpm) |
 | `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |
-| `build_files/` | AWCC RPM specs (stable: `awcc.spec`; dev fork: `awcc.dev.spec`) |
 | `just/` | Modular Just recipe files (build, dev, maint, status) |
 | `scripts/` | Utility/generation scripts (`generate-recipe.sh`) |
 | `disk_config/` | Bootc Image Builder (BIB) configs for QCOW2/ISO output |
 | `image-versions.yaml` | Pins the base image digest (updated by Renovate PRs; consumed by `generate-recipe.sh`) |
 
-**Justfile split**: root `Justfile` = development tasks (build, rebase, lint, AWCC); `files/justfiles/66-silver-goggles.just` = modular host-side `ujust` recipes.
+**Justfile split**: root `Justfile` = development tasks (build, rebase, lint); `files/justfiles/66-silver-goggles.just` = modular host-side `ujust` recipes.
 
 ## 🛡️ Atomic State Policy (MANDATORY)
 
@@ -254,18 +248,11 @@ the build runner, so it would have to pass vacuously. After the `g15-thermal` de
 rule matches on `DRIVER==` at all; if one is added, verify it on the machine, because the build
 cannot.
 
-## ⚙️ AWCC RPM Workflow
+## ⌨️ Hardware Control: OpenRGB & Native In-Tree Thermals
 
-`files/rpm-ostree/awcc-dev.rpm` is committed to the repo and installed at image build time via the `rpm-ostree` module.
-
-| Command | Spec used | Source |
-|---|---|---|
-| `just build-awcc` | `awcc.spec` (default) | Downloads tarball from `tr1xem/AWCC`, version synced with base image |
-| `AWCC_SPEC=awcc.dev.spec just build-awcc <src>` | `awcc.dev.spec` | Local source from `nklowns/AWCC` fork (pinned commit) |
-
-After rebuilding, commit the RPM: `git add -f files/rpm-ostree/awcc-dev.rpm && git commit`.
-Rapid iteration: `just hot-swap-awcc <path>` (live apply, no reboot); revert with `just uninstall-awcc`.
-Full workflow: [`docs/AWCC-BUILD.md`](docs/AWCC-BUILD.md).
+AWCC has been retired from the image layer:
+1. **Thermals and G-Mode**: In-tree `alienware-wmi-wmax` platform profiles (`/sys/class/platform-profile`) and `tuned-ppd` cover performance/balanced/quiet modes natively.
+2. **Keyboard RGB Lighting**: Handled directly via OpenRGB (upstream MR !3577 for Alienware AW-ELC `187c:0550`). OpenRGB supports the 4 keyboard zones, effects, direction, speed, and hardware EEPROM save (`Save to Device`), running cleanly in userspace as an AppImage with zero root/daemon overhead.
 
 ### 🌡️ Thermal: use the in-tree interface, not `acpi_call`
 
@@ -311,13 +298,10 @@ roadmap marks `[x] New backend for thermal mode (AlienFan-SDK)` but the code con
 zero `hwmon`/`platform-profile` references anywhere in `AWCC/src`, and `Thermals.cpp` still goes
 through `AcpiUtils` → `/proc/acpi/call`.
 
-So: **AWCC stays for lights** (`LightFX.cpp` is libusb, independent of ACPI, which is why the
-keyboard zones work and always did), profiles come from tuned/KDE, and if per-fan boost is ever
+So: **OpenRGB handles lights natively** (via MR !3577 for AW-ELC `187c:0550`, directly over USB hidraw without requiring daemons or root), profiles come from tuned/KDE, and if per-fan boost is ever
 wanted the cheap path is ours, not upstream's — a `dx-udev` rule granting group write on
 `fanN_boost` plus a `ujust`, on the sysfs nodes measured below. Worth remembering the measurement
-before building that: on CPU load it buys ~0 MHz. If alienfx-linux is ever packaged, pin its
-`FetchContent` deps — libusb-cmake, loguru and hidapi are all declared with floating
-`GIT_TAG main`/`master`.
+before building that: on CPU load it buys ~0 MHz.
 
 #### What max fan actually buys (measured, so stop guessing)
 
@@ -616,7 +600,6 @@ Keep the host clean — run the runner in a container:
 
 - **Undo system rebase**: `just rollback-local` (reboot required).
 - **Return to official image**: `just rebase-official` (reboot required).
-- **Undo AWCC hot-swap**: `just uninstall-awcc` (live transient removal via `rpm-ostree apply-live --reset`).
 
 ## 🧠 System State Identification
 

@@ -3,9 +3,6 @@ _build_*
 _build-*/**
 # Ignore all RPMs by default (build artifacts)
 *.rpm
-# Exception: the pre-compiled AWCC RPM is intentionally committed as the
-# canonical binary for the image build. Rebuilt via: just dev-awcc-rpm <src>
-!files/rpm-ostree/awcc-dev.rpm
 output/
 *.qcow2
 *.raw
@@ -15,3 +12,4 @@ recipes/build-recipe.yml
 # Old build system artifacts (clean up)
 /.bluebuild*/
 /.bluebuild-scripts_*
+.claude/

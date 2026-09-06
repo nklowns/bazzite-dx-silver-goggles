@@ -8,7 +8,6 @@ status:
     @echo "=== Image Configuration ==="
     @echo "Project:  {{ image_name }}"
     @echo "Tag:      {{ default_tag }}"
-    @echo "AWCC Spec: {{ AWCC_SPEC }}"
     @echo ""
     @echo "=== Local Images (localhost/) ==="
     @${PODMAN} images --filter "reference=localhost/{{ image_name }}*" --format "table {{ '{{.Repository}}' }}\t{{ '{{.Tag}}' }}\t{{ '{{.ID}}' }}\t{{ '{{.CreatedSince}}' }}"
