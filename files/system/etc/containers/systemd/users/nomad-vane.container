@@ -21,12 +21,13 @@ NetworkAlias=vane
 # Loopback binding in reserved DX range 61300-61399
 PublishPort=127.0.0.1:61385:3000
 
-Volume=/var/srv/vane/data:/app/data:Z
-Volume=/var/srv/vane/config.toml:/app/config.toml:ro,Z
+Volume=/var/srv/vane/data:/home/vane/data:Z
+Volume=/var/srv/vane/uploads:/home/vane/uploads:Z
 
 Environment=PORT=3000
-Environment=SEARXNG_URL=http://searxng:8080
-Environment=OLLAMA_API_URL=http://ollama:11434
+Environment=DATA_DIR=/home/vane
+Environment=SEARXNG_API_URL=http://searxng:8080
+Environment=OLLAMA_BASE_URL=http://ollama:11434
 
 [Service]
 Restart=on-failure

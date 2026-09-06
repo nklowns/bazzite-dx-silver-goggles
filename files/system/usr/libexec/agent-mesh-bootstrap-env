@@ -41,22 +41,44 @@ EOF
 fi
 
 # 2. Vane (Perplexica) Configuration
-VANE_CONFIG="$VANE_DIR/config.toml"
+mkdir -p "$VANE_DIR/data" "$VANE_DIR/uploads"
+VANE_CONFIG="$VANE_DIR/data/config.json"
 if [[ ! -f "$VANE_CONFIG" ]]; then
 	cat <<EOF >"$VANE_CONFIG"
-[GENERAL]
-PORT = 3000
-SIMILARITY_MEASURE = "cosine"
-
-[API_KEYS]
-OPENAI = ""
-GROQ = ""
-ANTHROPIC = ""
-GEMINI = ""
-
-[API_ENDPOINTS]
-SEARXNG = "http://searxng:8080"
-OLLAMA = "http://ollama:11434"
+{
+  "version": 1,
+  "setupComplete": true,
+  "preferences": {},
+  "personalization": {},
+  "modelProviders": [
+    {
+      "id": "371a6b09-d866-4c04-a398-3d612f2fda6b",
+      "name": "Transformers",
+      "type": "transformers",
+      "chatModels": [],
+      "embeddingModels": [],
+      "config": {
+        "name": "Transformers"
+      },
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "6af46cb0-a98a-415f-999d-6e24cb4eebfb",
+      "name": "NOMAD-Ollama-GPU",
+      "type": "ollama",
+      "config": {
+        "baseURL": "http://ollama:11434"
+      },
+      "chatModels": [],
+      "embeddingModels": [],
+      "hash": "bd39b6ac7fca1a24f55ccdae5d8c118fbc8259c5358c38be976f962f4b9f679c"
+    }
+  ],
+  "search": {
+    "searxngURL": "http://searxng:8080"
+  }
+}
 EOF
 	chmod 644 "$VANE_CONFIG"
 fi
+
