@@ -42,7 +42,7 @@ Volume=/var/srv/visual/ComfyUI:/root/ComfyUI:Z
 Volume=/var/srv/visual/user-scripts:/root/user-scripts:Z
 Volume=/var/srv/visual/site-packages:/root/.local/lib/python3.12/site-packages:Z
 
-Environment=CLI_ARGS=--fast --cache-classic --reserve-vram 1.5
+Environment=CLI_ARGS=--fast --cache-classic --reserve-vram 1.0
 
 [Service]
 Restart=on-failure

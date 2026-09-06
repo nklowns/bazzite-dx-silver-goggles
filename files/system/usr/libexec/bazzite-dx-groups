@@ -348,7 +348,7 @@ ConfigureNomadStorage() {
 	# datadir the only fix is recreating the database, so a directory with contents is
 	# reported and skipped rather than given a reassuring no-op.
 	local dir
-	for dir in "$root/mysql" "$root/redis"; do
+	for dir in "$root/mysql" "$root/redis" "$root/ollama"; do
 		[ -d "$dir" ] || continue
 		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
 			continue
@@ -416,6 +416,22 @@ ConfigureVisualStorage() {
 	local root="/var/srv/visual"
 	[ -d "$root" ] || return 0
 
+	# --- btrfs: disable copy-on-write for model weights and cache directories ----------
+	local dir
+	for dir in "$root/models" "$root/output"; do
+		[ -d "$dir" ] || continue
+		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+			continue
+		fi
+		if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+			echo "WARNING: $dir already has contents; cannot enable btrfs nodatacow (+C only" \
+				"affects files created after it is set). Existing data stays copy-on-write."
+			continue
+		fi
+		echo "Enabling btrfs nodatacow on empty $dir..."
+		chattr +C "$dir" || true
+	done
+
 	local tag="$root/CACHEDIR.TAG"
 	if [ -d "$root" ] && [ ! -f "$tag" ]; then
 		echo "Marking $root as a cache directory for backup tools..."
@@ -443,6 +459,22 @@ ConfigureVisualStorage() {
 ConfigureAudioStorage() {
 	local root="/var/srv/audio"
 	[ -d "$root" ] || return 0
+
+	# --- btrfs: disable copy-on-write for audio models and cache directories -----------
+	local dir
+	for dir in "$root/tts/models" "$root/stt/models" "$root/music/models" "$root/output" "$root/cache"; do
+		[ -d "$dir" ] || continue
+		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+			continue
+		fi
+		if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+			echo "WARNING: $dir already has contents; cannot enable btrfs nodatacow (+C only" \
+				"affects files created after it is set). Existing data stays copy-on-write."
+			continue
+		fi
+		echo "Enabling btrfs nodatacow on empty $dir..."
+		chattr +C "$dir" || true
+	done
 
 	local tag="$root/CACHEDIR.TAG"
 	if [ -d "$root" ] && [ ! -f "$tag" ]; then

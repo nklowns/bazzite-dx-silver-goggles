@@ -13,7 +13,7 @@
 # MEMORY & HARDWARE ARCHITECTURE (DELL G15 RTX 3060 6GB + 64GB DDR5):
 # - `--cache-classic`: Pins diffusion weights & text encoders in the 64GB DDR5 system RAM,
 #   eliminating repetitive NVMe disk reloads on every generation (2x speedup).
-# - `--reserve-vram 1.5`: Hard reserve to guarantee zero CUDA Out-Of-Memory crashes.
+# - `--reserve-vram 1.0`: Balanced headroom protecting against HDMI/desktop scanout overhead.
 # - PERSISTENT PYTHON STORAGE: All packages live in /var/srv/visual/site-packages on SSD.
 #   Sub-second startup with ZERO runtime pip installs.
 # - User deliverables strictly follow XDG specifications:
@@ -106,12 +106,12 @@ visual-enable-boot:
     mkdir -p "$DROPIN_DIR"
     printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
     systemctl --user daemon-reload
-    just visual-up
-    echo "⚡ AI Studio Visual habilitado para iniciar automaticamente no boot!"
+    systemctl --user restart aistudio-visual.service
+    echo "⚡ AI Studio Visual configurado para iniciar automaticamente com a sessão do usuário."
 
 alias comfyui-enable-boot := visual-enable-boot
 
-# 🔌 Desabilitar o AI Studio Visual da inicialização automática do boot
+# 🔌 Desabilitar o AI Studio Visual do boot
 [group('AI Studio Visual')]
 visual-disable-boot:
     #!/usr/bin/env bash
@@ -119,16 +119,16 @@ visual-disable-boot:
     rm -f "$HOME/.config/containers/systemd/aistudio-visual.container.d/10-autostart.conf"
     rmdir "$HOME/.config/containers/systemd/aistudio-visual.container.d" 2>/dev/null || true
     systemctl --user daemon-reload
-    echo "🔌 AI Studio Visual removido do boot automático. Use 'ujust visual-up' quando precisar."
+    echo "🔌 AI Studio Visual removido da inicialização automática."
 
 alias comfyui-disable-boot := visual-disable-boot
 
-# 📊 Diagnóstico detalhado do AI Studio Visual, uso de VRAM na RTX 3060 e volumes
+# 📊 Diagnóstico das units e portas do AI Studio Visual
 [group('AI Studio Visual')]
 visual-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    echo "--- Units ---"
+    echo "=== AI Studio Visual ==="
     STATE=$(systemctl --user is-active aistudio-visual.service 2>/dev/null || true)
     if [[ -f "$HOME/.config/containers/systemd/aistudio-visual.container.d/10-autostart.conf" ]]; then
         BOOT="enabled"
@@ -136,45 +136,57 @@ visual-status:
         BOOT="disabled"
     fi
     printf '%-16s %s (boot: %s)\n' "aistudio-visual" "${STATE:-inactive}" "$BOOT"
-    echo "--- Containers ---"
-    podman ps --filter name=aistudio_visual --format 'table {{{{.Names}}\t{{{{.Status}}\t{{{{.Ports}}' 2>/dev/null || true
-    echo "--- API & Versões do ComfyUI ---"
-    if curl -s -f http://localhost:61384/system_stats >/dev/null 2>&1; then
-        curl -s http://localhost:61384/system_stats | jq '{comfyui_version: .system.comfyui_version, frontend_version: .system.required_frontend_version, pytorch: .system.pytorch_version, python: .system.python_version}' 2>/dev/null || true
-    else
-        echo "    (ComfyUI API não está respondendo em http://localhost:61384)"
-    fi
-    echo "--- GPU (NVIDIA RTX 3060) ---"
-    if command -v nvidia-smi >/dev/null 2>&1; then
-        nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu --format=csv 2>/dev/null || true
-    fi
+    echo
+    echo "--- Portas locais ---"
+    for port in 61384; do
+        if ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+            printf '  :%-5d ABERTA\n' "$port"
+        else
+            printf '  :%-5d fechada\n' "$port"
+        fi
+    done
+    echo
     echo "--- Disco /var/srv/visual ---"
     du -sh /var/srv/visual/* 2>/dev/null || true
-    echo "--- arquivos inalcançáveis pelos containers rootless ---"
-    SUB_START=$(awk -F: -v u="$USER" '$1==u {print $2; exit}' /etc/subuid 2>/dev/null)
-    SUB_LEN=$(awk -F: -v u="$USER" '$1==u {print $3; exit}' /etc/subuid 2>/dev/null)
-    if [[ -n "${SUB_START:-}" && -n "${SUB_LEN:-}" ]]; then
+    echo
+    echo "--- Permissões ---"
+    if [[ -d /var/srv/visual ]]; then
         BAD=$(find /var/srv/visual -printf '%U %p\n' 2>/dev/null |
-            awk -v me="$(id -u)" -v s="$SUB_START" -v e="$((SUB_START + SUB_LEN - 1))" \
-                '$1 != me && ($1 < s || $1 > e)')
-        if [[ -n "$BAD" ]]; then
-            echo "$BAD" | sed 's/^/    ⚠️  uid /'
-            echo "    Corrija com: sudo chown $(id -u):$(id -g) <arquivo>"
+            awk -v uid="$UID" '$1 != uid && $1 != 0 { count++ } END { print count+0 }')
+        if (( BAD > 0 )); then
+            echo "  ⚠️  ${BAD} arquivo(s) em /var/srv/visual não pertencem ao seu UID ou ao container."
+            echo "     Isso pode quebrar o ComfyUI. Corrija com: ujust visual-fix-perms"
         else
-            echo "    (nenhum — todos dentro de {$(id -u)} ∪ [$SUB_START, $((SUB_START + SUB_LEN - 1))])"
+            echo "  ✔ UID ownership íntegra em /var/srv/visual."
         fi
+    fi
+    echo
+    echo "--- Tailscale Serve (Visual) ---"
+    if command -v tailscale >/dev/null 2>&1; then
+        tailscale serve status 2>&1 | grep -E "61384|comfyui|visual" || echo "  (nenhum endpoint ativo)"
+    else
+        echo "  tailscale não encontrado no host"
     fi
 
 alias comfyui-status := visual-status
-
 alias aistudio-visual-status := visual-status
 
-# 📜 Visualizar logs em tempo real do AI Studio Visual
+# 📜 Acompanhar os logs do AI Studio Visual em tempo real
 [group('AI Studio Visual')]
 visual-logs:
     journalctl --user -u aistudio-visual.service -f --no-hostname -o cat
 
 alias comfyui-logs := visual-logs
+
+# 🔧 Reparar permissões de arquivos em /var/srv/visual
+[group('AI Studio Visual')]
+visual-fix-perms:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sudo chown -R 1000:1000 /var/srv/visual
+    echo "✔ Permissões restauradas para UID 1000 em /var/srv/visual."
+
+alias comfyui-fix-perms := visual-fix-perms
 
 # 🔄 Sincronizar o ambiente Python persistente com os toolkits declarativos
 [group('AI Studio Visual')]
@@ -182,7 +194,9 @@ visual-sync:
     #!/usr/bin/env bash
     set -euo pipefail
     REQ_FILE="/usr/share/bazzite-dx/aistudio-visual/requirements.txt"
-    if [[ ! -f "$REQ_FILE" ]]; then
+    if [[ -f "./files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt" ]]; then
+        REQ_FILE="./files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt"
+    elif [[ ! -f "$REQ_FILE" ]]; then
         REQ_FILE="/var/srv/visual/requirements.txt"
     fi
     echo "📦 Sincronizando pacotes do Visual Studio para /var/srv/visual/site-packages..."
@@ -194,6 +208,13 @@ visual-sync:
         pip install -q --no-warn-script-location --target /target -r /requirements.txt
     # Limpa overrides acidentais de torch para manter a aceleração CUDA da imagem base
     rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
+    # Remove resíduos de NumPy 2.x e garante integridade do NumPy 1.x
+    rm -rf /var/srv/visual/site-packages/numpy-2* /var/srv/visual/site-packages/numpy/_core 2>/dev/null || true
+    # Patch defensivo para custom_op infer_schema em comfy_kitchen na.py se necessário
+    if [[ -f /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py ]]; then
+        sed -i 's/kernel_size: list\[int\]/kernel_size: List\[int\]/g; s/is_causal: list\[bool\]/is_causal: List\[bool\]/g; s/scale: float | None/scale: Optional[float]/g' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py 2>/dev/null || true
+        grep -q 'from typing import' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py || sed -i 's/from comfy_kitchen.registry import registry/from typing import List, Optional\nfrom comfy_kitchen.registry import registry/' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py 2>/dev/null || true
+    fi
     if systemctl --user is-active --quiet aistudio-visual.service; then
         echo "🔄 Reiniciando aistudio-visual.service..."
         systemctl --user restart aistudio-visual.service

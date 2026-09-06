@@ -803,3 +803,33 @@ remote-ide-status:
 
 alias ide-status := remote-ide-status
 alias code-status := remote-ide-status
+
+# ==============================================================================
+# GROUP 8: GPU & Display Status (Dell G15 Hybrid / dGPU)
+# ==============================================================================
+
+# 📊 Diagnóstico da GPU ativa no KDE Plasma e consumo de VRAM
+[group('Hardware')]
+gpu-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "=== GPU & Desktop (KDE Wayland) ==="
+    echo "--- Renderer ---"
+    qdbus --literal org.kde.KWin /KWin supportInformation 2>/dev/null | grep -E "OpenGL renderer string|Driver version" || echo "  (KWin via D-Bus indisponível)"
+    echo
+    echo "--- VRAM (RTX 3060) ---"
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv,noheader 2>/dev/null || true
+    fi
+    echo
+    echo "--- Monitores ---"
+    if [[ -f /sys/class/drm/card0-HDMI-A-1/status ]] && grep -q "^connected" /sys/class/drm/card0-HDMI-A-1/status 2>/dev/null; then
+        echo "  HDMI: Conectado na NVIDIA (card0) — ~5.3 GB VRAM livre para IA/Jogos"
+    elif grep -q "^connected" /sys/class/drm/card1-DP-*/status 2>/dev/null; then
+        echo "  DisplayPort USB-C: Conectado na Intel (card1) — ~6.0 GB VRAM livre para IA/Jogos"
+    else
+        echo "  Tela interna: Intel (card1) — ~6.0 GB VRAM livre para IA/Jogos"
+    fi
+
+alias kwin-gpu-status := gpu-status
+alias kde-gpu-status := gpu-status

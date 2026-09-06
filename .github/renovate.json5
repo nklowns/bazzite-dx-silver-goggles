@@ -209,6 +209,16 @@
       commitMessagePrefix: 'chore(deps-visual): ',
     },
     {
+      description: 'Pin NumPy to 1.x in ComfyUI visual studio to prevent ABI breakages with insightface and onnxruntime',
+      matchFileNames: [
+        'files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt',
+      ],
+      matchPackageNames: [
+        'numpy',
+      ],
+      allowedVersions: '<2.0.0',
+    },
+    {
       description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',
       matchPackageNames: [
         'fedora',
