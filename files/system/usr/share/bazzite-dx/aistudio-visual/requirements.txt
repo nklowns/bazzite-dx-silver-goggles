@@ -2,7 +2,7 @@
 # Hardware: Dell G15 5520 (NVIDIA GeForce RTX 3060 6GB VRAM + 64GB DDR5)
 # Installed once to /var/srv/visual/site-packages on SSD. Zero runtime boot installs.
 
-comfy-aimdo
+comfy-aimdo>=0.4.15
 comfy-kitchen==0.2.33
 comfyui-frontend-package==1.52.7
 comfyui-workflow-templates==0.11.55
