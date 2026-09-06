@@ -192,7 +192,7 @@ ports-audit:
     if [ ! -x /usr/libexec/bazzite-dx-serve ]; then
         echo "  (helper ausente nesta imagem — rebaseie para uma que o inclua)"
     else
-        for port in 61337 61380 61381 61384 61386 61387 61388 61390; do
+        for port in 61337 61380 61381 61384 61385 61386 61387 61388 61390; do
             printf '  %-6s %s\n' "$port" "$(/usr/libexec/bazzite-dx-serve status "$port" 2>/dev/null || echo 'erro')"
         done
         echo "  misplaced = publicado num listener diferente da própria porta, que é como o"

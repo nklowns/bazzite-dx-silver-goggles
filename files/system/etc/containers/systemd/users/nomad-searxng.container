@@ -1,7 +1,7 @@
 # SearXNG Metasearch Engine — Agent Mesh & NOMAD search provider
 #
 # Part of the Agent Mesh. Operates autonomously on the shared OCI network.
-# Connects to nomad-redis for caching and publishes strictly to loopback (127.0.0.1:61387).
+# Connects to nomad-redis for caching and publishes strictly to loopback (127.0.0.1:61387); remote exposure via `ujust remote-searxng-setup`.
 #
 # [Install] is omitted on purpose: podman-user-generator links any unit with [Install] into
 # default.target.wants/, which under user lingering starts at boot and violates the Boot Impact Policy.

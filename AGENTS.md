@@ -45,7 +45,7 @@ This is a developer workstation — arbitrary projects spin up arbitrary dev ser
 | AI Studio Visual (ComfyUI) | `61384` | `https://<tailscale-fqdn>:61384` (`ujust visual-up` / `ujust remote-visual-setup`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
 | Vane (Perplexica AI Search) | `61385` | `https://<tailscale-fqdn>:61385` (`ujust vane-up` / `ujust remote-vane-setup`) — AI-powered answering engine with local LLM & SearXNG integration |
 | AI Studio Audio (Speaches) | `61386` | `https://<tailscale-fqdn>:61386` (`ujust audio-up` / `ujust remote-audio-setup`) — OpenAI-compatible Speech API (Piper TTS, ChatTTS & Faster-Whisper STT, 100% CPU / 0 MB VRAM) |
-| SearXNG Metasearch | `61387` | not exposed over tailnet by default (`ujust searxng-up`) — privacy-respecting metasearch provider with JSON API |
+| SearXNG Metasearch | `61387` | `https://<tailscale-fqdn>:61387` (`ujust searxng-up` / `ujust remote-searxng-setup`) — privacy-respecting metasearch provider with JSON API |
 | cockpit | `61390` | `https://<tailscale-fqdn>:61390` (`ujust cockpit-up`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
 | KasmVNC WebRTC Desktop | `61391` | `https://<tailscale-fqdn>:61391` (`ujust remote-kasmvnc-setup`) — Browser-native HTML5 desktop with bidirectional browser clipboard sync |
 | Apache Guacamole | `61392` | `https://<tailscale-fqdn>:61392` (`ujust guacamole-up`) — HTML5 client for RDP/VNC backends. *Note: KDE Plasma 6 Wayland RDP (KRDP) / VNC (KRFB) require active screen session portals; Sunshine (`61395`) is preferred for remote host streaming.* |
@@ -219,6 +219,35 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
 - **Deliverables Policy (Strict XDG Standards)**:
   - All visual outputs (8K Portraits & MP4 Videos): `${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio/`
   - All audio outputs (WAV/MP3 Speech & Soundtracks): `${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio/`
+
+### 🌐 Browser & AI Agent Mesh Architecture
+
+The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** approach:
+
+- **SearXNG Metasearch (`nomad-searxng.container`, Port :61387)**:
+  - Aggregates Google, Bing, DuckDuckGo, Wikipedia with zero tracking.
+  - JSON API enabled for programmatic agent queries (`format=json`).
+  - Tailscale-first: `ujust remote-searxng-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
+  - Recipes: `72-agent-mesh.just` (`ujust searxng-up`, `ujust searxng-down`, `ujust searxng-status`, `ujust remote-searxng-setup`, `ujust remote-searxng-teardown`).
+
+- **Vane AI Search & Research (`nomad-vane.container`, Port :61385)**:
+  - Perplexica fork powered by local Ollama LLMs and SearXNG metasearch.
+  - Tailscale-first: `ujust remote-vane-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61385`.
+  - Recipes: `72-agent-mesh.just` (`ujust vane-up`, `ujust vane-down`, `ujust vane-status`, `ujust remote-vane-setup`, `ujust remote-vane-teardown`).
+
+- **Lightpanda Headless Browser CDP (`lightpanda.container`, Port :9225)**:
+  - Ultra-lightweight Zig/C++ headless browser (< 20 MB RAM vs 500 MB+ for Chrome/Chromium).
+  - Listens on `127.0.0.1:9225` (CDP WebSocket `ws://127.0.0.1:9225`).
+  - Integrated with `agent-browser` (`/usr/bin/agent-browser`) for fast deterministic accessibility tree inspection (`@e1`, `@e2`).
+  - Recipes: `72-agent-mesh.just` (`ujust lightpanda-up`, `ujust lightpanda-down`, `ujust lightpanda-status`).
+
+- **Browser Automation CDP Matrix (Contract §8)**:
+  - Host overlays in `files/system/usr/bin/{firefox,google-chrome,microsoft-edge}` enforce isolated profiles:
+    - Chrome: `127.0.0.1:9222` (`~/.config/google-chrome-cdp`)
+    - Edge: `127.0.0.1:9223` (`~/.config/microsoft-edge-cdp`)
+    - Firefox: `127.0.0.1:9224` (`~/.mozilla/firefox-cdp` with `--no-remote`)
+    - Lightpanda: `127.0.0.1:9225` (in-memory, zero profile)
+  - Unified lifecycle & status: `ujust agent-mesh-up`, `ujust agent-mesh-down`, `ujust agent-mesh-status`, `ujust remote-agent-mesh-setup`, `ujust remote-agent-mesh-teardown`, `ujust cdp-matrix-status`.
 
 ### Scripting Conventions
 

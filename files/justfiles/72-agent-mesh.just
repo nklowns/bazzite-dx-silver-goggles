@@ -25,6 +25,7 @@ searxng-up:
     systemctl --user start nomad-searxng.service
     echo "✅ SearXNG ativo em http://localhost:61387"
     echo "   API JSON: http://localhost:61387/search?q=query&format=json"
+    echo "   Para expor remotamente no Tailscale com TLS: ujust remote-searxng-setup"
 
 # 🛑 Parar o SearXNG
 [group('Agent Mesh')]
@@ -47,9 +48,15 @@ searxng-status:
     fi
     printf '%-16s %s (boot: %s)\n' "searxng:" "${STATE:-inactive}" "$BOOT"
     if ss -tln 2>/dev/null | grep -q ':61387 '; then
-        echo "  Porta 61387: ABERTA"
+        echo "  Porta 61387: ABERTA (http://127.0.0.1:61387)"
     else
         echo "  Porta 61387: fechada"
+    fi
+    SERVE_STATE=$(/usr/libexec/bazzite-dx-serve status 61387 61387 http 2>/dev/null || echo "absent")
+    printf '  %-14s %s\n' "tailscale serve:" "$SERVE_STATE"
+    if [[ "$SERVE_STATE" == "ok" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "  URL Remota:    https://${DNS_NAME:-localhost}:61387"
     fi
 
 # ⚡ Habilitar SearXNG no boot
@@ -73,6 +80,28 @@ searxng-disable-boot:
     rmdir "$HOME/.config/containers/systemd/nomad-searxng.container.d" 2>/dev/null || true
     systemctl --user daemon-reload
     echo "🔌 SearXNG removido do boot automático."
+
+# 🔒 Expor o SearXNG com TLS via Tailscale Serve (:61387)
+[group('Agent Mesh')]
+remote-searxng-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! systemctl --user is-active --quiet nomad-searxng.service; then
+        echo "❌ SearXNG não está rodando. Rode 'ujust searxng-up' primeiro."
+        exit 1
+    fi
+    /usr/libexec/bazzite-dx-serve ensure 61387
+    DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//')
+    echo "✅ SearXNG remoto pronto em: https://${DNS_NAME}:61387"
+    echo "   API JSON: https://${DNS_NAME}:61387/search?q=query&format=json"
+
+# 🔓 Remover o SearXNG do Tailscale Serve
+[group('Agent Mesh')]
+remote-searxng-teardown:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    /usr/libexec/bazzite-dx-serve off 61387 || true
+    echo "🔓 SearXNG removido do Tailscale Serve."
 
 # 🧠 Iniciar o Vane / Perplexica (Deep Research & IA Search na porta :61385)
 [group('Agent Mesh')]
@@ -115,9 +144,15 @@ vane-status:
     fi
     printf '%-16s %s (boot: %s)\n' "vane:" "${STATE:-inactive}" "$BOOT"
     if ss -tln 2>/dev/null | grep -q ':61385 '; then
-        echo "  Porta 61385: ABERTA"
+        echo "  Porta 61385: ABERTA (http://127.0.0.1:61385)"
     else
         echo "  Porta 61385: fechada"
+    fi
+    SERVE_STATE=$(/usr/libexec/bazzite-dx-serve status 61385 61385 http 2>/dev/null || echo "absent")
+    printf '  %-14s %s\n' "tailscale serve:" "$SERVE_STATE"
+    if [[ "$SERVE_STATE" == "ok" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "  URL Remota:    https://${DNS_NAME:-localhost}:61385"
     fi
 
 alias perplexica-status := vane-status
@@ -207,11 +242,11 @@ agent-mesh-up:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🔍 Iniciando SearXNG..."
-    just searxng-up
+    ujust searxng-up
     echo "🧠 Iniciando Vane..."
-    just vane-up
+    ujust vane-up
     echo "🐼 Iniciando Lightpanda CDP..."
-    just lightpanda-up
+    ujust lightpanda-up
     echo "✅ Suíte Agent Mesh ativa."
 
 # 🛑 Parar a suíte completa da Agent Mesh
@@ -219,10 +254,49 @@ agent-mesh-up:
 agent-mesh-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    just vane-down
-    just searxng-down
-    just lightpanda-down
+    ujust vane-down
+    ujust searxng-down
+    ujust lightpanda-down
     echo "🛑 Suíte Agent Mesh desativada."
+
+# 🔒 Expor a suíte Agent Mesh com TLS via Tailscale Serve (SearXNG :61387 + Vane :61385)
+[group('Agent Mesh')]
+remote-agent-mesh-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🔒 Configurando acesso remoto via Tailscale para SearXNG (:61387)..."
+    ujust remote-searxng-setup
+    echo "🔒 Configurando acesso remoto via Tailscale para Vane (:61385)..."
+    ujust remote-vane-setup
+    DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+    echo "═══════════════════════════════════════════════════════════════════"
+    echo "✅ Agent Mesh Remota pronta (Tailscale HTTPS):"
+    echo "   SearXNG Metasearch : https://${DNS_NAME:-localhost}:61387"
+    echo "   Vane AI Research   : https://${DNS_NAME:-localhost}:61385"
+    echo "═══════════════════════════════════════════════════════════════════"
+
+# 🔓 Remover a suíte Agent Mesh do Tailscale Serve
+[group('Agent Mesh')]
+remote-agent-mesh-teardown:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    ujust remote-searxng-teardown
+    ujust remote-vane-teardown
+    echo "🔓 Agent Mesh removida do Tailscale Serve."
+
+# 📊 Diagnóstico consolidado da Agent Mesh (Serviços + CDP Matrix + Tailscale)
+[group('Agent Mesh')]
+agent-mesh-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "=== 🌐 AGENT MESH SERVICES STATUS ==="
+    ujust searxng-status
+    echo
+    ujust vane-status
+    echo
+    ujust lightpanda-status
+    echo
+    ujust cdp-matrix-status
 
 # 📊 Status consolidado da Matriz CDP (os-fedora-silverblue.md §8)
 [group('Agent Mesh')]
