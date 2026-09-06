@@ -295,11 +295,32 @@ visual-update:
 visual-pull-models:
     #!/usr/bin/env bash
     set -euo pipefail
-    MODELS_DIR="/var/srv/visual/models"
-    mkdir -p "$MODELS_DIR/checkpoints" "$MODELS_DIR/unet" "$MODELS_DIR/clip" "$MODELS_DIR/vae" "$MODELS_DIR/loras"
-    echo "📥 Verificando e baixando modelos do Visual Studio (SDXL Turbo / Flux NF4)..."
-    echo "💡 Modelos ficam armazenados no SSD em /var/srv/visual/models/"
-    echo "✅ Verificação de modelos concluída."
+    MODELS_DIR="/var/srv/visual/ComfyUI/models"
+    mkdir -p "$MODELS_DIR/checkpoints" "$MODELS_DIR/unet" "$MODELS_DIR/clip" "$MODELS_DIR/vae" "$MODELS_DIR/loras" "$MODELS_DIR/upscale_models"
+    echo "📥 Verificando e baixando modelos do AI Studio Visual (RTX 3060 6GB)..."
+
+    download_file() {
+        local url="$1"
+        local dest="$2"
+        if [[ -s "$dest" ]]; then
+            echo "✔ Já presente: $(basename "$dest")"
+            return 0
+        fi
+        echo "→ Baixando: $(basename "$dest")..."
+        if command -v aria2c >/dev/null 2>&1; then
+            aria2c -c -x 8 -s 8 -d "$(dirname "$dest")" -o "$(basename "$dest")" "$url"
+        else
+            curl -C - -L -o "$dest" "$url"
+        fi
+    }
+
+    echo "1. Upscaler 4K UltraSharp (65 MB)..."
+    download_file "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth" "$MODELS_DIR/upscale_models/4x-UltraSharp.pth"
+
+    echo "2. Checkpoint SDXL Lightning 4-Step (6.5 GB)..."
+    download_file "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_4step.safetensors" "$MODELS_DIR/checkpoints/sdxl_lightning_4step.safetensors"
+
+    echo "✅ Modelos do AI Studio Visual sincronizados em $MODELS_DIR."
 
 alias comfyui-pull-models := visual-pull-models
 
