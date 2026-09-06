@@ -17,4 +17,4 @@ dill
 imageio
 imageio-ffmpeg
 av
-numpy<2.0.0
+numpy<2.5.3
