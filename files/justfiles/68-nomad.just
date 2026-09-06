@@ -294,6 +294,93 @@ ollama-vram-purge:
         echo "Ollama já está inativo."
     fi
 
+alias vram-purge := ollama-vram-purge
+
+# ⚖️ Analisar compatibilidade de LLMs locais com a GPU RTX 3060 (6GB) e 64GB RAM (llmfit)
+[group('NOMAD')]
+ollama-fit +ARGS="fit":
+    #!/usr/bin/env bash
+    if command -v llmfit >/dev/null 2>&1; then
+        llmfit {{ ARGS }}
+    elif command -v uvx >/dev/null 2>&1; then
+        uvx llmfit {{ ARGS }}
+    else
+        echo "❌ Nem llmfit nem uvx encontrados. Use 'mise use -g uv' ou 'uv tool install llmfit'."
+        exit 1
+    fi
+
+alias llm-fit := ollama-fit
+
+# 🎯 Recomendar o melhor LLM local com benchmarks reais (whichllm)
+[group('NOMAD')]
+ollama-which +ARGS="--speed usable --vram-headroom auto":
+    #!/usr/bin/env bash
+    if command -v whichllm >/dev/null 2>&1; then
+        whichllm {{ ARGS }}
+    elif command -v uvx >/dev/null 2>&1; then
+        uvx whichllm@latest {{ ARGS }}
+    else
+        echo "❌ Nem whichllm nem uvx encontrados. Instale com 'uv tool install whichllm' ou via mise."
+        exit 1
+    fi
+
+alias which-llm := ollama-which
+alias llm-which := ollama-which
+
+# 🧠 Guia de dimensionamento e arquitetura de LLM para Dell G15 (6GB VRAM + 64GB DDR5)
+[group('NOMAD')]
+ollama-advisor:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cat << 'EOF'
+    ================================================================================
+    🧠 DIRETRIZES DE LLM: DELL G15 5520 (RTX 3060 6GB + 64GB DDR5 + i7-12700H)
+    ================================================================================
+
+    📌 MATRIZ DE DIMENSIONAMENTO POR CAMADAS (TIERS):
+    --------------------------------------------------------------------------------
+    1. TIER 1: INFERÊNCIA 100% EM VRAM (~35-60 tok/s) — LATÊNCIA MÍNIMA
+       • Tamanho: 3B a 8B parâmetros em quantização Q4_K_M ou Q5_K_M.
+       • Alocação: ~4.5 GB a 5.2 GB de VRAM (sobrando headroom para KV Cache).
+       • Modelos recomendados:
+         - qwen2.5:3b (RAG fast rewrite)
+         - llama3.2:3b / richardyoung/llama-3.2-3b-instruct-abliterated
+         - qwen2.5-coder:7b / hermes3:8b
+         - minicpm-v:8b (Visão / OCR multimodal)
+
+    2. TIER 2: OFFLOAD HÍBRIDO GPU + DDR5 (~12-25 tok/s) — EQUILÍBRIO IDEAL
+       • Tamanho: 9B a 14B parâmetros em Q4_K_M.
+       • Alocação: ~20-25 camadas na RTX 3060 + restante nos 64 GB de RAM DDR5.
+       • Modelos recomendados:
+         - qwen2.5-coder:14b-instruct-abliterated (Engenharia sênior / código)
+         - nexusriot/deepseek-r1-abliterated:8b (Raciocínio complexo)
+         - gemma2:9b
+
+    3. TIER 3: OFFLOAD PESADO EM DDR5 (~3-8 tok/s) — MÁXIMA CAPACIDADE COGNITIVA
+       • Tamanho: 27B a 35B parâmetros em Q4_K_M (~20 GB em RAM DDR5).
+       • Alocação: 8-12 camadas na GPU para acelerar o prompt processing (prefill).
+       • Modelos recomendados:
+         - qwen2.5:32b-instruct-q4_K_M
+         - command-r (35B)
+
+    ⚠️ REGRAS DE OURO CONTRA ARMADILHAS DE QUANTIZAÇÃO:
+    --------------------------------------------------------------------------------
+    • EVITE Q2 e Q3 BRUTOS: A perda de raciocínio é severa (brain damage).
+      Prefira sempre um modelo menor em Q5_K_M / Q8 do que um modelo grande em Q2!
+    • QUANTIZAÇÃO MÍNIMA: Use Q4_K_M ou IQ4_XS/IQ3_M (com matriz de importância imatrix).
+    • KV CACHE OVERHEAD: Janelas longas (16k-32k) consomem GBs de VRAM. No Ollama,
+      já configuramos OLLAMA_KV_CACHE_TYPE=q8_0 e OLLAMA_FLASH_ATTENTION=1 no Quadlet.
+
+    🔧 FERRAMENTAS INTEGRADAS:
+    --------------------------------------------------------------------------------
+    • ujust llm-fit        -> Medição e avaliação de modelos via llmfit (TUI/CLI)
+    • ujust which-llm      -> Recomendação baseada em benchmarks reais via whichllm
+    • tps.bunai.cc         -> Calculadora detalhada de VRAM, KV Cache e TTFT
+    ================================================================================
+    EOF
+
+alias llm-advisor := ollama-advisor
+
 # 🗂️ Shell com o mapeamento de UID do rootless, para mexer nos arquivos do NOMAD
 [group('NOMAD')]
 nomad-shell:

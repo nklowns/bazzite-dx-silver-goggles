@@ -241,6 +241,10 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust ollama-up` | Start GPU inference |
 | `ujust ollama-down` | Stop it and release VRAM |
 | `ujust ollama-pull-models` | Fetch the models NOMAD actually names (`nomic-embed-text:v1.5`, `qwen2.5:3b`, `llama3.2:3b`) |
+| `ujust vram-purge` | Immediately purge resident models from VRAM |
+| `ujust llm-fit` | Evaluate hardware fit and tokens/sec for local LLMs (`llmfit`) |
+| `ujust which-llm` | Recommend best models based on actual community benchmarks (`whichllm`) |
+| `ujust llm-advisor` | Architecture & sizing guidelines for Dell G15 (6GB VRAM + 64GB DDR5) |
 | `ujust remote-nomad-setup` | Publish the Command Center on the tailnet (`https://…:61380`) |
 | `ujust remote-nomad-teardown` | Unpublish it and restore the local `URL` |
 | `ujust nomad-firewall-on` | Open `61380`/`61381` on the local network |

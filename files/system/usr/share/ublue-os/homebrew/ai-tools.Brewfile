@@ -31,7 +31,6 @@ flatpak "com.jeffser.Alpaca"                        # Local LLM chat GUI (Ollama
 brew "rtk-ai/tap/rtk"                               # Token-saving proxy for AI agents
 brew "aichat"                                       # Interactive chat in the terminal
 brew "llm"                                          # Streamlined CLI for OpenAI/Anthropic/Local
-brew "llmfit"                                       # Advanced quantization tools
 brew "whisper-cpp"                                  # High-performance speech-to-text
 cask "ublue-os/tap/antigravity-cli-linux"           # Google's antigravity CLI interface
 brew "kimi-cli"                                     # DeepSearch-capable CLI integration
