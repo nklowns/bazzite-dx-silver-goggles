@@ -74,3 +74,4 @@ modules:
       - 69-audit.just
       - 70-aistudio-visual.just
       - 71-aistudio-audio.just
+      - 72-agent-mesh.just

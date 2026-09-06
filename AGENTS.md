@@ -43,7 +43,9 @@ This is a developer workstation — arbitrary projects spin up arbitrary dev ser
 | NOMAD dozzle (log viewer) | `61381` | not exposed over tailnet by default |
 | NOMAD Ollama (GPU inference) | `61382` | never — no authentication, no rate limiting. The Command Center reaches it over the container network (`http://ollama:11434`), not this port (`ujust ollama-up`) |
 | AI Studio Visual (ComfyUI) | `61384` | `https://<tailscale-fqdn>:61384` (`ujust visual-up` / `ujust remote-visual-setup`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
+| Vane (Perplexica AI Search) | `61385` | `https://<tailscale-fqdn>:61385` (`ujust vane-up` / `ujust remote-vane-setup`) — AI-powered answering engine with local LLM & SearXNG integration |
 | AI Studio Audio (Speaches) | `61386` | `https://<tailscale-fqdn>:61386` (`ujust audio-up` / `ujust remote-audio-setup`) — OpenAI-compatible Speech API (Piper TTS, ChatTTS & Faster-Whisper STT, 100% CPU / 0 MB VRAM) |
+| SearXNG Metasearch | `61387` | not exposed over tailnet by default (`ujust searxng-up`) — privacy-respecting metasearch provider with JSON API |
 | cockpit | `61390` | `https://<tailscale-fqdn>:61390` (`ujust cockpit-up`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
 | KasmVNC WebRTC Desktop | `61391` | `https://<tailscale-fqdn>:61391` (`ujust remote-kasmvnc-setup`) — Browser-native HTML5 desktop with bidirectional browser clipboard sync |
 | Apache Guacamole | `61392` | `https://<tailscale-fqdn>:61392` (`ujust guacamole-up`) — HTML5 client for RDP/VNC backends. *Note: KDE Plasma 6 Wayland RDP (KRDP) / VNC (KRFB) require active screen session portals; Sunshine (`61395`) is preferred for remote host streaming.* |

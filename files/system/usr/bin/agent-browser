@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# agent-browser: Host overlay wrapper for Vercel Labs Agent Browser
+# Runtime contract: os-fedora-silverblue.md §8 (Browser Automation CDP Matrix)
+# ==============================================================================
+set -euo pipefail
+
+# Locate host agent-browser binary if present (e.g. Homebrew / npm)
+AGENT_BROWSER_BIN=""
+if [[ -x /home/linuxbrew/.linuxbrew/bin/agent-browser ]]; then
+	AGENT_BROWSER_BIN="/home/linuxbrew/.linuxbrew/bin/agent-browser"
+elif command -v agent-browser >/dev/null 2>&1 && [[ "$(command -v agent-browser)" != "/usr/bin/agent-browser" ]]; then
+	AGENT_BROWSER_BIN="$(command -v agent-browser)"
+fi
+
+# Detect if --cdp is already explicitly passed
+has_cdp=0
+for arg in "$@"; do
+	if [[ "$arg" == "--cdp"* ]]; then
+		has_cdp=1
+		break
+	fi
+done
+
+DEFAULT_CDP_ARGS=()
+if [[ $has_cdp -eq 0 ]]; then
+	if ss -tln 2>/dev/null | grep -q ':9225 '; then
+		DEFAULT_CDP_ARGS=("--cdp" "9225")
+	elif ss -tln 2>/dev/null | grep -q ':9222 '; then
+		DEFAULT_CDP_ARGS=("--cdp" "9222")
+	else
+		DEFAULT_CDP_ARGS=("--cdp" "9225")
+	fi
+fi
+
+if [[ -n "$AGENT_BROWSER_BIN" ]]; then
+	exec "$AGENT_BROWSER_BIN" "${DEFAULT_CDP_ARGS[@]}" "$@"
+elif [[ -x /home/linuxbrew/.linuxbrew/bin/npx ]]; then
+	exec /home/linuxbrew/.linuxbrew/bin/npx --yes agent-browser "${DEFAULT_CDP_ARGS[@]}" "$@"
+elif command -v npx >/dev/null 2>&1; then
+	exec npx --yes agent-browser "${DEFAULT_CDP_ARGS[@]}" "$@"
+else
+	echo "❌ agent-browser CLI não encontrado." >&2
+	echo "   Instale via Homebrew: 'npm install -g agent-browser' (ou 'npx agent-browser')." >&2
+	exit 1
+fi

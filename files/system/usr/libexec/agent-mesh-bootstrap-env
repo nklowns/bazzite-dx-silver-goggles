@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Generates configuration files for SearXNG and Vane on first run only.
+# Never overwrites existing files, preserving custom user engines, API keys, and settings across rebases.
+set -euo pipefail
+
+SEARXNG_DIR="/var/srv/searxng"
+VANE_DIR="/var/srv/vane"
+
+mkdir -p "$SEARXNG_DIR" "$VANE_DIR/data"
+
+# 1. SearXNG Configuration
+SEARXNG_SETTINGS="$SEARXNG_DIR/settings.yml"
+if [[ ! -f "$SEARXNG_SETTINGS" ]]; then
+	SECRET_KEY="$(openssl rand -hex 32)"
+	cat <<EOF >"$SEARXNG_SETTINGS"
+# SearXNG configuration for Agent Mesh & NOMAD
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "Agent Mesh SearXNG"
+
+server:
+  secret_key: "${SECRET_KEY}"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  image_proxy: true
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+redis:
+  url: redis://redis:6379/1
+EOF
+	chmod 644 "$SEARXNG_SETTINGS"
+fi
+
+# 2. Vane (Perplexica) Configuration
+VANE_CONFIG="$VANE_DIR/config.toml"
+if [[ ! -f "$VANE_CONFIG" ]]; then
+	cat <<EOF >"$VANE_CONFIG"
+[GENERAL]
+PORT = 3000
+SIMILARITY_MEASURE = "cosine"
+
+[API_KEYS]
+OPENAI = ""
+GROQ = ""
+ANTHROPIC = ""
+GEMINI = ""
+
+[API_ENDPOINTS]
+SEARXNG = "http://searxng:8080"
+OLLAMA = "http://ollama:11434"
+EOF
+	chmod 644 "$VANE_CONFIG"
+fi

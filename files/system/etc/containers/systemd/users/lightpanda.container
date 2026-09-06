@@ -1,0 +1,23 @@
+# Lightpanda — Ultra-fast Headless Browser (CDP :9225)
+#
+# Part of the Host Browser CDP Matrix (os-fedora-silverblue.md §8).
+# Built in Zig specifically for AI agents, web scraping, and LLM automation.
+# Publishes CDP WebSocket directly to 127.0.0.1:9225.
+#
+# [Install] is omitted on purpose: preserves Boot Impact Policy under user lingering.
+# Started on demand via `ujust lightpanda-up` or `lightpanda up`.
+
+[Unit]
+Description=Lightpanda Headless Browser (CDP Port 9225)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/lightpanda/browser:nightly
+ContainerName=lightpanda_cdp
+PublishPort=127.0.0.1:9225:9225
+Exec=/bin/lightpanda serve --host 0.0.0.0 --port 9225
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300

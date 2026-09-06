@@ -517,6 +517,43 @@ ConfigureRustDeskStorage() {
 	fi
 }
 
+ConfigureAiSearchStorage() {
+	local root="/var/srv/searxng"
+	if [ -d "$root" ]; then
+		command -v semanage >/dev/null 2>&1 || return 0
+		local spec="${root}(/.*)?" listing
+		if listing=$(semanage fcontext -l 2>/dev/null); then
+			if ! grep -qF "$spec" <<<"$listing"; then
+				echo "Registering SELinux fcontext container_file_t for ${root}..."
+				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
+					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
+				restorecon -R "$root" || true
+			fi
+		fi
+	fi
+
+	local vane_root="/var/srv/vane"
+	if [ -d "$vane_root" ]; then
+		local dir="$vane_root/data"
+		if [ -d "$dir" ] && ! lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+			if [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+				echo "Enabling btrfs nodatacow on empty $dir..."
+				chattr +C "$dir" || true
+			fi
+		fi
+		command -v semanage >/dev/null 2>&1 || return 0
+		local spec="${vane_root}(/.*)?" listing
+		if listing=$(semanage fcontext -l 2>/dev/null); then
+			if ! grep -qF "$spec" <<<"$listing"; then
+				echo "Registering SELinux fcontext container_file_t for ${vane_root}..."
+				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
+					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
+				restorecon -R "$vane_root" || true
+			fi
+		fi
+	fi
+}
+
 ConfigureFirewall() {
 	if command -v firewall-cmd >/dev/null; then
 		if ! firewall-cmd --zone=trusted --query-interface=tailscale0 >/dev/null 2>&1; then
@@ -557,6 +594,7 @@ ConfigureNomadStorage
 ConfigureVisualStorage
 ConfigureAudioStorage
 ConfigureRustDeskStorage
+ConfigureAiSearchStorage
 ConfigureFirewall
 ConfigurePcpServices
 
