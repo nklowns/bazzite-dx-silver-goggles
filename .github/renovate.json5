@@ -201,6 +201,14 @@
       commitMessagePrefix: 'chore(deps-ai): ',
     },
     {
+      description: 'Auto-update and batch ComfyUI visual studio python packages in requirements.txt',
+      matchFileNames: [
+        'files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt',
+      ],
+      groupName: 'ComfyUI visual dependencies',
+      commitMessagePrefix: 'chore(deps-visual): ',
+    },
+    {
       description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',
       matchPackageNames: [
         'fedora',
