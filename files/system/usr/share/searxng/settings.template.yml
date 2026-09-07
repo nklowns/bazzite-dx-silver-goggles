@@ -78,11 +78,11 @@ engines:
     disabled: true
 
   - name: brave
-    engine: brave
+    engine: braveapi
+    api_key: '@BRAVE_API_KEY@'
     categories: [general, it]
-    network: trawl
     disabled: false
-    weight: 2
+    weight: 2.0
     timeout: 3.5
 
   - name: google cse

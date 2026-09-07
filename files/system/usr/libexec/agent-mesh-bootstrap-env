@@ -22,14 +22,17 @@ fi
 
 if [[ -f "$TEMPLATE_SETTINGS" ]]; then
 	SECRET_KEY=""
+	BRAVE_KEY=""
 	if [[ -f "$SEARXNG_SETTINGS" ]]; then
 		SECRET_KEY=$(grep -E '^\s*secret_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E 's/.*secret_key:\s*"?([^"]*)"?/\1/' || true)
+		BRAVE_KEY=$(grep -E '^\s*api_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E 's/.*api_key:\s*"?([^"]*)"?/\1/' || true)
 		cp -a "$SEARXNG_SETTINGS" "${SEARXNG_SETTINGS}.bak"
 	fi
 	if [[ -z "$SECRET_KEY" ]]; then
 		SECRET_KEY="$(openssl rand -hex 32)"
 	fi
-	sed "s/@SEARXNG_SECRET_KEY@/${SECRET_KEY}/g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"
+	sed -e "s/@SEARXNG_SECRET_KEY@/${SECRET_KEY}/g" \
+	    -e "s/@BRAVE_API_KEY@/${BRAVE_KEY}/g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"
 	chmod 644 "$SEARXNG_SETTINGS"
 elif [[ ! -f "$SEARXNG_SETTINGS" ]]; then
 	SECRET_KEY="$(openssl rand -hex 32)"
