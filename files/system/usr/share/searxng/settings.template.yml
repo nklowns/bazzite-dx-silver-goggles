@@ -1,14 +1,16 @@
 # ==============================================================================
-# SearXNG Metasearch Engine Configuration — 5 Search Spheres
+# SearXNG Metasearch Engine Configuration — 7 Search Spheres
 # ==============================================================================
 # Managed declaratively by Bazzite silver-goggles image & agent-mesh-bootstrap-env.
 # 
 # SPHERES:
 # 1. Clearnet General: brave, google cse, mojeek, qwant, wikipedia, wikidata, duckduckgo
-# 2. Dev & IT (:!it): github, gitlab, stackoverflow, arch linux wiki, pypi, npm, crates.io, docker hub
-# 3. Science (:!science): arxiv, semantic scholar
-# 4. P2P (:!p2p): yacy (remote public pool + optional local node http://yacy:8090)
-# 5. Onions (:!onions): ahmia via internal Tor proxy (socks5h://tor:9050)
+# 2. Dev & IT (:!it): github, gitlab, stackoverflow, arch linux wiki, pypi, npm, crates.io, docker hub, repology, nvd, huggingface
+# 3. Science (:!science): arxiv, semantic scholar, annas archive
+# 4. Indie & Small Web (:!indie): marginalia, neocities, mwmbl
+# 5. P2P (:!p2p): mwmbl, yacy (remote public pool + optional local node http://yacy:8090)
+# 6. Onions (:!onions): ahmia via internal Tor proxy (socks5h://tor:9050)
+# 7. Web Histórica & Arquivos (:!archive): openlibrary, loc, annas archive
 # ==============================================================================
 
 use_default_settings: true
@@ -187,7 +189,7 @@ engines:
 
   - name: annas archive
     engine: annas_archive
-    categories: [science]
+    categories: [archive, science]
     disabled: false
     timeout: 3.5
 
@@ -240,3 +242,20 @@ engines:
     using_tor_proxy: true
     disabled: false
     timeout: 20.0
+
+  # ==========================================
+  # ESFERA 7: WEB HISTÓRICA & ARQUIVOS (:!archive)
+  # ==========================================
+  - name: openlibrary
+    engine: openlibrary
+    categories: [archive, science]
+    disabled: false
+    timeout: 5.0
+
+  - name: loc
+    engine: loc
+    shortcut: locgov
+    categories: [archive]
+    disabled: false
+    timeout: 3.5
+
