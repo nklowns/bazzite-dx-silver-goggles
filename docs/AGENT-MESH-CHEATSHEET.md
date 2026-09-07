@@ -187,7 +187,29 @@ ia download <identifier> --destdir=~/Downloads
 
 ---
 
-## 7. Solução de Problemas Comuns (Troubleshooting)
+## 7. Governança, Safety Fence e Auditoria
+
+A camada de pesquisa e extração opera sob as diretrizes estritas do [WEB_ALLOWLIST.md](file:///var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/docs/WEB_ALLOWLIST.md):
+
+* **Detecção Automática de Vazamento de Segredos**: Toda query ou prompt que contenha padrões de tokens (AWS, GitHub, Slack, OpenAI, GitLab ou chaves privadas RSA/SSH) é **bloqueada antes da transmissão** com erro `SECRET_DETECTED` e query redigida.
+* **SSRF Guard no Loopback**: `mesh_fetch` bloqueia requisições a portas locais fora da faixa de serviços da malha (impedindo varreduras em portas de desenvolvimento ou daemons).
+* **Proteção contra Loops**: Limite automático de 60 requisições por minuto (`MESH_RATE_LIMIT=60`).
+* **Trilha de Auditoria**: Registro em tempo real em `~/.local/state/agent-mesh/audit.jsonl` com teto de rotação de 5 MB.
+
+```bash
+# 📋 Inspecionar histórico recente de auditoria
+mesh-search audit
+
+# 📊 Exibir resumo estatístico de latências, bloqueios de segurança e esferas
+mesh-search audit --stats
+
+# 🔬 Formato estruturado para consumo por subagentes
+mesh-search audit --stats --json
+```
+
+---
+
+## 8. Solução de Problemas Comuns (Troubleshooting)
 
 * **SearXNG retornando 502 no primeiro comando após o boot**:
   * O `mesh-search` já gerencia o auto-start com tolerância de 25s. Caso ocorra timeout manual: `ujust searxng-up`.
@@ -197,3 +219,5 @@ ia download <identifier> --destdir=~/Downloads
   * Rode `ujust ollama-down`.
 * **Erro de certificado SSL no Trawl proxy**:
   * O certificado CA é gerado automaticamente em `/var/srv/trawl/ca/proxy-ca.crt`. O `mesh-search` o consome de forma transparente.
+* **Query bloqueada por Safety Fence (`SECRET_DETECTED`)**:
+  * Verifique se o comando ou script não está acidentalmente concatenando variáveis de ambiente ou arquivos contendo tokens/chaves privadas no texto da busca. Consulte `mesh-search audit` para detalhes.
