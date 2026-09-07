@@ -141,6 +141,12 @@
       matchFileNames: [
         'files/system/etc/containers/systemd/users/nomad-*.container',
       ],
+      excludeFileNames: [
+        'files/system/etc/containers/systemd/users/nomad-searxng.container',
+        'files/system/etc/containers/systemd/users/nomad-vane.container',
+        'files/system/etc/containers/systemd/users/nomad-tor.container',
+        'files/system/etc/containers/systemd/users/nomad-yacy.container',
+      ],
       matchUpdateTypes: [
         'digest',
         'pinDigest',
@@ -151,6 +157,26 @@
         'before 6am on monday',
       ],
       commitMessagePrefix: 'chore(deps-nomad): ',
+    },
+    {
+      description: 'Auto-update and batch Agent Mesh container digests in Quadlet units',
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/nomad-searxng.container',
+        'files/system/etc/containers/systemd/users/nomad-vane.container',
+        'files/system/etc/containers/systemd/users/nomad-tor.container',
+        'files/system/etc/containers/systemd/users/nomad-yacy.container',
+        'files/system/etc/containers/systemd/users/lightpanda.container',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
+      pinDigests: true,
+      groupName: 'Agent Mesh container digests',
+      schedule: [
+        'before 6am on monday',
+      ],
+      commitMessagePrefix: 'chore(deps-mesh): ',
     },
     {
       description: 'Auto-update MediaMTX video router container digest in Quadlet unit',

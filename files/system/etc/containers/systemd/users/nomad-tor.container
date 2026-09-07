@@ -14,7 +14,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/osminogin/tor-simple:latest
+Image=docker.io/osminogin/tor-simple:latest@sha256:7aef2e7d957e2236d5fac7fca8e67c15fe65e6349eb90099da1cdc26bc4caa69
 ContainerName=nomad_tor
 Network=project-nomad_default.network
 NetworkAlias=tor

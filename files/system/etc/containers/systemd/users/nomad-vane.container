@@ -13,7 +13,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/itzcrazykns1337/vane:slim-latest
+Image=docker.io/itzcrazykns1337/vane:slim-latest@sha256:21759f5428af08a6fcc0caadd96f2a604813100fc96ae9f127804b72e8e976ac
 ContainerName=nomad_vane
 Network=project-nomad_default.network
 NetworkAlias=vane

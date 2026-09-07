@@ -11,11 +11,11 @@
 Description=SearXNG Metasearch Engine (Agent Mesh)
 StartLimitIntervalSec=300
 StartLimitBurst=5
-Wants=nomad-redis.service nomad-tor.service
-After=nomad-redis.service nomad-tor.service
+Wants=nomad-redis.service
+After=nomad-redis.service
 
 [Container]
-Image=docker.io/searxng/searxng:latest
+Image=docker.io/searxng/searxng:latest@sha256:55e1fa15a63ff04e79e213e6aa2837549877b0c6d60757cdb633ae9111cb5fea
 ContainerName=nomad_searxng
 Network=project-nomad_default.network
 NetworkAlias=searxng
@@ -31,6 +31,7 @@ HealthCmd=wget -q --spider http://localhost:8080/healthz || exit 1
 HealthInterval=30s
 HealthTimeout=10s
 HealthRetries=3
+Notify=healthy
 
 [Service]
 Restart=on-failure

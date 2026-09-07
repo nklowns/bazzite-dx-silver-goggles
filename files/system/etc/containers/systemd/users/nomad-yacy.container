@@ -13,10 +13,14 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/yacy/yacy_search_server:latest
+Image=docker.io/yacy/yacy_search_server:latest@sha256:58f63b879e20ddf55064b01c2d6cb10c459077ef0912976a32e8288e84c9b13c
 ContainerName=nomad_yacy
 Network=project-nomad_default.network
 NetworkAlias=yacy
+
+# Resource bounds per Workstation & Gaming Policy
+Memory=2G
+Environment=JAVA_OPTS=-Xms256m -Xmx1536m
 
 # Loopback binding per workstation security policy
 PublishPort=127.0.0.1:8090:8090
