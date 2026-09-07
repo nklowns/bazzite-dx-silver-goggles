@@ -64,38 +64,13 @@ Bazzite serves two conflicting jobs on the same hardware — play and develop �
 
 Everything else — **NOMAD (Command Center, mysql, redis, dozzle, Ollama, and any Supply Depot app), code-server, VS Code Remote Tunnels, casting receivers (uxplay/FCast/scrcpy)** — is opt-in: `nomad.yml`/`casting.yml` carry no `systemd` module at all, so their units ship inert until a `ujust ...-up`/`...-setup` call activates them. **Do not add a `systemd: enabled:` block to `nomad.yml` or `casting.yml`** — that would turn an on-demand feature into permanent background load (mysql/redis daemons, a container socket held open, VRAM pressure from Ollama) fighting the same RTX 3060 a game session needs. If a future service seems to want boot-enablement, that's a signal to re-check this policy with the user first, not a default to reach for.
 
-### `enable` is not opt-in on this image — lingering is on
+### Lingering & User Service Policy
 
-This paragraph used to end at "…does `systemctl --user enable --now`", and that sentence quietly contradicted itself. Lingering is enabled for the desktop user:
+User lingering is enabled on this host (`Linger=yes`). Consequently, an enabled user unit (`systemctl --user enable`) runs at **system boot** rather than graphical login, persisting across logouts.
 
-```
-$ loginctl show-user "$USER" -p Linger
-Linger=yes
-$ ls /var/lib/systemd/linger/
-<username>
-```
-
-Without lingering, an enabled *user* unit starts at **login**. With it, the unit starts at **boot** with no login at all, and keeps running after logout. So `systemctl --user enable` is not "remember my preference for this session" — it is the same permanent-background-load commitment the policy above forbids, arriving by a different door. It is the user-scope equivalent of a container's `restart: unless-stopped`.
-
-**Rule: `ujust ...-up` recipes use `systemctl --user start`, never `enable`.** The `[Install]` section stays in the units so someone can deliberately opt into always-on, but nothing in this repo should enable a user unit on the user's behalf.
-
-**This is not hypothetical, and the host is already drifting.** Measured — every one of these currently starts at boot, not at login:
-
-```
-uxplay                    enabled     ide-tunnel@code           enabled
-code-server               enabled     ide-tunnel@code-insiders  enabled
-tailscale-systray         enabled     agy-warmup.timer          enabled
-```
-
-Two VS Code tunnel servers at ~10 s each plus a 23 s warmup, all before the desktop is usable — and `uxplay`/`code-server` are precisely the services this section calls "opt-in and manual". They *were* opted into; nothing ever accounted for the accumulation.
-
-**`ujust boot-audit` is a diagnostic, not a watchdog, and the distinction is not pedantry.** An earlier version of this paragraph ended "the policy is only as real as the thing that checks it", pointing at that command — which promises supervision a manual command cannot provide. The evidence is `uupd.timer`: it sat inert for an unknown length of time, the machine quietly stopped auto-updating, and no watchdog would have caught it because nobody was running one. What caught it was investigating something else and looking.
-
-So run it when you ask *"what is actually on this machine?"* — after a rebase, when something behaves oddly, or before changing what starts at boot. Expect roughly twenty lines, most of them intentional: `tailscaled` and `sunshine` are supposed to be there, and `docker`/`libvirtd` may well be too. It reports facts and labels nothing a violation, because it cannot tell your deliberate choice from accumulated drift — only you can.
-
-A baseline file plus an acknowledge command was considered and rejected: it would solve a problem other than the one that actually occurred, and add state that itself needs maintaining. If real supervision is ever wanted, the shape is a timer that reports or `uupd` failing loudly — a different decision, not taken here.
-
-The exception this section makes for `lock-on-session-start.service` belongs with the rule rather than hidden in a recipe: `ujust autologin-setup` **enables** it, which the rule above forbids. It is a oneshot that locks the screen and exits, so it competes for none of the CPU/RAM/VRAM this policy protects, and leaving it disabled would leave autologin unguarded — an open desktop is strictly worse than the login screen it replaced.
+- **Rule:** `ujust ...-up` recipes must use `systemctl --user start`, never `enable`. User services (code-server, ide-tunnels, uxplay, nomad) remain strictly on-demand.
+- **Audit:** Use `ujust boot-audit` to detect unwanted boot-enabled units and configuration drift.
+- **Exception:** `lock-on-session-start.service` is explicitly enabled by `ujust autologin-setup` to ensure the session locks immediately upon remote headless boot.
 
 ## 🏗️ Architecture
 
@@ -343,28 +318,11 @@ writing `balanced` to the sysfs node flipped `tuned-adm active` to `balanced-baz
 So use `tuned-adm profile …`, the KDE power widget, or that sysfs node — never a boot-time script
 racing the daemon.
 
-#### Do not try to "fix" AWCC's thermals, and do not migrate to alienfx-linux for them
+#### Hardware Control Policy
 
-Upstream's prescription is DKMS. On the still-open AWCC issue #124 the maintainer answers "the acpi
-module is not in kernel install acpicall-dkms and modprobe acpi_call", and issue #111 — *literally*
-this image's error, `Unknown thermal mode returned: 0xffffffff` — was closed as **stale**, not
-fixed. DKMS is not available on an atomic host, and no uBlue akmods set carries `acpi_call`.
-
-`dell_related/alienfx-linux` (same author, the repo AWCC's README points at) is **not** the escape
-hatch for this, despite `AlienFan-SDK/src/AlienFan-SDK.cpp` reading exactly the right surfaces
-(`/sys/class/hwmon` for `name == alienware_wmi`, `/sys/class/platform-profile`) and even
-implementing `SetFanBoost()` as an `ofstream` on `fanN_boost`. Its CLI exposes **no fan command at
-all** — 14 subcommands: nine for lights, `getpowerprofile`/`supportedprofiles`/`setpowerprofile`,
-`status`, `reset`. And the profile half duplicates what `tuned` and the KDE power widget already do.
-AWCC is also not deprecated (182★ vs 25★, 1.19.0, new devices as recently as June 2026); its
-roadmap marks `[x] New backend for thermal mode (AlienFan-SDK)` but the code contradicts that —
-zero `hwmon`/`platform-profile` references anywhere in `AWCC/src`, and `Thermals.cpp` still goes
-through `AcpiUtils` → `/proc/acpi/call`.
-
-So: **OpenRGB handles lights natively** (merged into upstream `master` via MR !3577 for AW-ELC `187c:0550`, directly over USB hidraw without requiring daemons or root), profiles come from tuned/KDE, and if per-fan boost is ever
-wanted the cheap path is ours, not upstream's — a `dx-udev` rule granting group write on
-`fanN_boost` plus a `ujust`, on the sysfs nodes measured below. Worth remembering the measurement
-before building that: on CPU load it buys ~0 MHz.
+- **Lighting**: Handled exclusively by upstream OpenRGB (merged into `master` via MR !3577 for AW-ELC `187c:0550`). Operates directly over USB hidraw in userspace with hardware EEPROM persistence.
+- **Thermals & Fans**: Handled via in-tree `alienware-wmi-wmax` platform profiles (`/sys/class/platform-profile`) and `tuned-ppd`.
+- **Legacy Tools**: AWCC, `acpi_call`, and `alienfx-linux` are obsolete and must not be reintroduced.
 
 #### What max fan actually buys (measured, so stop guessing)
 
