@@ -78,7 +78,7 @@ engines:
     disabled: true
 
   - name: brave
-    engine: /etc/searxng/braveapi
+    engine: braveapi
     api_key: '@BRAVE_API_KEY@'
     categories: [general, it]
     disabled: false
