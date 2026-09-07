@@ -1,0 +1,197 @@
+# ==============================================================================
+# SearXNG Metasearch Engine Configuration — 5 Search Spheres
+# ==============================================================================
+# Managed declaratively by Bazzite silver-goggles image & agent-mesh-bootstrap-env.
+# 
+# SPHERES:
+# 1. Clearnet General: brave, google cse, mojeek, qwant, wikipedia, wikidata, duckduckgo
+# 2. Dev & IT (:!it): github, gitlab, stackoverflow, arch linux wiki, pypi, npm, crates.io, docker hub
+# 3. Science (:!science): arxiv, semantic scholar
+# 4. P2P (:!p2p): yacy (remote public pool + optional local node http://yacy:8090)
+# 5. Onions (:!onions): ahmia via internal Tor proxy (socks5h://tor:9050)
+# ==============================================================================
+
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "Agent Mesh SearXNG"
+
+server:
+  secret_key: "@SEARXNG_SECRET_KEY@"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  image_proxy: true
+  method: "GET"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+valkey:
+  url: redis://redis:6379/1
+
+redis:
+  url: redis://redis:6379/1
+
+outgoing:
+  request_timeout: 2.0
+  max_request_timeout: 20.0
+  pool_connections: 100
+  enable_http2: true
+  using_tor_proxy: false
+  networks:
+    tor:
+      enable_http: true
+      using_tor_proxy: true
+      proxies:
+        all://:
+          - socks5h://tor:9050
+
+engines:
+  # ==========================================
+  # ESFERA 1: CLEARNET GERAL
+  # ==========================================
+  - name: startpage
+    disabled: true
+
+  - name: brave
+    engine: brave
+    categories: [general]
+    disabled: false
+    weight: 2
+    timeout: 2.0
+
+  - name: google cse
+    engine: google_cse
+    categories: [general]
+    disabled: false
+    weight: 2
+    timeout: 2.0
+
+  - name: mojeek
+    engine: mojeek
+    categories: [general]
+    disabled: false
+    timeout: 2.0
+
+  - name: qwant
+    engine: qwant
+    categories: [general]
+    disabled: false
+    timeout: 2.0
+
+  - name: wikipedia
+    engine: wikipedia
+    categories: [general]
+    disabled: false
+
+  - name: wikidata
+    engine: wikidata
+    categories: [general]
+    disabled: false
+
+  - name: duckduckgo
+    engine: duckduckgo
+    categories: [general]
+    disabled: false
+    timeout: 2.0
+
+  # ==========================================
+  # ESFERA 2: DEV & IT (:!it)
+  # ==========================================
+  - name: github
+    engine: github
+    categories: [it]
+    disabled: false
+    weight: 2
+    timeout: 2.5
+
+  - name: gitlab
+    engine: gitlab
+    categories: [it]
+    disabled: false
+    weight: 1
+    timeout: 2.5
+
+  - name: stackoverflow
+    engine: stackexchange
+    api_site: stackoverflow
+    categories: [it]
+    disabled: false
+    weight: 2
+    timeout: 2.5
+
+  - name: arch linux wiki
+    engine: archlinux
+    categories: [it]
+    disabled: false
+    weight: 2
+    timeout: 2.0
+
+  - name: pypi
+    engine: pypi
+    categories: [it]
+    disabled: false
+
+  - name: npm
+    engine: npm
+    categories: [it]
+    disabled: false
+
+  - name: crates.io
+    engine: crates
+    categories: [it]
+    disabled: false
+
+  - name: docker hub
+    engine: docker_hub
+    categories: [it]
+    disabled: false
+
+  # ==========================================
+  # ESFERA 3: CIÊNCIA & ACADÊMICO (:!science)
+  # ==========================================
+  - name: arxiv
+    engine: arxiv
+    categories: [science]
+    disabled: false
+    weight: 2
+    timeout: 3.0
+
+  - name: semantic scholar
+    engine: semantic_scholar
+    categories: [science]
+    disabled: false
+    weight: 2
+    timeout: 3.0
+
+  # ==========================================
+  # ESFERA 4: P2P DESCENTRALIZADA (YaCy)
+  # ==========================================
+  - name: yacy
+    engine: yacy
+    categories: [p2p, general]
+    disabled: false
+    timeout: 3.0
+    base_url:
+      - http://yacy:8090
+      - https://yacy.searchlab.eu
+      - https://yacy.ecosys.eu
+      - https://search.lomig.me
+
+  # ==========================================
+  # ESFERA 5: DARKNET & PRIVACIDADE (:!onions)
+  # ==========================================
+  - name: ahmia
+    engine: ahmia
+    categories: [onions]
+    network: tor
+    enable_http: true
+    using_tor_proxy: true
+    disabled: false
+    timeout: 20.0

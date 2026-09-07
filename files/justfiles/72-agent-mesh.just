@@ -236,6 +236,67 @@ lightpanda-status:
         echo "  Porta 9225: fechada"
     fi
 
+# 🧅 Iniciar o Tor SOCKS5 Proxy (:9050)
+[group('Agent Mesh')]
+tor-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    systemctl --user daemon-reload
+    systemctl --user start nomad-tor.service
+    echo "✅ Tor SOCKS5 Proxy ativo em 127.0.0.1:9050"
+
+# 🛑 Parar o Tor SOCKS5 Proxy
+[group('Agent Mesh')]
+tor-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop nomad-tor.service
+    echo "🛑 Tor SOCKS5 Proxy desativado."
+
+# 📊 Diagnóstico do Tor SOCKS5 Proxy
+[group('Agent Mesh')]
+tor-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active nomad-tor.service 2>/dev/null || true)
+    printf '%-16s %s\n' "tor-proxy:" "${STATE:-inactive}"
+    if ss -tln 2>/dev/null | grep -q ':9050 '; then
+        echo "  Porta 9050: ABERTA (socks5://127.0.0.1:9050)"
+    else
+        echo "  Porta 9050: fechada"
+    fi
+
+# 🕸️ Iniciar o nó local YaCy P2P (:8090)
+[group('Agent Mesh')]
+yacy-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p /var/srv/yacy/DATA
+    systemctl --user daemon-reload
+    systemctl --user start nomad-yacy.service
+    echo "✅ YaCy P2P local node ativo em http://localhost:8090"
+
+# 🛑 Parar o nó local YaCy P2P
+[group('Agent Mesh')]
+yacy-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop nomad-yacy.service
+    echo "🛑 YaCy P2P local node desativado."
+
+# 📊 Diagnóstico do nó local YaCy P2P
+[group('Agent Mesh')]
+yacy-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active nomad-yacy.service 2>/dev/null || true)
+    printf '%-16s %s\n' "yacy-node:" "${STATE:-inactive}"
+    if ss -tln 2>/dev/null | grep -q ':8090 '; then
+        echo "  Porta 8090: ABERTA (http://127.0.0.1:8090)"
+    else
+        echo "  Porta 8090: fechada"
+    fi
+
 # 🚀 Iniciar a suíte completa da Agent Mesh (SearXNG + Vane + Lightpanda)
 [group('Agent Mesh')]
 agent-mesh-up:
@@ -291,6 +352,10 @@ agent-mesh-status:
     set -uo pipefail
     echo "=== 🌐 AGENT MESH SERVICES STATUS ==="
     ujust searxng-status
+    echo
+    ujust tor-status
+    echo
+    ujust yacy-status
     echo
     ujust vane-status
     echo

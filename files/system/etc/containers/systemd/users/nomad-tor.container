@@ -1,0 +1,27 @@
+# Tor SOCKS5 Proxy — Agent Mesh & NOMAD darknet / privacy provider
+#
+# Part of the Agent Mesh. Operates autonomously on the shared OCI network.
+# Provides SOCKS5 proxy to nomad_searxng for .onion search (Ahmia) and selective routing.
+# Publishes strictly to loopback (127.0.0.1:9050); internal alias `tor:9050`.
+#
+# [Install] is omitted on purpose: podman-user-generator links any unit with [Install] into
+# default.target.wants/, which under user lingering starts at boot and violates the Boot Impact Policy.
+# Started on demand via `ujust tor-up` or transparently by mesh-search.
+
+[Unit]
+Description=Tor SOCKS5 Proxy (Agent Mesh)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/osminogin/tor-simple:latest
+ContainerName=nomad_tor
+Network=project-nomad_default.network
+NetworkAlias=tor
+
+# Loopback binding per workstation security policy
+PublishPort=127.0.0.1:9050:9050
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300

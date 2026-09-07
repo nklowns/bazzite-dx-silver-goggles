@@ -11,6 +11,8 @@
 Description=SearXNG Metasearch Engine (Agent Mesh)
 StartLimitIntervalSec=300
 StartLimitBurst=5
+Wants=nomad-redis.service nomad-tor.service
+After=nomad-redis.service nomad-tor.service
 
 [Container]
 Image=docker.io/searxng/searxng:latest

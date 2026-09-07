@@ -3,14 +3,35 @@
 # Never overwrites existing files, preserving custom user engines, API keys, and settings across rebases.
 set -euo pipefail
 
+# Ensure proper rootless container namespace permissions for /var/srv volumes
+if [[ -z "${CONTAINERS_UNSHARE:-}" && "$EUID" -ne 0 ]]; then
+	exec podman unshare env CONTAINERS_UNSHARE=1 "$0" "$@"
+fi
+
 SEARXNG_DIR="/var/srv/searxng"
 VANE_DIR="/var/srv/vane"
 
 mkdir -p "$SEARXNG_DIR" "$VANE_DIR/data"
 
-# 1. SearXNG Configuration
+# 1. SearXNG Configuration (5 Spheres)
 SEARXNG_SETTINGS="$SEARXNG_DIR/settings.yml"
-if [[ ! -f "$SEARXNG_SETTINGS" ]]; then
+TEMPLATE_SETTINGS="/usr/share/searxng/settings.template.yml"
+if [[ ! -f "$TEMPLATE_SETTINGS" && -f "/var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml" ]]; then
+	TEMPLATE_SETTINGS="/var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml"
+fi
+
+if [[ -f "$TEMPLATE_SETTINGS" ]]; then
+	SECRET_KEY=""
+	if [[ -f "$SEARXNG_SETTINGS" ]]; then
+		SECRET_KEY=$(grep -E '^\s*secret_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E 's/.*secret_key:\s*"?([^"]*)"?/\1/' || true)
+		cp -a "$SEARXNG_SETTINGS" "${SEARXNG_SETTINGS}.bak"
+	fi
+	if [[ -z "$SECRET_KEY" ]]; then
+		SECRET_KEY="$(openssl rand -hex 32)"
+	fi
+	sed "s/@SEARXNG_SECRET_KEY@/${SECRET_KEY}/g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"
+	chmod 644 "$SEARXNG_SETTINGS"
+elif [[ ! -f "$SEARXNG_SETTINGS" ]]; then
 	SECRET_KEY="$(openssl rand -hex 32)"
 	cat <<EOF >"$SEARXNG_SETTINGS"
 # SearXNG configuration for Agent Mesh & NOMAD
