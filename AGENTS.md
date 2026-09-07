@@ -315,7 +315,7 @@ cannot.
 
 AWCC has been retired from the image layer:
 1. **Thermals and G-Mode**: In-tree `alienware-wmi-wmax` platform profiles (`/sys/class/platform-profile`) and `tuned-ppd` cover performance/balanced/quiet modes natively.
-2. **Keyboard RGB Lighting**: Handled directly via OpenRGB (upstream MR !3577 for Alienware AW-ELC `187c:0550`). OpenRGB supports the 4 keyboard zones, effects, direction, speed, and hardware EEPROM save (`Save to Device`), running cleanly in userspace as an AppImage with zero root/daemon overhead.
+2. **Keyboard RGB Lighting**: Handled directly via OpenRGB (merged into upstream `master` via MR !3577 for Alienware AW-ELC `187c:0550`, targeted for Release 1.0). OpenRGB supports the 4 keyboard zones, effects, direction, speed, and hardware EEPROM save (`Save to Device`), running cleanly in userspace as an AppImage with zero root/daemon overhead.
 
 ### 🌡️ Thermal: use the in-tree interface, not `acpi_call`
 
@@ -361,7 +361,7 @@ roadmap marks `[x] New backend for thermal mode (AlienFan-SDK)` but the code con
 zero `hwmon`/`platform-profile` references anywhere in `AWCC/src`, and `Thermals.cpp` still goes
 through `AcpiUtils` → `/proc/acpi/call`.
 
-So: **OpenRGB handles lights natively** (via MR !3577 for AW-ELC `187c:0550`, directly over USB hidraw without requiring daemons or root), profiles come from tuned/KDE, and if per-fan boost is ever
+So: **OpenRGB handles lights natively** (merged into upstream `master` via MR !3577 for AW-ELC `187c:0550`, directly over USB hidraw without requiring daemons or root), profiles come from tuned/KDE, and if per-fan boost is ever
 wanted the cheap path is ours, not upstream's — a `dx-udev` rule granting group write on
 `fanN_boost` plus a `ujust`, on the sysfs nodes measured below. Worth remembering the measurement
 before building that: on CPU load it buys ~0 MHz.
