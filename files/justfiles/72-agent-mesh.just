@@ -441,7 +441,97 @@ remote-agent-mesh-teardown:
     set -uo pipefail
     ujust remote-searxng-teardown
     ujust remote-vane-teardown
+    ujust remote-recoll-teardown 2>/dev/null || true
     echo "🔓 Agent Mesh removida do Tailscale Serve."
+
+# 📁 Iniciar o Recoll WebUI (:61389)
+[group('Agent Mesh')]
+recoll-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d /var/srv/recoll/xapiandb ]]; then
+        echo "❌ /var/srv/recoll/xapiandb não existe — o provisionamento declarativo não rodou."
+        echo "   Verifique: systemctl status bazzite-dx-groups.service"
+        exit 1
+    fi
+    systemctl --user daemon-reload
+    systemctl --user start nomad-recoll.service
+    echo "✅ Recoll WebUI ativo em http://localhost:61389"
+    echo "   Para expor remotamente no Tailscale com TLS: ujust remote-recoll-setup"
+
+# 🛑 Parar o Recoll WebUI
+[group('Agent Mesh')]
+recoll-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop nomad-recoll.service
+    echo "🛑 Recoll WebUI desativado."
+
+# 🔄 Executar indexação incremental sob demanda
+[group('Agent Mesh')]
+recoll-index:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🔍 Executando indexação incremental do workspace via Recoll..."
+    podman run --rm --name nomad_recoll_index_manual \
+      --security-opt label=disable --cap-drop=all \
+      -v "$HOME/dev:/export/dev:ro" \
+      -v "$HOME/Documents:/export/documents:ro" \
+      -v "$HOME/.config/recoll/recoll.conf:/root/.recoll/recoll.conf:ro" \
+      -v /var/srv/recoll/xapiandb:/var/recoll/db:Z,U \
+      docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95 \
+      recollindex -d
+    echo "✅ Indexação incremental concluída."
+
+# 📊 Diagnóstico do Recoll
+[group('Agent Mesh')]
+recoll-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active nomad-recoll.service 2>/dev/null | head -n1 || true)
+    TIMER_STATE=$(systemctl --user is-active nomad-recoll-index.timer 2>/dev/null | head -n1 || true)
+    printf '%-16s %s (timer noturno: %s)\n' "recoll-webui:" "${STATE:-inactive}" "${TIMER_STATE:-inactive}"
+    if ss -tln 2>/dev/null | grep -q ':61389 '; then
+        echo "  Porta 61389 (WebUI / JSON): ABERTA (http://127.0.0.1:61389)"
+    else
+        echo "  Porta 61389 (WebUI / JSON): fechada"
+    fi
+    if [ -d /var/srv/recoll/xapiandb ]; then
+        DB_SIZE=$(du -sh /var/srv/recoll/xapiandb 2>/dev/null | cut -f1 || echo "0")
+        echo "  Tamanho do Índice:          $DB_SIZE (/var/srv/recoll/xapiandb)"
+    fi
+    SERVE_STATE=$(/usr/libexec/bazzite-dx-serve status 61389 61389 http 2>/dev/null || echo "absent")
+    printf '  %-14s %s\n' "tailscale serve:" "$SERVE_STATE"
+    if [[ "$SERVE_STATE" == "ok" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "  URL Remota:    https://${DNS_NAME:-localhost}:61389"
+    fi
+
+# 📜 Visualizar logs do Recoll
+[group('Agent Mesh')]
+recoll-logs:
+    journalctl --user -u nomad-recoll.service -f
+
+# 🔒 Expor o Recoll WebUI com TLS via Tailscale Serve (:61389)
+[group('Agent Mesh')]
+remote-recoll-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! systemctl --user is-active --quiet nomad-recoll.service; then
+        echo "❌ Recoll WebUI não está rodando. Rode 'ujust recoll-up' primeiro."
+        exit 1
+    fi
+    /usr/libexec/bazzite-dx-serve ensure 61389
+    DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//')
+    echo "✅ Recoll remoto pronto em: https://${DNS_NAME}:61389"
+
+# 🔓 Remover o Recoll do Tailscale Serve
+[group('Agent Mesh')]
+remote-recoll-teardown:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    /usr/libexec/bazzite-dx-serve off 61389 || true
+    echo "🔓 Recoll removido do Tailscale Serve."
 
 # 📊 Diagnóstico consolidado da Agent Mesh (Serviços + CDP Matrix + Tailscale)
 [group('Agent Mesh')]
@@ -454,6 +544,8 @@ agent-mesh-status:
     ujust tor-status
     echo
     ujust i2p-status
+    echo
+    ujust recoll-status
     echo
     ujust yacy-status
     echo

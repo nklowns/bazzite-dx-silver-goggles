@@ -54,6 +54,17 @@ outgoing:
         all://:
           - socks5h://tor:9050
 
+categories_as_tabs:
+  general:
+  it:
+  science:
+  indie:
+  p2p:
+  onions:
+  i2p:
+  archive:
+  local:
+
 engines:
   # ==========================================
   # ESFERA 1: CLEARNET GERAL
@@ -283,4 +294,22 @@ engines:
         - http://i2pd:4444
     disabled: false
     timeout: 15.0
+
+  # ==========================================
+  # ESFERA 9: LOCAL WORKSPACE (:!local)
+  # ==========================================
+  - name: recoll
+    engine: recoll
+    shortcut: local
+    categories: [local]
+    base_url: http://recoll:8080
+    mount_prefix: /export
+    dl_prefix: file:///var/home/cloud
+    search_dir: ""
+    enable_http: true
+    disabled: false
+    timeout: 6.0
+
+
+
 

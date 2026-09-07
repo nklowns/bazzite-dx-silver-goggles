@@ -1,0 +1,22 @@
+[Unit]
+Description=Recoll Local Workspace Incremental Indexer (Nightly Job)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+CPUQuota=40%
+MemoryMax=1G
+ExecStartPre=/usr/bin/podman rm -f nomad_recoll_index_job 2>/dev/null || true
+ExecStart=/usr/bin/podman run --rm --name nomad_recoll_index_job \
+  --security-opt label=disable --cap-drop=all \
+  -v %h/dev:/export/dev:ro \
+  -v %h/Documents:/export/documents:ro \
+  -v %h/.config/recoll/recoll.conf:/root/.recoll/recoll.conf:ro \
+  -v /var/srv/recoll/xapiandb:/var/recoll/db:Z,U \
+  docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95 \
+  recollindex -d
+
+[Install]
+WantedBy=default.target

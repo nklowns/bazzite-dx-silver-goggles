@@ -19,6 +19,7 @@ Para evitar conflitos com servidores locais de desenvolvimento (3000, 5173, 8080
 | **Vane (Perplexica)** | `nomad-vane` | `127.0.0.1:61385` | `https://bazzite.<tailnet>:61385` | ~200 MB RAM (Teto 1.5G) | On-demand (`ujust vane-up`) |
 | **Ollama (GPU)** | `nomad-ollama` | `127.0.0.1:61382` | *Loopback estrito* | ~200 MB RAM + 2-4 GB VRAM | On-demand (`ujust ollama-up`) |
 | **Trawl (Anti-Bot)** | `nomad-trawl` | `127.0.0.1:8191` (API)<br>`127.0.0.1:8192` (Proxy) | *Loopback estrito* | ~250-400 MB RAM (Teto 1.5G) | Standby (`ujust trawl-up`) |
+| **Recoll (Workspace)** | `nomad-recoll` | `127.0.0.1:61389` (WebUI / JSON) | `https://bazzite.<tailnet>:61389` | ~25 MB RAM (Teto 1G) | Standby / Auto-wake |
 | **Lightpanda** | `/usr/bin/lightpanda` | `127.0.0.1:9225` (CDP) | *Loopback estrito* | 0 MB boot (efêmero CLI) | On-demand (executável Zig) |
 | **YaCy (P2P DHT)** | `nomad-yacy` | `127.0.0.1:8090` | *Loopback estrito* | ~1.5 - 2 GB RAM | Standby estrito (`ujust yacy-up`) |
 
@@ -64,13 +65,20 @@ ujust tor-up / tor-down      # Controle do proxy Tor SOCKS5/HTTP
 ujust i2p-up / i2p-down      # Controle do roteador I2P i2pd (HTTP :4444, SOCKS5 :4447, Web :7070)
 ujust i2p-status / i2p-logs  # Telemetria e logs do roteador I2P
 ujust yacy-up / yacy-down    # Controle do nó YaCy P2P
+
+# 📁 Recoll (Indexação e Busca Local em ~/dev e ~/Documents)
+ujust recoll-up / recoll-down# Controle do Recoll WebUI (:61389)
+ujust recoll-index           # Executa indexação incremental sob demanda
+ujust recoll-status          # Status da WebUI, porta 61389 e tamanho do índice Xapian
+ujust recoll-logs            # Acompanha logs do container
+ujust remote-recoll-setup    # Expor Recoll WebUI via Tailscale Serve com TLS
 ```
 
 ---
 
 ## 3. Esferas de Busca e Atalhos ("Bangs") do SearXNG
 
-O SearXNG está configurado com 8 esferas temáticas livres de anúncios e rastreadores:
+O SearXNG está configurado com 9 esferas temáticas livres de anúncios e rastreadores:
 
 | Esfera / Categoria | Motores Nativos Integrados | Atalhos de Busca ("Bangs") |
 | :--- | :--- | :--- |
@@ -82,6 +90,7 @@ O SearXNG está configurado com 8 esferas temáticas livres de anúncios e rastr
 | **`onions`** (Darknet Tor) | Ahmia (roteamento exclusivo via SOCKS5 `socks5h://tor:9050`) | `!onions`, `!ahmia`, `!onion` |
 | **`i2p`** (Darknet I2P) | I2P Search, Legwork, Idk.i2p (roteamento exclusivo via HTTP proxy `http://i2pd:4444`) | `!i2p`, `!i2psearch`, `!legwork` |
 | **`archive`** (Histórica) | OpenLibrary (Internet Archive), Z-Library, Library of Congress (`locgov`), Anna's Archive | `!archive`, `!openlib`, `!zlib`, `!locgov` |
+| **`local`** (Workspace Local) | Recoll (Xapian index de `~/dev` e `~/Documents` via API :8080) | `!local`, `!recoll`, `!workspace` |
 
 > [!TIP]
 > **Preservação Nativa**: Na interface web do SearXNG, todo resultado possui um link "cached" apontando diretamente para `https://web.archive.org/web/<url>`.
@@ -103,6 +112,7 @@ mesh-search search --category science "transformer attention mechanisms"
 mesh-search search --category archive "operating systems silberschatz"
 mesh-search search --category onions "threat intelligence"
 mesh-search search --category i2p "privacy software"
+mesh-search search --category local "CHEATSHEET"
 
 # Deep Research com síntese e citações (via Vane + Ollama)
 mesh-search research "Quais as novidades do kernel Linux 6.13 para drivers de rede?" --mode fast

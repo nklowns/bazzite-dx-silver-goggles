@@ -1,0 +1,44 @@
+# Recoll Local Workspace Indexer & Search API (Agent Mesh)
+#
+# Part of the Agent Mesh & Project NOMAD. Exposes Recoll WebUI / JSON API on :8080 (nomad-net)
+# and loopback port 127.0.0.1:61389.
+# Reads only whitelisted paths (~/dev, ~/Documents) in read-only mode (:ro).
+#
+# [Install] is omitted on purpose per Boot Impact Policy.
+# Started on demand via `ujust recoll-up` or transparently by mesh-search.
+
+[Unit]
+Description=Recoll Local Workspace Search Engine (Agent Mesh)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95
+ContainerName=nomad_recoll
+Network=project-nomad_default.network
+NetworkAlias=recoll
+
+# Resource bounds per Workstation & Gaming Policy
+Memory=1G
+DropCapability=all
+NoNewPrivileges=true
+SecurityLabelDisable=true
+PodmanArgs=--init
+
+# Loopback binding on reserved DX range :61389
+PublishPort=127.0.0.1:61389:8080
+
+# Whitelisted directories (strictly read-only)
+Volume=%h/dev:/export/dev:ro
+Volume=%h/Documents:/export/documents:ro
+Volume=%h/.config/recoll/recoll.conf:/root/.recoll/recoll.conf:ro
+
+# Persistent Xapian Database
+Volume=/var/srv/recoll/xapiandb:/var/recoll/db:Z,U
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=60
+CPUQuota=50%
+SuccessExitStatus=0 143
+

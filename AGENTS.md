@@ -225,7 +225,7 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
 The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** and **KISS Delegation** approach. See the complete reference in [`docs/AGENT-MESH-CHEATSHEET.md`](file:///var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/docs/AGENT-MESH-CHEATSHEET.md).
 
 - **SearXNG Metasearch (`nomad-searxng.container`, Port :61387)**:
-  - Aggregates 8 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `i2p` (I2P Search, Legwork via i2pd), `archive` (OpenLibrary, Z-Library, Library of Congress).
+  - Aggregates 9 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `i2p` (I2P Search, Legwork via i2pd), `archive` (OpenLibrary, Z-Library, Library of Congress), `local` (Recoll Xapian index of `~/dev` and `~/Documents`).
   - JSON API enabled for programmatic agent queries (`format=json`).
   - Native Wayback Machine integration: `ui.cache_url: https://web.archive.org/web/` for all cached links.
   - Tailscale-first: `ujust remote-searxng-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
@@ -253,6 +253,15 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
   - Loopback HTTP proxy on `127.0.0.1:4444`, SOCKS on `127.0.0.1:4447`, and web console on `127.0.0.1:7070`.
   - Provides isolation for `.i2p` darknet queries in SearXNG (`:i2p` sphere) and anonymous scraping in `mesh_fetch --i2p`.
   - Recipes: `72-agent-mesh.just` (`ujust i2p-up`, `ujust i2p-down`, `ujust i2p-status`, `ujust i2p-logs`).
+
+- **Recoll Local Workspace Search (`nomad-recoll.container`, Port :61389)**:
+  - Headless Recoll WebUI JSON API powered by Xapian full-text indexing engine.
+  - Whitelist security: mounts `~/dev` and `~/Documents` strictly in read-only mode (`:ro`), zero access to `~/.ssh` or user credentials.
+  - Configuration in `~/.config/recoll/recoll.conf`, persistent index in `/var/srv/recoll/xapiandb` (Btrfs `+C nodatacow`).
+  - Standby by default (0 MB cold-boot). Auto-started transparently on `:local` search or via `ujust recoll-up`.
+  - Nightly indexer scheduled at 04:00 AM (`nomad-recoll-index.timer`, `Nice=19`, `IOSchedulingClass=idle`, `CPUQuota=40%`).
+  - Tailscale-first: `ujust remote-recoll-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61389`.
+  - Recipes: `72-agent-mesh.just` (`ujust recoll-up`, `ujust recoll-down`, `ujust recoll-index`, `ujust recoll-status`, `ujust remote-recoll-setup`, `ujust remote-recoll-teardown`).
 
 - **Internet Archive CLI (`ia`, v5.11.1)**:
   - Standalone official CLI tool installed in `~/.local/bin/ia` via `uv tool install internetarchive`.
