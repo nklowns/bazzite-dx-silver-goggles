@@ -18,9 +18,11 @@ Image=docker.io/osminogin/tor-simple:latest
 ContainerName=nomad_tor
 Network=project-nomad_default.network
 NetworkAlias=tor
+Exec=tor --SocksPort 0.0.0.0:9050 --HTTPTunnelPort 0.0.0.0:9080
 
 # Loopback binding per workstation security policy
 PublishPort=127.0.0.1:9050:9050
+PublishPort=127.0.0.1:9080:9080
 
 [Service]
 Restart=on-failure

@@ -552,6 +552,27 @@ ConfigureAiSearchStorage() {
 			fi
 		fi
 	fi
+
+	local yacy_root="/var/srv/yacy"
+	if [ -d "$yacy_root" ]; then
+		local dir="$yacy_root/DATA"
+		if [ -d "$dir" ] && ! lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+			if [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+				echo "Enabling btrfs nodatacow on empty $dir..."
+				chattr +C "$dir" || true
+			fi
+		fi
+		command -v semanage >/dev/null 2>&1 || return 0
+		local spec="${yacy_root}(/.*)?" listing
+		if listing=$(semanage fcontext -l 2>/dev/null); then
+			if ! grep -qF "$spec" <<<"$listing"; then
+				echo "Registering SELinux fcontext container_file_t for ${yacy_root}..."
+				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
+					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
+				restorecon -R "$yacy_root" || true
+			fi
+		fi
+	fi
 }
 
 ConfigureFirewall() {
