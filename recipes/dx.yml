@@ -50,7 +50,7 @@ modules:
       - libvirt-nss # VM: Name service switch
       - virtiofsd # VM: VirtioFS daemon
       - lxc # Container: Linux Containers
-      - osbuild-selinux # System: SELinux policies
+      # - osbuild-selinux # System: SELinux policies (fails build: transient python3-librepo version conflict with base image librepo)
       - qemu-img # VM: Image utilities
       - qemu-kvm # VM: KVM hypervisor
       - swtpm # VM: Software TPM
