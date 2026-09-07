@@ -34,6 +34,16 @@ if [[ -f "$TEMPLATE_SETTINGS" ]]; then
 	sed -e "s/@SEARXNG_SECRET_KEY@/${SECRET_KEY}/g" \
 	    -e "s/@BRAVE_API_KEY@/${BRAVE_KEY}/g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"
 	chmod 644 "$SEARXNG_SETTINGS"
+
+	# Ensure patched braveapi.py is in place in /var/srv/searxng
+	BRAVEAPI_SRC="/usr/share/searxng/braveapi.py"
+	if [[ ! -f "$BRAVEAPI_SRC" && -f "/var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/braveapi.py" ]]; then
+		BRAVEAPI_SRC="/var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/braveapi.py"
+	fi
+	if [[ -f "$BRAVEAPI_SRC" ]]; then
+		cp -a "$BRAVEAPI_SRC" "$SEARXNG_DIR/braveapi.py"
+		chmod 644 "$SEARXNG_DIR/braveapi.py"
+	fi
 elif [[ ! -f "$SEARXNG_SETTINGS" ]]; then
 	SECRET_KEY="$(openssl rand -hex 32)"
 	cat <<EOF >"$SEARXNG_SETTINGS"
