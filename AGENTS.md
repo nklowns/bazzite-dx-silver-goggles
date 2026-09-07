@@ -222,18 +222,35 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
 
 ### 🌐 Browser & AI Agent Mesh Architecture
 
-The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** approach:
+The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** and **KISS Delegation** approach. See the complete reference in [`docs/AGENT-MESH-CHEATSHEET.md`](file:///var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/docs/AGENT-MESH-CHEATSHEET.md).
 
 - **SearXNG Metasearch (`nomad-searxng.container`, Port :61387)**:
-  - Aggregates Google, Bing, DuckDuckGo, Wikipedia with zero tracking.
+  - Aggregates 7 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `archive` (OpenLibrary, Z-Library, Library of Congress).
   - JSON API enabled for programmatic agent queries (`format=json`).
+  - Native Wayback Machine integration: `ui.cache_url: https://web.archive.org/web/` for all cached links.
   - Tailscale-first: `ujust remote-searxng-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
   - Recipes: `72-agent-mesh.just` (`ujust searxng-up`, `ujust searxng-down`, `ujust searxng-status`, `ujust remote-searxng-setup`, `ujust remote-searxng-teardown`).
 
 - **Vane AI Search & Research (`nomad-vane.container`, Port :61385)**:
   - Perplexica fork powered by local Ollama LLMs and SearXNG metasearch.
+  - Bounds: `Memory=1.5G` ceiling enforced. Auto-starts Ollama GPU dependencies on `ujust vane-up`.
   - Tailscale-first: `ujust remote-vane-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61385`.
   - Recipes: `72-agent-mesh.just` (`ujust vane-up`, `ujust vane-down`, `ujust vane-status`, `ujust remote-vane-setup`, `ujust remote-vane-teardown`).
+
+- **Trawl Anti-Bot Solver (`nomad-trawl.container`, Port :8191 / :8192)**:
+  - Cloudflare Turnstile, DDoS-Guard & WAF bypass engine powered by Camoufox Firefox + Whisper STT audio solver.
+  - Standby by default (0 MB cold-boot). Auto-started transparently or via `ujust trawl-up`.
+  - Session and clearance cookie persistence via Redis DB 2 (`nomad-redis:6379/2`).
+  - Recipes: `72-agent-mesh.just` (`ujust trawl-up`, `ujust trawl-down`, `ujust trawl-status`, `ujust trawl-logs`).
+
+- **Tor SOCKS5 Proxy (`nomad-tor.container`, Port :9050 / :9080)**:
+  - Ultra-lightweight Alpine Tor daemon (~25 MB RAM).
+  - Loopback SOCKS5 on `127.0.0.1:9050` and HTTP tunnel on `127.0.0.1:9080`.
+  - Provides strict isolation for `.onion` queries in SearXNG and anonymous scraping in `mesh_fetch --tor`.
+
+- **Internet Archive CLI (`ia`, v5.11.1)**:
+  - Standalone official CLI tool installed in `~/.local/bin/ia` via `uv tool install internetarchive`.
+  - Use directly for structured archive queries (`ia search`), full-text search (`ia search -F`), metadata (`ia metadata`) and file downloads (`ia download`).
 
 - **Lightpanda Headless Browser CDP (`lightpanda.container`, Port :9225)**:
   - Ultra-lightweight Zig/C++ headless browser (< 20 MB RAM vs 500 MB+ for Chrome/Chromium).
@@ -247,7 +264,7 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
     - Edge: `127.0.0.1:9223` (`~/.config/microsoft-edge-cdp`)
     - Firefox: `127.0.0.1:9224` (`~/.mozilla/firefox-cdp` with `--no-remote`)
     - Lightpanda: `127.0.0.1:9225` (in-memory, zero profile)
-  - Unified lifecycle & status: `ujust agent-mesh-up`, `ujust agent-mesh-down`, `ujust agent-mesh-status`, `ujust remote-agent-mesh-setup`, `ujust remote-agent-mesh-teardown`, `ujust cdp-matrix-status`.
+  - Unified lifecycle & status: `ujust agent-mesh-up`, `ujust agent-mesh-down`, `ujust agent-mesh-status`, `ujust mesh-status`, `ujust remote-agent-mesh-setup`, `ujust remote-agent-mesh-teardown`, `ujust cdp-matrix-status`.
 
 ### Scripting Conventions
 

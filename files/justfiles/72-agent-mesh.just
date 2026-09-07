@@ -410,7 +410,11 @@ agent-mesh-status:
     echo
     ujust lightpanda-status
     echo
+    ujust trawl-status
+    echo
     ujust cdp-matrix-status
+
+alias mesh-status := agent-mesh-status
 
 # 📊 Status consolidado da Matriz CDP (os-fedora-silverblue.md §8)
 [group('Agent Mesh')]
