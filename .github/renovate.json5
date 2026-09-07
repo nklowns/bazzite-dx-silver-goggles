@@ -139,13 +139,10 @@
     {
       description: 'Auto-update and batch Project NOMAD stack image digests in Quadlet units',
       matchFileNames: [
-        'files/system/etc/containers/systemd/users/nomad-*.container',
-      ],
-      excludeFileNames: [
-        'files/system/etc/containers/systemd/users/nomad-searxng.container',
-        'files/system/etc/containers/systemd/users/nomad-vane.container',
-        'files/system/etc/containers/systemd/users/nomad-tor.container',
-        'files/system/etc/containers/systemd/users/nomad-yacy.container',
+        'files/system/etc/containers/systemd/users/nomad-admin.container',
+        'files/system/etc/containers/systemd/users/nomad-mysql.container',
+        'files/system/etc/containers/systemd/users/nomad-redis.container',
+        'files/system/etc/containers/systemd/users/nomad-ollama.container',
       ],
       matchUpdateTypes: [
         'digest',

@@ -13,18 +13,45 @@ elif command -v agent-browser >/dev/null 2>&1 && [[ "$(command -v agent-browser)
 	AGENT_BROWSER_BIN="$(command -v agent-browser)"
 fi
 
-# Detect if --cdp is already explicitly passed
+# Parse wrapper-specific flags and detect explicit CDP arguments
+filtered_args=()
 has_cdp=0
+target_cdp=""
+
 for arg in "$@"; do
-	if [[ "$arg" == "--cdp"* ]]; then
+	case "$arg" in
+	--tor)
+		if ! systemctl --user is-active nomad-tor.service >/dev/null 2>&1; then
+			systemctl --user start nomad-tor.service 2>/dev/null || true
+		fi
+		export HTTP_PROXY="http://127.0.0.1:9080"
+		export HTTPS_PROXY="http://127.0.0.1:9080"
+		export ALL_PROXY="socks5h://127.0.0.1:9050"
+		;;
+	--lightpanda)
+		if ! systemctl --user is-active lightpanda.service >/dev/null 2>&1; then
+			systemctl --user start lightpanda.service 2>/dev/null || true
+		fi
+		target_cdp="9225"
+		;;
+	--chrome)
+		target_cdp="9222"
+		;;
+	--cdp=* | --cdp)
 		has_cdp=1
-		break
-	fi
+		filtered_args+=("$arg")
+		;;
+	*)
+		filtered_args+=("$arg")
+		;;
+	esac
 done
 
 DEFAULT_CDP_ARGS=()
 if [[ $has_cdp -eq 0 ]]; then
-	if ss -tln 2>/dev/null | grep -q ':9225 '; then
+	if [[ -n "$target_cdp" ]]; then
+		DEFAULT_CDP_ARGS=("--cdp" "$target_cdp")
+	elif ss -tln 2>/dev/null | grep -q ':9225 '; then
 		DEFAULT_CDP_ARGS=("--cdp" "9225")
 	elif ss -tln 2>/dev/null | grep -q ':9222 '; then
 		DEFAULT_CDP_ARGS=("--cdp" "9222")
@@ -34,11 +61,11 @@ if [[ $has_cdp -eq 0 ]]; then
 fi
 
 if [[ -n "$AGENT_BROWSER_BIN" ]]; then
-	exec "$AGENT_BROWSER_BIN" "${DEFAULT_CDP_ARGS[@]}" "$@"
+	exec "$AGENT_BROWSER_BIN" "${DEFAULT_CDP_ARGS[@]}" "${filtered_args[@]}"
 elif [[ -x /home/linuxbrew/.linuxbrew/bin/npx ]]; then
-	exec /home/linuxbrew/.linuxbrew/bin/npx --yes agent-browser "${DEFAULT_CDP_ARGS[@]}" "$@"
+	exec /home/linuxbrew/.linuxbrew/bin/npx --yes agent-browser "${DEFAULT_CDP_ARGS[@]}" "${filtered_args[@]}"
 elif command -v npx >/dev/null 2>&1; then
-	exec npx --yes agent-browser "${DEFAULT_CDP_ARGS[@]}" "$@"
+	exec npx --yes agent-browser "${DEFAULT_CDP_ARGS[@]}" "${filtered_args[@]}"
 else
 	echo "❌ agent-browser CLI não encontrado." >&2
 	echo "   Instale via Homebrew: 'npm install -g agent-browser' (ou 'npx agent-browser')." >&2
