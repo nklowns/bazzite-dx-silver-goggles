@@ -91,6 +91,7 @@ O SearXNG está configurado com 9 esferas temáticas livres de anúncios e rastr
 | **`i2p`** (Darknet I2P) | I2P Search, Legwork, Idk.i2p (roteamento exclusivo via HTTP proxy `http://i2pd:4444`) | `!i2p`, `!i2psearch`, `!legwork` |
 | **`archive`** (Histórica) | OpenLibrary (Internet Archive), Z-Library, Library of Congress (`locgov`), Anna's Archive | `!archive`, `!openlib`, `!zlib`, `!locgov` |
 | **`local`** (Workspace Local) | Recoll (Xapian index de `~/dev` e `~/Documents` via API :8080) | `!local`, `!recoll`, `!workspace` |
+| **`gemini`** (Geminispace) | Kennedy Search (`gemini://kennedy.gemi.dev/search` via TLS nativo :1965) | `!gemini`, `!kennedy`, `!capsule` |
 
 > [!TIP]
 > **Preservação Nativa**: Na interface web do SearXNG, todo resultado possui um link "cached" apontando diretamente para `https://web.archive.org/web/<url>`.
@@ -113,6 +114,8 @@ mesh-search search --category archive "operating systems silberschatz"
 mesh-search search --category onions "threat intelligence"
 mesh-search search --category i2p "privacy software"
 mesh-search search --category local "CHEATSHEET"
+mesh-search search --category gemini "fedora atomic ostree"
+mesh-search search "!gemini bazzite"
 
 # Deep Research com síntese e citações (via Vane + Ollama)
 mesh-search research "Quais as novidades do kernel Linux 6.13 para drivers de rede?" --mode fast
@@ -125,6 +128,8 @@ mesh-search fetch "http://site-morto-404.com/artigo"           # Fallback autom�
 mesh-search fetch "https://exemplo.com" --archive              # Forçar snapshot histórico do passado
 mesh-search fetch "http://exemplo.onion" --tor                 # Acesso a sites onion via Tor
 mesh-search fetch "http://identiguy.i2p" --i2p                 # Acesso a eepsites I2P via i2pd
+mesh-search fetch "gemini://geminiprotocol.net/docs/faq.gmi"   # Extração nativa de cápsula Gemini
+
 
 # Diagnóstico e telemetria de saúde
 mesh-search health              # Exibe estado dos contêineres e alertas de motores
