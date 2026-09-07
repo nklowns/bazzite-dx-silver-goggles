@@ -266,3 +266,21 @@ engines:
     disabled: false
     timeout: 3.5
 
+  # ==========================================
+  # ESFERA 8: DARKNET I2P (:!i2p)
+  # ==========================================
+  - name: legwork
+    engine: xpath
+    shortcut: i2p
+    categories: [i2p]
+    search_url: 'http://legwork.i2p/search?q={query}'
+    url_xpath: '//div[@class="result"]//a/@href'
+    title_xpath: '//div[@class="result"]//a/text()'
+    content_xpath: '//div[@class="result"]//p/text()'
+    enable_http: true
+    proxies:
+      all://:
+        - http://i2pd:4444
+    disabled: false
+    timeout: 15.0
+

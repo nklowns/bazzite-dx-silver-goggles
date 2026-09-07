@@ -15,6 +15,7 @@ Para evitar conflitos com servidores locais de desenvolvimento (3000, 5173, 8080
 | **SearXNG** | `nomad-searxng` | `127.0.0.1:61387` | `https://bazzite.<tailnet>:61387` | ~120 MB RAM | On-demand / Auto-wake |
 | **Redis / Valkey** | `nomad-redis` | `127.0.0.1:6379` | *Apenas rede OCI interna* | ~30 MB RAM | Dependência do SearXNG |
 | **Tor Proxy** | `nomad-tor` | `127.0.0.1:9050` (SOCKS5)<br>`127.0.0.1:9080` (HTTP) | *Loopback estrito* | ~25 MB RAM | Dependência do SearXNG / Tor |
+| **I2P Router (i2pd)** | `nomad-i2pd` | `127.0.0.1:4444` (HTTP Proxy)<br>`127.0.0.1:4447` (SOCKS5)<br>`127.0.0.1:7070` (Web Console) | *Loopback estrito* | ~10-15 MB RAM (Teto 512M) | Standby (`ujust i2p-up`) |
 | **Vane (Perplexica)** | `nomad-vane` | `127.0.0.1:61385` | `https://bazzite.<tailnet>:61385` | ~200 MB RAM (Teto 1.5G) | On-demand (`ujust vane-up`) |
 | **Ollama (GPU)** | `nomad-ollama` | `127.0.0.1:61382` | *Loopback estrito* | ~200 MB RAM + 2-4 GB VRAM | On-demand (`ujust ollama-up`) |
 | **Trawl (Anti-Bot)** | `nomad-trawl` | `127.0.0.1:8191` (API)<br>`127.0.0.1:8192` (Proxy) | *Loopback estrito* | ~250-400 MB RAM (Teto 1.5G) | Standby (`ujust trawl-up`) |
@@ -58,8 +59,10 @@ ujust trawl-down             # Desativa o Trawl
 ujust trawl-status           # Status do Trawl
 ujust trawl-logs             # Acompanha resolução de desafios anti-bot
 
-# 🧅 Tor & YaCy (Darknet & P2P)
+# 🧅 Tor, I2P & YaCy (Darknet & P2P)
 ujust tor-up / tor-down      # Controle do proxy Tor SOCKS5/HTTP
+ujust i2p-up / i2p-down      # Controle do roteador I2P i2pd (HTTP :4444, SOCKS5 :4447, Web :7070)
+ujust i2p-status / i2p-logs  # Telemetria e logs do roteador I2P
 ujust yacy-up / yacy-down    # Controle do nó YaCy P2P
 ```
 
@@ -67,7 +70,7 @@ ujust yacy-up / yacy-down    # Controle do nó YaCy P2P
 
 ## 3. Esferas de Busca e Atalhos ("Bangs") do SearXNG
 
-O SearXNG está configurado com 7 esferas temáticas livres de anúncios e rastreadores:
+O SearXNG está configurado com 8 esferas temáticas livres de anúncios e rastreadores:
 
 | Esfera / Categoria | Motores Nativos Integrados | Atalhos de Busca ("Bangs") |
 | :--- | :--- | :--- |
@@ -76,7 +79,8 @@ O SearXNG está configurado com 7 esferas temáticas livres de anúncios e rastr
 | **`science`** (Ciência) | arXiv, Semantic Scholar, OpenAlex, PubMed, Anna's Archive, Z-Library | `!science`, `!arxiv`, `!sem`, `!zlib`, `!annas` |
 | **`indie`** (Small Web) | Marginalia (anti-SEO / phlogs), Neocities, Mwmbl | `!indie`, `!marginalia`, `!neocities`, `!mwmbl` |
 | **`p2p`** (Descentralizada) | Mwmbl (0 RAM, API pública), YaCy (pool público ex: KIT + local) | `!p2p`, `!mwmbl`, `!yacy` |
-| **`onions`** (Darknet) | Ahmia (roteamento exclusivo via SOCKS5 `socks5h://tor:9050`) | `!onions`, `!ahmia`, `!onion` |
+| **`onions`** (Darknet Tor) | Ahmia (roteamento exclusivo via SOCKS5 `socks5h://tor:9050`) | `!onions`, `!ahmia`, `!onion` |
+| **`i2p`** (Darknet I2P) | I2P Search, Legwork, Idk.i2p (roteamento exclusivo via HTTP proxy `http://i2pd:4444`) | `!i2p`, `!i2psearch`, `!legwork` |
 | **`archive`** (Histórica) | OpenLibrary (Internet Archive), Z-Library, Library of Congress (`locgov`), Anna's Archive | `!archive`, `!openlib`, `!zlib`, `!locgov` |
 
 > [!TIP]
@@ -98,6 +102,7 @@ mesh-search search --category it "rust tokio async"
 mesh-search search --category science "transformer attention mechanisms"
 mesh-search search --category archive "operating systems silberschatz"
 mesh-search search --category onions "threat intelligence"
+mesh-search search --category i2p "privacy software"
 
 # Deep Research com síntese e citações (via Vane + Ollama)
 mesh-search research "Quais as novidades do kernel Linux 6.13 para drivers de rede?" --mode fast
@@ -109,6 +114,7 @@ mesh-search fetch "https://site-com-cloudflare.com" --trawl     # Forçar bypass
 mesh-search fetch "http://site-morto-404.com/artigo"           # Fallback automático no Wayback Machine
 mesh-search fetch "https://exemplo.com" --archive              # Forçar snapshot histórico do passado
 mesh-search fetch "http://exemplo.onion" --tor                 # Acesso a sites onion via Tor
+mesh-search fetch "http://identiguy.i2p" --i2p                 # Acesso a eepsites I2P via i2pd
 
 # Diagnóstico e telemetria de saúde
 mesh-search health              # Exibe estado dos contêineres e alertas de motores
@@ -119,7 +125,7 @@ mesh-search health --json       # Saída legível por máquina para automações
 ### Ferramentas Expostas ao Agente MCP:
 1. `mesh_search(query, category?, engines?, limit?)`: Metapesquisa rápida e anonimizada.
 2. `mesh_research(query, mode?)`: Investigação recursiva com síntese de texto e citações (`fast` ou `deep`).
-3. `mesh_fetch(url, use_tor?, trawl?, archive?)`: Leitura limpa de páginas com suporte a SPAs JS, contorno de WAFs e resgate no Wayback Machine.
+3. `mesh_fetch(url, use_tor?, use_i2p?, trawl?, archive?)`: Leitura limpa de páginas com suporte a SPAs JS, contorno de WAFs, resgate no Wayback Machine e darknets (.onion / .i2p).
 4. `mesh_status(probe?)`: Auditoria de resiliência e saúde dos nós OCI da malha.
 
 ---

@@ -225,7 +225,7 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
 The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** and **KISS Delegation** approach. See the complete reference in [`docs/AGENT-MESH-CHEATSHEET.md`](file:///var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/docs/AGENT-MESH-CHEATSHEET.md).
 
 - **SearXNG Metasearch (`nomad-searxng.container`, Port :61387)**:
-  - Aggregates 7 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `archive` (OpenLibrary, Z-Library, Library of Congress).
+  - Aggregates 8 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `i2p` (I2P Search, Legwork via i2pd), `archive` (OpenLibrary, Z-Library, Library of Congress).
   - JSON API enabled for programmatic agent queries (`format=json`).
   - Native Wayback Machine integration: `ui.cache_url: https://web.archive.org/web/` for all cached links.
   - Tailscale-first: `ujust remote-searxng-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
@@ -247,6 +247,12 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
   - Ultra-lightweight Alpine Tor daemon (~25 MB RAM).
   - Loopback SOCKS5 on `127.0.0.1:9050` and HTTP tunnel on `127.0.0.1:9080`.
   - Provides strict isolation for `.onion` queries in SearXNG and anonymous scraping in `mesh_fetch --tor`.
+
+- **I2P C++ Router (`nomad-i2pd.container`, Port :4444 / :4447 / :7070)**:
+  - Ultra-lightweight i2pd router (~8-15 MB RAM, low-bandwidth client profile with transit relay disabled `--notransit`).
+  - Loopback HTTP proxy on `127.0.0.1:4444`, SOCKS on `127.0.0.1:4447`, and web console on `127.0.0.1:7070`.
+  - Provides isolation for `.i2p` darknet queries in SearXNG (`:i2p` sphere) and anonymous scraping in `mesh_fetch --i2p`.
+  - Recipes: `72-agent-mesh.just` (`ujust i2p-up`, `ujust i2p-down`, `ujust i2p-status`, `ujust i2p-logs`).
 
 - **Internet Archive CLI (`ia`, v5.11.1)**:
   - Standalone official CLI tool installed in `~/.local/bin/ia` via `uv tool install internetarchive`.

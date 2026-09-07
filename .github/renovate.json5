@@ -163,6 +163,7 @@
         'files/system/etc/containers/systemd/users/nomad-tor.container',
         'files/system/etc/containers/systemd/users/nomad-yacy.container',
         'files/system/etc/containers/systemd/users/nomad-trawl.container',
+        'files/system/etc/containers/systemd/users/nomad-i2pd.container',
         'files/system/etc/containers/systemd/users/lightpanda.container',
       ],
       matchUpdateTypes: [

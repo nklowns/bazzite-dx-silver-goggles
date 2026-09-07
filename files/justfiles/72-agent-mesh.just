@@ -274,6 +274,55 @@ tor-status:
         echo "  Porta 9050: fechada"
     fi
 
+# 🟣 Iniciar o daemon I2P (i2pd) e Proxy (:4444 / :4447 / :7070)
+[group('Agent Mesh')]
+i2p-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p /var/srv/i2pd/data
+    systemctl --user daemon-reload
+    systemctl --user start nomad-i2pd.service
+    echo "✅ I2P Client Daemon ativo."
+    echo "   Proxy HTTP (Eepsites): http://127.0.0.1:4444"
+    echo "   Proxy SOCKS5:          socks5://127.0.0.1:4447"
+    echo "   Web Console:           http://127.0.0.1:7070"
+
+# 🛑 Parar o daemon I2P (i2pd)
+[group('Agent Mesh')]
+i2p-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop nomad-i2pd.service
+    echo "🛑 I2P Client Daemon desativado."
+
+# 📊 Diagnóstico do daemon I2P (i2pd)
+[group('Agent Mesh')]
+i2p-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active nomad-i2pd.service 2>/dev/null || true)
+    printf '%-16s %s\n' "i2p-daemon:" "${STATE:-inactive}"
+    if ss -tln 2>/dev/null | grep -q ':4444 '; then
+        echo "  Porta 4444 (HTTP Proxy): ABERTA"
+    else
+        echo "  Porta 4444 (HTTP Proxy): fechada"
+    fi
+    if ss -tln 2>/dev/null | grep -q ':4447 '; then
+        echo "  Porta 4447 (SOCKS Proxy): ABERTA"
+    else
+        echo "  Porta 4447 (SOCKS Proxy): fechada"
+    fi
+    if ss -tln 2>/dev/null | grep -q ':7070 '; then
+        echo "  Porta 7070 (Web Console): ABERTA (http://127.0.0.1:7070)"
+    else
+        echo "  Porta 7070 (Web Console): fechada"
+    fi
+
+# 📜 Visualizar logs do daemon I2P
+[group('Agent Mesh')]
+i2p-logs:
+    journalctl --user -u nomad-i2pd.service -f
+
 # 🕸️ Iniciar o nó local YaCy P2P (:8090)
 [group('Agent Mesh')]
 yacy-up:
@@ -403,6 +452,8 @@ agent-mesh-status:
     ujust searxng-status
     echo
     ujust tor-status
+    echo
+    ujust i2p-status
     echo
     ujust yacy-status
     echo

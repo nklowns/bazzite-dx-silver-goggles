@@ -1,0 +1,37 @@
+# I2P (i2pd) Client Daemon — Agent Mesh darknet & eepsite proxy provider
+#
+# Part of the Agent Mesh. Operates autonomously on the shared OCI network.
+# Provides HTTP proxy (:4444) and SOCKS proxy (:4447) to nomad_searxng and mesh_fetch for .i2p eepsites.
+# Publishes to loopback (127.0.0.1:4444, 127.0.0.1:4447, 127.0.0.1:7070); internal alias `i2pd`.
+#
+# [Install] is omitted on purpose: preserves Boot Impact Policy under user lingering.
+# Started on demand via `ujust i2p-up` or transparently by mesh_fetch.
+
+[Unit]
+Description=I2P Daemon Client & Eepsite Proxy (Agent Mesh)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/purplei2p/i2pd:latest@sha256:0789fd507f541a8bf02b2a77de69c1d3985e5f73730a73bca53778c98205e54f
+ContainerName=nomad_i2pd
+Network=project-nomad_default.network
+NetworkAlias=i2pd
+
+# Resource bounds per Workstation & Gaming Policy
+Memory=512M
+
+# Arguments: Client-only mode, low bandwidth, loopback proxy listeners
+Exec=--notransit --bandwidth=L --http.address=0.0.0.0 --http.port=7070 --http.strictheaders=0 --httpproxy.address=0.0.0.0 --httpproxy.port=4444 --socksproxy.address=0.0.0.0 --socksproxy.port=4447
+
+# Loopback binding per workstation security policy
+PublishPort=127.0.0.1:4444:4444
+PublishPort=127.0.0.1:4447:4447
+PublishPort=127.0.0.1:7070:7070
+
+Volume=/var/srv/i2pd/data:/home/i2pd/data:Z,U
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+MemoryMax=512M

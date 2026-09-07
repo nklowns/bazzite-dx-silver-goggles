@@ -573,6 +573,41 @@ ConfigureAiSearchStorage() {
 			fi
 		fi
 	fi
+
+	local trawl_root="/var/srv/trawl"
+	if [ -d "$trawl_root" ]; then
+		command -v semanage >/dev/null 2>&1 || return 0
+		local spec="${trawl_root}(/.*)?" listing
+		if listing=$(semanage fcontext -l 2>/dev/null); then
+			if ! grep -qF "$spec" <<<"$listing"; then
+				echo "Registering SELinux fcontext container_file_t for ${trawl_root}..."
+				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
+					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
+				restorecon -R "$trawl_root" || true
+			fi
+		fi
+	fi
+
+	local i2pd_root="/var/srv/i2pd"
+	if [ -d "$i2pd_root" ]; then
+		local dir="$i2pd_root/data"
+		if [ -d "$dir" ] && ! lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+			if [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+				echo "Enabling btrfs nodatacow on empty $dir..."
+				chattr +C "$dir" || true
+			fi
+		fi
+		command -v semanage >/dev/null 2>&1 || return 0
+		local spec="${i2pd_root}(/.*)?" listing
+		if listing=$(semanage fcontext -l 2>/dev/null); then
+			if ! grep -qF "$spec" <<<"$listing"; then
+				echo "Registering SELinux fcontext container_file_t for ${i2pd_root}..."
+				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
+					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
+				restorecon -R "$i2pd_root" || true
+			fi
+		fi
+	fi
 }
 
 ConfigureFirewall() {
