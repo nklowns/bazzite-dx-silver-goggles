@@ -5,12 +5,23 @@
 # ==============================================================================
 set -euo pipefail
 
-# Locate host agent-browser binary if present (e.g. Homebrew / npm)
+# Locate host agent-browser binary if present (e.g. Homebrew / npm / cargo)
+SELF_PATH="$(readlink -f "$0" 2>/dev/null || echo "$0")"
 AGENT_BROWSER_BIN=""
-if [[ -x /home/linuxbrew/.linuxbrew/bin/agent-browser ]]; then
+
+if [[ -x /home/linuxbrew/.linuxbrew/bin/agent-browser ]] && [[ "$(readlink -f /home/linuxbrew/.linuxbrew/bin/agent-browser 2>/dev/null)" != "$SELF_PATH" ]]; then
 	AGENT_BROWSER_BIN="/home/linuxbrew/.linuxbrew/bin/agent-browser"
-elif command -v agent-browser >/dev/null 2>&1 && [[ "$(command -v agent-browser)" != "/usr/bin/agent-browser" ]]; then
-	AGENT_BROWSER_BIN="$(command -v agent-browser)"
+fi
+
+if [[ -z "$AGENT_BROWSER_BIN" ]]; then
+	while IFS= read -r bin_candidate; do
+		[[ -z "$bin_candidate" ]] && continue
+		candidate_real="$(readlink -f "$bin_candidate" 2>/dev/null || echo "$bin_candidate")"
+		if [[ -x "$bin_candidate" ]] && [[ "$candidate_real" != "$SELF_PATH" ]] && [[ "$candidate_real" != "/usr/bin/agent-browser" ]] && [[ "$candidate_real" != "/bin/agent-browser" ]]; then
+			AGENT_BROWSER_BIN="$bin_candidate"
+			break
+		fi
+	done < <(which -a agent-browser 2>/dev/null || true)
 fi
 
 # Parse wrapper-specific flags and detect explicit CDP arguments
