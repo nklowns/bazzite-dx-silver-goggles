@@ -171,15 +171,23 @@ engines:
     timeout: 3.0
 
   # ==========================================
-  # ESFERA 4: P2P DESCENTRALIZADA (YaCy)
+  # ESFERA 4: P2P DESCENTRALIZADA & COMUNITÁRIA (Mwmbl & YaCy)
   # ==========================================
+  - name: mwmbl
+    engine: mwmbl
+    categories: [p2p, general]
+    disabled: false
+    weight: 2
+    timeout: 2.5
+
   - name: yacy
     engine: yacy
     categories: [p2p, general]
     disabled: false
-    timeout: 3.0
+    timeout: 3.5
     base_url:
       - http://yacy:8090
+      - http://yacy.kit.edu
       - https://yacy.searchlab.eu
       - https://yacy.ecosys.eu
       - https://search.lomig.me
