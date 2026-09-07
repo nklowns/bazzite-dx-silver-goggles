@@ -297,6 +297,47 @@ yacy-status:
         echo "  Porta 8090: fechada"
     fi
 
+# 🪝 Iniciar o motor Trawl Anti-Captcha & Scraper (:8191 / :8192)
+[group('Agent Mesh')]
+trawl-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p /var/srv/trawl/ca 2>/dev/null || true
+    systemctl --user daemon-reload
+    systemctl --user start nomad-trawl.service
+    echo "✅ Trawl Anti-Captcha & Scraper ativo em http://127.0.0.1:8191 (Proxy MITM :8192)"
+
+# 🛑 Parar o motor Trawl Anti-Captcha & Scraper
+[group('Agent Mesh')]
+trawl-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop nomad-trawl.service
+    echo "🛑 Trawl Anti-Captcha & Scraper desativado."
+
+# 📊 Diagnóstico do motor Trawl
+[group('Agent Mesh')]
+trawl-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active nomad-trawl.service 2>/dev/null || true)
+    printf '%-16s %s\n' "trawl-engine:" "${STATE:-inactive}"
+    if ss -tln 2>/dev/null | grep -q ':8191 '; then
+        echo "  Porta 8191 (API): ABERTA"
+    else
+        echo "  Porta 8191 (API): fechada"
+    fi
+    if ss -tln 2>/dev/null | grep -q ':8192 '; then
+        echo "  Porta 8192 (MITM Proxy): ABERTA"
+    else
+        echo "  Porta 8192 (MITM Proxy): fechada"
+    fi
+
+# 📜 Visualizar logs do motor Trawl
+[group('Agent Mesh')]
+trawl-logs:
+    journalctl --user -u nomad-trawl.service -f
+
 # 🚀 Iniciar a suíte completa da Agent Mesh (SearXNG + Vane + Lightpanda)
 [group('Agent Mesh')]
 agent-mesh-up:

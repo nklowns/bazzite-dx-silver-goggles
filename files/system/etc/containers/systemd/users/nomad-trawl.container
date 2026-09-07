@@ -1,0 +1,49 @@
+# Trawl Anti-Captcha & Scraper Engine — Agent Mesh Dual-Role Provider
+#
+# Part of the Agent Mesh. Operates autonomously on the shared OCI network.
+# Provides Tier 3 scraper escalation for Cloudflare Turnstile, DDoS-Guard and CAPTCHAs,
+# and an optional MITM forward proxy on :8192 for selective SearXNG engine bypass.
+# Publishes strictly to loopback (127.0.0.1:8191 and 127.0.0.1:8192); internal alias `trawl`.
+#
+# [Install] is omitted on purpose per Boot Impact Policy.
+# Started on demand via `ujust trawl-up` or transparently by mesh-search.
+
+[Unit]
+Description=Trawl Anti-Captcha & Scraper Engine (Agent Mesh)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Container]
+Image=ghcr.io/germondai/trawl:latest@sha256:9cf6668dc5e7160d739991ca1edfe308c48638696571d9413a18399696586698
+ContainerName=nomad_trawl
+Network=project-nomad_default.network
+NetworkAlias=trawl
+
+# Resource bounds per Workstation & Gaming Policy
+ShmSize=1g
+Memory=1.5G
+
+Environment=PORT=8191
+Environment=MITM_ENABLED=true
+Environment=MITM_HOST=0.0.0.0
+Environment=MITM_PORT=8192
+Environment=MITM_CA_DIR=/data/proxy-ca
+Environment=MITM_MAX_TIER=3
+Environment=MITM_ALWAYS_SCRAPE=false
+Environment=REDIS_URL=redis://redis:6379/2
+Environment=REDIS_SESSION_TTL_SECONDS=3600
+Environment=BROWSER_POOL_SIZE=1
+Environment=BROWSER_MAX_CONTENT_PROCESSES=2
+Environment=BROWSER_HEADFUL_POOL_SIZE=0
+Environment=BROWSER_ACQUIRE_TIMEOUT_MS=15000
+Environment=MCP_ENABLED=false
+
+# Loopback binding per workstation security policy
+PublishPort=127.0.0.1:8191:8191
+PublishPort=127.0.0.1:8192:8192
+
+Volume=/var/srv/trawl/ca:/data/proxy-ca:Z
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=60
