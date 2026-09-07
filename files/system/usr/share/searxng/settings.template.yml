@@ -113,9 +113,10 @@ engines:
 
   - name: duckduckgo
     engine: duckduckgo
-    categories: [general]
+    categories: [general, it]
     network: trawl
     disabled: false
+    weight: 1.5
     timeout: 3.5
 
   # Motores ruidosos desativados da categoria IT herdada
