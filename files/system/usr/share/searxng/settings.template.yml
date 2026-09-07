@@ -252,6 +252,13 @@ engines:
     disabled: false
     timeout: 5.0
 
+  - name: z-library
+    engine: zlibrary
+    shortcut: zlib
+    categories: [archive, science]
+    disabled: false
+    timeout: 5.0
+
   - name: loc
     engine: loc
     shortcut: locgov

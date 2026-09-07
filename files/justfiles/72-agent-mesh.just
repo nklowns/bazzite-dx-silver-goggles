@@ -133,6 +133,9 @@ vane-down:
     set -uo pipefail
     systemctl --user stop nomad-vane.service
     echo "🛑 Vane desativado."
+    if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null; then
+        echo "💡 Ollama GPU ainda está ativo segurando VRAM da NVIDIA. Para liberar memória de vídeo: ujust ollama-down"
+    fi
 
 alias perplexica-down := vane-down
 

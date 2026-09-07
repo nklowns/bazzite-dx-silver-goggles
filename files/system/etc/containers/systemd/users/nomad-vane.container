@@ -20,6 +20,9 @@ ContainerName=nomad_vane
 Network=project-nomad_default.network
 NetworkAlias=vane
 
+# Resource bounds per Workstation & Gaming Policy
+Memory=1.5G
+
 # Loopback binding in reserved DX range 61300-61399
 PublishPort=127.0.0.1:61385:3000
 
