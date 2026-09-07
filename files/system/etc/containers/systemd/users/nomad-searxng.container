@@ -11,8 +11,8 @@
 Description=SearXNG Metasearch Engine (Agent Mesh)
 StartLimitIntervalSec=300
 StartLimitBurst=5
-Wants=nomad-redis.service nomad-tor.service
-After=nomad-redis.service nomad-tor.service
+Wants=nomad-redis.service nomad-tor.service nomad-trawl.service
+After=nomad-redis.service nomad-tor.service nomad-trawl.service
 
 [Container]
 Image=docker.io/searxng/searxng:latest@sha256:55e1fa15a63ff04e79e213e6aa2837549877b0c6d60757cdb633ae9111cb5fea
@@ -26,6 +26,8 @@ PublishPort=127.0.0.1:61387:8080
 Volume=/var/srv/searxng:/etc/searxng:Z
 
 Environment=SEARXNG_BASE_URL=http://localhost:61387
+Environment=CURL_CA_BUNDLE=/etc/searxng/ca-bundle.crt
+Environment=SSL_CERT_FILE=/etc/searxng/ca-bundle.crt
 
 HealthCmd=wget -q --spider http://localhost:8080/healthz || exit 1
 HealthInterval=30s

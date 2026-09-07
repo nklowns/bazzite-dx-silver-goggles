@@ -53,6 +53,11 @@ outgoing:
       proxies:
         all://:
           - socks5h://tor:9050
+    trawl:
+      enable_http: true
+      proxies:
+        all://:
+          - http://trawl:8192
 
 categories_as_tabs:
   general:
@@ -74,17 +79,18 @@ engines:
 
   - name: brave
     engine: brave
-    categories: [general]
+    categories: [general, it]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 2.0
+    timeout: 3.5
 
   - name: google cse
     engine: google_cse
-    categories: [general]
+    categories: [general, it]
     disabled: false
-    weight: 2
-    timeout: 2.0
+    weight: 3
+    timeout: 2.5
 
   - name: mojeek
     engine: mojeek
@@ -93,10 +99,7 @@ engines:
     timeout: 2.0
 
   - name: qwant
-    engine: qwant
-    categories: [general]
-    disabled: false
-    timeout: 2.0
+    disabled: true
 
   - name: wikipedia
     engine: wikipedia
@@ -111,8 +114,22 @@ engines:
   - name: duckduckgo
     engine: duckduckgo
     categories: [general]
+    network: trawl
     disabled: false
-    timeout: 2.0
+    timeout: 3.5
+
+  # Motores ruidosos desativados da categoria IT herdada
+  - name: mdn
+    disabled: true
+
+  - name: baidu kaifa
+    disabled: true
+
+  - name: habrahabr
+    disabled: true
+
+  - name: free software directory
+    disabled: true
 
   # ==========================================
   # ESFERA 2: DEV & IT (:!it)

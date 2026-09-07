@@ -103,3 +103,23 @@ EOF
 	chmod 644 "$VANE_CONFIG"
 fi
 
+# 3. SearXNG CA bundle with Trawl MITM root certificate
+TRAWL_CA="/var/srv/trawl/ca/ca.crt"
+SEARXNG_CA="$SEARXNG_DIR/ca-bundle.crt"
+SYSTEM_CA="/etc/ssl/certs/ca-bundle.crt"
+if [[ ! -f "$SYSTEM_CA" ]]; then
+	SYSTEM_CA="/etc/pki/tls/certs/ca-bundle.crt"
+fi
+if [[ ! -f "$SYSTEM_CA" ]]; then
+	SYSTEM_CA="/etc/ssl/certs/ca-certificates.crt"
+fi
+
+if [[ -f "$SYSTEM_CA" ]]; then
+	cat "$SYSTEM_CA" > "$SEARXNG_CA.tmp"
+	if [[ -f "$TRAWL_CA" ]]; then
+		cat "$TRAWL_CA" >> "$SEARXNG_CA.tmp"
+	fi
+	mv "$SEARXNG_CA.tmp" "$SEARXNG_CA"
+	chmod 644 "$SEARXNG_CA"
+fi
+
