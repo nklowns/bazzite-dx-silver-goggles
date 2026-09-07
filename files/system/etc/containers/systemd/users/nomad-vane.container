@@ -11,6 +11,8 @@
 Description=Vane AI Answering & Deep Research Engine (Agent Mesh)
 StartLimitIntervalSec=300
 StartLimitBurst=5
+Wants=nomad-searxng.service nomad-ollama.service
+After=nomad-searxng.service nomad-ollama.service
 
 [Container]
 Image=docker.io/itzcrazykns1337/vane:slim-latest@sha256:21759f5428af08a6fcc0caadd96f2a604813100fc96ae9f127804b72e8e976ac

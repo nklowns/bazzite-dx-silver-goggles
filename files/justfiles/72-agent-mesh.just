@@ -114,6 +114,11 @@ vane-up:
         echo "Iniciando dependência de pesquisa (SearXNG)..."
         systemctl --user start nomad-searxng.service
     fi
+    # Se o Ollama GPU não estiver ativo, avisa e inicia
+    if ! systemctl --user is-active --quiet nomad-ollama.service; then
+        echo "Iniciando dependência de inferência LLM (Ollama GPU)..."
+        systemctl --user start nomad-ollama.service
+    fi
     systemctl --user daemon-reload
     systemctl --user start nomad-vane.service
     echo "✅ Vane ativo em http://localhost:61385"
