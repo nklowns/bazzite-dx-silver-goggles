@@ -153,6 +153,21 @@ engines:
     categories: [it]
     disabled: false
 
+  - name: repology
+    engine: repology
+    categories: [it]
+    disabled: false
+
+  - name: nvd
+    engine: nvd
+    categories: [it]
+    disabled: false
+
+  - name: huggingface
+    engine: huggingface
+    categories: [it]
+    disabled: false
+
   # ==========================================
   # ESFERA 3: CIÊNCIA & ACADÊMICO (:!science)
   # ==========================================
@@ -170,8 +185,30 @@ engines:
     weight: 2
     timeout: 3.0
 
+  - name: annas archive
+    engine: annas_archive
+    categories: [science]
+    disabled: false
+    timeout: 3.5
+
   # ==========================================
-  # ESFERA 4: P2P DESCENTRALIZADA & COMUNITÁRIA (Mwmbl & YaCy)
+  # ESFERA 4: INDIE & SMALL WEB (:!indie)
+  # ==========================================
+  - name: marginalia
+    engine: marginalia
+    categories: [indie, general]
+    disabled: false
+    weight: 2
+    timeout: 3.0
+
+  - name: neocities
+    engine: neocities
+    categories: [indie]
+    disabled: false
+    timeout: 3.0
+
+  # ==========================================
+  # ESFERA 5: P2P DESCENTRALIZADA & COMUNITÁRIA (Mwmbl & YaCy)
   # ==========================================
   - name: mwmbl
     engine: mwmbl
@@ -193,7 +230,7 @@ engines:
       - https://search.lomig.me
 
   # ==========================================
-  # ESFERA 5: DARKNET & PRIVACIDADE (:!onions)
+  # ESFERA 6: DARKNET & PRIVACIDADE (:!onions)
   # ==========================================
   - name: ahmia
     engine: ahmia
