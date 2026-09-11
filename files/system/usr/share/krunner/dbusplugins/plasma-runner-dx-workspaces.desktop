@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Service
+Name=Dev Workspaces
+Comment=Open recent VSCode and Code-Insiders projects
+Icon=krunner-dx-workspaces
+X-KDE-ServiceTypes=Plasma/Runner
+X-KDE-PluginInfo-Name=dx-workspaces
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API=DBus2
+X-Plasma-DBusRunner-Service=org.kde.bazzite.dx.workspaces
+X-Plasma-DBusRunner-Path=/WorkspacesRunner
+X-Plasma-Runner-Syntaxes=ws :q:, code :q:, :q:
+X-Plasma-Runner-Syntax-Descriptions=Find and open recent IDE workspaces

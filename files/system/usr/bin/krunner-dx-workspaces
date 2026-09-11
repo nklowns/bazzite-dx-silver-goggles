@@ -1,0 +1,366 @@
+#!/usr/bin/python3
+"""
+KRunner D-Bus Runner for Developer Workspaces & Projects.
+Plasma 6 / DBus2 Protocol (org.kde.krunner1)
+Declarative DX Layer for Universal Blue / Bazzite.
+Supports dynamic discovery of installed IDEs:
+VSCode, VSCode Insiders, Cursor, Zed, Antigravity IDE, VSCodium.
+"""
+
+import glob
+import json
+import os
+import shutil
+import sqlite3
+import subprocess
+import urllib.parse
+
+import dbus
+import dbus.service
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
+
+BUS_NAME = "org.kde.bazzite.dx.workspaces"
+OBJECT_PATH = "/WorkspacesRunner"
+IFACE = "org.kde.krunner1"
+
+HOME_DIR = os.path.expanduser("~")
+
+# IDE Definitions: id -> (binary_names, display_name, icon_candidates)
+IDE_REGISTRY = {
+    "insiders": {
+        "binaries": ["code-insiders"],
+        "name": "VSCode Insiders",
+        "icon_candidates": [
+            os.path.join(HOME_DIR, ".local/share/icons/vscode-insiders.png"),
+            "/usr/share/icons/hicolor/512x512/apps/vscode-insiders.png",
+            "vscode-insiders",
+            "com.visualstudio.code.insiders",
+        ],
+    },
+    "code": {
+        "binaries": ["code"],
+        "name": "VSCode",
+        "icon_candidates": [
+            os.path.join(HOME_DIR, ".local/share/icons/code.png"),
+            "/usr/share/icons/hicolor/512x512/apps/code.png",
+            "code",
+            "com.visualstudio.code",
+        ],
+    },
+    "cursor": {
+        "binaries": ["cursor"],
+        "name": "Cursor",
+        "icon_candidates": [
+            os.path.join(HOME_DIR, ".local/share/icons/cursor.png"),
+            "/usr/share/icons/hicolor/512x512/apps/cursor.png",
+            "cursor",
+        ],
+    },
+    "zed": {
+        "binaries": ["zed", "dev.zed.Zed"],
+        "name": "Zed",
+        "icon_candidates": [
+            os.path.join(HOME_DIR, ".local/share/icons/zed.png"),
+            "/usr/share/icons/hicolor/512x512/apps/zed.png",
+            "zed",
+            "dev.zed.Zed",
+        ],
+    },
+    "antigravity": {
+        "binaries": ["antigravity-ide"],
+        "name": "Antigravity IDE",
+        "icon_candidates": [
+            os.path.join(HOME_DIR, ".local/share/icons/antigravity-ide.png"),
+            os.path.join(HOME_DIR, ".local/share/icons/hicolor/512x512/apps/antigravity-ide.png"),
+            "antigravity-ide",
+        ],
+    },
+    "vscodium": {
+        "binaries": ["codium", "vscodium"],
+        "name": "VSCodium",
+        "icon_candidates": [
+            "vscodium",
+            "com.vscodium.codium",
+        ],
+    },
+}
+
+EXTRA_SEARCH_PATHS = [
+    "/home/linuxbrew/.linuxbrew/bin",
+    os.path.join(HOME_DIR, ".local/bin"),
+    "/usr/bin",
+    "/usr/local/bin",
+]
+
+
+def find_executable(binary_names):
+    for b in binary_names:
+        found = shutil.which(b)
+        if found:
+            return found
+        for p in EXTRA_SEARCH_PATHS:
+            candidate = os.path.join(p, b)
+            if os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+    return None
+
+
+def resolve_icon(icon_candidates, fallback="folder-development"):
+    for ic in icon_candidates:
+        if ic.startswith("/") and os.path.exists(ic):
+            return ic
+    # Fallback to system icon name if existing file not found
+    for ic in icon_candidates:
+        if not ic.startswith("/"):
+            return ic
+    return fallback
+
+
+def get_available_ides():
+    available = {}
+    for ide_key, ide_info in IDE_REGISTRY.items():
+        bin_path = find_executable(ide_info["binaries"])
+        if bin_path:
+            icon = resolve_icon(ide_info["icon_candidates"])
+            available[ide_key] = {
+                "bin": bin_path,
+                "name": ide_info["name"],
+                "icon": icon,
+            }
+    return available
+
+
+def normalize_path(p_str):
+    if not p_str:
+        return ""
+    clean = p_str.rstrip("/")
+    if clean.startswith("/home/"):
+        clean = "/var" + clean
+    if os.path.exists(clean):
+        try:
+            return os.path.realpath(clean)
+        except Exception:
+            return clean
+    return clean
+
+
+def get_recent_workspaces():
+    workspaces = {}
+
+    def add_candidate(raw_path, source, wtype):
+        norm = normalize_path(raw_path)
+        if norm and os.path.exists(norm) and norm not in workspaces:
+            workspaces[norm] = {"source": source, "type": wtype}
+
+    # 1. Read SQLite state.vscdb from Code, Code Insiders, Cursor, Antigravity IDE, VSCodium
+    sqlite_patterns = [
+        "~/.config/Code/User/**/state.vscdb",
+        "~/.config/Code - Insiders/User/**/state.vscdb",
+        "~/.config/Cursor/User/**/state.vscdb",
+        "~/.config/Antigravity IDE/User/**/state.vscdb",
+        "~/.config/VSCodium/User/**/state.vscdb",
+    ]
+    for pat in sqlite_patterns:
+        for p in glob.glob(os.path.expanduser(pat), recursive=True):
+            try:
+                conn = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+                c = conn.cursor()
+                for row in c.execute(
+                    "SELECT key, value FROM ItemTable WHERE key IN ('recently.opened', 'sessions.recentlyPickedWorkspaces')"
+                ):
+                    val = json.loads(row[1])
+                    if isinstance(val, dict) and "entries" in val:
+                        for entry in val["entries"]:
+                            uri = (
+                                entry.get("folderUri")
+                                or entry.get("fileUri")
+                                or entry.get("workspace", {}).get("configPath")
+                            )
+                            if uri:
+                                parsed = urllib.parse.unquote(
+                                    urllib.parse.urlparse(uri).path
+                                )
+                                add_candidate(
+                                    parsed,
+                                    "recent",
+                                    "folder" if os.path.isdir(parsed) else "file",
+                                )
+                    elif isinstance(val, list):
+                        for item in val:
+                            if isinstance(item, dict):
+                                uri_obj = item.get("uri") or item.get("folderUri")
+                                if isinstance(uri_obj, dict) and "fsPath" in uri_obj:
+                                    add_candidate(uri_obj["fsPath"], "recent", "folder")
+                                elif isinstance(item.get("folderUri"), str):
+                                    parsed = urllib.parse.unquote(
+                                        urllib.parse.urlparse(item["folderUri"]).path
+                                    )
+                                    add_candidate(parsed, "recent", "folder")
+            except Exception:
+                pass
+
+    # 2. Read workspaceStorage folders
+    ws_patterns = [
+        "~/.config/Code*/User/workspaceStorage/*/workspace.json",
+        "~/.config/Cursor/User/workspaceStorage/*/workspace.json",
+        "~/.config/Antigravity IDE/User/workspaceStorage/*/workspace.json",
+    ]
+    for pat in ws_patterns:
+        for p in glob.glob(os.path.expanduser(pat), recursive=True):
+            try:
+                with open(p, "r") as f:
+                    data = json.load(f)
+                    folder = data.get("folder")
+                    if folder:
+                        parsed = urllib.parse.unquote(urllib.parse.urlparse(folder).path)
+                        add_candidate(parsed, "history", "folder")
+            except Exception:
+                pass
+
+    # 3. Read Obsidian Vaults if present
+    obsidian_json = os.path.expanduser("~/.config/obsidian/obsidian.json")
+    if os.path.exists(obsidian_json):
+        try:
+            with open(obsidian_json, "r") as f:
+                odata = json.load(f)
+                vaults = odata.get("vaults", {})
+                for vid, vinfo in vaults.items():
+                    vpath = vinfo.get("path")
+                    if vpath:
+                        add_candidate(vpath, "obsidian", "folder")
+        except Exception:
+            pass
+
+    return workspaces
+
+
+class WorkspacesRunner(dbus.service.Object):
+    def __init__(self, bus):
+        super().__init__(bus, OBJECT_PATH)
+        self.cached_workspaces = get_recent_workspaces()
+        self.available_ides = get_available_ides()
+
+    @dbus.service.method(IFACE, out_signature="a(sss)")
+    def Actions(self):
+        # Dynamically build actions based on installed IDEs
+        actions = []
+        for ide_key, info in self.available_ides.items():
+            actions.append((f"open_{ide_key}", f"Open in {info['name']}", info["icon"]))
+        actions.append(("open_term", "Open in Terminal", "utilities-terminal"))
+        return actions
+
+    @dbus.service.method(IFACE, in_signature="s", out_signature="a(sssida{sv})")
+    def Match(self, query):
+        query = query.strip()
+        if len(query) < 2:
+            return []
+
+        trigger_prefix = None
+        filter_text = query
+        for trigger in ["code ", "ws ", "proj ", "ide ", "zed ", "cursor "]:
+            if query.lower().startswith(trigger):
+                trigger_prefix = trigger.strip()
+                filter_text = query[len(trigger) :].strip()
+                break
+
+        if trigger_prefix or len(self.cached_workspaces) == 0:
+            self.cached_workspaces = get_recent_workspaces()
+            self.available_ides = get_available_ides()
+
+        matches = []
+        filter_lower = filter_text.lower()
+
+        # Primary icon: Prefer Insiders > Code > Cursor > Zed > Antigravity > Fallback
+        default_icon = "krunner-dx-workspaces"
+        for pref in ["insiders", "code", "cursor", "zed", "antigravity"]:
+            if pref in self.available_ides:
+                default_icon = self.available_ides[pref]["icon"]
+                break
+
+        action_ids = [f"open_{k}" for k in self.available_ides.keys()] + ["open_term"]
+
+        for path_str, meta in self.cached_workspaces.items():
+            folder_name = os.path.basename(path_str.rstrip("/"))
+            if not folder_name:
+                continue
+
+            relevance = 0.0
+            folder_lower = folder_name.lower()
+            path_lower = path_str.lower()
+
+            if folder_lower == filter_lower:
+                relevance = 0.95
+            elif folder_lower.startswith(filter_lower):
+                relevance = 0.85
+            elif filter_lower in folder_lower:
+                relevance = 0.70
+            elif filter_lower in path_lower:
+                relevance = 0.50
+
+            if trigger_prefix:
+                relevance += 0.1
+
+            if relevance > 0.4:
+                item_icon = default_icon
+                if meta.get("source") == "obsidian":
+                    item_icon = "md.obsidian.Obsidian"
+
+                display_title = f"{folder_name}"
+                display_sub = f"{path_str}"
+
+                category = 100 if relevance >= 0.8 else 64
+                props = {
+                    "subtext": dbus.String(display_sub, variant_level=1),
+                    "actions": dbus.Array(action_ids, signature="s", variant_level=1),
+                }
+                matches.append(
+                    (path_str, display_title, item_icon, category, float(relevance), props)
+                )
+
+        matches.sort(key=lambda m: m[4], reverse=True)
+        return matches[:15]
+
+    @dbus.service.method(IFACE, in_signature="ss")
+    def Run(self, id_path, action_id):
+        if not id_path or not os.path.exists(id_path):
+            return
+
+        if action_id == "open_term":
+            cwd = id_path if os.path.isdir(id_path) else os.path.dirname(id_path)
+            subprocess.Popen(["konsole", "--workdir", cwd], start_new_session=True)
+            return
+
+        # Check if action matches open_<ide_key>
+        if action_id.startswith("open_"):
+            ide_key = action_id[5:]
+            if ide_key in self.available_ides:
+                bin_cmd = self.available_ides[ide_key]["bin"]
+                subprocess.Popen([bin_cmd, id_path], start_new_session=True)
+                return
+
+        # Default action (Enter without selecting sub-action)
+        # Priority: Insiders -> Code -> Cursor -> Zed -> Antigravity
+        for pref in ["insiders", "code", "cursor", "zed", "antigravity"]:
+            if pref in self.available_ides:
+                subprocess.Popen([self.available_ides[pref]["bin"], id_path], start_new_session=True)
+                return
+
+        # Ultimate fallback
+        subprocess.Popen(["xdg-open", id_path], start_new_session=True)
+
+
+def main():
+    DBusGMainLoop(set_as_default=True)
+    session_bus = dbus.SessionBus()
+    name = dbus.service.BusName(BUS_NAME, session_bus)
+    runner = WorkspacesRunner(session_bus)
+    loop = GLib.MainLoop()
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()
