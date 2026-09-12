@@ -118,6 +118,13 @@ except Exception as e:
 }
 
 ConfigureSelinux() {
+	# Clean up any obsolete/colliding priority 400 module named 'bootupd' (renamed to bazzite-bootupd)
+	if [ -f "/etc/selinux/targeted/active/modules/400/bootupd/cil" ]; then
+		echo "Cleaning up obsolete/colliding bootupd module at priority 400..."
+		semodule -X 400 -r bootupd 2>/dev/null || true
+		rm -f "/etc/ublue/bootupd-policy.checksum"
+	fi
+
 	# Loop through all declarative CIL policies in the system image
 	for policy_path in /usr/share/selinux/packages/*.cil; do
 		[ -f "$policy_path" ] || continue
