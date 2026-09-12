@@ -235,12 +235,29 @@ def get_recent_workspaces():
         except Exception:
             pass
 
-    # 4. Auto-discover repositories & workspaces in developer roots (~/dev, ~/Projects, ~/src)
-    dev_roots = [
-        os.path.expanduser("~/dev"),
-        os.path.expanduser("~/Projects"),
-        os.path.expanduser("~/src"),
-    ]
+    # 4. Optional user-configured project roots (unopinionated: empty by default)
+    # Users can declare custom directories to scan via:
+    # - Environment variable: DX_PROJECT_DIRS="path1:path2"
+    # - Or declarative config file: ~/.config/bazzite-dx/workspaces.dirs (one path per line)
+    dev_roots = []
+    env_roots = os.environ.get("DX_PROJECT_DIRS", "").strip()
+    if env_roots:
+        for r in env_roots.split(":"):
+            r = r.strip()
+            if r:
+                dev_roots.append(os.path.expanduser(r))
+
+    dirs_cfg = os.path.expanduser("~/.config/bazzite-dx/workspaces.dirs")
+    if os.path.isfile(dirs_cfg):
+        try:
+            with open(dirs_cfg, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        dev_roots.append(os.path.expanduser(line))
+        except Exception:
+            pass
+
     for dev_root in dev_roots:
         if not os.path.isdir(dev_root):
             continue
@@ -252,10 +269,10 @@ def get_recent_workspaces():
                 ]
                 for f in files:
                     if f.endswith(".code-workspace"):
-                        add_candidate(os.path.join(root, f), "dev_root", "workspace")
+                        add_candidate(os.path.join(root, f), "custom_root", "workspace")
 
                 if os.path.exists(os.path.join(root, ".git")):
-                    add_candidate(root, "dev_root", "folder")
+                    add_candidate(root, "custom_root", "folder")
                     dirs.clear()
                     continue
 

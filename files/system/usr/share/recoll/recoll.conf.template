@@ -2,7 +2,7 @@
 # Recoll Configuration Template — Bazzite Agent Mesh & Project NOMAD
 # ==============================================================================
 # Whitelist of top directories to index (inside the container namespaces)
-topdirs = /export/dev /export/documents
+topdirs = /export/documents
 
 # Database path (mounted to persistent storage /var/srv/recoll/xapiandb)
 dbdir = /var/recoll/db

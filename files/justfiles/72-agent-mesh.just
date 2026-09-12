@@ -475,7 +475,6 @@ recoll-index:
     echo "🔍 Executando indexação incremental do workspace via Recoll..."
     podman run --rm --name nomad_recoll_index_manual \
       --security-opt label=disable --cap-drop=all \
-      -v "$HOME/dev:/export/dev:ro" \
       -v "$HOME/Documents:/export/documents:ro" \
       -v "$HOME/.config/recoll/recoll.conf:/root/.recoll/recoll.conf:ro" \
       -v /var/srv/recoll/xapiandb:/var/recoll/db:Z,U \

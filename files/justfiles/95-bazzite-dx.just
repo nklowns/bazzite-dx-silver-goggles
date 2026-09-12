@@ -186,3 +186,80 @@ setup-default-brew flavor="" action="":
 monitor-ebpf:
     #!/usr/bin/bash
     sudo bpftop
+
+# Manage personal developer workspace roots for KRunner and Shell (Unopinionated)
+[group('Developer Experience')]
+dx-workspace-add target_dir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    TARGET="{{ target_dir }}"
+    if [[ -z "$TARGET" ]]; then
+        if command -v gum >/dev/null; then
+            TARGET=$(gum input --placeholder "Path to developer workspace (e.g. ~/dev, ~/Projects)")
+        else
+            read -rp "Enter path to developer workspace (e.g. ~/dev): " TARGET
+        fi
+    fi
+    [[ -z "$TARGET" ]] && { echo "Aborted: empty path."; exit 1; }
+    TARGET="${TARGET/#\~/$HOME}"
+    TARGET=$(realpath -m "$TARGET")
+
+    mkdir -p "$HOME/.config/bazzite-dx"
+    CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
+    touch "$CFG_FILE"
+
+    if grep -Fxq "$TARGET" "$CFG_FILE" 2>/dev/null; then
+        echo "ℹ️ Path already registered in $CFG_FILE: $TARGET"
+    else
+        echo "$TARGET" >> "$CFG_FILE"
+        echo "✅ Registered workspace root: $TARGET"
+    fi
+
+    BASENAME=$(basename "$TARGET")
+    ALIAS_SH="$HOME/.config/bazzite-dx/aliases.sh"
+    ALIAS_FISH="$HOME/.config/bazzite-dx/aliases.fish"
+    if [[ "$BASENAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        ALIAS_CMD="alias $BASENAME='cd \"$TARGET\"'"
+        if ! grep -Fq "$ALIAS_CMD" "$ALIAS_SH" 2>/dev/null; then
+            echo "$ALIAS_CMD" >> "$ALIAS_SH"
+            echo "test -d \"$TARGET\"; and alias $BASENAME=\"cd \\\"$TARGET\\\"\"" >> "$ALIAS_FISH"
+            echo "✨ Added personal shell alias: $BASENAME -> cd $TARGET"
+        fi
+    fi
+    echo "KRunner and shell will now index and navigate this folder seamlessly."
+
+# List registered personal developer workspaces
+[group('Developer Experience')]
+dx-workspace-list:
+    #!/usr/bin/env bash
+    CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
+    echo "=== Registered Personal Developer Workspaces ==="
+    if [[ -f "$CFG_FILE" ]]; then
+        grep -v '^[[:space:]]*#' "$CFG_FILE" | grep -v '^[[:space:]]*$' || echo "(No workspaces registered yet)"
+    else
+        echo "(Config file $CFG_FILE not found. Run: ujust dx-workspace-add ~/dev)"
+    fi
+
+# Remove a registered personal developer workspace
+[group('Developer Experience')]
+dx-workspace-remove target_dir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
+    [[ ! -f "$CFG_FILE" ]] && { echo "No workspaces registered."; exit 0; }
+    TARGET="{{ target_dir }}"
+    if [[ -z "$TARGET" ]]; then
+        if command -v gum >/dev/null; then
+            TARGET=$(gum choose $(grep -v '^[[:space:]]*#' "$CFG_FILE" | grep -v '^[[:space:]]*$'))
+        else
+            echo "Registered workspaces:"
+            cat "$CFG_FILE"
+            read -rp "Enter path to remove: " TARGET
+        fi
+    fi
+    [[ -z "$TARGET" ]] && exit 0
+    TARGET="${TARGET/#\~/$HOME}"
+    TARGET=$(realpath -m "$TARGET")
+
+    sed -i "\|^$TARGET\$|d" "$CFG_FILE"
+    echo "🗑️ Removed $TARGET from $CFG_FILE"

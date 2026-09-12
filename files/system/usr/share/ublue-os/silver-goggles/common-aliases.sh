@@ -57,7 +57,6 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 	alias ....='cd ../../..'
 	alias mkdir='mkdir -p'
 	alias g='git'
-	[ -d "${HOME}/dev" ] && alias dev='cd "${HOME}/dev"'
 
 	# --- Modern CLI Replacements (Scannable Blocks) ---
 
@@ -146,6 +145,13 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 	# <superfile>
 	[ "$(command -v superfile)" ] && alias spf='superfile'
 	# </superfile>
+
+	# --- User Personal Extension Hook (Unopinionated) ---
+	# Allows users to declare personal aliases/overrides without image mutation.
+	if [ -f "${HOME}/.config/bazzite-dx/aliases.sh" ]; then
+		# shellcheck source=/dev/null
+		. "${HOME}/.config/bazzite-dx/aliases.sh"
+	fi
 
 	true
 fi
