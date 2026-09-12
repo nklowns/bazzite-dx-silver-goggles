@@ -266,3 +266,21 @@ dx-workspace-remove target_dir="":
 
     sed -i "\|^$TARGET\$|d" "$CFG_FILE"
     echo "🗑️ Removed $TARGET from $CFG_FILE"
+
+# Force sync / merge declarative IDE terminal keybindings and settings across Code, Insiders, Cursor, and Antigravity
+[group('Developer Experience')]
+dx-sync-ide-keybindings:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    HOOK="/usr/share/ublue-os/user-setup.hooks.d/35-ide-terminal-keybindings.sh"
+    if [[ ! -f "$HOOK" ]]; then
+        HOOK="{{ justfile_directory() }}/../system/usr/share/ublue-os/user-setup.hooks.d/35-ide-terminal-keybindings.sh"
+    fi
+    if [[ -f "$HOOK" ]]; then
+        echo "🔄 Sincronizando atalhos de terminal e configurações de IDEs..."
+        bash "$HOOK" --force
+        echo "✅ Atalhos e configurações de IDE sincronizados com sucesso."
+    else
+        echo "❌ Script de sincronização de atalhos não encontrado: $HOOK"
+        exit 1
+    fi
