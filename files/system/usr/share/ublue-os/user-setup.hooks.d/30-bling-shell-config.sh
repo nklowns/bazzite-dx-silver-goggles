@@ -8,7 +8,7 @@ set -ouex pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script bling-shell-config user 1 || exit 0
+version-script bling-shell-config user 2 || exit 0
 
 SILVER_GOGGLES_DIR="/usr/share/ublue-os/silver-goggles"
 CONFIG_DIR="${HOME}/.config"
@@ -25,4 +25,11 @@ if [[ ! -f "${CONFIG_DIR}/atuin/config.toml" ]]; then
 	install -Dm644 "${SILVER_GOGGLES_DIR}/atuin/config.toml" \
 		"${CONFIG_DIR}/atuin/config.toml"
 	echo "silver-goggles: deployed default atuin/config.toml"
+fi
+
+# Deploy tealdeer tldr config
+if [[ ! -f "${CONFIG_DIR}/tealdeer/config.toml" ]]; then
+	install -Dm644 "${SILVER_GOGGLES_DIR}/tealdeer/config.toml" \
+		"${CONFIG_DIR}/tealdeer/config.toml"
+	echo "silver-goggles: deployed default tealdeer/config.toml"
 fi
