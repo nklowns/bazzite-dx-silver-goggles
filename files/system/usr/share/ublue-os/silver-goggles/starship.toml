@@ -28,6 +28,10 @@ truncation_length = 4
 truncate_to_repo  = true
 style             = "bold cyan"
 
+[directory.substitutions]
+"/var/home" = "~"
+"/home" = "~"
+
 # ─── Git ──────────────────────────────────────────────────────────────────────
 
 [git_branch]

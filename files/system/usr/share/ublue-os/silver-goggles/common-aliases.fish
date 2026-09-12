@@ -31,6 +31,13 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
         end
     end
 
+    # --- OSTree Canonical HOME Normalization ---
+    if string match -q "/home/*" "$PWD"
+        if test -d "/var$PWD"
+            builtin cd "/var$PWD" 2>/dev/null
+        end
+    end
+
     # --- Core Navigation & Basics ---
     alias ..='cd ..'
     alias ...='cd ../..'
@@ -114,5 +121,17 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
         set -gx GIT_PAGER delta
     end
     # </delta>
+
+    # <lazygit>
+    command -v lazygit >/dev/null; and alias lg='lazygit'
+    # </lazygit>
+
+    # <gitui>
+    command -v gitui >/dev/null; and alias gi='gitui'
+    # </gitui>
+
+    # <superfile>
+    command -v superfile >/dev/null; and alias spf='superfile'
+    # </superfile>
 
 end

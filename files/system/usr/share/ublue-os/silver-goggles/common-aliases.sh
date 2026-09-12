@@ -34,6 +34,15 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 		fi
 	fi
 
+	# --- OSTree Canonical HOME Normalization ---
+	case "${PWD-}" in
+	/home/*)
+		if [ -d "/var${PWD}" ]; then
+			builtin cd "/var${PWD}" 2>/dev/null || true
+		fi
+		;;
+	esac
+
 	# --- Core Navigation & Basics ---
 	alias ..='cd ..'
 	alias ...='cd ../..'
@@ -116,5 +125,17 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 		export GIT_PAGER="delta"
 	fi
 	# </delta>
+
+	# <lazygit>
+	[ "$(command -v lazygit)" ] && alias lg='lazygit'
+	# </lazygit>
+
+	# <gitui>
+	[ "$(command -v gitui)" ] && alias gi='gitui'
+	# </gitui>
+
+	# <superfile>
+	[ "$(command -v superfile)" ] && alias spf='superfile'
+	# </superfile>
 
 fi
