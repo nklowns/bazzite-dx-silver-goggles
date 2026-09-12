@@ -35,6 +35,14 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 	fi
 
 	# --- OSTree Canonical HOME Normalization ---
+	case "${HOME-}" in
+	/home/*)
+		if [ -d "/var${HOME}" ]; then
+			export HOME="/var${HOME}"
+		fi
+		;;
+	esac
+
 	case "${PWD-}" in
 	/home/*)
 		if [ -d "/var${PWD}" ]; then
@@ -138,4 +146,5 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 	[ "$(command -v superfile)" ] && alias spf='superfile'
 	# </superfile>
 
+	true
 fi

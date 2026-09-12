@@ -140,4 +140,18 @@ if status is-interactive
         end
     end
 
+    # 6. OSTree Canonical Directory Hook (Keep interactive PWD in physical /var/home)
+    if not test -f /run/.containerenv; and not test -f /.dockerenv
+        function __ostree_canonical_pwd --on-variable PWD
+            status is-command-substitution; and return
+            set -l _s $status
+            if string match -q "/home/*" "$PWD"
+                if test -d "/var$PWD"
+                    builtin cd "/var$PWD" 2>/dev/null
+                end
+            end
+            return $_s
+        end
+    end
+
 end

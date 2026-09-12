@@ -32,6 +32,12 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
     end
 
     # --- OSTree Canonical HOME Normalization ---
+    if string match -q "/home/*" "$HOME"
+        if test -d "/var$HOME"
+            set -gx HOME "/var$HOME"
+        end
+    end
+
     if string match -q "/home/*" "$PWD"
         if test -d "/var$PWD"
             builtin cd "/var$PWD" 2>/dev/null
@@ -134,4 +140,5 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
     command -v superfile >/dev/null; and alias spf='superfile'
     # </superfile>
 
+    true
 end

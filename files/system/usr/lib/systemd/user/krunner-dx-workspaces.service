@@ -1,0 +1,15 @@
+[Unit]
+Description=KRunner DX Workspaces Runner
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.kde.bazzite.dx.workspaces
+ExecStart=/usr/bin/krunner-dx-workspaces
+Restart=on-failure
+RestartSec=3s
+Slice=app-graphical.slice
+
+[Install]
+WantedBy=graphical-session.target

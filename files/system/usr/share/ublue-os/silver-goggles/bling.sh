@@ -242,6 +242,34 @@ case $- in *i*)
 		fi
 	fi
 
+	# 7. OSTree Canonical Directory Hook (Keep interactive PWD in physical /var/home)
+	if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
+		# shellcheck disable=SC3043
+		_ostree_canonical_pwd() {
+			local __ret=$?
+			case "${PWD-}" in
+			/home/*)
+				if [ -d "/var${PWD}" ]; then
+					local __saved_old="${OLDPWD-}"
+					builtin cd "/var${PWD}" >/dev/null 2>&1 || true
+					[ -n "$__saved_old" ] && OLDPWD="$__saved_old"
+				fi
+				;;
+			esac
+			return $__ret
+		}
+		case "${PROMPT_COMMAND-}" in
+		*"_ostree_canonical_pwd"*) ;;
+		*)
+			if [ -z "${PROMPT_COMMAND-}" ]; then
+				PROMPT_COMMAND="_ostree_canonical_pwd"
+			else
+				PROMPT_COMMAND="_ostree_canonical_pwd; $PROMPT_COMMAND"
+			fi
+			;;
+		esac
+	fi
+
 	unset BLING_SHELL
 	;;
 esac

@@ -174,5 +174,21 @@ case $- in *i*)
 		}
 		add-zsh-hook precmd _bling_lazy_atuin
 	fi
+
+	# 6. OSTree Canonical Directory Hook (Keep interactive PWD in physical /var/home)
+	if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
+		_ostree_canonical_pwd() {
+			case "${PWD-}" in
+			/home/*)
+				if [ -d "/var${PWD}" ]; then
+					local __saved_old="${OLDPWD-}"
+					builtin cd -q "/var${PWD}" 2>/dev/null || true
+					[ -n "$__saved_old" ] && OLDPWD="$__saved_old"
+				fi
+				;;
+			esac
+		}
+		add-zsh-hook chpwd _ostree_canonical_pwd
+	fi
 	;;
 esac

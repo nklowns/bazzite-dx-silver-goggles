@@ -1,3 +1,4 @@
 [D-BUS Service]
 Name=org.kde.bazzite.dx.workspaces
 Exec=/usr/bin/krunner-dx-workspaces
+SystemdService=krunner-dx-workspaces.service
