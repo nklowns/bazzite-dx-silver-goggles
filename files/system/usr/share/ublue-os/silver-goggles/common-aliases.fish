@@ -140,9 +140,10 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
     command -v superfile >/dev/null; and alias spf='superfile'
     # </superfile>
 
-    # --- User Personal Extension Hook (Unopinionated) ---
+    # --- User Personal Extension Hook (Unopinionated & Hardened) ---
     # Allows users to declare personal aliases/overrides without image mutation.
-    if test -f "$HOME/.config/bazzite-dx/aliases.fish"
+    # Strictly guarded: non-root UID only.
+    if test (id -u) -ge 1000; and test -f "$HOME/.config/bazzite-dx/aliases.fish"
         source "$HOME/.config/bazzite-dx/aliases.fish"
     end
 

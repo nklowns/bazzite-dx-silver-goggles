@@ -205,8 +205,10 @@ dx-workspace-add target_dir="":
     TARGET=$(realpath -m "$TARGET")
 
     mkdir -p "$HOME/.config/bazzite-dx"
+    chmod 700 "$HOME/.config/bazzite-dx" 2>/dev/null || true
     CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
     touch "$CFG_FILE"
+    chmod 600 "$CFG_FILE" 2>/dev/null || true
 
     if grep -Fxq "$TARGET" "$CFG_FILE" 2>/dev/null; then
         echo "ℹ️ Path already registered in $CFG_FILE: $TARGET"
@@ -223,6 +225,7 @@ dx-workspace-add target_dir="":
         if ! grep -Fq "$ALIAS_CMD" "$ALIAS_SH" 2>/dev/null; then
             echo "$ALIAS_CMD" >> "$ALIAS_SH"
             echo "test -d \"$TARGET\"; and alias $BASENAME=\"cd \\\"$TARGET\\\"\"" >> "$ALIAS_FISH"
+            chmod 600 "$ALIAS_SH" "$ALIAS_FISH" 2>/dev/null || true
             echo "✨ Added personal shell alias: $BASENAME -> cd $TARGET"
         fi
     fi
