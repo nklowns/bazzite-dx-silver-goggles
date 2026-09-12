@@ -1,5 +1,5 @@
 [Context]
-filesystems=home:ro;
+filesystems=xdg-config/deskflow:create;xdg-data/deskflow:create;xdg-config/Barrier:ro;
 devices=all;
 sockets=x11;wayland;
 
