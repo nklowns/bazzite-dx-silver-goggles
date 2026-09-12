@@ -232,6 +232,36 @@ def get_recent_workspaces():
         except Exception:
             pass
 
+    # 4. Auto-discover repositories & workspaces in developer roots (~/dev, ~/Projects, ~/src)
+    dev_roots = [
+        os.path.expanduser("~/dev"),
+        os.path.expanduser("~/Projects"),
+        os.path.expanduser("~/src"),
+    ]
+    for dev_root in dev_roots:
+        if not os.path.isdir(dev_root):
+            continue
+        try:
+            for root, dirs, files in os.walk(dev_root):
+                dirs[:] = [
+                    d for d in dirs
+                    if not d.startswith(".") and d not in ("node_modules", "target", "build", "dist", "vendor", ".git")
+                ]
+                for f in files:
+                    if f.endswith(".code-workspace"):
+                        add_candidate(os.path.join(root, f), "dev_root", "workspace")
+
+                if os.path.exists(os.path.join(root, ".git")):
+                    add_candidate(root, "dev_root", "folder")
+                    dirs.clear()
+                    continue
+
+                rel = os.path.relpath(root, dev_root)
+                if rel != "." and len(rel.split(os.sep)) >= 3:
+                    dirs.clear()
+        except Exception:
+            pass
+
     return workspaces
 
 

@@ -57,6 +57,7 @@ if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ]; then
 	alias ....='cd ../../..'
 	alias mkdir='mkdir -p'
 	alias g='git'
+	[ -d "${HOME}/dev" ] && alias dev='cd "${HOME}/dev"'
 
 	# --- Modern CLI Replacements (Scannable Blocks) ---
 

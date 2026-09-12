@@ -19,8 +19,6 @@ TEMPLATE_SETTINGS="/usr/share/searxng/settings.template.yml"
 if [[ ! -f "$TEMPLATE_SETTINGS" ]]; then
 	if [[ -f "$(dirname "$0")/../share/searxng/settings.template.yml" ]]; then
 		TEMPLATE_SETTINGS="$(dirname "$0")/../share/searxng/settings.template.yml"
-	elif [[ -n "${HOME:-}" && -f "${HOME}/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml" ]]; then
-		TEMPLATE_SETTINGS="${HOME}/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml"
 	fi
 fi
 
@@ -35,7 +33,20 @@ if [[ -f "$TEMPLATE_SETTINGS" ]]; then
 	if [[ -z "$SECRET_KEY" ]]; then
 		SECRET_KEY="$(openssl rand -hex 32)"
 	fi
-	USER_HOME="${HOME:-/var/home/${USER:-cloud}}"
+	USER_HOME=""
+	if [[ -n "${HOME:-}" && "$HOME" != "/root" ]]; then
+		USER_HOME="$HOME"
+	elif [[ -n "${SUDO_USER:-}" ]]; then
+		USER_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+	elif [[ -n "${USER:-}" && "$USER" != "root" ]]; then
+		USER_HOME="$(getent passwd "$USER" | cut -d: -f6)"
+	else
+		USER_HOME="$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 {print $6; exit}')"
+	fi
+	case "${USER_HOME:-}" in
+	/home/*) [ -d "/var${USER_HOME}" ] && USER_HOME="/var${USER_HOME}" ;;
+	esac
+	USER_HOME="${USER_HOME:-/var/home}"
 	sed -e "s/@SEARXNG_SECRET_KEY@/${SECRET_KEY}/g" \
 	    -e "s/@BRAVE_API_KEY@/${BRAVE_KEY}/g" \
 	    -e "s|@USER_HOME@|${USER_HOME}|g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"

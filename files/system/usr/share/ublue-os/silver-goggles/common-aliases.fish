@@ -50,6 +50,7 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
     alias ....='cd ../../..'
     alias mkdir='mkdir -p'
     alias g='git'
+    test -d "$HOME/dev"; and alias dev="cd $HOME/dev"
 
     # --- Modern CLI Replacements (Scannable Blocks) ---
 
