@@ -29,7 +29,7 @@ Para assegurar **privacidade total**, **integridade do host** e **uso consciente
 | **`indie`** (Small Web) | `!indie`, `!marginalia`, `!neocities`, `!smallweb`, `!blogs` | `marginalia.nu`, `neocities.org`, `wiby.me`, blogs pessoais de engenharia de sistemas e phlogs em texto puro | Marginalia, Neocities, Mwmbl |
 | **`p2p`** (Redes Descentralizadas) | `!p2p`, `!mwmbl`, `!yacy` | `mwmbl.org`, nós YaCy públicos comunitários (ex: `yacy.kit.edu`), DHT YaCy local | Mwmbl, YaCy DHT |
 | **`archive`** (Web Histórica) | `!archive`, `!openlib`, `!zlib`, `!locgov`, `!history` | `web.archive.org`, `archive.today`, `archive.is`, `archive.ph`, `loc.gov` | OpenLibrary, Library of Congress, Anna's Archive, Wayback Machine |
-| **`local`** (Workspace Pessoal) | `!local`, `!recoll`, `!workspace`, `!files`, `!notes` | Pastas locais montadas em `:ro`: `/var/home/cloud/dev`, `/var/home/cloud/Documents` | Recoll Xapian WebUI (`:61389`) |
+| **`local`** (Workspace Pessoal) | `!local`, `!recoll`, `!workspace`, `!files`, `!notes` | Pastas locais montadas em `:ro`: `~/dev`, `~/Documents` | Recoll Xapian WebUI (`:61389`) |
 | **`gemini`** (Geminispace) | `!gemini`, `!kennedy`, `!capsule` | Cápsulas de desenvolvedores no protocolo `gemini://` via TLS nativo porta `1965` | Kennedy Gemini Search (`gemini://kennedy.gemi.dev`) |
 | **`general`** (Surface Web) | `!general`, `!br`, `!wp`, `!wd` | `w3.org`, `rfc-editor.org`, `ietf.org`, `wikipedia.org`, `wikidata.org` | Brave, Google CSE, Mojeek, Qwant, Wikipedia |
 | **`onions`** (Darknet Tor) | `!onions`, `!ahmia`, `!onion` | Espelhos técnicos `.onion` roteados estritamente via SOCKS5 (`127.0.0.1:9050`) | Ahmia (`ahmia.fi`) |

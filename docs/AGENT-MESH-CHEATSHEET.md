@@ -100,7 +100,7 @@ O SearXNG está configurado com 9 esferas temáticas livres de anúncios e rastr
 
 ## 4. Ferramenta CLI `mesh-search` & Interface MCP
 
-O script `/home/cloud/dev/IDEs/global-harness/bin/mesh-search` é registrado como servidor MCP (`agent-mesh`) para Claude, Gemini e Antigravity:
+O script `~/dev/IDEs/global-harness/bin/mesh-search` é registrado como servidor MCP (`agent-mesh`) para Claude, Gemini e Antigravity:
 
 ### Exemplos via Terminal:
 ```bash

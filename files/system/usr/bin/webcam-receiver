@@ -5,7 +5,18 @@
 # ==============================================================================
 set -euo pipefail
 
-WIN_IP="${1:-100.108.150.113}"
+WIN_IP="${1:-${DEFAULT_WEBCAM_IP:-}}"
+if [ -z "${WIN_IP}" ] && [ -f "${HOME}/.config/bazzite-dx/webcam.conf" ]; then
+	WIN_IP="$(grep -E '^WEBCAM_IP=' "${HOME}/.config/bazzite-dx/webcam.conf" 2>/dev/null | cut -d= -f2- | tr -d '"'\'' ' || true)"
+fi
+
+if [ -z "${WIN_IP}" ]; then
+	echo "❌ Error: No remote webcam host or IP specified." >&2
+	echo "Usage: webcam-receiver <ip_or_hostname> [rtsp_port] [device_index]" >&2
+	echo "Tip: You can also set WEBCAM_IP in ~/.config/bazzite-dx/webcam.conf or export DEFAULT_WEBCAM_IP" >&2
+	exit 1
+fi
+
 RTSP_PORT="${2:-8554}"
 DEVICE_INDEX="${3:-10}"
 DEVICE_PATH="/dev/video${DEVICE_INDEX}"

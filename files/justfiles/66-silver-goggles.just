@@ -176,10 +176,24 @@ wol-status:
 
 # 🎥 Configure virtual webcam receiver (/dev/video10) from Windows GUEST RTSP stream
 [group('Network')]
-remote-webcam-setup win_ip="100.108.150.113":
+remote-webcam-setup win_ip="":
     #!/usr/bin/env bash
     set -euo pipefail
     WIN_IP="{{ win_ip }}"
+    if [ -z "$WIN_IP" ]; then
+        WIN_IP="${DEFAULT_WEBCAM_IP:-}"
+    fi
+    if [ -z "$WIN_IP" ] && [ -f "${HOME}/.config/bazzite-dx/webcam.conf" ]; then
+        WIN_IP="$(grep -E '^WEBCAM_IP=' "${HOME}/.config/bazzite-dx/webcam.conf" 2>/dev/null | cut -d= -f2- | tr -d '"'\'' ' || true)"
+    fi
+    if [ -z "$WIN_IP" ] && [ -t 0 ] && command -v gum >/dev/null 2>&1; then
+        WIN_IP=$(gum input --placeholder "IP or hostname of RTSP webcam stream (e.g. 100.x.y.z)")
+    fi
+    if [ -z "$WIN_IP" ]; then
+        echo "❌ Usage: ujust remote-webcam-setup <ip_or_hostname>"
+        echo "   Or configure WEBCAM_IP in ~/.config/bazzite-dx/webcam.conf"
+        exit 1
+    fi
     if [ -x /usr/bin/webcam-receiver ]; then
         /usr/bin/webcam-receiver "$WIN_IP"
     elif [ -x ./files/system/usr/bin/webcam-receiver ]; then

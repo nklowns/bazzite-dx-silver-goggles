@@ -13,7 +13,7 @@ dx-doctor:
     [[ -f /usr/share/ublue-os/image-info.json ]] && jq -C . /usr/share/ublue-os/image-info.json
 
     echo -e "\n3. Developer Group Sync:"
-    DX_GROUPS_SYS=("dialout" "input" "video" "render" "plugdev")
+    DX_GROUPS_SYS=("dialout" "video" "render" "plugdev")
     DX_GROUPS_DEV=("docker" "libvirt" "incus-admin" "adbusers")
 
     echo "--- System & Hardware ---"
@@ -46,7 +46,7 @@ dx-doctor:
 dx-group cmd="":
     #!/usr/bin/bash
     set -euo pipefail
-    DX_GROUPS=("docker" "libvirt" "incus-admin" "dialout" "input" "video" "render" "plugdev" "adbusers")
+    DX_GROUPS=("docker" "libvirt" "incus-admin" "dialout" "video" "render" "plugdev" "adbusers")
     CMD="{{ cmd }}"
     if [[ -z "$CMD" ]]; then
         CMD=$(gum choose "sync" "list-all" "list-active")
@@ -55,6 +55,10 @@ dx-group cmd="":
     case "$CMD" in
         sync)
             echo "Syncing $USER with Developer Experience groups..."
+            if groups "$USER" | grep -qw "input"; then
+                echo "Security: removing $USER from dangerous 'input' group (protects Wayland evdev isolation)..."
+                sudo gpasswd -d "$USER" input 2>/dev/null || true
+            fi
             for grp in "${DX_GROUPS[@]}"; do
                 if getent group "$grp" >/dev/null; then
                     if ! grep -q "^$grp:" /etc/group; then

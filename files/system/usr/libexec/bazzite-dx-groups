@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly GROUP_CONFIG_VERSION=2
+readonly GROUP_CONFIG_VERSION=3
 readonly STATE_MARKER="/etc/ublue/dx-groups"
 readonly SYSTEM_GROUPS=(
 	"docker"
 	"libvirt"
 	"incus-admin"
 	"dialout"
-	"input"
 	"video"
 	"render"
 	"plugdev"
@@ -38,6 +37,15 @@ GrantDeveloperEntitlements() {
 
 	for user in $administrators; do
 		id "$user" >/dev/null 2>&1 || continue
+
+		# Security: Revoke group 'input' membership from human users.
+		# Group 'input' grants raw read access to /dev/input/event* (evdev), bypassing
+		# Wayland compositor isolation and allowing arbitrary background keylogging.
+		# Modern Linux uses dynamic logind/udev uaccess ACLs instead.
+		if id -nG "$user" 2>/dev/null | grep -qw "input"; then
+			echo "Security: revoking 'input' group from ${user} (protects Wayland evdev isolation)..."
+			gpasswd -d "$user" input 2>/dev/null || true
+		fi
 
 		for group_name in "${SYSTEM_GROUPS[@]}"; do
 			if getent group "$group_name" >/dev/null; then
