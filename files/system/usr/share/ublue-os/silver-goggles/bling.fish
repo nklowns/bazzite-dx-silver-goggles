@@ -124,6 +124,11 @@ if status is-interactive
         end
     end
 
+    # 3.2 broot (Interactive directory navigator and cd wrapper)
+    if test "$BLUEFIN_SHELL_ENABLE_BROOT" != 0; and command -v broot >/dev/null 2>&1
+        broot --print-shell-function fish 2>/dev/null | source
+    end
+
     # 4. Starship
     if test "$BLUEFIN_SHELL_ENABLE_STARSHIP" = 1; and command -v starship >/dev/null
         starship init fish | source

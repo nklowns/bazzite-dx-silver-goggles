@@ -159,6 +159,15 @@ case $- in *i*)
 		fi
 	fi
 
+	# 3.2 broot (Interactive directory navigator and cd wrapper)
+	if [ "${BLUEFIN_SHELL_ENABLE_BROOT:-1}" = "1" ] && command -v broot >/dev/null 2>&1; then
+		_broot_shell_func=$(broot --print-shell-function zsh 2>/dev/null || true)
+		if [ -n "$_broot_shell_func" ]; then
+			eval "$_broot_shell_func"
+		fi
+		unset _broot_shell_func
+	fi
+
 	# 4. Starship Prompt
 	if [ "${BLUEFIN_SHELL_ENABLE_STARSHIP:-1}" = "1" ] && command -v starship >/dev/null; then
 		eval "$(starship init zsh)"

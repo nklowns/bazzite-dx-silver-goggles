@@ -188,6 +188,15 @@ case $- in *i*)
 		fi
 	fi
 
+	# 3.2 broot (Interactive directory navigator and cd wrapper)
+	if [ "${BLUEFIN_SHELL_ENABLE_BROOT:-1}" = "1" ] && command -v broot >/dev/null 2>&1; then
+		_broot_shell_func=$(broot --print-shell-function "${BLING_SHELL}" 2>/dev/null || true)
+		if [ -n "$_broot_shell_func" ]; then
+			eval "$_broot_shell_func"
+		fi
+		unset _broot_shell_func
+	fi
+
 	# 4. bash-preexec (after mise/zoxide so its install string lands in PROMPT_COMMAND[0])
 	if [ "${BLING_SHELL}" = "bash" ]; then
 		# shellcheck source=/dev/null
