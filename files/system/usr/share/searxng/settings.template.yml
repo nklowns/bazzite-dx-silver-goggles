@@ -322,7 +322,7 @@ engines:
     categories: [local]
     base_url: http://recoll:8080
     mount_prefix: /export
-    dl_prefix: file:///var/home/cloud
+    dl_prefix: file://@USER_HOME@
     search_dir: ""
     enable_http: true
     disabled: false

@@ -16,8 +16,12 @@ mkdir -p "$SEARXNG_DIR" "$VANE_DIR/data"
 # 1. SearXNG Configuration (5 Spheres)
 SEARXNG_SETTINGS="$SEARXNG_DIR/settings.yml"
 TEMPLATE_SETTINGS="/usr/share/searxng/settings.template.yml"
-if [[ ! -f "$TEMPLATE_SETTINGS" && -f "/var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml" ]]; then
-	TEMPLATE_SETTINGS="/var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml"
+if [[ ! -f "$TEMPLATE_SETTINGS" ]]; then
+	if [[ -f "$(dirname "$0")/../share/searxng/settings.template.yml" ]]; then
+		TEMPLATE_SETTINGS="$(dirname "$0")/../share/searxng/settings.template.yml"
+	elif [[ -n "${HOME:-}" && -f "${HOME}/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml" ]]; then
+		TEMPLATE_SETTINGS="${HOME}/dev/linux/uBlueOs/bazzite-dx-silver-goggles/files/system/usr/share/searxng/settings.template.yml"
+	fi
 fi
 
 if [[ -f "$TEMPLATE_SETTINGS" ]]; then
@@ -31,8 +35,10 @@ if [[ -f "$TEMPLATE_SETTINGS" ]]; then
 	if [[ -z "$SECRET_KEY" ]]; then
 		SECRET_KEY="$(openssl rand -hex 32)"
 	fi
+	USER_HOME="${HOME:-/var/home/${USER:-cloud}}"
 	sed -e "s/@SEARXNG_SECRET_KEY@/${SECRET_KEY}/g" \
-	    -e "s/@BRAVE_API_KEY@/${BRAVE_KEY}/g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"
+	    -e "s/@BRAVE_API_KEY@/${BRAVE_KEY}/g" \
+	    -e "s|@USER_HOME@|${USER_HOME}|g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"
 	chmod 644 "$SEARXNG_SETTINGS"
 elif [[ ! -f "$SEARXNG_SETTINGS" ]]; then
 	SECRET_KEY="$(openssl rand -hex 32)"
