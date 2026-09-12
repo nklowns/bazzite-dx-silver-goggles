@@ -13,6 +13,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+import time
 import urllib.parse
 
 import dbus
@@ -91,6 +92,8 @@ EXTRA_SEARCH_PATHS = [
     os.path.join(HOME_DIR, ".local/bin"),
     "/usr/bin",
     "/usr/local/bin",
+    "/var/lib/flatpak/exports/bin",
+    os.path.join(HOME_DIR, ".local/share/flatpak/exports/bin"),
 ]
 
 
@@ -270,6 +273,7 @@ class WorkspacesRunner(dbus.service.Object):
         super().__init__(bus, OBJECT_PATH)
         self.cached_workspaces = get_recent_workspaces()
         self.available_ides = get_available_ides()
+        self.last_refresh = time.time()
 
     @dbus.service.method(IFACE, out_signature="a(sss)")
     def Actions(self):
@@ -294,9 +298,11 @@ class WorkspacesRunner(dbus.service.Object):
                 filter_text = query[len(trigger) :].strip()
                 break
 
-        if trigger_prefix or len(self.cached_workspaces) == 0:
+        now = time.time()
+        if trigger_prefix or len(self.cached_workspaces) == 0 or (now - self.last_refresh > 60):
             self.cached_workspaces = get_recent_workspaces()
             self.available_ides = get_available_ides()
+            self.last_refresh = now
 
         matches = []
         filter_lower = filter_text.lower()
@@ -359,7 +365,7 @@ class WorkspacesRunner(dbus.service.Object):
         if action_id == "open_term":
             cwd = id_path if os.path.isdir(id_path) else os.path.dirname(id_path)
             if shutil.which("xdg-terminal-exec"):
-                subprocess.Popen(["xdg-terminal-exec", "--dir", cwd], cwd=cwd, start_new_session=True)
+                subprocess.Popen(["xdg-terminal-exec", f"--dir={cwd}"], cwd=cwd, start_new_session=True)
             elif shutil.which("konsole"):
                 subprocess.Popen(["konsole", "--workdir", cwd], cwd=cwd, start_new_session=True)
             else:
@@ -375,6 +381,13 @@ class WorkspacesRunner(dbus.service.Object):
                 return
 
         # Default action (Enter without selecting sub-action)
+        # If the item is an Obsidian vault and Obsidian is available, open in Obsidian
+        if self.cached_workspaces.get(id_path, {}).get("source") == "obsidian":
+            obsidian_bin = find_executable(["obsidian", "md.obsidian.Obsidian"])
+            if obsidian_bin:
+                subprocess.Popen([obsidian_bin, f"obsidian://open?path={urllib.parse.quote(id_path)}"], start_new_session=True)
+                return
+
         # Priority: Insiders -> Code -> Cursor -> Zed -> Antigravity
         for pref in ["insiders", "code", "cursor", "zed", "antigravity"]:
             if pref in self.available_ides:
