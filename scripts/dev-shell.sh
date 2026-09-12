@@ -34,9 +34,11 @@ LaunchBash() {
 	local rc_file="$SHADOW_ROOT_BASE/dev.bashrc"
 
 	[[ -f ~/.bashrc ]] && echo "source ~/.bashrc" >"$rc_file"
-	echo "export BLING_ENABLE=1" >>"$rc_file"
-
-	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$rc_file"
+	{
+		echo "export BLING_ENABLE=1"
+		echo "unset -v BLING_SH_SOURCED 2>/dev/null || true"
+		cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh"
+	} >>"$rc_file"
 	InjectPatchedScript "$PROJECT_ROOT/files/system/etc/profile.d/zz-bazzite-dx-bling.sh" "$rc_file"
 
 	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (BASH) Active!'\n" >>"$rc_file"
@@ -50,9 +52,11 @@ LaunchZsh() {
 	mkdir -p "$zsh_dir"
 
 	echo "[[ -f ~/.zshrc ]] && source ~/.zshrc" >"$rc_file"
-	echo "export BLING_ENABLE=1" >>"$rc_file"
-
-	cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh" >>"$rc_file"
+	{
+		echo "export BLING_ENABLE=1"
+		echo "unset -v BLING_ZSH_SOURCED 2>/dev/null || true"
+		cat "$PROJECT_ROOT/files/system/etc/profile.d/brew.sh"
+	} >>"$rc_file"
 	InjectPatchedScript "$PROJECT_ROOT/files/system/etc/profile.d/zz-bazzite-dx-bling.sh" "$rc_file"
 
 	printf "echo -e '\\n✨ Silver Goggles Dev-Shell (ZSH) Active!'\n" >>"$rc_file"
@@ -63,7 +67,8 @@ LaunchZsh() {
 LaunchFish() {
 	local init_file="$SHADOW_ROOT_BASE/init.fish"
 
-	cat "$PROJECT_ROOT/files/system/usr/share/fish/vendor_conf.d/ublue-brew.fish" >"$init_file"
+	echo "set -e BLING_FISH_SOURCED" >"$init_file"
+	cat "$PROJECT_ROOT/files/system/usr/share/fish/vendor_conf.d/ublue-brew.fish" >>"$init_file"
 	InjectPatchedScript "$PROJECT_ROOT/files/system/usr/share/fish/vendor_conf.d/zz-bazzite-dx-bling.fish" "$init_file"
 
 	printf "✨ Silver Goggles Dev-Shell (FISH) Active!\n"

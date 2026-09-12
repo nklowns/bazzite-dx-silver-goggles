@@ -16,6 +16,14 @@
         }
     },
     {
+        "key": "alt+backspace",
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u0017"
+        }
+    },
+    {
         "key": "alt+c",
         "command": "workbench.action.terminal.sendSequence",
         "when": "terminalFocus",
@@ -32,11 +40,43 @@
         }
     },
     {
+        "key": "alt+down",
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u001b[1;3B"
+        }
+    },
+    {
         "key": "alt+f",
         "command": "workbench.action.terminal.sendSequence",
         "when": "terminalFocus",
         "args": {
             "text": "\u001bf"
+        }
+    },
+    {
+        "key": "alt+left",
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u001b[1;3D"
+        }
+    },
+    {
+        "key": "alt+right",
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u001b[1;3C"
+        }
+    },
+    {
+        "key": "alt+up",
+        "command": "workbench.action.terminal.sendSequence",
+        "when": "terminalFocus",
+        "args": {
+            "text": "\u001b[1;3A"
         }
     },
     {
