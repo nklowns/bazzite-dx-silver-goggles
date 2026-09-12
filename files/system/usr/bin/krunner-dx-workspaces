@@ -328,7 +328,12 @@ class WorkspacesRunner(dbus.service.Object):
 
         if action_id == "open_term":
             cwd = id_path if os.path.isdir(id_path) else os.path.dirname(id_path)
-            subprocess.Popen(["konsole", "--workdir", cwd], start_new_session=True)
+            if shutil.which("xdg-terminal-exec"):
+                subprocess.Popen(["xdg-terminal-exec", "--dir", cwd], cwd=cwd, start_new_session=True)
+            elif shutil.which("konsole"):
+                subprocess.Popen(["konsole", "--workdir", cwd], cwd=cwd, start_new_session=True)
+            else:
+                subprocess.Popen(["xdg-open", cwd], start_new_session=True)
             return
 
         # Check if action matches open_<ide_key>
