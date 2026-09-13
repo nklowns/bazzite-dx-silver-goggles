@@ -13,6 +13,7 @@ skippedNames = node_modules .git .svn .hg target build dist .venv venv __pycache
                .cargo .rustup .gradle .m2 .nuget .gem .bundle .pip .tox .mypy_cache \
                .pytest_cache .ruff_cache .next .nuxt .turbo .vite distrobox containers \
                .wine .flatpak .var .local .config .thumbnails .cache* \
+               *.env* *.key *.pem id_* id_rsa id_ed25519 *.kdbx *.age *.sops credentials.json token.json secrets.* \
                *.iso *.tar.gz *.tgz *.zip *.7z *.rar *.qcow2 *.vdi *.raw *.bin *.exe *.dll \
                *.so *.dylib *.o *.a *.pyc *.wasm *.png *.jpg *.jpeg *.gif *.webp *.svg *.ico \
                *.mp4 *.mkv *.avi *.webm *.mp3 *.flac *.wav *.ogg *.woff *.woff2 *.ttf *.eot

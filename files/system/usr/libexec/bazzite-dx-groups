@@ -53,6 +53,12 @@ GrantDeveloperEntitlements() {
 				((provisioned_count++))
 			fi
 		done
+
+		# Tailscale: Grant operator capability to the human administrator
+		# Enables non-root control of Tailscale serve, status, and funnels for DX recipes
+		if command -v tailscale >/dev/null 2>&1; then
+			tailscale set --operator="$user" 2>/dev/null || true
+		fi
 	done
 	# Return 0 (success) only when at least one user was provisioned.
 	# Returning non-zero prevents PersistStateMarker from being called on
@@ -519,6 +525,19 @@ ConfigureRustDeskStorage() {
 	local root="/var/srv/rustdesk"
 	[ -d "$root" ] || return 0
 
+	# 1. Enforce private permissions on RustDesk directory and private keys
+	chmod 0700 "$root" 2>/dev/null || true
+	if [ -f "$root/id_ed25519" ]; then
+		chmod 0600 "$root/id_ed25519" 2>/dev/null || true
+	fi
+
+	# 2. Disable Copy-on-Write for SQLite database (db_v2.sqlite3) on NVMe Btrfs
+	if ! lsattr -d "$root" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+		echo "Enabling btrfs nodatacow (+C) on ${root}..."
+		chattr +C "$root" 2>/dev/null || true
+	fi
+
+	# 3. SELinux container labeling
 	command -v semanage >/dev/null 2>&1 || return 0
 	local spec="${root}(/.*)?" listing
 	if ! listing=$(semanage fcontext -l 2>/dev/null); then
@@ -648,6 +667,12 @@ ConfigureAiSearchStorage() {
 
 ConfigureFirewall() {
 	if command -v firewall-cmd >/dev/null; then
+		local def_zone
+		def_zone=$(firewall-cmd --get-default-zone 2>/dev/null || true)
+		if [ "$def_zone" = "FedoraWorkstation" ]; then
+			echo "Hardening firewall: changing default zone from FedoraWorkstation to public..."
+			firewall-cmd --set-default-zone=public || true
+		fi
 		if ! firewall-cmd --zone=trusted --query-interface=tailscale0 >/dev/null 2>&1; then
 			echo "Adding tailscale0 interface to trusted firewall zone..."
 			firewall-cmd --permanent --zone=trusted --add-interface=tailscale0 || true
@@ -668,6 +693,23 @@ ConfigurePcpServices() {
 	# 2. Ensure pmproxy is active for Cockpit metrics web UI
 	if systemctl is-active --quiet pmcd.service && ! systemctl is-active --quiet pmproxy.service; then
 		systemctl start pmproxy.service 2>/dev/null || true
+	fi
+
+	# 3. Disable copy-on-write on Btrfs for PCP pmlogger archive directories
+	# Continuous append/write cycles in active archive logs cause severe extent fragmentation
+	# and metadata write amplification on NVMe Btrfs. Setting +C ensures in-place overwrites.
+	local pmlog_dir="/var/log/pcp/pmlogger"
+	if [ -d "$pmlog_dir" ]; then
+		if ! lsattr -d "$pmlog_dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+			echo "Enabling btrfs nodatacow (+C) on ${pmlog_dir}..."
+			chattr +C "$pmlog_dir" 2>/dev/null || true
+		fi
+		local subdir
+		for subdir in "$pmlog_dir"/*; do
+			if [ -d "$subdir" ] && ! lsattr -d "$subdir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+				chattr +C "$subdir" 2>/dev/null || true
+			fi
+		done
 	fi
 }
 

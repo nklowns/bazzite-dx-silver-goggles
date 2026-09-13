@@ -198,3 +198,116 @@ ports-audit:
         echo "  misplaced = publicado num listener diferente da própria porta, que é como o"
         echo "  code-server acabou ocupando o domínio raiz do tailnet sem ninguém notar."
     fi
+
+# 🛡️ Auditoria completa de segurança, privacidade e sandbox
+[group('Audit')]
+security-audit:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "=== 1. Superfície de Rede & Daemons Expostos ==="
+    # PCP (44322 e 44323)
+    if ss -tlnH 'sport = :44322 or sport = :44323' 2>/dev/null | grep -E '(0\.0\.0\.0|\[::\])' >/dev/null; then
+        echo "  ❌ PCP (pmproxy/pmwebapi) escutando em 0.0.0.0 (vulnerabilidade de telemetria aberta para LAN)."
+    elif ss -tlnH 'sport = :44322 or sport = :44323' 2>/dev/null | grep -q '127\.0\.0\.1'; then
+        echo "  ✅ PCP (pmproxy/pmwebapi) restrito com sucesso a localhost (portas 44322/44323)."
+    else
+        echo "  ✅ PCP desativado (portas 44322/44323 fechadas)."
+    fi
+
+    # LLMNR (5355)
+    if ss -ulnH 'sport = :5355' 2>/dev/null | grep -q '5355'; then
+        echo "  ⚠️  LLMNR escutando na porta 5355 UDP (vulnerável a poisoning na LAN via Responder)."
+    else
+        echo "  ✅ LLMNR desativado na rede local."
+    fi
+
+    # SSH & Samba boot
+    ssh_en=$(systemctl is-enabled sshd.service 2>/dev/null || echo "disabled")
+    smb_en=$(systemctl is-enabled smb.service 2>/dev/null || echo "disabled")
+    printf "  SSH daemon no boot: %s | Samba no boot: %s\n" "$ssh_en" "$smb_en"
+
+    echo
+    echo "=== 2. Zonas de Firewall Ativas ==="
+    if command -v firewall-cmd >/dev/null 2>&1; then
+        def_zone=$(firewall-cmd --get-default-zone 2>/dev/null || echo "desconhecido")
+        echo "  Zona padrão: $def_zone"
+        if [ "$def_zone" = "FedoraWorkstation" ]; then
+            echo "  ⚠️  FedoraWorkstation abre 1025-65535 para a LAN Wi-Fi. Recomendado: public."
+        fi
+        firewall-cmd --get-active-zones 2>/dev/null | sed 's/^/  /'
+    else
+        echo "  (firewall-cmd indisponível)"
+    fi
+
+    echo
+    echo "=== 3. Sunshine UPnP WAN Exposure ==="
+    sunshine_conf="$HOME/.config/sunshine/sunshine.conf"
+    if [ -f "$sunshine_conf" ]; then
+        if grep -qE '^\s*upnp\s*=\s*enabled' "$sunshine_conf"; then
+            echo "  ❌ Sunshine UPnP ativado! Portas de streaming estão perfuradas no roteador WAN."
+            echo "     Corrija com: sed -i 's/upnp = enabled/upnp = disabled/' $sunshine_conf"
+        else
+            echo "  ✅ Sunshine UPnP desativado (acesso estritamente controlado)."
+        fi
+    else
+        echo "  (sunshine.conf não encontrado)"
+    fi
+
+    echo
+    echo "=== 4. Sandboxes Flatpak com Permissões de Escape de Host ==="
+    leak_found=0
+    for override_dir in "/var/lib/flatpak/overrides" "$HOME/.local/share/flatpak/overrides"; do
+        [ -d "$override_dir" ] || continue
+        for f in "$override_dir"/*; do
+            [ -f "$f" ] || continue
+            app=$(basename "$f")
+            if grep -q 'org.freedesktop.Flatpak=talk' "$f" 2>/dev/null; then
+                echo "  ❌ $app ($override_dir): possui org.freedesktop.Flatpak=talk (pode executar flatpak-spawn --host)"
+                leak_found=1
+            fi
+            if grep -qE 'filesystems=.*host' "$f" 2>/dev/null; then
+                echo "  ⚠️  $app ($override_dir): possui acesso total ao filesystem do host"
+                leak_found=1
+            fi
+        done
+    done
+    [ "$leak_found" -eq 0 ] && echo "  ✅ Nenhum escape crítico detectado nos overrides inspecionados." || true
+
+    echo
+    echo "=== 5. Sockets Escutando em 0.0.0.0 (fora de localhost) ==="
+    ss -tulnH 'src = 0.0.0.0' 2>/dev/null | awk '{print "  " $1 " " $5}' | sort -u || echo "  (nenhum)"
+
+    echo
+    echo "=== 6. PCP PMLogger & Otimizações Btrfs NVMe ==="
+    pmlog_dir="/var/log/pcp/pmlogger"
+    if [ -d "$pmlog_dir" ]; then
+        if lsattr -d "$pmlog_dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+            echo "  ✅ Diretório $pmlog_dir com btrfs nodatacow (+C ativo, sem fragmentação de extents no NVMe)."
+        else
+            echo "  ⚠️  Diretório $pmlog_dir sem +C (fragmentação CoW ativa no NVMe)."
+        fi
+        cull=$(grep -E '^\$PCP_CULLAFTER=' /etc/pcp/pmlogger/control.d/* 2>/dev/null | tail -1 | cut -d= -f2 || echo "14")
+        compress=$(grep -E '^\$PCP_COMPRESSAFTER=' /etc/pcp/pmlogger/control.d/* 2>/dev/null | tail -1 | cut -d= -f2 || echo "0")
+        echo "  ℹ️  Retenção pmlogger: ${cull:-14} dias (compressão diária imediata: pós-${compress:-0}d)."
+    else
+        echo "  (pmlogger não inicializado neste host)"
+    fi
+
+    echo
+    echo "=== 7. Armazenamento de Bancos de Dados & Chaves Privadas (/var/srv) ==="
+    for srv_dir in /var/srv/nomad/mysql /var/srv/nomad/redis /var/srv/nomad/ollama /var/srv/i2pd/data /var/srv/recoll/xapiandb /var/srv/yacy/DATA /var/srv/vane/data /var/srv/rustdesk; do
+        [ -d "$srv_dir" ] || continue
+        if lsattr -d "$srv_dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
+            echo "  ✅ $srv_dir: btrfs nodatacow (+C ativo)"
+        else
+            echo "  ⚠️  $srv_dir: sem nodatacow (executar 'sudo chattr +C $srv_dir')"
+        fi
+    done
+    if [ -f "/var/srv/rustdesk/id_ed25519" ]; then
+        rd_perms=$(stat -c %a "/var/srv/rustdesk/id_ed25519" 2>/dev/null || echo "???")
+        if [ "$rd_perms" = "600" ]; then
+            echo "  ✅ RustDesk private key restrita a 0600."
+        else
+            echo "  ❌ RustDesk private key com permissões inseguras ($rd_perms). Corrija com: chmod 600 /var/srv/rustdesk/id_ed25519"
+        fi
+    fi

@@ -252,6 +252,27 @@ sunshine-disable-boot:
     systemctl --user disable sunshine.service
     echo "🔌 Sunshine removido do boot automático. Use 'ujust sunshine-up' quando precisar."
 
+# 🎮 Permitir streaming do Sunshine na LAN local (apenas portas específicas 47984, 47989, 48010)
+[group('Network')]
+sunshine-lan-enable:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🎮 Abrindo portas do Sunshine (47984, 47989, 48010 TCP/UDP) no firewall..."
+    sudo firewall-cmd --add-port=47984/tcp --add-port=47989/tcp --add-port=48010/tcp \
+                      --add-port=47984/udp --add-port=47989/udp --add-port=48010/udp || true
+    echo "✅ Portas liberadas temporariamente para esta sessão de rede (não persistente para máxima segurança)."
+    echo "   Para tornar permanente: sudo firewall-cmd --runtime-to-permanent"
+
+# 🛑 Fechar portas do Sunshine na LAN local
+[group('Network')]
+sunshine-lan-disable:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🛑 Fechando portas do Sunshine no firewall..."
+    sudo firewall-cmd --remove-port=47984/tcp --remove-port=47989/tcp --remove-port=48010/tcp \
+                      --remove-port=47984/udp --remove-port=47989/udp --remove-port=48010/udp || true
+    echo "✅ Portas do Sunshine fechadas na rede local."
+
 # 🦀 Iniciar o RustDesk (Acesso Remoto Seguro) sob demanda
 [group('Network')]
 rustdesk-up:

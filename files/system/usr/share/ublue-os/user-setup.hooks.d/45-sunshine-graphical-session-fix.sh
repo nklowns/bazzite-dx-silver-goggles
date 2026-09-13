@@ -4,7 +4,7 @@ set -ouex pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script sunshine-graphical-session-fix user 9 || exit 0
+version-script sunshine-graphical-session-fix user 10 || exit 0
 
 # Sunshine is natively packaged and managed via canonical /usr/lib/systemd/user/sunshine.service.
 # Clean up legacy Homebrew unit files and obsolete drop-ins that targeted default.target.
@@ -31,6 +31,7 @@ set_sunshine_key() {
 }
 
 set_sunshine_key "origin_web_ui_allowed" "pc"
+set_sunshine_key "upnp" "disabled"
 set_sunshine_key "nv_preset" "p1"
 set_sunshine_key "nv_tune" "ll"
 set_sunshine_key "nv_rc" "vbr"

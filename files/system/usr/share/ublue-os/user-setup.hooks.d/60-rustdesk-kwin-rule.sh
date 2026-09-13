@@ -51,13 +51,73 @@ kwriteconfig6 --file kwinrulesrc --group General --key count "$COUNT"
 # Trigger KWin configuration reload
 qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
 
-# Provision loginctl host shim for RustDesk Flatpak console session verification
+# Provision self-contained loginctl emulator for RustDesk Flatpak session verification
+# (Parses read-only /run/systemd/{sessions,seats} inside sandbox without flatpak-spawn or host escape)
 SHIM_DIR="$HOME/.var/app/com.rustdesk.RustDesk/data/bin"
 mkdir -p "$SHIM_DIR"
-if [ ! -f "$SHIM_DIR/loginctl" ]; then
-	cat <<'EOF' >"$SHIM_DIR/loginctl"
+cat <<'EOF' >"$SHIM_DIR/loginctl"
 #!/bin/sh
-exec /usr/bin/flatpak-spawn --host loginctl "$@"
+SESSION_DIR="/run/systemd/sessions"
+SEAT_DIR="/run/systemd/seats"
+
+cmd="$1"
+shift 2>/dev/null || true
+
+case "$cmd" in
+    show-session)
+        sess=""
+        prop=""
+        val_only=0
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -p|--property) prop="$2"; shift 2 ;;
+                --value) val_only=1; shift ;;
+                -*) shift ;;
+                *) [ -z "$sess" ] && sess="$1"; shift ;;
+            esac
+        done
+        [ -z "$sess" ] && sess=$(ls -1 "$SESSION_DIR" 2>/dev/null | head -1)
+        target="$SESSION_DIR/$sess"
+        if [ ! -f "$target" ]; then
+            exit 1
+        fi
+        if [ -n "$prop" ]; then
+            uprop=$(echo "$prop" | tr '[:lower:]' '[:upper:]')
+            [ "$uprop" = "NAME" ] && uprop="USER"
+            val=$(grep -E "^${uprop}=" "$target" 2>/dev/null | cut -d= -f2-)
+            if [ "$val_only" -eq 1 ]; then
+                echo "$val"
+            else
+                echo "${prop}=${val}"
+            fi
+        else
+            cat "$target"
+        fi
+        ;;
+    list-sessions)
+        echo "SESSION  UID USER  SEAT  LEADER CLASS   TTY  IDLE SINCE"
+        for s in "$SESSION_DIR"/*; do
+            [ -f "$s" ] || continue
+            id=$(basename "$s")
+            uid=$(grep '^UID=' "$s" | cut -d= -f2-)
+            user=$(grep '^USER=' "$s" | cut -d= -f2-)
+            seat=$(grep '^SEAT=' "$s" | cut -d= -f2-)
+            class=$(grep '^CLASS=' "$s" | cut -d= -f2-)
+            tty=$(grep '^TTY=' "$s" | cut -d= -f2-)
+            printf "%7s %4s %-5s %-5s %6s %-7s %-4s %-4s %s\n" "$id" "$uid" "$user" "${seat:--}" "-" "$class" "${tty:--}" "no" "-"
+        done
+        ;;
+    list-seats)
+        echo "SEAT"
+        for st in "$SEAT_DIR"/*; do
+            [ -f "$st" ] || continue
+            basename "$st"
+        done
+        ;;
+    *)
+        exit 0
+        ;;
+esac
 EOF
-	chmod +x "$SHIM_DIR/loginctl"
-fi
+chmod +x "$SHIM_DIR/loginctl"
+

@@ -30,7 +30,7 @@ if [[ -f "$TEMPLATE_SETTINGS" ]]; then
 		BRAVE_KEY=$(grep -E '^\s*api_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E 's/.*api_key:\s*"?([^"]*)"?/\1/' || true)
 		cp -a "$SEARXNG_SETTINGS" "${SEARXNG_SETTINGS}.bak"
 	fi
-	if [[ -z "$SECRET_KEY" ]]; then
+	if [[ -z "$SECRET_KEY" || "$SECRET_KEY" == "@SEARXNG_SECRET_KEY@" || "$SECRET_KEY" == "ultrasecretkey" ]]; then
 		SECRET_KEY="$(openssl rand -hex 32)"
 	fi
 	USER_HOME=""

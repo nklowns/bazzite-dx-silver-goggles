@@ -16,6 +16,3 @@ ExecStart=/usr/bin/podman run --rm --name nomad_recoll_index_job \
   -v /var/srv/recoll/xapiandb:/var/recoll/db:Z,U \
   docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95 \
   recollindex -d
-
-[Install]
-WantedBy=default.target
