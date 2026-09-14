@@ -120,4 +120,3 @@ case "$cmd" in
 esac
 EOF
 chmod +x "$SHIM_DIR/loginctl"
-

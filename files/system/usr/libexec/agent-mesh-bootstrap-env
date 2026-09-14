@@ -48,8 +48,8 @@ if [[ -f "$TEMPLATE_SETTINGS" ]]; then
 	esac
 	USER_HOME="${USER_HOME:-/var/home}"
 	sed -e "s/@SEARXNG_SECRET_KEY@/${SECRET_KEY}/g" \
-	    -e "s/@BRAVE_API_KEY@/${BRAVE_KEY}/g" \
-	    -e "s|@USER_HOME@|${USER_HOME}|g" "$TEMPLATE_SETTINGS" > "$SEARXNG_SETTINGS"
+		-e "s/@BRAVE_API_KEY@/${BRAVE_KEY}/g" \
+		-e "s|@USER_HOME@|${USER_HOME}|g" "$TEMPLATE_SETTINGS" >"$SEARXNG_SETTINGS"
 	chmod 644 "$SEARXNG_SETTINGS"
 elif [[ ! -f "$SEARXNG_SETTINGS" ]]; then
 	SECRET_KEY="$(openssl rand -hex 32)"
@@ -135,11 +135,10 @@ if [[ ! -f "$SYSTEM_CA" ]]; then
 fi
 
 if [[ -f "$SYSTEM_CA" ]]; then
-	cat "$SYSTEM_CA" > "$SEARXNG_CA.tmp"
+	cat "$SYSTEM_CA" >"$SEARXNG_CA.tmp"
 	if [[ -f "$TRAWL_CA" ]]; then
-		cat "$TRAWL_CA" >> "$SEARXNG_CA.tmp"
+		cat "$TRAWL_CA" >>"$SEARXNG_CA.tmp"
 	fi
 	mv "$SEARXNG_CA.tmp" "$SEARXNG_CA"
 	chmod 644 "$SEARXNG_CA"
 fi
-

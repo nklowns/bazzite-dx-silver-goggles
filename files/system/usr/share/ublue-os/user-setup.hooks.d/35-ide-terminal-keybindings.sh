@@ -23,10 +23,10 @@ for ide in "${IDES[@]}"; do
 
 	ide_bin=""
 	case "$ide" in
-		"Code") ide_bin="code" ;;
-		"Code - Insiders") ide_bin="code-insiders" ;;
-		"Cursor") ide_bin="cursor" ;;
-		"Antigravity IDE") ide_bin="antigravity-ide" ;;
+	"Code") ide_bin="code" ;;
+	"Code - Insiders") ide_bin="code-insiders" ;;
+	"Cursor") ide_bin="cursor" ;;
+	"Antigravity IDE") ide_bin="antigravity-ide" ;;
 	esac
 
 	# Process if target exists or if the corresponding IDE is installed
@@ -37,7 +37,7 @@ for ide in "${IDES[@]}"; do
 			if [[ ! -f "${target_dir}/keybindings.json" ]]; then
 				install -Dm644 "$skel_kb" "${target_dir}/keybindings.json"
 			else
-				python3 - "${target_dir}/keybindings.json" "$skel_kb" << 'PYEOF'
+				python3 - "${target_dir}/keybindings.json" "$skel_kb" <<'PYEOF'
 import json, re, sys
 
 target_path = sys.argv[1]

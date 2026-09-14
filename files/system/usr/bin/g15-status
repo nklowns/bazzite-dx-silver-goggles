@@ -26,7 +26,7 @@ else
 fi
 
 # 3. Dell LED Controller (AW-ELC 187c:0550)
-if compgen -G "/sys/bus/hid/devices/*187C:0550*" > /dev/null 2>&1; then
+if compgen -G "/sys/bus/hid/devices/*187C:0550*" >/dev/null 2>&1; then
 	printf "LED Controller: %bDetected (Dell G15 AW-ELC 187c:0550)%b\n" "${GREEN}" "${NC}"
 else
 	printf "LED Controller: %bNot Detected%b\n" "${RED}" "${NC}"
