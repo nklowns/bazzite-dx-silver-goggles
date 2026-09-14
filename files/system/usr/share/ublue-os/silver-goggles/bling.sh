@@ -214,6 +214,9 @@ case $- in *i*)
 
 	# 6. Atuin History Integration (Deferred/Lazy Loading)
 	if [ "${BLUEFIN_SHELL_ENABLE_ATUIN:-1}" = "1" ]; then
+		# Deterministic host identity to prevent transient hostname / MagicDNS fragmentation
+		[ -z "${ATUIN_HOST_NAME:-}" ] && export ATUIN_HOST_NAME="bazzite"
+
 		if [ "${BLING_SHELL}" = "bash" ]; then
 			_bling_lazy_atuin() {
 				# Use a global guard to ensure it only runs once per shell

@@ -69,9 +69,9 @@ printf "\n%b3. Tools%b\n" "${BLUE}" "${NC}"
 declare -A TOOL_BINS=(
 	[mise]=mise [atuin]=atuin [starship]=starship
 	[zoxide]=zoxide [direnv]=direnv [eza]=eza [bat]=bat [ugrep]=ugrep
-	[k9s]=k9s [helm]=helm [topgrade]=topgrade [fzf]=fzf
+	[k9s]=k9s [helm]=helm [yazi]=yazi [fzf]=fzf
 )
-for tool in mise atuin starship zoxide direnv eza bat ugrep k9s helm topgrade fzf; do
+for tool in mise atuin starship zoxide direnv eza bat ugrep k9s helm yazi fzf; do
 	bin="${TOOL_BINS[$tool]}"
 	if path=$(command -v "$bin" 2>/dev/null); then
 		printf "   %b %s (%s)\n" "$OK" "$tool" "$path"

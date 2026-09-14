@@ -7,39 +7,40 @@
 # Full reference: https://docs.atuin.sh/configuration/config/
 # Key bindings:   Ctrl-R → interactive search  |  ↑ → project-scoped history
 
-[behavior]
-# Ctrl-R searches across all history on this machine.
-filter_mode = "host"
-
-# ↑ arrow searches history from the current git project only.
-# This is atuin's killer feature: press ↑ in a repo and see what you ran there.
-# Change to "global" or "host" if you prefer uniform behavior.
-filter_mode_shell_up_arrow_binding = "workspace"
-
-# Fuzzy search is almost always better than prefix for interactive use.
+# Search mode for interactive search (fuzzy, prefix, fulltext)
 search_mode = "fuzzy"
 
-[ui]
-# Inline mode: history appears below the cursor, not full-screen.
-inline_height = 20
+# Which filter mode to use by default.
+# "host": commands run on this host only
+# "global": search across all recorded history
+# Note: Ctrl-R / F6 in the TUI cycles through filter modes dynamically.
+filter_mode = "host"
 
-# Show a preview of the full command when it's truncated.
+# Which filter mode to use when atuin is invoked from a shell up-key binding.
+# Workspace mode: searches history from the current git repository tree.
+filter_mode_shell_up_key_binding = "workspace"
+search_mode_shell_up_key_binding = "fuzzy"
+
+# Auto-execute on enter
+enter_accept = true
+
+# UI Configuration
+inline_height = 20
 show_preview = true
 max_preview_height = 3
-
-# Show the help bar at the bottom.
 show_help = true
 
-[history]
-# Strip leading whitespace from commands before saving.
-# Prevents commands prefixed with a space from polluting history.
-filter_mode = "global"
+[tmux]
+# TMUX popup integration (disable if using mobile or constrained SSH clients)
+enabled = true
 
 [sync]
+# Enable sync v2 records format
+records = true
 # Cloud sync is disabled by default.
-#
-# Sync lets you share history across machines and devices.
 # To enable: https://docs.atuin.sh/guide/sync/
-#
-# [sync]
-# sync_address = "https://api.atuin.sh"   # or your self-hosted instance
+# sync_address = "https://api.atuin.sh"
+
+[search]
+# Search across all shells (bash, fish, zsh) instead of hiding commands from other shells
+shells = "all"

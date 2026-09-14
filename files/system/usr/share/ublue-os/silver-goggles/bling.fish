@@ -139,6 +139,9 @@ if status is-interactive
 
     # 5. Atuin History Integration (Deferred/Lazy Loading)
     if test "$BLUEFIN_SHELL_ENABLE_ATUIN" = 1; and command -v atuin >/dev/null
+        # Deterministic host identity to prevent transient hostname / MagicDNS fragmentation
+        set -q ATUIN_HOST_NAME; or set -gx ATUIN_HOST_NAME bazzite
+
         function _bling_lazy_atuin --on-event fish_prompt
             atuin init fish $ATUIN_INIT_FLAGS | source
             functions -e _bling_lazy_atuin

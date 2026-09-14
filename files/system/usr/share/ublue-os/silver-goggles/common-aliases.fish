@@ -17,8 +17,8 @@ if not test -f /run/.containerenv; and not test -f /.dockerenv
             set -l _latest_sock (command ls -1t $XDG_RUNTIME_DIR/wayland-* 2>/dev/null | string match -rv '\.lock$' | head -n1)
             if test -n "$_latest_sock"; and test -S "$_latest_sock"
                 set -gx WAYLAND_DISPLAY (basename "$_latest_sock")
-                test -z "$XDG_SESSION_TYPE"; and set -gx XDG_SESSION_TYPE "wayland"
-                test -z "$XDG_CURRENT_DESKTOP"; and set -gx XDG_CURRENT_DESKTOP "KDE"
+                test -z "$XDG_SESSION_TYPE"; and set -gx XDG_SESSION_TYPE wayland
+                test -z "$XDG_CURRENT_DESKTOP"; and set -gx XDG_CURRENT_DESKTOP KDE
             end
         end
 
