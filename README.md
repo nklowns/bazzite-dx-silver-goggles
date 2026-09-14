@@ -293,15 +293,14 @@ The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 
 
 ---
 
-# 🎙️ AI Studio Audio (Speaches Voice TTS & STT, ChatTTS Expressive & Music)
+# 🎙️ AI Studio Audio (VoiceStudio / OmniVoice, 16 TTS, 11 ASR & OpenAI API)
 
-The **AI Studio Audio** stack provides standard OpenAI-compatible endpoints (`/v1/audio/speech` and `/v1/audio/transcriptions`) running **100% on CPU cores and 64GB DDR5 (0 MB VRAM)**, leaving the RTX 3060 entirely free for gaming or visual diffusion:
+The **AI Studio Audio** stack provides a complete, modern open-source studio DAW and standard OpenAI-compatible endpoints (`/v1/audio/speech` and `/v1/audio/transcriptions`). Powered by **VoiceStudio v0.5.2** (`debpalash/omnivoice-studio:latest`), accelerated via NVIDIA CUDA on RTX 3060 Mobile GPU with smart offload into 64GB DDR5 system RAM:
 
-1. **🗣️ OpenAI Speech Microservice (`:61386`)**: Speaches AI engine serving Piper TTS (Brazilian Portuguese Faber) and Faster-Whisper real-time STT.
-2. **🎭 Conversational Expressive Voice**: ChatTTS synthesis with natural laugh tags (`[laugh]`), emotional hesitations (`[oral_2]`), and speech pauses (`[break_4]`).
-3. **🧬 Zero-Shot Voice Cloning**: Sub-second voice cloning using Piper base phonetics and OpenVoice V2 tone conversion.
-4. **🎹 Instrumental Soundtracks**: Meta MusicGen on CPU with zero GPU VRAM impact.
-5. **📁 Strict XDG Output Directory Compliance**:
+1. **🎙️ VoiceStudio DAW & Studio UI (`:61386`)**: Full Web UI studio for multi-speaker synthesis, voice cloning, audiobooks (`.m4b`), video dubbing, and Demucs stem separation.
+2. **🗣️ OpenAI Speech API (`/v1/audio/*`)**: Drop-in compatible endpoints for speech synthesis and Whisper speech-to-text.
+3. **⚡ GPU CUDA Acceleration**: Accelerated via Container Device Interface (CDI `nvidia.com/gpu=all`) with dynamic VRAM purge.
+4. **📁 Strict XDG Output Directory Compliance**:
    - Visual Outputs (8K Portraits & MP4 Videos): `${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio/`
    - Acoustic Outputs (WAV & MP3 Audio): `${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio/`
 
@@ -309,15 +308,14 @@ The **AI Studio Audio** stack provides standard OpenAI-compatible endpoints (`/v
 
 | Command | Action |
 | :--- | :--- |
-| `ujust audio-up` (ou `tts-up`) | Start the Speaches Voice service (`:61386`) |
-| `ujust audio-down` (ou `tts-down`) | Stop the Speaches Voice service |
-| `ujust audio-status` (ou `tts-status`) | Check OpenAI endpoint models, rootless permissions, and boot state |
-| `ujust audio-enable-boot` | Opt-in to start AI Studio Audio automatically on boot via Quadlet drop-in |
-| `ujust audio-disable-boot` | Remove AI Studio Audio from automatic boot startup |
-| `ujust clone-voice <ref_audio> <text>` | Clone voice in zero-shot with Brazilian Portuguese foundation |
-| `ujust synthesize-expressive <text>` | Synthesize human-like speech with natural laughter and pauses |
-| `ujust generate-soundtrack <prompt>` | Generate instrumental music on CPU (0 MB VRAM) |
-| `ujust produce-master-video <img_8k> <voice_wav> <music_wav>` | Render final 48 FPS video with sidechain auto-ducking audio |
-| `ujust remote-audio-setup` | Expose Speaches Voice service over Tailnet with TLS (`:61386`) |
+| `ujust audio-up` (ou `tts-up`) | Start VoiceStudio service and Web UI (`:61386`) |
+| `ujust audio-down` (ou `tts-down`) | Stop VoiceStudio service and free GPU VRAM |
+| `ujust audio-purge` | Purge GPU VRAM without disabling the service |
+| `ujust audio-status` (ou `tts-status`) | Check VoiceStudio health, OpenAI models, port status, and storage |
+| `ujust audio-portal` (ou `audio-open`) | Display VoiceStudio Web UI and API access URLs |
+| `ujust audio-enable-boot` | Opt-in to start VoiceStudio automatically on boot via Quadlet drop-in |
+| `ujust audio-disable-boot` | Remove VoiceStudio from automatic boot startup |
+| `ujust remote-audio-setup` | Expose VoiceStudio over Tailnet with TLS via `bazzite-dx-serve` (`:61386`) |
+| `ujust remote-audio-teardown` | Remove VoiceStudio from Tailscale Serve |
 
 

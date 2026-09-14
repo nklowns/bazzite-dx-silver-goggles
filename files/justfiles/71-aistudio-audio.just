@@ -1,6 +1,6 @@
 # vim: set ft=make :
 # ==============================================================================
-# GROUP: Audio Studio (Speaches AI: TTS, STT Whisper, Voice Cloning & Music)
+# GROUP: Audio Studio (VoiceStudio / OmniVoice: TTS, STT Whisper, Voice Cloning & Music)
 #
 # The stack runs as a ROOTLESS PODMAN QUADLET unit, not docker compose. The unit lives in
 # /etc/containers/systemd/users/aistudio-audio.container (and ~/.config/containers/systemd/) and
@@ -10,47 +10,76 @@
 # Lingering is on, which means an enabled user unit starts at boot without login.
 # Every recipe below therefore starts and stops on demand; nothing enables automatically.
 #
-# MEMORY & HARDWARE ARCHITECTURE:
-# - Runs 100% on CPU (i7-12700H 14-cores / DDR5), keeping GPU VRAM 100% free for ComfyUI / LLMs.
+# MEMORY & HARDWARE ARCHITECTURE (DELL G15 RTX 3060 6GB + 64GB DDR5):
+# - Accelerated via NVIDIA CUDA on RTX 3060 Mobile GPU (CDI).
+# - Smart memory offloading to the 64GB DDR5 system RAM for large language models.
 # - Provides standard OpenAI-compatible endpoints:
-#   - /v1/audio/speech (Piper & Kokoro-82M TTS)
-#   - /v1/audio/transcriptions (Faster-Whisper STT)
+#   - /v1/audio/speech (16 TTS engines)
+#   - /v1/audio/transcriptions (11 ASR Whisper engines)
 # - Storage lives in /var/srv/audio with CACHEDIR.TAG and container_file_t SELinux label.
 # - User deliverables strictly follow XDG specifications:
-#   - Audio: $XDG_MUSIC_DIR/AI_Studio/
-#   - Visual (Imagens & Vídeos): $XDG_PICTURES_DIR/AI_Studio/
+#   - Audio: $XDG_MUSIC_DIR/AI_Studio/ (mounted directly as /app/omnivoice_data/output)
+#   - Visual: $XDG_PICTURES_DIR/AI_Studio/
 # ==============================================================================
 
-# 🎙️ Iniciar o AI Studio Audio (Speaches Voice TTS & STT, :61386) sob demanda
+# 🎙️ Iniciar o AI Studio Audio (VoiceStudio & OpenAI API, :61386) sob demanda
 [group('AI Studio Audio')]
 audio-up:
     #!/usr/bin/env bash
     set -euo pipefail
     # Verify declarative storage existence
-    if [[ ! -d /var/srv/audio ]]; then
-        echo "❌ /var/srv/audio não existe — o provisionamento declarativo não rodou."
+    if [[ ! -d /var/srv/audio/data ]]; then
+        echo "❌ /var/srv/audio/data não existe — o provisionamento declarativo não rodou."
         echo "   Verifique: systemctl status bazzite-dx-groups.service"
         exit 1
     fi
+    # Ensure user deliverables directory exists
+    MUSIC_DIR="${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio"
+    mkdir -p "$MUSIC_DIR"
+
+    # Check GPU gates
+    if ! systemctl is-active --quiet nvidia-persistenced.service; then
+        echo "⚠️  nvidia-persistenced parado — a injeção CDI vai falhar."
+    fi
+    if [[ "$(getsebool container_use_devices 2>/dev/null || echo '--> off')" == *off ]]; then
+        echo "⚠️  container_use_devices=off — o container vai receber os devices e levar Permission denied."
+    fi
+
     systemctl --user daemon-reload
     systemctl --user start aistudio-audio.service
-    echo "✅ AI Studio Audio (TTS & STT) ativo em http://localhost:61386"
-    echo "   Portal & Swagger Interativo: http://localhost:61386/docs"
+    echo "✅ AI Studio Audio (VoiceStudio) ativo em http://localhost:61386"
+    echo "   Web Studio & DAW: http://localhost:61386"
+    echo "   API Swagger: http://localhost:61386/docs"
     echo "   Endpoints OpenAI: /v1/audio/speech | /v1/audio/transcriptions"
+    echo "   Deliverables salvos em: $MUSIC_DIR"
     echo "   Para expor no Tailscale com TLS: ujust remote-audio-setup"
     echo "   Não sobe sozinho no próximo boot — rode 'ujust audio-up' de novo."
 
 alias tts-up := audio-up
 
-# 🛑 Parar o AI Studio Audio
+# 🛑 Parar o AI Studio Audio e liberar VRAM da GPU
 [group('AI Studio Audio')]
 audio-down:
     #!/usr/bin/env bash
     set -uo pipefail
     systemctl --user stop aistudio-audio.service
-    echo "🛑 AI Studio Audio desativado."
+    echo "🛑 AI Studio Audio (VoiceStudio) desativado. VRAM liberada para jogos e desktop."
 
 alias tts-down := audio-down
+
+# 🧹 Purgar modelos da GPU e liberar 100% da VRAM sem manter pesos residentes
+[group('AI Studio Audio')]
+audio-purge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if systemctl --user is-active --quiet aistudio-audio.service; then
+        systemctl --user restart aistudio-audio.service
+        echo "🧹 VRAM do VoiceStudio purgada com sucesso. Nenhum modelo residente na GPU."
+    else
+        echo "AI Studio Audio já está inativo."
+    fi
+
+alias tts-vram-purge := audio-purge
 
 # ⚡ Habilitar o AI Studio Audio para iniciar automaticamente no boot (Ative e esqueça)
 [group('AI Studio Audio')]
@@ -93,15 +122,32 @@ audio-status:
     printf '%-16s %s (boot: %s)\n' "aistudio-audio" "${STATE:-inactive}" "$BOOT"
     echo "--- Containers ---"
     podman ps --filter name=aistudio_audio --format 'table {{{{.Names}}\t{{{{.Status}}\t{{{{.Ports}}' 2>/dev/null || true
+    echo "--- Portas & Tailscale Serve ---"
+    if ss -tln 2>/dev/null | grep -q ':61386 '; then
+        echo "  Porta 61386: ABERTA (http://127.0.0.1:61386)"
+    else
+        echo "  Porta 61386: fechada"
+    fi
+    SERVE_STATE=$(/usr/libexec/bazzite-dx-serve status 61386 61386 http 2>/dev/null || echo "absent")
+    printf '  %-14s %s\n' "tailscale serve:" "$SERVE_STATE"
+    if [[ "$SERVE_STATE" == "ok" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "  URL Remota:    https://${DNS_NAME:-localhost}:61386"
+    fi
     echo "--- Endpoints & Modelos OpenAI ---"
     if curl -s -f http://localhost:61386/health >/dev/null 2>&1; then
-        echo "✔ Speaches API Online em http://localhost:61386"
-        curl -s http://localhost:61386/v1/models | jq . 2>/dev/null || true
+        echo "✔ VoiceStudio API Online em http://localhost:61386"
+        DEVICE=$(curl -s http://localhost:61386/health | jq -r '.device // "unknown"')
+        VERSION=$(curl -s http://localhost:61386/health | jq -r '.version // "unknown"')
+        echo "  Dispositivo: $DEVICE | Versão: $VERSION"
+        curl -s http://localhost:61386/v1/audio/voices | jq -r '.voices[]? | "  - \(.name) (\(.voice_id))"' 2>/dev/null | head -n 8 || true
     else
-        echo "    (Speaches API não está respondendo em http://localhost:61386)"
+        echo "    (VoiceStudio API não está respondendo em http://localhost:61386)"
     fi
     echo "--- Disco /var/srv/audio ---"
     du -sh /var/srv/audio/* 2>/dev/null || true
+    echo "--- Disco XDG Deliverables (${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio) ---"
+    du -sh "${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio" 2>/dev/null || true
     echo "--- arquivos inalcançáveis pelos containers rootless ---"
     SUB_START=$(awk -F: -v u="$USER" '$1==u {print $2; exit}' /etc/subuid 2>/dev/null)
     SUB_LEN=$(awk -F: -v u="$USER" '$1==u {print $3; exit}' /etc/subuid 2>/dev/null)
@@ -119,32 +165,27 @@ audio-status:
 
 alias tts-status := audio-status
 
-# 📜 Visualizar logs em tempo real do Speaches Audio
+# 📜 Visualizar logs em tempo real do VoiceStudio
 [group('AI Studio Audio')]
 audio-logs:
     journalctl --user -u aistudio-audio.service -f --no-hostname -o cat
 
 alias tts-logs := audio-logs
 
-# 📥 Baixar modelos de voz e áudio para cache local (Piper PT-BR, EN, ES)
+# 📥 Baixar modelos de voz e áudio para cache local
 [group('AI Studio Audio')]
 audio-pull-models:
     #!/usr/bin/env bash
     set -euo pipefail
-    CACHE_DIR="/var/srv/audio/cache"
+    CACHE_DIR="/var/srv/audio/data/huggingface"
     mkdir -p "$CACHE_DIR"
-    echo "📥 Verificando e baixando modelos de voz e transcrição (Speaches AI)..."
+    echo "📥 Verificando e aquecendo modelos de áudio do VoiceStudio..."
     if ! systemctl --user is-active --quiet aistudio-audio.service; then
         echo "Iniciando AI Studio Audio..."
         systemctl --user start aistudio-audio.service
-        sleep 2
+        sleep 3
     fi
-    for m in "speaches-ai/piper-pt_BR-faber-medium" "speaches-ai/Kokoro-82M-v1.0-ONNX" "Systran/faster-whisper-base"; do
-        echo "→ Baixando/Verificando: $m"
-        encoded_m=$(printf '%s' "$m" | jq -sRr @uri)
-        curl -s -X POST "http://localhost:61386/v1/models/$encoded_m" >/dev/null 2>&1 || true
-    done
-    echo "✅ Modelos do AI Studio Audio sincronizados com sucesso."
+    echo "✅ VoiceStudio ativo. Modelos sob demanda são gerenciados via Web UI (:61386)."
 
 alias tts-pull-models := audio-pull-models
 
@@ -156,20 +197,28 @@ audio-shell:
     echo "Namespace de usuário do podman para manipular /var/srv/audio. Saia com 'exit'."
     podman unshare bash
 
-# 🔒 Expor o Speaches Audio Studio no tailnet via Tailscale Serve (:61386)
+# 🔒 Expor o VoiceStudio no tailnet via Tailscale Serve (:61386)
 [group('AI Studio Audio')]
 remote-audio-setup:
     #!/usr/bin/env bash
     set -euo pipefail
     if ! systemctl --user is-active --quiet aistudio-audio.service; then
-        echo "❌ AI Studio Audio não está rodando. Rode 'ujust tts-up' primeiro."
+        echo "❌ AI Studio Audio não está rodando. Rode 'ujust audio-up' primeiro."
         exit 1
     fi
     /usr/libexec/bazzite-dx-serve ensure 61386
-    DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "✅ AI Studio Audio pronto no Tailscale: https://$DNS_NAME:61386"
+    DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+    echo "✅ VoiceStudio pronto no Tailscale: https://${DNS_NAME}:61386"
 
-# 🌐 Abrir a interface web e documentação interativa da API de Áudio (:61386)
+# 🔓 Remover o VoiceStudio do Tailscale Serve
+[group('AI Studio Audio')]
+remote-audio-teardown:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    /usr/libexec/bazzite-dx-serve off 61386 || true
+    echo "🔓 VoiceStudio removido do Tailscale Serve."
+
+# 🌐 Exibir status de acesso do VoiceStudio e endpoints da API (:61386)
 [group('AI Studio Audio')]
 audio-portal:
     #!/usr/bin/env bash
@@ -179,11 +228,15 @@ audio-portal:
         systemctl --user start aistudio-audio.service
         sleep 2
     fi
-    echo "🌐 Abrindo portal de documentação e teste da API de Áudio..."
-    if command -v xdg-open >/dev/null 2>&1; then
-        xdg-open "http://localhost:61386/docs" >/dev/null 2>&1 || true
+    echo "✔ VoiceStudio Web UI disponível em: http://localhost:61386"
+    echo "  Docs & Swagger API: http://localhost:61386/docs"
+    SERVE_STATE=$(/usr/libexec/bazzite-dx-serve status 61386 61386 http 2>/dev/null || echo "absent")
+    if [[ "$SERVE_STATE" == "ok" ]]; then
+        DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+        echo "  Acesso Remoto Seguro: https://${DNS_NAME:-localhost}:61386"
+    else
+        echo "  Para acessar remotamente via Tailscale com TLS: ujust remote-audio-setup"
     fi
-    echo "✔ Speaches API Portal disponível em: http://localhost:61386/docs"
 
 alias tts-portal := audio-portal
 alias audio-open := audio-portal

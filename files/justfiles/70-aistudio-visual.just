@@ -72,6 +72,10 @@ visual-up:
         echo "   Verifique: systemctl status bazzite-dx-groups.service"
         exit 1
     fi
+    # Ensure user deliverables directory exists
+    PICTURES_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio"
+    mkdir -p "$PICTURES_DIR"
+
     # Check GPU gates
     if ! systemctl is-active --quiet nvidia-persistenced.service; then
         echo "⚠️  nvidia-persistenced parado — a injeção CDI vai falhar."
@@ -148,6 +152,9 @@ visual-status:
     echo
     echo "--- Disco /var/srv/visual ---"
     du -sh /var/srv/visual/* 2>/dev/null || true
+    echo
+    echo "--- Deliverables XDG (${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio) ---"
+    du -sh "${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio" 2>/dev/null || true
     echo
     echo "--- Permissões ---"
     if [[ -d /var/srv/visual ]]; then
@@ -279,7 +286,13 @@ visual-animate image audio="" driving_video="" output="":
         "{{ audio }}" \
         "{{ driving_video }}"
 
-    cp /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
+    if [[ -f "$VISUAL_DIR/temp_animated_export.mp4" ]]; then
+        if [[ "$OUT_FILE" != "$VISUAL_DIR/temp_animated_export.mp4" ]]; then
+            mv "$VISUAL_DIR/temp_animated_export.mp4" "$OUT_FILE"
+        fi
+    elif [[ -f /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 ]]; then
+        cp /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
+    fi
     echo "✅ Vídeo animado em alta fidelidade salvo em: $OUT_FILE"
 
 alias comfyui-animate-avatar := visual-animate
@@ -366,7 +379,52 @@ remote-visual-setup:
         exit 1
     fi
     /usr/libexec/bazzite-dx-serve ensure 61384
-    DNS_NAME=$(tailscale status --self --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "AI Studio Visual pronto em: https://$DNS_NAME:61384"
+    DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
+    echo "AI Studio Visual pronto em: https://${DNS_NAME:-localhost}:61384"
 
 alias remote-ai-setup := remote-visual-setup
+
+# 🔓 Remover o ComfyUI do Tailscale Serve
+[group('AI Studio Visual')]
+remote-visual-teardown:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    /usr/libexec/bazzite-dx-serve off 61384 || true
+    echo "🔓 AI Studio Visual removido do Tailscale Serve."
+
+# 🎵 Instalar suíte convergida de nós de áudio e música no ComfyUI (TTS-Audio-Suite, ACE-Step, Demucs)
+[group('AI Studio Visual')]
+visual-audio-nodes-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    NODES_DIR="/var/srv/visual/ComfyUI/custom_nodes"
+    mkdir -p "$NODES_DIR"
+
+    sync_repo() {
+        local repo_url="$1"
+        local target_name="$2"
+        local target_path="$NODES_DIR/$target_name"
+        if [[ -d "$target_path/.git" ]]; then
+            echo "→ Atualizando $target_name..."
+            git -C "$target_path" pull --quiet || true
+        else
+            echo "→ Clonando $target_name..."
+            git clone --quiet --depth 1 "$repo_url" "$target_path"
+        fi
+    }
+
+    echo "📦 Sincronizando nós de áudio de alta performance para ComfyUI..."
+    sync_repo "https://github.com/diodiogod/TTS-Audio-Suite.git" "TTS-Audio-Suite"
+    sync_repo "https://github.com/billwuhao/ComfyUI_ACE-Step.git" "ComfyUI_ACE-Step"
+    sync_repo "https://github.com/christian-byrne/audio-separation-nodes-comfyui.git" "audio-separation-nodes"
+
+    echo "⚙️ Sincronizando dependências de áudio no ambiente persistente..."
+    just visual-install "soundfile librosa pydub conformer vocos"
+
+    if systemctl --user is-active --quiet aistudio-visual.service; then
+        echo "🔄 Reiniciando aistudio-visual.service..."
+        systemctl --user restart aistudio-visual.service
+    fi
+    echo "✅ Nós de áudio do ComfyUI prontos para uso em http://localhost:61384."
+
+alias comfyui-audio-nodes := visual-audio-nodes-install

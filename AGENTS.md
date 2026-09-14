@@ -44,7 +44,7 @@ This is a developer workstation — arbitrary projects spin up arbitrary dev ser
 | NOMAD Ollama (GPU inference) | `61382` | never — no authentication, no rate limiting. The Command Center reaches it over the container network (`http://ollama:11434`), not this port (`ujust ollama-up`) |
 | AI Studio Visual (ComfyUI) | `61384` | `https://<tailscale-fqdn>:61384` (`ujust visual-up` / `ujust remote-visual-setup`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
 | Vane (Perplexica AI Search) | `61385` | `https://<tailscale-fqdn>:61385` (`ujust vane-up` / `ujust remote-vane-setup`) — AI-powered answering engine with local LLM & SearXNG integration |
-| AI Studio Audio (Speaches) | `61386` | `https://<tailscale-fqdn>:61386` (`ujust audio-up` / `ujust remote-audio-setup`) — OpenAI-compatible Speech API (Piper TTS, ChatTTS & Faster-Whisper STT, 100% CPU / 0 MB VRAM) |
+| VoiceStudio DAW & API | `61386` | `https://<tailscale-fqdn>:61386` (`ujust audio-up` / `ujust remote-audio-setup`) — VoiceStudio v0.5.2 (16 TTS, 11 ASR Whisper, Demucs stems, dubbing, audiobooks, OpenAI `/v1/audio/*` endpoints, RTX 3060 CUDA + 64GB DDR5 offload) |
 | SearXNG Metasearch | `61387` | `https://<tailscale-fqdn>:61387` (`ujust searxng-up` / `ujust remote-searxng-setup`) — privacy-respecting metasearch provider with JSON API |
 | cockpit | `61390` | `https://<tailscale-fqdn>:61390` (`ujust cockpit-up`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
 | KasmVNC WebRTC Desktop | `61391` | `https://<tailscale-fqdn>:61391` (`ujust remote-kasmvnc-setup`) — Browser-native HTML5 desktop with bidirectional browser clipboard sync |
@@ -187,9 +187,10 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
   - Recipes: `70-aistudio-visual.just` (`ujust visual-up`, `ujust visual-down`, `ujust visual-status`, `ujust visual-animate`, `ujust visual-enable-boot`).
 
 - **AI Studio Audio (`aistudio-audio.container`, Port :61386)**:
-  - Backed by Speaches AI (Piper TTS, Faster-Whisper STT, OpenAI-compatible `/v1/audio/*` endpoints) and ChatTTS (expressive conversational speech with laughter `[laugh]` and natural pauses).
-  - Runs **100% on CPU** (i7-12700H 14 cores / 64GB DDR5), preserving 100% GPU VRAM for visual generation and gaming.
-  - Recipes: `71-aistudio-audio.just` (`ujust audio-up`, `ujust audio-down`, `ujust audio-status`, `ujust clone-voice`, `ujust audio-enable-boot`).
+  - Backed by VoiceStudio v0.5.2 (16 TTS, 11 ASR Whisper, Demucs stems, dubbing, audiobooks & OpenAI `/v1/audio/*` endpoints).
+  - Accelerated via NVIDIA CUDA on RTX 3060 Laptop GPU with smart offload to 64GB DDR5.
+  - User deliverables mount directly to `${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio/`.
+  - Recipes: `71-aistudio-audio.just` (`ujust audio-up`, `ujust audio-down`, `ujust audio-purge`, `ujust audio-status`, `ujust remote-audio-setup`, `ujust remote-audio-teardown`).
 
 - **Deliverables Policy (Strict XDG Standards)**:
   - All visual outputs (8K Portraits & MP4 Videos): `${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio/`

@@ -39,6 +39,7 @@ Environment=PYTHONUSERBASE=/root/.local
 Environment=PIP_TARGET=/root/.local/lib/python3.12/site-packages
 
 Volume=/var/srv/visual/ComfyUI:/root/ComfyUI:Z
+Volume=%h/Pictures/AI_Studio:/root/ComfyUI/output:Z
 Volume=/var/srv/visual/user-scripts:/root/user-scripts:Z
 Volume=/var/srv/visual/site-packages:/root/.local/lib/python3.12/site-packages:Z
 

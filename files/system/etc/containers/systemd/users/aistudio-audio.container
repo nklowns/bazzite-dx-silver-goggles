@@ -1,42 +1,63 @@
-# AI Studio — Local Voice & Audio (TTS & STT) OpenAI-compatible Microservice.
-# Powered by Speaches AI (Piper, Kokoro-82M, Faster-Whisper).
+# AI Studio — Local Voice & Audio Studio (VoiceStudio / OmniVoice).
+# Powered by VoiceStudio v0.5.2 (16 TTS, 11 ASR, Demucs stems, dubbing, audiobooks).
 #
-# MEMORY & HARDWARE ARCHITECTURE
-# ------------------------------
-# - Runs 100% on CPU (i7-12700H 14-cores / DDR5), preserving 100% GPU VRAM for ComfyUI / LLMs.
+# MEMORY & HARDWARE ARCHITECTURE (RTX 3060 6GB + 64GB DDR5)
+# ---------------------------------------------------------
+# - Hardware accelerated via NVIDIA CUDA on RTX 3060 Mobile GPU (CDI).
+# - Smart memory offloading to 64GB DDR5 system RAM.
 # - Provides standard OpenAI-compatible endpoints:
-#   - /v1/audio/speech (Piper & Kokoro TTS)
-#   - /v1/audio/transcriptions (Faster-Whisper STT)
+#   - /v1/audio/speech (TTS)
+#   - /v1/audio/transcriptions (ASR Whisper)
 #
 # NETWORK & TAILSCALE-FIRST
 # -------------------------
-# - Internal network alias: http://aistudio-audio:8000, http://tts:8000, http://voice:8000, http://whisper:8000
+# - Internal network alias: http://aistudio-audio:3900, http://audio:3900, http://voicestudio:3900
 # - Published on host loopback: 127.0.0.1:61386
 # - Exposed securely over the tailnet via `ujust remote-audio-setup`
 
 [Unit]
-Description=AI Studio — Audio Studio (Speaches Voice TTS & STT, Port 61386)
+Description=AI Studio — Audio Studio (VoiceStudio v0.5.2 & OpenAI API, Port 61386)
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu@sha256:2163775b6df5e451a71200e8f675fed68dbd8ab184fc604453d549e486f22fd2
+Image=ghcr.io/debpalash/omnivoice-studio:latest@sha256:fabecb0839153cd1042755c3a6e17a6b4a415b8c62de13d6e28a4d7c804720a9
 ContainerName=aistudio_audio
 Network=project-nomad_default.network
 NetworkAlias=aistudio-audio
 NetworkAlias=audio
+NetworkAlias=voicestudio
 NetworkAlias=tts
 NetworkAlias=voice
 NetworkAlias=whisper
-PublishPort=127.0.0.1:61386:8000
+PublishPort=127.0.0.1:61386:3900
 
-Volume=/var/srv/audio/cache:/home/ubuntu/.cache/huggingface/hub:Z
-Volume=/var/srv/audio/output:/output:Z
+AddDevice=nvidia.com/gpu=all
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+Environment=OMNIVOICE_BIND_HOST=0.0.0.0
+Environment=OMNIVOICE_SERVER_MODE=1
+Environment=OMNIVOICE_DATA_DIR=/app/omnivoice_data
+Environment=HOME=/app/omnivoice_data
+Environment=OMNIVOICE_TORCH_COMPILE=0
+Environment=HF_HOME=/app/omnivoice_data/huggingface
+Environment=OMNIVOICE_CACHE_DIR=/app/omnivoice_data/cache
+Environment=XDG_CACHE_HOME=/app/omnivoice_data/cache
+Environment=TRITON_CACHE_DIR=/app/omnivoice_data/triton
+Environment=TORCH_COMPILE_DISABLE=1
+Environment=OMNIVOICE_ASR_BACKEND=pytorch-whisper
+Environment=PYTHONPATH=/app/omnivoice_data/site-packages:/app/backend
+Environment=PYTHONUNBUFFERED=1
+
+Volume=/var/srv/audio/data:/app/omnivoice_data:Z
+Volume=%h/Music/AI_Studio:/app/omnivoice_data/output:Z
 UserNS=keep-id
 
 [Service]
 Restart=on-failure
 TimeoutStartSec=300
+LimitMEMLOCK=infinity
+LimitNOFILE=65535
 
 # [Install] is omitted on purpose: respect Boot Impact Policy.
-# Start on-demand via `ujust tts-up` or `ujust aistudio-audio-up`.
+# Start on-demand via `ujust audio-up` or `ujust tts-up`.

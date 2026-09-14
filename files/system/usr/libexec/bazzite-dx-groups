@@ -483,7 +483,7 @@ ConfigureAudioStorage() {
 
 	# --- btrfs: disable copy-on-write for audio models and cache directories -----------
 	local dir
-	for dir in "$root/tts/models" "$root/stt/models" "$root/music/models" "$root/output" "$root/cache"; do
+	for dir in "$root/tts/models" "$root/stt/models" "$root/music/models" "$root/output" "$root/cache" "$root/data"; do
 		[ -d "$dir" ] || continue
 		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
 			continue
