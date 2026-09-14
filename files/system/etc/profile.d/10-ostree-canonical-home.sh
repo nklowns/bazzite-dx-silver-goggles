@@ -9,3 +9,14 @@ case "${HOME-}" in
 	fi
 	;;
 esac
+
+case "${PWD-}" in
+/home/*)
+	if [ -d "/var${PWD}" ]; then
+		__saved_old="${OLDPWD-}"
+		cd "/var${PWD}" 2>/dev/null || true
+		[ -n "$__saved_old" ] && OLDPWD="$__saved_old"
+		unset __saved_old
+	fi
+	;;
+esac

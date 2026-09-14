@@ -4,7 +4,7 @@
 set -uo pipefail
 
 readonly SHELL_TYPE="${1:-bash}"
-PROJECT_ROOT=$(pwd)
+PROJECT_ROOT=$(pwd -P)
 readonly PROJECT_ROOT
 SHADOW_ROOT_BASE=$(mktemp -d -t silver-goggles-dev.XXXXXX)
 readonly SHADOW_ROOT_BASE
