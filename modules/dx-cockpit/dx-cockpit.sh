@@ -14,7 +14,7 @@ InstallCtop() {
 	temp_zip=$(mktemp --suffix=.zip)
 	local download_url="https://github.com/ismetozalp/ctop/releases/download/v${CTOP_VERSION}/ctop-${CTOP_VERSION}.zip"
 
-	curl -fsSL "$download_url" -o "$temp_zip"
+	curl --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSL "$download_url" -o "$temp_zip"
 
 	local temp_extract
 	temp_extract=$(mktemp -d)
