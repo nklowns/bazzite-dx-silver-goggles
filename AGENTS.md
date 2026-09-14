@@ -175,6 +175,10 @@ ostree performs a three-way merge on `/etc` at deployment time, so a local chang
    `*.wants` symlink untouched. Enabled template instances (`ide-tunnel@code.service`) are **not**
    listed by `list-unit-files 'ide-tunnel@*.service'` (that reports only the template, "indirect
    disabled"); enumerate the `*.target.wants/` symlinks instead.
+8. **OSTree Path Canonicalization & Container Boundary Policy**:
+   - **Host physical invariance (`/var/home/$USER`)**: On this immutable OSTree host, `/var/home/$USER` is the only physical, invariant root path (`/home` is a symbolic link: `/home -> var/home`). All host-side automation scripts, IDE workspace openers, daemon commands, and path resolutions must force physical resolution (`cd -P -- "$(dirname -- "$0")" && pwd -P`, `realpath`). Never use bare logical `pwd` when computing workspace roots or invoking editors (`code`, `code-insiders`, `cursor`, `antigravity-ide`).
+   - **Container guest expectation (`/home/$USER`)**: Inside standard Linux containers (Distrobox, Docker, Toolbx), `/home/$USER` is the traditional FHS directory. Boundary scripts generating container-side artifacts (such as Python venv shebangs, `.env` files, or local tool wrappers) must translate paths: `${PATH/#\/var\/home\//\/home\/}`.
+   - **Container compatibility**: Development containers (Distrobox) mounting host directories must ensure bidirectional path resolution so that host paths leaked via environment variables, IDE task configurations, or CLI arguments resolve transparently without `ENOENT`.
 
 ### 🎙️🎨 AI Studio Architecture (Visual & Audio)
 
