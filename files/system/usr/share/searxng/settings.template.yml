@@ -117,7 +117,7 @@ engines:
     network: trawl
     disabled: false
     weight: 1.5
-    timeout: 3.5
+    timeout: 8.0
 
   # Motores ruidosos desativados da categoria IT herdada
   - name: mdn
@@ -219,8 +219,9 @@ engines:
   - name: annas archive
     engine: annas_archive
     categories: [archive, science]
+    network: trawl
     disabled: false
-    timeout: 3.5
+    timeout: 8.0
 
   # ==========================================
   # ESFERA 4: INDIE & SMALL WEB (:!indie)
@@ -285,8 +286,9 @@ engines:
     engine: zlibrary
     shortcut: zlib
     categories: [archive, science]
+    network: trawl
     disabled: false
-    timeout: 5.0
+    timeout: 8.0
 
   - name: loc
     engine: loc

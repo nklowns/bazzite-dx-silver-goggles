@@ -558,6 +558,55 @@ agent-mesh-status:
 
 alias mesh-status := agent-mesh-status
 
+# 🧪 Executar auditoria canário de motores e latência da Agent Mesh
+[group('Agent Mesh')]
+mesh-audit:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    SEARXNG_URL="http://127.0.0.1:61387"
+    if ! curl -sf "$SEARXNG_URL/healthz" >/dev/null 2>&1; then
+        echo "❌ SearXNG não está respondendo em $SEARXNG_URL. Execute 'ujust searxng-up'."
+        exit 1
+    fi
+    echo "=== 🧪 AGENT MESH SEARCH CANARY AUDIT ==="
+    printf "%-18s | %-10s | %-8s | %s\n" "MOTOR" "STATUS" "TEMPO" "RESULTADOS"
+    echo "-----------------------------------------------------------------"
+    test_engine() {
+        local name="$1"
+        local query="${2:-linux kernel}"
+        local start_ts
+        start_ts=$(date +%s%3N)
+        local resp
+        resp=$(curl -s -m 12 -G "$SEARXNG_URL/search" --data-urlencode "q=${query}" -d "format=json" -d "engines=${name}" 2>/dev/null || echo "{}")
+        local end_ts
+        end_ts=$(date +%s%3N)
+        local elapsed=$(( end_ts - start_ts ))
+        local count
+        count=$(echo "$resp" | jq -r 'if .results then (.results | length) else 0 end' 2>/dev/null || echo "0")
+        local unresp
+        unresp=$(echo "$resp" | jq -r 'if .unresponsive_engines then (.unresponsive_engines | map(.[0]) | join(",")) else "" end' 2>/dev/null || echo "")
+
+        if [[ "$count" -gt 0 ]]; then
+            printf "%-18s | \033[32m%-10s\033[0m | %-6dms | %d resultados\n" "$name" "OK" "$elapsed" "$count"
+        elif [[ "$unresp" == *"$name"* ]]; then
+            printf "%-18s | \033[31m%-10s\033[0m | %-6dms | BLOQUEADO / ERRO\n" "$name" "FALHA" "$elapsed"
+        else
+            printf "%-18s | \033[33m%-10s\033[0m | %-6dms | 0 resultados (vazio)\n" "$name" "AVISO" "$elapsed"
+        fi
+    }
+
+    test_engine "brave"
+    test_engine "google_cse"
+    test_engine "duckduckgo"
+    test_engine "mojeek"
+    test_engine "wikipedia"
+    test_engine "github" "antigravity"
+    test_engine "arxiv" "quantum computing"
+    test_engine "marginalia" "personal computers"
+    test_engine "mwmbl" "open source"
+    echo "-----------------------------------------------------------------"
+    echo "Auditoria concluída."
+
 # 📊 Status consolidado da Matriz CDP (os-fedora-silverblue.md §8)
 [group('Agent Mesh')]
 cdp-matrix-status:

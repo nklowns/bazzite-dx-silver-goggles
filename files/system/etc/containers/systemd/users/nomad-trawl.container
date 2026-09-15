@@ -37,6 +37,7 @@ Environment=BROWSER_MAX_CONTENT_PROCESSES=2
 Environment=BROWSER_HEADFUL_POOL_SIZE=0
 Environment=BROWSER_ACQUIRE_TIMEOUT_MS=15000
 Environment=MCP_ENABLED=false
+EnvironmentFile=-/var/srv/trawl/trawl.env
 
 # Loopback binding per workstation security policy
 PublishPort=127.0.0.1:8191:8191
