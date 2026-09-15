@@ -79,7 +79,7 @@ engines:
 
   - name: brave
     engine: braveapi
-    api_key: '@BRAVE_API_KEY@'
+    api_key: "@BRAVE_API_KEY@"
     categories: [general, it]
     disabled: false
     weight: 2.0

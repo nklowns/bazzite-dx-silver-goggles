@@ -26,12 +26,18 @@ if [[ -f "$TEMPLATE_SETTINGS" ]]; then
 	SECRET_KEY=""
 	BRAVE_KEY=""
 	if [[ -f "$SEARXNG_SETTINGS" ]]; then
-		SECRET_KEY=$(grep -E '^\s*secret_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E 's/.*secret_key:\s*"?([^"]*)"?/\1/' || true)
-		BRAVE_KEY=$(grep -E '^\s*api_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E 's/.*api_key:\s*"?([^"]*)"?/\1/' || true)
+		SECRET_KEY=$(grep -E '^\s*secret_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E "s/^[[:space:]]*secret_key:[[:space:]]*//; s/^['\"]*//; s/['\"][[:space:]]*$//" || true)
+		BRAVE_KEY=$(grep -E '^\s*api_key:' "$SEARXNG_SETTINGS" | head -n1 | sed -E "s/^[[:space:]]*api_key:[[:space:]]*//; s/^['\"]*//; s/['\"][[:space:]]*$//" || true)
 		cp -a "$SEARXNG_SETTINGS" "${SEARXNG_SETTINGS}.bak"
 	fi
 	if [[ -z "$SECRET_KEY" || "$SECRET_KEY" == "@SEARXNG_SECRET_KEY@" || "$SECRET_KEY" == "ultrasecretkey" ]]; then
 		SECRET_KEY="$(openssl rand -hex 32)"
+	fi
+	if [[ "$BRAVE_KEY" == "@BRAVE_API_KEY@" ]]; then
+		BRAVE_KEY=""
+	fi
+	if [[ -z "$BRAVE_KEY" && -n "${BRAVE_API_KEY:-}" ]]; then
+		BRAVE_KEY="${BRAVE_API_KEY}"
 	fi
 	USER_HOME=""
 	if [[ -n "${HOME:-}" && "$HOME" != "/root" ]]; then
