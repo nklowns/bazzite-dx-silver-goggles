@@ -41,7 +41,7 @@ redis:
   url: redis://redis:6379/1
 
 outgoing:
-  request_timeout: 2.0
+  request_timeout: 8.0
   max_request_timeout: 20.0
   pool_connections: 100
   enable_http2: true
@@ -77,6 +77,14 @@ engines:
   - name: startpage
     disabled: true
 
+  - name: lemmy communities
+    network: trawl
+    disabled: false
+
+  - name: lemmy posts
+    network: trawl
+    disabled: false
+
   - name: brave
     engine: braveapi
     api_key: "@BRAVE_API_KEY@"
@@ -97,7 +105,6 @@ engines:
     categories: [general]
     network: trawl
     disabled: false
-    timeout: 8.0
 
   - name: qwant
     disabled: true
@@ -105,20 +112,20 @@ engines:
   - name: wikipedia
     engine: wikipedia
     categories: [general]
+    network: trawl
     disabled: false
 
   - name: wikidata
     engine: wikidata
     categories: [general]
+    network: trawl
     disabled: false
 
   - name: duckduckgo
     engine: duckduckgo
     categories: [general, it]
-    network: trawl
     disabled: false
     weight: 1.5
-    timeout: 8.0
 
   # Motores ruidosos desativados da categoria IT herdada
   - name: mdn
@@ -136,93 +143,109 @@ engines:
   # ==========================================
   # ESFERA 2: DEV & IT (:!it)
   # ==========================================
+  - name: hackernews
+    network: trawl
+    disabled: false
+    weight: 2
+
   - name: github
     engine: github
     categories: [it]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 2.5
 
   - name: gitlab
     engine: gitlab
     categories: [it]
+    network: trawl
     disabled: false
     weight: 1
-    timeout: 2.5
 
   - name: stackoverflow
     engine: stackexchange
     api_site: stackoverflow
     categories: [it]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 2.5
 
   - name: arch linux wiki
     engine: archlinux
     categories: [it]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 2.0
 
   - name: pypi
     engine: pypi
     categories: [it]
+    network: trawl
     disabled: false
 
   - name: npm
     engine: npm
     categories: [it]
+    network: trawl
     disabled: false
 
   - name: crates.io
     engine: crates
     categories: [it]
+    network: trawl
     disabled: false
 
   - name: docker hub
     engine: docker_hub
     categories: [it]
+    network: trawl
     disabled: false
 
   - name: repology
     engine: repology
     categories: [it]
+    network: trawl
     disabled: false
 
   - name: nvd
     engine: nvd
     categories: [it]
+    network: trawl
     disabled: false
 
   - name: huggingface
     engine: huggingface
     categories: [it]
+    network: trawl
     disabled: false
 
   # ==========================================
   # ESFERA 3: CIÊNCIA & ACADÊMICO (:!science)
   # ==========================================
+  - name: openalex
+    network: trawl
+    disabled: false
+    weight: 2
+
   - name: arxiv
     engine: arxiv
     categories: [science]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 3.0
 
   - name: semantic scholar
     engine: semantic_scholar
     categories: [science]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 3.0
 
   - name: annas archive
     engine: annas_archive
     categories: [archive, science]
     network: trawl
     disabled: false
-    timeout: 8.0
 
   # ==========================================
   # ESFERA 4: INDIE & SMALL WEB (:!indie)
@@ -230,15 +253,15 @@ engines:
   - name: marginalia
     engine: marginalia
     categories: [indie, general]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 3.0
 
   - name: neocities
     engine: neocities
     categories: [indie]
+    network: trawl
     disabled: false
-    timeout: 3.0
 
   # ==========================================
   # ESFERA 5: P2P DESCENTRALIZADA & COMUNITÁRIA (Mwmbl & YaCy)
@@ -246,9 +269,9 @@ engines:
   - name: mwmbl
     engine: mwmbl
     categories: [p2p, general]
+    network: trawl
     disabled: false
     weight: 2
-    timeout: 2.5
 
   - name: yacy
     engine: yacy
@@ -280,8 +303,8 @@ engines:
   - name: openlibrary
     engine: openlibrary
     categories: [archive, science]
+    network: trawl
     disabled: false
-    timeout: 5.0
 
   - name: z-library
     engine: zlibrary
@@ -289,14 +312,13 @@ engines:
     categories: [archive, science]
     network: trawl
     disabled: false
-    timeout: 8.0
 
   - name: loc
     engine: loc
     shortcut: locgov
     categories: [archive]
+    network: trawl
     disabled: false
-    timeout: 3.5
 
   # ==========================================
   # ESFERA 8: DARKNET I2P (:!i2p)

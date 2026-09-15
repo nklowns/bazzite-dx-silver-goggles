@@ -582,7 +582,7 @@ mesh-audit:
         end_ts=$(date +%s%3N)
         local elapsed=$(( end_ts - start_ts ))
         local count
-        count=$(echo "$resp" | jq -r 'if .results then (.results | length) else 0 end' 2>/dev/null || echo "0")
+        count=$(echo "$resp" | jq -r '((.results // []) | length) + ((.infoboxes // []) | length)' 2>/dev/null || echo "0")
         local unresp
         unresp=$(echo "$resp" | jq -r 'if .unresponsive_engines then (.unresponsive_engines | map(.[0]) | join(",")) else "" end' 2>/dev/null || echo "")
 
@@ -602,6 +602,9 @@ mesh-audit:
     test_engine "wikipedia"
     test_engine "github" "antigravity"
     test_engine "arxiv" "quantum computing"
+    test_engine "openalex" "quantum computing"
+    test_engine "hackernews" "antigravity"
+    test_engine "lemmy posts" "linux"
     test_engine "marginalia" "personal computers"
     test_engine "mwmbl" "open source"
     echo "-----------------------------------------------------------------"
