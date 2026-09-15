@@ -33,6 +33,7 @@ Gerenciamento declarativo via `systemd --user` integrado com receitas do Justfil
 # 📊 Diagnóstico Geral
 ujust agent-mesh-status      # Exibe status consolidado de todos os serviços e portas CDP
 ujust mesh-status            # Apelido rápido para o status geral
+ujust mesh-audit             # Canário automatizado: testa latência e disponibilidade dos motores em tempo real
 
 # 🔍 SearXNG (Metapesquisa Soberana)
 ujust searxng-up             # Inicia Redis + Tor + SearXNG
@@ -59,6 +60,7 @@ ujust trawl-up               # Inicia o serviço Trawl (solver Firefox Camoufox 
 ujust trawl-down             # Desativa o Trawl
 ujust trawl-status           # Status do Trawl
 ujust trawl-logs             # Acompanha resolução de desafios anti-bot
+# Egress opcional: criar /var/srv/trawl/trawl.env (ex: PROXY_URL=socks5://tor:9050 ou STT_URL=...)
 
 # 🧅 Tor, I2P & YaCy (Darknet & P2P)
 ujust tor-up / tor-down      # Controle do proxy Tor SOCKS5/HTTP
