@@ -148,3 +148,25 @@ if [[ -f "$SYSTEM_CA" ]]; then
 	mv "$SEARXNG_CA.tmp" "$SEARXNG_CA"
 	chmod 644 "$SEARXNG_CA"
 fi
+
+# 4. Trawl configuration template (egress proxy & STT options)
+TRAWL_DIR="/var/srv/trawl"
+mkdir -p "$TRAWL_DIR/ca"
+if [[ ! -f "$TRAWL_DIR/trawl.env.example" ]]; then
+	cat <<EOF >"$TRAWL_DIR/trawl.env.example"
+# Trawl Environment Configuration (Optional)
+# Copy to trawl.env to apply custom egress pools or Whisper STT audio solver.
+
+# Upstream proxy pool for Tier 3 challenge solving (comma-separated or single URL)
+# PROXY_URL=http://user:pass@proxy.example.com:8080
+
+# Upstream residential proxy pool for Tier 4 escalation
+# RESIDENTIAL_PROXY_URL=socks5://user:pass@residential.example.com:1080
+
+# Local or remote Whisper STT for audio CAPTCHA resolution (e.g. VoiceStudio on port 61386)
+# STT_URL=http://127.0.0.1:61386/v1/audio/transcriptions
+# STT_API_KEY=
+EOF
+	chmod 644 "$TRAWL_DIR/trawl.env.example"
+fi
+
