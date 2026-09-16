@@ -558,9 +558,9 @@ agent-mesh-status:
 
 alias mesh-status := agent-mesh-status
 
-# 🧪 Executar auditoria canário de motores e latência da Agent Mesh
+# 🐤 Testar conectividade individual dos motores upstream no SearXNG via curl
 [group('Agent Mesh')]
-mesh-audit:
+searxng-canary:
     #!/usr/bin/env bash
     set -uo pipefail
     SEARXNG_URL="http://127.0.0.1:61387"
@@ -568,7 +568,7 @@ mesh-audit:
         echo "❌ SearXNG não está respondendo em $SEARXNG_URL. Execute 'ujust searxng-up'."
         exit 1
     fi
-    echo "=== 🧪 AGENT MESH SEARCH CANARY AUDIT ==="
+    echo "=== 🐤 SEARXNG ENGINES CANARY TEST ==="
     printf "%-18s | %-10s | %-8s | %s\n" "MOTOR" "STATUS" "TEMPO" "RESULTADOS"
     echo "-----------------------------------------------------------------"
     test_engine() {
@@ -596,7 +596,7 @@ mesh-audit:
     }
 
     test_engine "brave"
-    test_engine "google_cse"
+    test_engine "google cse"
     test_engine "duckduckgo"
     test_engine "mojeek"
     test_engine "wikipedia"
@@ -608,7 +608,9 @@ mesh-audit:
     test_engine "marginalia" "personal computers"
     test_engine "mwmbl" "open source"
     echo "-----------------------------------------------------------------"
-    echo "Auditoria concluída."
+    echo "Teste canário concluído."
+
+alias mesh-canary := searxng-canary
 
 # 📊 Status consolidado da Matriz CDP (os-fedora-silverblue.md §8)
 [group('Agent Mesh')]
@@ -631,4 +633,4 @@ cdp-matrix-status:
     check_port "Mozilla Firefox" 9224 "~/.mozilla/firefox-cdp (--no-remote)"
     check_port "Lightpanda" 9225 "In-Memory Zig Headless (zero profile)"
     echo
-    echo "Dica: Para agentes em 'global-harness', use 'agent-browser --cdp <porta>'."
+    echo "Dica: Conecte seu cliente de automação, Playwright ou agente de IA via CDP: http://127.0.0.1:<porta>"

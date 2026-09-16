@@ -33,7 +33,7 @@ Gerenciamento declarativo via `systemd --user` integrado com receitas do Justfil
 # 📊 Diagnóstico Geral
 ujust agent-mesh-status      # Exibe status consolidado de todos os serviços e portas CDP
 ujust mesh-status            # Apelido rápido para o status geral
-ujust mesh-audit             # Canário automatizado: testa latência e disponibilidade dos motores em tempo real
+ujust searxng-canary         # Canário automatizado: testa disponibilidade dos motores upstream no SearXNG via curl [alias: mesh-canary]
 
 # 🔍 SearXNG (Metapesquisa Soberana)
 ujust searxng-up             # Inicia Redis + Tor + SearXNG
@@ -100,9 +100,9 @@ O SearXNG está configurado com 9 esferas temáticas livres de anúncios e rastr
 
 ---
 
-## 4. Ferramenta CLI `mesh-search` & Interface MCP
+## 4. Consumo por Clientes & Integração com Agentes de IA
 
-O script `~/dev/IDEs/global-harness/bin/mesh-search` é registrado como servidor MCP (`agent-mesh`) para Claude, Gemini e Antigravity:
+Os serviços da imagem operam desacoplados sobre a rede local e podem ser consumidos por qualquer ferramenta cliente de terminal ou servidor MCP (como o utilitário `mesh-search`):
 
 ### Exemplos via Terminal:
 ```bash
