@@ -124,6 +124,7 @@ engines:
   - name: duckduckgo
     engine: duckduckgo
     categories: [general, it]
+    network: trawl
     disabled: false
     weight: 1.5
 
