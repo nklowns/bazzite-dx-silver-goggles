@@ -14,7 +14,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=ghcr.io/germondai/trawl:latest@sha256:17d1ffaec8a71e7efe6ba0754fbd3c179b68d8779925138d666f399f744ce669
+Image=ghcr.io/germondai/trawl:nightly@sha256:21bd0bbd53313a029fe70159b2da24ca4618b4768d30008b2f3c2855787e2115
 ContainerName=nomad_trawl
 Network=project-nomad_default.network
 NetworkAlias=trawl
