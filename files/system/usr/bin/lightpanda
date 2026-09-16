@@ -44,7 +44,7 @@ serve)
 	if command -v /home/linuxbrew/.linuxbrew/bin/lightpanda >/dev/null 2>&1; then
 		exec /home/linuxbrew/.linuxbrew/bin/lightpanda "$@"
 	else
-		exec podman run --rm -i docker.io/lightpanda/browser:nightly /bin/lightpanda "$@"
+		exec podman run --rm -i --network host docker.io/lightpanda/browser:nightly /bin/lightpanda "$@"
 	fi
 	;;
 esac
