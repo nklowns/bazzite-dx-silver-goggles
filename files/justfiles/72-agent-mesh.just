@@ -454,6 +454,18 @@ recoll-up:
         echo "   Verifique: systemctl status bazzite-dx-groups.service"
         exit 1
     fi
+    # Ensure recoll.conf exists before Quadlet starts (prevents Podman directory creation bug)
+    if [[ ! -f "$HOME/.config/recoll/recoll.conf" ]]; then
+        mkdir -p "$HOME/.config/recoll"
+        TEMPLATE="/usr/share/recoll/recoll.conf.template"
+        if [[ ! -f "$TEMPLATE" ]]; then
+            TEMPLATE="{{ justfile_directory() }}/../system/usr/share/recoll/recoll.conf.template"
+        fi
+        if [[ -f "$TEMPLATE" ]]; then
+            cp "$TEMPLATE" "$HOME/.config/recoll/recoll.conf"
+            echo "📄 Arquivo ~/.config/recoll/recoll.conf inicializado a partir do template."
+        fi
+    fi
     systemctl --user daemon-reload
     systemctl --user start nomad-recoll.service
     echo "✅ Recoll WebUI ativo em http://localhost:61389"
@@ -469,17 +481,20 @@ recoll-down:
 
 # 🔄 Executar indexação incremental sob demanda
 [group('Agent Mesh')]
-recoll-index:
+recoll-index *args:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🔍 Executando indexação incremental do workspace via Recoll..."
-    podman run --rm --name nomad_recoll_index_manual \
-      --security-opt label=disable --cap-drop=all \
-      -v "$HOME/Documents:/export/documents:ro" \
-      -v "$HOME/.config/recoll/recoll.conf:/root/.recoll/recoll.conf:ro" \
-      -v /var/srv/recoll/xapiandb:/var/recoll/db:Z,U \
-      docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95 \
-      recollindex -d
+    INDEXER="/usr/libexec/bazzite-dx-recoll-index"
+    if [[ ! -x "$INDEXER" ]]; then
+        INDEXER="{{ justfile_directory() }}/../system/usr/libexec/bazzite-dx-recoll-index"
+    fi
+    if [[ -x "$INDEXER" ]]; then
+        "$INDEXER" {{ args }}
+    else
+        echo "❌ Indexador não encontrado: $INDEXER"
+        exit 1
+    fi
     echo "✅ Indexação incremental concluída."
 
 # 📊 Diagnóstico do Recoll

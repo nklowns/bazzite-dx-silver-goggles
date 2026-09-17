@@ -43,6 +43,7 @@ redis:
 outgoing:
   request_timeout: 8.0
   max_request_timeout: 20.0
+  useragent_suffix: "AgentMesh/1.0 (https://github.com/nklowns/bazzite-dx-silver-goggles)"
   pool_connections: 100
   enable_http2: true
   using_tor_proxy: false
@@ -277,14 +278,12 @@ engines:
   - name: yacy
     engine: yacy
     categories: [p2p, general]
+    enable_http: true
     disabled: false
-    timeout: 3.5
+    timeout: 12.0
     base_url:
       - http://yacy:8090
-      - http://yacy.kit.edu
       - https://yacy.searchlab.eu
-      - https://yacy.ecosys.eu
-      - https://search.lomig.me
 
   # ==========================================
   # ESFERA 6: DARKNET & PRIVACIDADE (:!onions)

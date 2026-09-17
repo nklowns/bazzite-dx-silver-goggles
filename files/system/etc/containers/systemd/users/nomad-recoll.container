@@ -29,7 +29,7 @@ PodmanArgs=--init
 PublishPort=127.0.0.1:61389:8080
 
 # Canonical XDG user directories (strictly read-only)
-Volume=%h/Documents:/export/documents:ro
+Volume=%h/Documents:/export/Documents:ro
 Volume=%h/.config/recoll/recoll.conf:/root/.recoll/recoll.conf:ro
 
 # Persistent Xapian Database

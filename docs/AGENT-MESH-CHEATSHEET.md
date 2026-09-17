@@ -68,12 +68,14 @@ ujust i2p-up / i2p-down      # Controle do roteador I2P i2pd (HTTP :4444, SOCKS5
 ujust i2p-status / i2p-logs  # Telemetria e logs do roteador I2P
 ujust yacy-up / yacy-down    # Controle do nó YaCy P2P
 
-# 📁 Recoll (Indexação e Busca Local em ~/dev e ~/Documents)
-ujust recoll-up / recoll-down# Controle do Recoll WebUI (:61389)
-ujust recoll-index           # Executa indexação incremental sob demanda
-ujust recoll-status          # Status da WebUI, porta 61389 e tamanho do índice Xapian
-ujust recoll-logs            # Acompanha logs do container
-ujust remote-recoll-setup    # Expor Recoll WebUI via Tailscale Serve com TLS
+# 📁 Recoll (Indexação e Busca Local em ~/Documents e Workspaces Declarativos)
+ujust dx-workspace-add <path>    # Cadastra pasta pessoal (~/dev, ~/Projects) em workspaces.dirs e gera drop-in Quadlet
+ujust dx-workspace-remove <path> # Remove pasta pessoal e sincroniza o drop-in do Recoll
+ujust recoll-up / recoll-down    # Controle do Recoll WebUI (:61389)
+ujust recoll-index               # Executa indexação incremental dinâmica sob demanda
+ujust recoll-status              # Status da WebUI, porta 61389 e tamanho do índice Xapian
+ujust recoll-logs                # Acompanha logs do container
+ujust remote-recoll-setup        # Expor Recoll WebUI via Tailscale Serve com TLS
 ```
 
 ---

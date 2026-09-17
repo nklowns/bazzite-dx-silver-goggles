@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Recoll Dynamic Incremental Indexer for Bazzite Silver Goggles
+# Manages concurrency locks, auto-seeds recoll.conf, and dynamically mounts
+# canonical ~/Documents alongside all user workspaces declared in workspaces.dirs.
+set -euo pipefail
+
+CONTAINER_NAME="nomad_recoll_index_job"
+
+# 1. Concurrency guard: avoid colliding with another running indexer instance
+if podman ps -q --filter "name=^/${CONTAINER_NAME}$" 2>/dev/null | grep -q .; then
+	echo "⚠️ Processo de indexação do Recoll já em execução (${CONTAINER_NAME}). Abortando para evitar conflito de lock."
+	exit 0
+fi
+
+# Clean up any stopped/stale container with same name
+podman rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+
+# 2. Auto-seed recoll.conf from template if missing (prevents Podman directory creation bug)
+RECOLL_DIR="$HOME/.config/recoll"
+RECOLL_CONF="$RECOLL_DIR/recoll.conf"
+TEMPLATE="/usr/share/recoll/recoll.conf.template"
+if [[ ! -f "$TEMPLATE" ]]; then
+	# Local git fallback if running pre-rebase
+	SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+	if [[ -f "$SCRIPT_DIR/../share/recoll/recoll.conf.template" ]]; then
+		TEMPLATE="$SCRIPT_DIR/../share/recoll/recoll.conf.template"
+	fi
+fi
+
+if [[ ! -f "$RECOLL_CONF" ]]; then
+	mkdir -p "$RECOLL_DIR"
+	if [[ -f "$TEMPLATE" ]]; then
+		cp "$TEMPLATE" "$RECOLL_CONF"
+		echo "📄 Arquivo de configuração do Recoll criado a partir do template."
+	fi
+fi
+
+# 3. Dynamic volumes: always mount ~/Documents, plus any workspaces from workspaces.dirs
+VOLUMES=()
+if [[ -d "$HOME/Documents" ]]; then
+	VOLUMES+=("-v" "$HOME/Documents:/export/Documents:ro")
+fi
+
+WS_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
+if [[ -f "$WS_FILE" ]]; then
+	while IFS= read -r line || [[ -n "$line" ]]; do
+		[[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+		dir="${line/#\~/$HOME}"
+		if [[ -d "$dir" ]]; then
+			bname=$(basename "$dir")
+			VOLUMES+=("-v" "$dir:/export/$bname:ro")
+		fi
+	done <"$WS_FILE"
+fi
+
+# 4. Run indexer in isolated container
+exec podman run --rm --name "${CONTAINER_NAME}" \
+	--security-opt label=disable --cap-drop=all \
+	"${VOLUMES[@]}" \
+	-v "$RECOLL_CONF:/root/.recoll/recoll.conf:ro" \
+	-v /var/srv/recoll/xapiandb:/var/recoll/db:Z,U \
+	docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95 \
+	recollindex "$@"

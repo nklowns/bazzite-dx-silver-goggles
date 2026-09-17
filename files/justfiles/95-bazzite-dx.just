@@ -233,7 +233,31 @@ dx-workspace-add target_dir="":
             echo "✨ Added personal shell alias: $BASENAME -> cd $TARGET"
         fi
     fi
-    echo "KRunner and shell will now index and navigate this folder seamlessly."
+
+    # Sync Quadlet drop-in for nomad-recoll so WebUI container mounts registered workspaces
+    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-recoll.container.d"
+    DROPIN_FILE="$DROPIN_DIR/10-workspaces.conf"
+    mkdir -p "$DROPIN_DIR"
+    echo "# Declarative workspace mounts generated from ~/.config/bazzite-dx/workspaces.dirs" > "$DROPIN_FILE"
+    echo "[Container]" >> "$DROPIN_FILE"
+    RECOLL_TOPDIRS="/export/Documents"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        d="${line/#\~/$HOME}"
+        if [[ -d "$d" ]]; then
+            bn=$(basename "$d")
+            echo "Volume=$d:/export/$bn:ro" >> "$DROPIN_FILE"
+            RECOLL_TOPDIRS="$RECOLL_TOPDIRS /export/$bn"
+        fi
+    done < "$CFG_FILE"
+
+    # Sync topdirs in ~/.config/recoll/recoll.conf if present
+    RECOLL_CONF="$HOME/.config/recoll/recoll.conf"
+    if [[ -f "$RECOLL_CONF" ]]; then
+        sed -i "s|^topdirs = .*|topdirs = $RECOLL_TOPDIRS|" "$RECOLL_CONF"
+    fi
+    systemctl --user daemon-reload 2>/dev/null || true
+    echo "KRunner, Recoll, and shell will now index and navigate this folder seamlessly."
 
 # List registered personal developer workspaces
 [group('Developer Experience')]
@@ -270,6 +294,34 @@ dx-workspace-remove target_dir="":
 
     sed -i "\|^$TARGET\$|d" "$CFG_FILE"
     echo "🗑️ Removed $TARGET from $CFG_FILE"
+
+    # Sync Quadlet drop-in for nomad-recoll
+    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-recoll.container.d"
+    DROPIN_FILE="$DROPIN_DIR/10-workspaces.conf"
+    RECOLL_TOPDIRS="/export/Documents"
+    if [[ -s "$CFG_FILE" ]]; then
+        mkdir -p "$DROPIN_DIR"
+        echo "# Declarative workspace mounts generated from ~/.config/bazzite-dx/workspaces.dirs" > "$DROPIN_FILE"
+        echo "[Container]" >> "$DROPIN_FILE"
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            d="${line/#\~/$HOME}"
+            if [[ -d "$d" ]]; then
+                bn=$(basename "$d")
+                echo "Volume=$d:/export/$bn:ro" >> "$DROPIN_FILE"
+                RECOLL_TOPDIRS="$RECOLL_TOPDIRS /export/$bn"
+            fi
+        done < "$CFG_FILE"
+    else
+        rm -f "$DROPIN_FILE"
+    fi
+
+    # Sync topdirs in ~/.config/recoll/recoll.conf if present
+    RECOLL_CONF="$HOME/.config/recoll/recoll.conf"
+    if [[ -f "$RECOLL_CONF" ]]; then
+        sed -i "s|^topdirs = .*|topdirs = $RECOLL_TOPDIRS|" "$RECOLL_CONF"
+    fi
+    systemctl --user daemon-reload 2>/dev/null || true
 
 # Force sync / merge declarative IDE terminal keybindings and settings across Code, Insiders, Cursor, and Antigravity
 [group('Developer Experience')]

@@ -2,7 +2,7 @@
 # Recoll Configuration Template — Bazzite Agent Mesh & Project NOMAD
 # ==============================================================================
 # Whitelist of top directories to index (inside the container namespaces)
-topdirs = /export/documents
+topdirs = /export/Documents
 
 # Database path (mounted to persistent storage /var/srv/recoll/xapiandb)
 dbdir = /var/recoll/db
@@ -13,6 +13,7 @@ skippedNames = node_modules .git .svn .hg target build dist .venv venv __pycache
                .cargo .rustup .gradle .m2 .nuget .gem .bundle .pip .tox .mypy_cache \
                .pytest_cache .ruff_cache .next .nuxt .turbo .vite distrobox containers \
                .wine .flatpak .var .local .config .thumbnails .cache* \
+               vendor fuzz corpora roms third_party deps bower_components \
                *.env* *.key *.pem id_* id_rsa id_ed25519 *.kdbx *.age *.sops credentials.json token.json secrets.* \
                *.iso *.tar.gz *.tgz *.zip *.7z *.rar *.qcow2 *.vdi *.raw *.bin *.exe *.dll \
                *.so *.dylib *.o *.a *.pyc *.wasm *.png *.jpg *.jpeg *.gif *.webp *.svg *.ico \

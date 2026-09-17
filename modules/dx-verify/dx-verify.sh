@@ -124,6 +124,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/bazzite-dx/aistudio-visual/requirements.txt|Asset: AI Studio Visual Requirements|Error"
 	"file|/usr/libexec/project-nomad-bootstrap-env|Asset: Project NOMAD Secret Bootstrap|Error"
 	"file|/usr/libexec/agent-mesh-bootstrap-env|Asset: Agent Mesh Secret Bootstrap|Error"
+	"file|/usr/libexec/bazzite-dx-recoll-index|Asset: Recoll Indexer Helper|Error"
 	"file|/usr/bin/lightpanda|Asset: Lightpanda CLI Wrapper|Error"
 	"file|/usr/bin/agent-browser|Asset: Agent-Browser Host Overlay Wrapper|Error"
 	"file|/usr/share/applications/project-nomad.desktop|Asset: Project NOMAD Desktop Launcher|Error"

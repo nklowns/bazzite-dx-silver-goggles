@@ -236,8 +236,12 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
 
 - **Recoll Local Workspace Search (`nomad-recoll.container`, Port :61389)**:
   - Headless Recoll WebUI JSON API powered by Xapian full-text indexing engine.
-  - Whitelist security: mounts `~/dev` and `~/Documents` strictly in read-only mode (`:ro`), zero access to `~/.ssh` or user credentials.
-  - Configuration in `~/.config/recoll/recoll.conf`, persistent index in `/var/srv/recoll/xapiandb` (Btrfs `+C nodatacow`).
+  - **Unopinionated Base Image vs Personal Workspaces (Strict Architecture Policy)**:
+    - The OS image layer (`files/system/...`) is strictly generic and unopinionated: it mounts only canonical XDG paths (`~/Documents`) read-only (`:ro`). Never hardcode personal paths (such as `~/dev`) into image Quadlets or system units.
+    - Personal developer workspaces are managed on-demand via `ujust dx-workspace-add <path>` / `ujust dx-workspace-remove <path>` (registered in `~/.config/bazzite-dx/workspaces.dirs`).
+    - `ujust dx-workspace-add` automatically maintains a declarative user Quadlet drop-in at `~/.config/containers/systemd/nomad-recoll.container.d/10-workspaces.conf` (`Volume=<path>:/export/<name>:ro`), reloads the systemd daemon, and updates `topdirs` in `~/.config/recoll/recoll.conf`.
+    - Dynamic indexer (`ujust recoll-index`) reads `~/.config/bazzite-dx/workspaces.dirs` and dynamically mounts all registered paths for incremental indexing alongside `~/Documents`.
+  - Exclusion & Noise Control: `skippedNames` in `recoll.conf` filters noise directories (`vendor`, `fuzz`, `corpora`, `roms`, `node_modules`, `build`, caches) and credentials (`.env*`, `*.key`, `*.pem`, secrets).
   - Standby by default (0 MB cold-boot). Auto-started transparently on `:local` search or via `ujust recoll-up`.
   - Nightly indexer scheduled at 04:00 AM (`nomad-recoll-index.timer`, `Nice=19`, `IOSchedulingClass=idle`, `CPUQuota=40%`).
   - Tailscale-first: `ujust remote-recoll-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61389`.
