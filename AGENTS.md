@@ -257,6 +257,20 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
   - Integrated with `agent-browser` (`/usr/bin/agent-browser`) for fast deterministic accessibility tree inspection (`@e1`, `@e2`).
   - Recipes: `72-agent-mesh.just` (`ujust lightpanda-up`, `ujust lightpanda-down`, `ujust lightpanda-status`).
 
+- **Agent-Browser CLI & MCP Server (`/usr/bin/agent-browser`)**:
+  - High-performance, token-efficient browser automation suite by Vercel Labs engineered specifically for AI agents (Claude, Gemini, Antigravity, NOMAD).
+  - **Snapshot + Ref Model**: Captures a condensed accessibility tree with numbered element references (`@e1`, `@e2`), reducing LLM context token consumption by 80–90% compared to raw DOM or bloated HTML dumps.
+  - **Dual Mode Execution**:
+    - **CLI Mode**: Fast commands chained with `&&` (`agent-browser open <url>`, `agent-browser snapshot -i`, `agent-browser click @e1`, `agent-browser fill @e2 "text"`, `agent-browser screenshot --annotate`, `agent-browser skills get core`).
+    - **MCP Mode**: Stdio JSON-RPC Model Context Protocol server (`agent-browser mcp [--tools <profiles>]`) supporting modular tool profiles (`core` [29 tools], `network`, `state`, `debug`, `tabs`, `react`, `mobile`, `webmcp`, `all`). Seamlessly proxied by token-compression middleware (`caveman-shrink`).
+  - **CDP Matrix Integration (Contract §8)**:
+    - Defaults to **Lightpanda** (`127.0.0.1:9225`) for ultra-lightweight, zero-VRAM headless navigation (auto-starts `lightpanda.service` on demand).
+    - Pass `--chrome` to target dedicated Chrome automation profile (`~/.config/google-chrome-cdp`, `:9222`) for visual/extension workflows.
+    - Pass `--tor` to route traffic anonymously through local Tor proxies (`127.0.0.1:9080` HTTP / `:9050` SOCKS5).
+  - **Installation & Resolution Hierarchy**:
+    - Primary executable: Homebrew native Linux x64 binary (`/home/linuxbrew/.linuxbrew/bin/agent-browser`, installed via `npm install -g --allow-scripts=agent-browser agent-browser`).
+    - Fallback resolution: `${HOME}/.local/bin`, `${HOME}/.cargo/bin`, system `PATH`, and `npx`.
+
 - **Browser Automation CDP Matrix (Contract §8)**:
   - Host overlays in `files/system/usr/bin/{firefox,google-chrome,microsoft-edge}` enforce isolated profiles:
     - Chrome: `127.0.0.1:9222` (`~/.config/google-chrome-cdp`)
