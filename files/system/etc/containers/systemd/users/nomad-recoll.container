@@ -2,7 +2,7 @@
 #
 # Part of the Agent Mesh & Project NOMAD. Exposes Recoll WebUI / JSON API on :8080 (nomad-net)
 # and loopback port 127.0.0.1:61389.
-# Reads only whitelisted paths (~/dev, ~/Documents) in read-only mode (:ro).
+# Reads whitelisted paths (%h/Documents, plus dynamic paths configured via ujust dx-workspace-add) in read-only mode (:ro).
 #
 # [Install] is omitted on purpose per Boot Impact Policy.
 # Started on demand via `ujust recoll-up` or transparently by mesh-search.
