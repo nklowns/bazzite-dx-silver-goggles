@@ -9,10 +9,10 @@
 # Every recipe below therefore starts and stops on demand.
 #
 # BROWSER AUTOMATION CDP MATRIX (os-fedora-silverblue.md §8):
-# - Chrome:     127.0.0.1:9222 (~/.config/google-chrome-cdp)
-# - Edge:       127.0.0.1:9223 (~/.config/microsoft-edge-cdp)
-# - Firefox:    127.0.0.1:9224 (~/.mozilla/firefox-cdp)
-# - Lightpanda: 127.0.0.1:9225 (Zig headless CDP server, zero VRAM, <30MB RAM)
+# - chrome-cdp:  127.0.0.1:9222 (~/.config/google-chrome-cdp)
+# - edge-cdp:    127.0.0.1:9223 (~/.config/microsoft-edge-cdp)
+# - firefox-cdp: 127.0.0.1:9224 (~/.mozilla/firefox-cdp)
+# - lightpanda:  127.0.0.1:9225 (Zig headless CDP server, zero VRAM, <30MB RAM)
 # ==============================================================================
 
 # 🔍 Iniciar o SearXNG (Metapesquisa Privada na porta :61387)

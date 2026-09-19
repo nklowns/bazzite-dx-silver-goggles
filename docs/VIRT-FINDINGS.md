@@ -16,7 +16,7 @@ codificar de forma declarativa.
 
 **O que NÃO entra aqui.** Achado que depende de um usuário, de um caminho em
 `$HOME`, ou de ferramenta pessoal de automação não é domínio da imagem. Esses
-vivem no ledger do harness, em `~/dev/IDEs/global-harness/vm/FINDINGS.md`. Os ids
+vivem no ledger do harness do usuário (ex: `vm/FINDINGS.md`). Os ids
 são globais e não são reaproveitados, então as lacunas na numeração abaixo são
 intencionais — aquele id existe, do outro lado.
 

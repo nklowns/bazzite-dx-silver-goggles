@@ -2,7 +2,7 @@
 
 Single source of truth for AI agents in this repository (`CLAUDE.md` and `GEMINI.md` are symlinks to this file).
 
-Personal customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 44. Builds a declarative, immutable OCI container image with the [BlueBuild](https://blue-build.org) framework.
+Developer Experience (DX) customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 44. Builds a declarative, immutable OCI container image with the [BlueBuild](https://blue-build.org) framework.
 
 - **Base image**: `ghcr.io/ublue-os/bazzite-nvidia` — DX tooling is applied by this repo's own `recipes/dx.yml`, following `bazzite-dx` patterns.
 - **Entry point**: `recipes/recipe.yml`. Everything flows from there.
@@ -202,10 +202,10 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
 
 ### 🌐 Browser & AI Agent Mesh Architecture
 
-The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** and **KISS Delegation** approach. See the complete reference in [`docs/AGENT-MESH-CHEATSHEET.md`](file:///var/home/cloud/dev/linux/uBlueOs/bazzite-dx-silver-goggles/docs/AGENT-MESH-CHEATSHEET.md).
+The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** and **KISS Delegation** approach. Client tools, MCP servers, and governance policies are managed in user space (e.g. via personal harness or dotfiles), decoupling agent consumption from the host OS image.
 
 - **SearXNG Metasearch (`nomad-searxng.container`, Port :61387)**:
-  - Aggregates 9 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `i2p` (I2P Search, Legwork via i2pd), `archive` (OpenLibrary, Z-Library, Library of Congress), `local` (Recoll Xapian index of `~/dev` and `~/Documents`).
+  - Aggregates 9 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `i2p` (I2P Search, Legwork via i2pd), `archive` (OpenLibrary, Z-Library, Library of Congress), `local` (Recoll Xapian index of user workspaces and `~/Documents`).
   - JSON API enabled for programmatic agent queries (`format=json`).
   - Native Wayback Machine integration: `ui.cache_url: https://web.archive.org/web/` for all cached links.
   - Tailscale-first: `ujust remote-searxng-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
@@ -226,57 +226,56 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
 - **Tor SOCKS5 Proxy (`nomad-tor.container`, Port :9050 / :9080)**:
   - Ultra-lightweight Alpine Tor daemon (~25 MB RAM).
   - Loopback SOCKS5 on `127.0.0.1:9050` and HTTP tunnel on `127.0.0.1:9080`.
-  - Provides strict isolation for `.onion` queries in SearXNG and anonymous scraping in `mesh_fetch --tor`.
+  - Provides strict isolation for `.onion` queries in SearXNG and anonymous scraping in darknets.
 
 - **I2P C++ Router (`nomad-i2pd.container`, Port :4444 / :4447 / :7070)**:
   - Ultra-lightweight i2pd router (~8-15 MB RAM, low-bandwidth client profile with transit relay disabled `--notransit`).
   - Loopback HTTP proxy on `127.0.0.1:4444`, SOCKS on `127.0.0.1:4447`, and web console on `127.0.0.1:7070`.
-  - Provides isolation for `.i2p` darknet queries in SearXNG (`:i2p` sphere) and anonymous scraping in `mesh_fetch --i2p`.
+  - Provides isolation for `.i2p` darknet queries in SearXNG (`:i2p` sphere) and anonymous scraping.
   - Recipes: `72-agent-mesh.just` (`ujust i2p-up`, `ujust i2p-down`, `ujust i2p-status`, `ujust i2p-logs`).
 
 - **Recoll Local Workspace Search (`nomad-recoll.container`, Port :61389)**:
   - Headless Recoll WebUI JSON API powered by Xapian full-text indexing engine.
   - **Unopinionated Base Image vs Personal Workspaces (Strict Architecture Policy)**:
-    - The OS image layer (`files/system/...`) is strictly generic and unopinionated: it mounts only canonical XDG paths (`~/Documents`) read-only (`:ro`). Never hardcode personal paths (such as `~/dev`) into image Quadlets or system units.
-    - Personal developer workspaces are managed on-demand via `ujust dx-workspace-add <path>` / `ujust dx-workspace-remove <path>` (registered in `~/.config/bazzite-dx/workspaces.dirs`).
-    - `ujust dx-workspace-add` automatically maintains a declarative user Quadlet drop-in at `~/.config/containers/systemd/nomad-recoll.container.d/10-workspaces.conf` (`Volume=<path>:/export/<name>:ro`), reloads the systemd daemon, and updates `topdirs` in `~/.config/recoll/recoll.conf`.
-    - Dynamic indexer (`ujust recoll-index`) reads `~/.config/bazzite-dx/workspaces.dirs` and dynamically mounts all registered paths for incremental indexing alongside `~/Documents`.
+    - The OS image layer (`files/system/...`) is strictly generic and unopinionated: it mounts only canonical XDG paths (`~/Documents`) read-only (`:ro`). Never hardcode personal paths into image Quadlets or system units.
+    - Developer workspaces are registered dynamically via `ujust dx-workspace-add <path>` / `ujust dx-workspace-remove <path>` (persisted in `~/.config/bazzite-dx/workspaces.dirs`).
+    - `ujust dx-workspace-add` maintains a declarative user Quadlet drop-in at `~/.config/containers/systemd/nomad-recoll.container.d/10-workspaces.conf` (`Volume=<path>:/export/<name>:ro`), reloads the systemd daemon, and updates `topdirs` in `~/.config/recoll/recoll.conf`.
+    - Dynamic indexer (`ujust recoll-index`) dynamically mounts all registered paths for incremental indexing alongside `~/Documents`.
   - Exclusion & Noise Control: `skippedNames` in `recoll.conf` filters noise directories (`vendor`, `fuzz`, `corpora`, `roms`, `node_modules`, `build`, caches) and credentials (`.env*`, `*.key`, `*.pem`, secrets).
   - Standby by default (0 MB cold-boot). Auto-started transparently on `:local` search or via `ujust recoll-up`.
   - Nightly indexer scheduled at 04:00 AM (`nomad-recoll-index.timer`, `Nice=19`, `IOSchedulingClass=idle`, `CPUQuota=40%`).
   - Tailscale-first: `ujust remote-recoll-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61389`.
   - Recipes: `72-agent-mesh.just` (`ujust recoll-up`, `ujust recoll-down`, `ujust recoll-index`, `ujust recoll-status`, `ujust remote-recoll-setup`, `ujust remote-recoll-teardown`).
 
-- **Internet Archive CLI (`ia`, v5.11.1)**:
-  - Standalone official CLI tool installed in `~/.local/bin/ia` via `uv tool install internetarchive`.
-  - Use directly for structured archive queries (`ia search`), full-text search (`ia search -F`), metadata (`ia metadata`) and file downloads (`ia download`).
+- **Internet Archive CLI (`ia`)**:
+  - User-space CLI managed via `uv tool install internetarchive` in `~/.local/bin/ia`.
 
 - **Lightpanda Headless Browser CDP (`lightpanda.container`, Port :9225)**:
   - Ultra-lightweight Zig/C++ headless browser (< 20 MB RAM vs 500 MB+ for Chrome/Chromium).
   - Listens on `127.0.0.1:9225` (CDP WebSocket `ws://127.0.0.1:9225`).
-  - Integrated with `agent-browser` (`/usr/bin/agent-browser`) for fast deterministic accessibility tree inspection (`@e1`, `@e2`).
+  - Integrated with browser automation and agents for fast deterministic accessibility tree inspection (`@e1`, `@e2`).
   - Recipes: `72-agent-mesh.just` (`ujust lightpanda-up`, `ujust lightpanda-down`, `ujust lightpanda-status`).
 
-- **Agent-Browser CLI & MCP Server (`/usr/bin/agent-browser`)**:
+- **Agent-Browser CLI & MCP Server (`agent-browser`)**:
   - High-performance, token-efficient browser automation suite by Vercel Labs engineered specifically for AI agents (Claude, Gemini, Antigravity, NOMAD).
+  - Managed in user space (e.g. via `mise` or personal harness in `~/.local/bin/agent-browser`), separating user tooling from the immutable OS image layer.
   - **Snapshot + Ref Model**: Captures a condensed accessibility tree with numbered element references (`@e1`, `@e2`), reducing LLM context token consumption by 80–90% compared to raw DOM or bloated HTML dumps.
   - **Dual Mode Execution**:
     - **CLI Mode**: Fast commands chained with `&&` (`agent-browser open <url>`, `agent-browser snapshot -i`, `agent-browser click @e1`, `agent-browser fill @e2 "text"`, `agent-browser screenshot --annotate`, `agent-browser skills get core`).
-    - **MCP Mode**: Stdio JSON-RPC Model Context Protocol server (`agent-browser mcp [--tools <profiles>]`) supporting modular tool profiles (`core` [29 tools], `network`, `state`, `debug`, `tabs`, `react`, `mobile`, `webmcp`, `all`). Seamlessly proxied by token-compression middleware (`caveman-shrink`).
+    - **MCP Mode**: Stdio JSON-RPC Model Context Protocol server (`agent-browser mcp [--tools <profiles>]`) supporting modular tool profiles (`core` [29 tools], `network`, `state`, `debug`, `tabs`, `react`, `mobile`, `webmcp`, `all`).
   - **CDP Matrix Integration (Contract §8)**:
     - Defaults to **Lightpanda** (`127.0.0.1:9225`) for ultra-lightweight, zero-VRAM headless navigation (auto-starts `lightpanda.service` on demand).
-    - Pass `--chrome` to target dedicated Chrome automation profile (`~/.config/google-chrome-cdp`, `:9222`) for visual/extension workflows.
+    - Pass `--chrome` to target dedicated Chrome automation profile (`~/.config/google-chrome-cdp`, `:9222`) via `chrome-cdp`.
     - Pass `--tor` to route traffic anonymously through local Tor proxies (`127.0.0.1:9080` HTTP / `:9050` SOCKS5).
   - **Installation & Resolution Hierarchy**:
-    - Primary executable: Homebrew native Linux x64 binary (`/home/linuxbrew/.linuxbrew/bin/agent-browser`, installed via `npm install -g --allow-scripts=agent-browser agent-browser`).
-    - Fallback resolution: `${HOME}/.local/bin`, `${HOME}/.cargo/bin`, system `PATH`, and `npx`.
+    - Recommended: user-space management via `mise` (`mise use -g npm:agent-browser`) or Homebrew/pnpm/npx in `~/.local/bin`.
 
 - **Browser Automation CDP Matrix (Contract §8)**:
-  - Host overlays in `files/system/usr/bin/{firefox,google-chrome,microsoft-edge}` enforce isolated profiles:
+  - Automation runners managed in user space by `global-harness` (`~/.local/bin/{chrome-cdp,edge-cdp,firefox-cdp}`) enforce isolated profiles:
     - Chrome: `127.0.0.1:9222` (`~/.config/google-chrome-cdp`)
     - Edge: `127.0.0.1:9223` (`~/.config/microsoft-edge-cdp`)
     - Firefox: `127.0.0.1:9224` (`~/.mozilla/firefox-cdp` with `--no-remote`)
-    - Lightpanda: `127.0.0.1:9225` (in-memory, zero profile)
+    - Lightpanda: `127.0.0.1:9225` (in-memory, zero profile, Quadlet service)
   - Unified lifecycle & status: `ujust agent-mesh-up`, `ujust agent-mesh-down`, `ujust agent-mesh-status`, `ujust mesh-status`, `ujust remote-agent-mesh-setup`, `ujust remote-agent-mesh-teardown`, `ujust cdp-matrix-status`.
 
 ### Scripting Conventions

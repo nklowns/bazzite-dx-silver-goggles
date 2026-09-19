@@ -1,7 +1,7 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 name: bazzite-dx-silver-goggles
-description: "Personal DX layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NVIDIA — Slim Edition. Powered by BlueBuild."
+description: "Developer Experience (DX) layer for Dell G15 5520 (i7-12700H / RTX 3060). KDE/NVIDIA — Slim Edition. Powered by BlueBuild."
 
 # Slim Edition Policy: only KDE/NVIDIA variant
 base-image: ghcr.io/ublue-os/bazzite-nvidia

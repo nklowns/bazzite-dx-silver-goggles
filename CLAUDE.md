@@ -1,8 +1,8 @@
 # Bazzite-DX-Silver-Goggles — Core Agent Contract
 
-**Repository Context**: Personal custom image layer targeting Dell G15 5520 (i7-12700H, RTX 3060, KDE/NVIDIA) on Fedora 44 via BlueBuild.
+**Repository Context**: Developer Experience (DX) image layer targeting Dell G15 5520 (i7-12700H, RTX 3060, KDE/NVIDIA) on Fedora 44 via BlueBuild.
 **Upstream Base**: `ghcr.io/ublue-os/bazzite-nvidia` | **Entry Point**: `recipes/recipe.yml`
-**Detailed Architecture & Hardware Reference**: See [`AGENTS.md`](file:///var/home/cloud/dev/personal/os/bazzite-dx-silver-goggles/AGENTS.md) for deep specs, port mappings, and thermal controls.
+**Detailed Architecture & Hardware Reference**: See [`AGENTS.md`](./AGENTS.md) for deep specs, port mappings, and thermal controls.
 
 ## 🛠️ Essential Commands
 - `just check`: Validate syntax, run BlueBuild schema validation, and ShellCheck.

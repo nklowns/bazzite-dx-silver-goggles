@@ -19,7 +19,7 @@
 
 # Architecture & Build Logic
 
-This image follows the **"Personal Customization Layer"** pattern. It extends `bazzite-dx` with hardware-specific logic using a **modular BlueBuild** architecture. While the build structure is declarative, specific branding and system policies are encapsulated in **local imperative modules** for maximum flexibility.
+This image follows the **"Developer Experience (DX) Customization Layer"** pattern. It extends `bazzite-dx` with hardware-specific logic using a **modular BlueBuild** architecture. While the build structure is declarative, specific branding and system policies are encapsulated in **local imperative modules** for maximum flexibility.
 
 ```mermaid
 graph TD

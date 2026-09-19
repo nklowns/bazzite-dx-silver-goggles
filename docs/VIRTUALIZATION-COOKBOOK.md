@@ -67,7 +67,7 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
 
     > [!CAUTION]
     > **Atenção aos Discos Existentes (Perigo de Corrupção):**
-    > Se você deseja reutilizar a instalação do Windows de uma VM antiga (ex: `Niara-windows.25H2.26200.6584`) nesta nova VM (`win11`), **nunca aponte duas definições de VMs ativas para o mesmo arquivo de imagem física `.qcow2`**. Isso causará corrupção de dados catastrófica se ambas forem iniciadas.
+    > Se você deseja reutilizar a instalação do Windows de uma VM antiga (ex: `windows-old`) nesta nova VM (`win11`), **nunca aponte duas definições de VMs ativas para o mesmo arquivo de imagem física `.qcow2`**. Isso causará corrupção de dados catastrófica se ambas forem iniciadas.
     > 
     > Para resolver o erro `Cannot access storage file '/var/lib/libvirt/images/windows-clone.qcow2' (No such file or directory)`, siga uma das estratégias abaixo:
     >
@@ -75,7 +75,7 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     >     Se você não precisa mais da definição da VM antiga:
     >     1. Mova o disco para o novo caminho esperado pelo template:
     >        ```bash
-    >        sudo mv "/var/lib/libvirt/images/Niara-windows.25H2.26200.6584.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
+    >        sudo mv "/var/lib/libvirt/images/windows-old.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
     >        ```
     >     2. Corrija o proprietário do arquivo para o usuário `qemu` do hypervisor:
     >        ```bash
@@ -83,14 +83,14 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     >        ```
     >     3. Delete a definição antiga do libvirt para evitar conflitos (o disco já foi movido e está seguro):
     >        ```bash
-    >        virsh -c qemu:///system undefine Niara-windows.25H2.26200.6584
+    >        virsh -c qemu:///system undefine windows-old
     >        ```
     >
     > *   **Estratégia B: Clone Copy-on-Write (CoW) Instantâneo (Preserva o original como backup)**
     >     Se você deseja manter a VM antiga intocada, mas criar a nova a partir dela de forma imediata:
     >     1. Crie uma imagem de clone fina vinculada à original:
     >        ```bash
-    >        sudo qemu-img create -f qcow2 -F qcow2 -b "/var/lib/libvirt/images/Niara-windows.25H2.26200.6584.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
+    >        sudo qemu-img create -f qcow2 -F qcow2 -b "/var/lib/libvirt/images/windows-old.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
     >        ```
     >     2. Corrija a propriedade do clone:
     >        ```bash
@@ -101,7 +101,7 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
     > *   **Estratégia C: Cópia Completa Independente (Mais segura, consome espaço duplo)**
     >     1. Copie o arquivo de disco fisicamente:
     >        ```bash
-    >        sudo cp "/var/lib/libvirt/images/Niara-windows.25H2.26200.6584.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
+    >        sudo cp "/var/lib/libvirt/images/windows-old.qcow2" /var/lib/libvirt/images/windows-clone.qcow2
     >        ```
     >     2. Corrija a propriedade do clone:
     >        ```bash

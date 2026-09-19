@@ -17,7 +17,7 @@ VERSION_FULL="${BASE_TAG}.$(date +%Y%m%d)"
 # Configuration Exports
 export BASE_IMAGE BASE_TAG BASE_DIGEST REPO_OWNER REVISION VERSION_FULL
 export IMAGE_NAME="bazzite-dx-silver-goggles"
-export IMAGE_DESC="Personal DX layer for Dell G15 5520. KDE/NVIDIA — Slim Edition."
+export IMAGE_DESC="Developer Experience (DX) layer for Dell G15 5520. KDE/NVIDIA — Slim Edition."
 export ARTIFACTHUB_LOGO_URL="https://avatars.githubusercontent.com/u/187439889?s=200&v=4"
 # ostree.linux must describe the kernel shipped in the image, not the build host.
 # Inherit it from the pinned base image; fall back to the label being omitted.
