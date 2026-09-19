@@ -328,15 +328,15 @@ dx-workspace-remove target_dir="":
 dx-sync-ide-keybindings:
     #!/usr/bin/env bash
     set -euo pipefail
-    HOOK="/usr/share/ublue-os/user-setup.hooks.d/35-ide-terminal-keybindings.sh"
-    if [[ ! -f "$HOOK" ]]; then
-        HOOK="{{ justfile_directory() }}/../system/usr/share/ublue-os/user-setup.hooks.d/35-ide-terminal-keybindings.sh"
+    SCRIPT="/usr/libexec/bazzite-dx-ide-keybindings"
+    if [[ ! -x "$SCRIPT" ]]; then
+        SCRIPT="{{ justfile_directory() }}/../system/usr/libexec/bazzite-dx-ide-keybindings"
     fi
-    if [[ -f "$HOOK" ]]; then
+    if [[ -x "$SCRIPT" ]]; then
         echo "🔄 Sincronizando atalhos de terminal e configurações de IDEs..."
-        bash "$HOOK" --force
+        "$SCRIPT"
         echo "✅ Atalhos e configurações de IDE sincronizados com sucesso."
     else
-        echo "❌ Script de sincronização de atalhos não encontrado: $HOOK"
+        echo "❌ Script de sincronização de atalhos não encontrado: $SCRIPT"
         exit 1
     fi

@@ -71,7 +71,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/icons/hicolor/512x512/apps/vscode-insiders.png|Asset: VSCode Insiders System Icon|Error"
 	"file|/usr/share/icons/hicolor/512x512/apps/cursor.png|Asset: Cursor System Icon|Error"
 	"file|/usr/share/icons/hicolor/512x512/apps/zed.png|Asset: Zed System Icon|Error"
-	"file|/usr/share/ublue-os/user-setup.hooks.d/35-ide-terminal-keybindings.sh|UX: IDE Terminal Keybindings Hook|Error"
+	"file|/usr/libexec/bazzite-dx-ide-keybindings|Asset: IDE Terminal Keybindings Script|Error"
 	"file|/usr/share/ublue-os/user-setup.hooks.d/55-krunner-dx-defaults.sh|UX: KRunner DX Favorites Hook|Error"
 	"file|/usr/lib/systemd/user-environment-generators/10-ostree-canonical-home.sh|Policy: OSTree Canonical HOME Generator|Error"
 
