@@ -102,7 +102,6 @@ readonly AUDIT_REGISTRY=(
 	"file|/etc/containers/systemd/users/nomad-searxng.container|Asset: SearXNG Quadlet|Error"
 	"file|/etc/containers/systemd/users/nomad-vane.container|Asset: Vane AI Search Quadlet|Error"
 	"file|/etc/containers/systemd/users/nomad-tor.container|Asset: Tor SOCKS5 Quadlet|Error"
-	"file|/etc/containers/systemd/users/nomad-yacy.container|Asset: YaCy P2P Quadlet|Error"
 	"file|/etc/containers/systemd/users/nomad-trawl.container|Asset: Trawl Anti-Captcha Quadlet|Error"
 	"file|/etc/containers/systemd/users/nomad-i2pd.container|Asset: I2P Daemon Quadlet|Error"
 	"file|/etc/containers/systemd/users/nomad-recoll.container|Asset: Recoll Local Workspace Quadlet|Error"

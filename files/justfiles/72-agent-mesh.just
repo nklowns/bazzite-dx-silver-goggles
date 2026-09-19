@@ -323,37 +323,6 @@ i2p-status:
 i2p-logs:
     journalctl --user -u nomad-i2pd.service -f
 
-# 🕸️ Iniciar o nó local YaCy P2P (:8090)
-[group('Agent Mesh')]
-yacy-up:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p /var/srv/yacy/DATA
-    systemctl --user daemon-reload
-    systemctl --user start nomad-yacy.service
-    echo "✅ YaCy P2P local node ativo em http://localhost:8090"
-
-# 🛑 Parar o nó local YaCy P2P
-[group('Agent Mesh')]
-yacy-down:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    systemctl --user stop nomad-yacy.service
-    echo "🛑 YaCy P2P local node desativado."
-
-# 📊 Diagnóstico do nó local YaCy P2P
-[group('Agent Mesh')]
-yacy-status:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-yacy.service 2>/dev/null || true)
-    printf '%-16s %s\n' "yacy-node:" "${STATE:-inactive}"
-    if ss -tln 2>/dev/null | grep -q ':8090 '; then
-        echo "  Porta 8090: ABERTA (http://127.0.0.1:8090)"
-    else
-        echo "  Porta 8090: fechada"
-    fi
-
 # 🪝 Iniciar o motor Trawl Anti-Captcha & Scraper (:8191 / :8192)
 [group('Agent Mesh')]
 trawl-up:
@@ -395,28 +364,45 @@ trawl-status:
 trawl-logs:
     journalctl --user -u nomad-trawl.service -f
 
-# 🚀 Iniciar a suíte completa da Agent Mesh (SearXNG + Vane + Lightpanda)
+# 🚀 Iniciar a suíte completa da Agent Mesh (Tor + I2P + Trawl + SearXNG + Recoll + Vane + Lightpanda)
 [group('Agent Mesh')]
 agent-mesh-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "🔍 Iniciando SearXNG..."
+    echo "🧅 [1/7] Iniciando Tor Proxy (:9050)..."
+    ujust tor-up
+    echo "🌌 [2/7] Iniciando I2P Daemon (:4444)..."
+    ujust i2p-up
+    echo "🪝 [3/7] Iniciando Trawl Anti-Bot Solver (:8191)..."
+    ujust trawl-up
+    echo "🔍 [4/7] Iniciando SearXNG Metasearch (:61387)..."
     ujust searxng-up
-    echo "🧠 Iniciando Vane..."
+    echo "📁 [5/7] Iniciando Recoll Workspace Search (:61389)..."
+    ujust recoll-up
+    echo "🧠 [6/7] Iniciando Vane AI Research (:61385)..."
     ujust vane-up
-    echo "🐼 Iniciando Lightpanda CDP..."
+    echo "🐼 [7/7] Iniciando Lightpanda CDP Server (:9225)..."
     ujust lightpanda-up
-    echo "✅ Suíte Agent Mesh ativa."
+    echo "═══════════════════════════════════════════════════════════════════"
+    echo "✅ Toda a infraestrutura Agent Mesh está ativa e sincronizada."
+    echo "═══════════════════════════════════════════════════════════════════"
 
 # 🛑 Parar a suíte completa da Agent Mesh
 [group('Agent Mesh')]
 agent-mesh-down:
     #!/usr/bin/env bash
     set -uo pipefail
+    echo "Parando toda a suíte Agent Mesh..."
     ujust vane-down
+    ujust recoll-down
     ujust searxng-down
+    ujust trawl-down
+    ujust i2p-down
+    ujust tor-down
     ujust lightpanda-down
-    echo "🛑 Suíte Agent Mesh desativada."
+    echo "═══════════════════════════════════════════════════════════════════"
+    echo "🛑 Toda a infraestrutura Agent Mesh foi desativada."
+    echo "═══════════════════════════════════════════════════════════════════"
 
 # 🔒 Expor a suíte Agent Mesh com TLS via Tailscale Serve (SearXNG :61387 + Vane :61385)
 [group('Agent Mesh')]
@@ -560,8 +546,6 @@ agent-mesh-status:
     ujust i2p-status
     echo
     ujust recoll-status
-    echo
-    ujust yacy-status
     echo
     ujust vane-status
     echo

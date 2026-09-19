@@ -295,7 +295,7 @@ security-audit:
 
     echo
     echo "=== 7. Armazenamento de Bancos de Dados & Chaves Privadas (/var/srv) ==="
-    for srv_dir in /var/srv/nomad/mysql /var/srv/nomad/redis /var/srv/nomad/ollama /var/srv/i2pd/data /var/srv/recoll/xapiandb /var/srv/yacy/DATA /var/srv/vane/data /var/srv/rustdesk; do
+    for srv_dir in /var/srv/nomad/mysql /var/srv/nomad/redis /var/srv/nomad/ollama /var/srv/i2pd/data /var/srv/recoll/xapiandb /var/srv/vane/data /var/srv/rustdesk; do
         [ -d "$srv_dir" ] || continue
         if lsattr -d "$srv_dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
             echo "  ✅ $srv_dir: btrfs nodatacow (+C ativo)"

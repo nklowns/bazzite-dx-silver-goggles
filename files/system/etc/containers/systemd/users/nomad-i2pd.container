@@ -21,8 +21,8 @@ NetworkAlias=i2pd
 # Resource bounds per Workstation & Gaming Policy
 Memory=512M
 
-# Arguments: Client-only mode, low bandwidth, loopback proxy listeners
-Exec=--notransit --bandwidth=L --http.address=0.0.0.0 --http.port=7070 --http.strictheaders=0 --httpproxy.address=0.0.0.0 --httpproxy.port=4444 --socksproxy.address=0.0.0.0 --socksproxy.port=4447
+# Arguments: Client-only mode, low bandwidth, loopback proxy listeners, active addressbook subscription
+Exec=--notransit --bandwidth=L --http.address=0.0.0.0 --http.port=7070 --http.strictheaders=0 --httpproxy.address=0.0.0.0 --httpproxy.port=4444 --socksproxy.address=0.0.0.0 --socksproxy.port=4447 --addressbook.subscriptions=http://stats.i2p/cgi-bin/newhosts.txt
 
 # Loopback binding per workstation security policy
 PublishPort=127.0.0.1:4444:4444

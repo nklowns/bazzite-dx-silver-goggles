@@ -8,7 +8,7 @@
 # 2. Dev & IT (:!it): github, gitlab, stackoverflow, arch linux wiki, pypi, npm, crates.io, docker hub, repology, nvd, huggingface
 # 3. Science (:!science): arxiv, semantic scholar, annas archive
 # 4. Indie & Small Web (:!indie): marginalia, neocities, mwmbl
-# 5. P2P (:!p2p): mwmbl, yacy (remote public pool + optional local node http://yacy:8090)
+# 5. P2P (:!p2p): mwmbl, yacy (remote public pool https://yacy.searchlab.eu)
 # 6. Onions (:!onions): ahmia via internal Tor proxy (socks5h://tor:9050)
 # 7. Web Histórica & Arquivos (:!archive): openlibrary, loc, annas archive
 # ==============================================================================
@@ -277,13 +277,11 @@ engines:
 
   - name: yacy
     engine: yacy
-    categories: [p2p, general]
+    categories: [p2p]
     enable_http: true
     disabled: false
     timeout: 12.0
-    base_url:
-      - http://yacy:8090
-      - https://yacy.searchlab.eu
+    base_url: https://yacy.searchlab.eu
 
   # ==========================================
   # ESFERA 6: DARKNET & PRIVACIDADE (:!onions)
