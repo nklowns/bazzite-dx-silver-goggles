@@ -8,7 +8,7 @@
 # Lingering is on, so an enabled user unit starts at BOOT without login.
 # Every recipe below therefore starts and stops on demand.
 #
-# BROWSER AUTOMATION CDP MATRIX (os-fedora-silverblue.md §8):
+# BROWSER AUTOMATION CDP MATRIX (fixed port convention, bring-your-own runners):
 # - chrome-cdp:  127.0.0.1:9222 (~/.config/google-chrome-cdp)
 # - edge-cdp:    127.0.0.1:9223 (~/.config/microsoft-edge-cdp)
 # - firefox-cdp: 127.0.0.1:9224 (~/.mozilla/firefox-cdp)
@@ -611,12 +611,12 @@ searxng-canary:
 
 alias mesh-canary := searxng-canary
 
-# 📊 Status consolidado da Matriz CDP (os-fedora-silverblue.md §8)
+# 📊 Status consolidado da Matriz CDP
 [group('Agent Mesh')]
 cdp-matrix-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    echo "=== 🌐 BROWSER AUTOMATION CDP MATRIX (Contract §8) ==="
+    echo "=== 🌐 BROWSER AUTOMATION CDP MATRIX ==="
     check_port() {
         local name="$1"
         local port="$2"

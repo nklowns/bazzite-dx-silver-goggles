@@ -1,6 +1,6 @@
 # Lightpanda — Ultra-fast Headless Browser (CDP :9225)
 #
-# Part of the Host Browser CDP Matrix (os-fedora-silverblue.md §8).
+# Part of the Host Browser CDP Matrix (fixed port convention, see 72-agent-mesh.just).
 # Built in Zig specifically for AI agents, web scraping, and LLM automation.
 # Publishes CDP WebSocket directly to 127.0.0.1:9225.
 #

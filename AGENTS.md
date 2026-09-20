@@ -247,36 +247,14 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
   - Tailscale-first: `ujust remote-recoll-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61389`.
   - Recipes: `72-agent-mesh.just` (`ujust recoll-up`, `ujust recoll-down`, `ujust recoll-index`, `ujust recoll-status`, `ujust remote-recoll-setup`, `ujust remote-recoll-teardown`).
 
-- **Internet Archive CLI (`ia`)**:
-  - User-space CLI managed via `uv tool install internetarchive` in `~/.local/bin/ia`.
-
 - **Lightpanda Headless Browser CDP (`lightpanda.container`, Port :9225)**:
   - Ultra-lightweight Zig/C++ headless browser (< 20 MB RAM vs 500 MB+ for Chrome/Chromium).
   - Listens on `127.0.0.1:9225` (CDP WebSocket `ws://127.0.0.1:9225`).
-  - Integrated with browser automation and agents for fast deterministic accessibility tree inspection (`@e1`, `@e2`).
   - Recipes: `72-agent-mesh.just` (`ujust lightpanda-up`, `ujust lightpanda-down`, `ujust lightpanda-status`).
 
-- **Agent-Browser CLI & MCP Server (`agent-browser`)**:
-  - High-performance, token-efficient browser automation suite by Vercel Labs engineered specifically for AI agents (Claude, Gemini, Antigravity, NOMAD).
-  - Managed in user space (e.g. via `mise` or personal harness in `~/.local/bin/agent-browser`), separating user tooling from the immutable OS image layer.
-  - **Snapshot + Ref Model**: Captures a condensed accessibility tree with numbered element references (`@e1`, `@e2`), reducing LLM context token consumption by 80–90% compared to raw DOM or bloated HTML dumps.
-  - **Dual Mode Execution**:
-    - **CLI Mode**: Fast commands chained with `&&` (`agent-browser open <url>`, `agent-browser snapshot -i`, `agent-browser click @e1`, `agent-browser fill @e2 "text"`, `agent-browser screenshot --annotate`, `agent-browser skills get core`).
-    - **MCP Mode**: Stdio JSON-RPC Model Context Protocol server (`agent-browser mcp [--tools <profiles>]`) supporting modular tool profiles (`core` [29 tools], `network`, `state`, `debug`, `tabs`, `react`, `mobile`, `webmcp`, `all`).
-  - **CDP Matrix Integration (Contract §8)**:
-    - Defaults to **Lightpanda** (`127.0.0.1:9225`) for ultra-lightweight, zero-VRAM headless navigation (auto-starts `lightpanda.service` on demand).
-    - Pass `--chrome` to target dedicated Chrome automation profile (`~/.config/google-chrome-cdp`, `:9222`) via `chrome-cdp`.
-    - Pass `--tor` to route traffic anonymously through local Tor proxies (`127.0.0.1:9080` HTTP / `:9050` SOCKS5).
-  - **Installation & Resolution Hierarchy**:
-    - Recommended: user-space management via `mise` (`mise use -g npm:agent-browser`) or Homebrew/pnpm/npx in `~/.local/bin`.
-
-- **Browser Automation CDP Matrix (Contract §8)**:
-  - Automation runners managed in user space by `global-harness` (`~/.local/bin/{chrome-cdp,edge-cdp,firefox-cdp}`) enforce isolated profiles:
-    - Chrome: `127.0.0.1:9222` (`~/.config/google-chrome-cdp`)
-    - Edge: `127.0.0.1:9223` (`~/.config/microsoft-edge-cdp`)
-    - Firefox: `127.0.0.1:9224` (`~/.mozilla/firefox-cdp` with `--no-remote`)
-    - Lightpanda: `127.0.0.1:9225` (in-memory, zero profile, Quadlet service)
-  - Unified lifecycle & status: `ujust agent-mesh-up`, `ujust agent-mesh-down`, `ujust agent-mesh-status`, `ujust mesh-status`, `ujust remote-agent-mesh-setup`, `ujust remote-agent-mesh-teardown`, `ujust cdp-matrix-status`.
+- **Agent Mesh lifecycle**:
+  - Unified lifecycle across the mesh services above: `ujust agent-mesh-up`, `ujust agent-mesh-down`, `ujust agent-mesh-status`, `ujust mesh-status`, `ujust remote-agent-mesh-setup`, `ujust remote-agent-mesh-teardown`, `ujust cdp-matrix-status`.
+  - Client tooling on top of these services (`agent-browser`, `ia`, non-Lightpanda CDP browser profiles) is not shipped by this image — bring your own via user-space install (Homebrew, dotfiles, or your own agent config layer).
 
 ### Scripting Conventions
 

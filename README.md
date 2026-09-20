@@ -158,7 +158,7 @@ So GPU inference runs as its own unit with a real CDI device, and NOMAD is point
 http://ollama:11434
 ```
 
-That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Then `ujust ollama-pull-models` fetches models sized for 6 GB of VRAM (`llama3.2:3b`, `qwen2.5-coder:7b`, and `nomic-embed-text`, which is what the RAG indexer uses).
+That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Note that `OllamaService` speaks Ollama's native API (`/api/generate`), not the OpenAI-compatible `/v1/*` surface — so this field is Ollama-specific, not a generic "point at any local LLM" slot. If you run an alternative backend (e.g. llama.cpp/llama-swap installed on your own via Homebrew) it won't drop in here unless it speaks the same native protocol. Then `ujust ollama-pull-models` fetches models sized for 6 GB of VRAM (`llama3.2:3b`, `qwen2.5-coder:7b`, and `nomic-embed-text`, which is what the RAG indexer uses).
 
 ### The Supply Depot will say "AI Assistant — Stopped". Leave it stopped.
 

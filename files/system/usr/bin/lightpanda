@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # lightpanda: Host overlay wrapper for Lightpanda Headless Browser
-# Runtime contract: os-fedora-silverblue.md §8 (Fixed Port 9225)
+# Runtime contract: fixed port 9225 (see 72-agent-mesh.just CDP matrix)
 # ==============================================================================
 set -euo pipefail
 

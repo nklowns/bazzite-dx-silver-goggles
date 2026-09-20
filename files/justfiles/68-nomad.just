@@ -174,6 +174,9 @@ ollama-up:
     echo "   Settings → AI → base URL remota  =  http://ollama:11434"
     echo "(grava a chave KVStore 'ai.remoteOllamaUrl'; sem ela o NOMAD procura o app do"
     echo " Supply Depot, que nesta imagem roda sem GPU — ver nomad-ollama.container)"
+    echo "Nota: esse campo fala o protocolo nativo do Ollama (/api/generate), não é"
+    echo "genérico OpenAI-compat — backends alternativos (ex. llama-swap) só servem"
+    echo "aqui se expuserem a mesma API."
 
 # 🛑 Parar o Ollama e liberar a VRAM
 [group('NOMAD')]
