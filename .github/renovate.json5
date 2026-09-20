@@ -158,12 +158,12 @@
     {
       description: 'Auto-update and batch Agent Mesh container digests in Quadlet units',
       matchFileNames: [
-        'files/system/etc/containers/systemd/users/nomad-searxng.container',
-        'files/system/etc/containers/systemd/users/nomad-vane.container',
-        'files/system/etc/containers/systemd/users/nomad-tor.container',
-        'files/system/etc/containers/systemd/users/nomad-trawl.container',
-        'files/system/etc/containers/systemd/users/nomad-i2pd.container',
-        'files/system/etc/containers/systemd/users/nomad-recoll.container',
+        'files/system/etc/containers/systemd/users/mesh-searxng.container',
+        'files/system/etc/containers/systemd/users/mesh-vane.container',
+        'files/system/etc/containers/systemd/users/mesh-tor.container',
+        'files/system/etc/containers/systemd/users/mesh-trawl.container',
+        'files/system/etc/containers/systemd/users/mesh-i2pd.container',
+        'files/system/etc/containers/systemd/users/mesh-recoll.container',
         'files/system/etc/containers/systemd/users/lightpanda.container',
       ],
       matchUpdateTypes: [

@@ -204,46 +204,46 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
 
 The Agent Mesh integrates privacy-respecting search, web intelligence, and headless automation for AI agents (Claude, Gemini, NOMAD) following a strict **Tailscale-first** and **KISS Delegation** approach. Client tools, MCP servers, and governance policies are managed in user space (e.g. via personal harness or dotfiles), decoupling agent consumption from the host OS image.
 
-- **SearXNG Metasearch (`nomad-searxng.container`, Port :61387)**:
+- **SearXNG Metasearch (`mesh-searxng.container`, Port :61387)**:
   - Aggregates 9 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `i2p` (I2P Search, Legwork via i2pd), `archive` (OpenLibrary, Z-Library, Library of Congress), `local` (Recoll Xapian index of user workspaces and `~/Documents`).
   - JSON API enabled for programmatic agent queries (`format=json`).
   - Native Wayback Machine integration: `ui.cache_url: https://web.archive.org/web/` for all cached links.
   - Tailscale-first: `ujust remote-searxng-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
   - Recipes: `72-agent-mesh.just` (`ujust searxng-up`, `ujust searxng-down`, `ujust searxng-status`, `ujust remote-searxng-setup`, `ujust remote-searxng-teardown`).
 
-- **Vane AI Search & Research (`nomad-vane.container`, Port :61385)**:
+- **Vane AI Search & Research (`mesh-vane.container`, Port :61385)**:
   - Perplexica fork powered by local Ollama LLMs and SearXNG metasearch.
   - Bounds: `Memory=1.5G` ceiling enforced. Auto-starts Ollama GPU dependencies on `ujust vane-up`.
   - Tailscale-first: `ujust remote-vane-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61385`.
   - Recipes: `72-agent-mesh.just` (`ujust vane-up`, `ujust vane-down`, `ujust vane-status`, `ujust remote-vane-setup`, `ujust remote-vane-teardown`).
 
-- **Trawl Anti-Bot Solver (`nomad-trawl.container`, Port :8191 / :8192)**:
+- **Trawl Anti-Bot Solver (`mesh-trawl.container`, Port :8191 / :8192)**:
   - Cloudflare Turnstile, DDoS-Guard & WAF bypass engine powered by Camoufox Firefox + Whisper STT audio solver.
   - Standby by default (0 MB cold-boot). Auto-started transparently or via `ujust trawl-up`.
   - Session and clearance cookie persistence via Redis DB 2 (`nomad-redis:6379/2`).
   - Recipes: `72-agent-mesh.just` (`ujust trawl-up`, `ujust trawl-down`, `ujust trawl-status`, `ujust trawl-logs`).
 
-- **Tor SOCKS5 Proxy (`nomad-tor.container`, Port :9050 / :9080)**:
+- **Tor SOCKS5 Proxy (`mesh-tor.container`, Port :9050 / :9080)**:
   - Ultra-lightweight Alpine Tor daemon (~25 MB RAM).
   - Loopback SOCKS5 on `127.0.0.1:9050` and HTTP tunnel on `127.0.0.1:9080`.
   - Provides strict isolation for `.onion` queries in SearXNG and anonymous scraping in darknets.
 
-- **I2P C++ Router (`nomad-i2pd.container`, Port :4444 / :4447 / :7070)**:
+- **I2P C++ Router (`mesh-i2pd.container`, Port :4444 / :4447 / :7070)**:
   - Ultra-lightweight i2pd router (~8-15 MB RAM, low-bandwidth client profile with transit relay disabled `--notransit`).
   - Loopback HTTP proxy on `127.0.0.1:4444`, SOCKS on `127.0.0.1:4447`, and web console on `127.0.0.1:7070`.
   - Provides isolation for `.i2p` darknet queries in SearXNG (`:i2p` sphere) and anonymous scraping.
   - Recipes: `72-agent-mesh.just` (`ujust i2p-up`, `ujust i2p-down`, `ujust i2p-status`, `ujust i2p-logs`).
 
-- **Recoll Local Workspace Search (`nomad-recoll.container`, Port :61389)**:
+- **Recoll Local Workspace Search (`mesh-recoll.container`, Port :61389)**:
   - Headless Recoll WebUI JSON API powered by Xapian full-text indexing engine.
   - **Unopinionated Base Image vs Personal Workspaces (Strict Architecture Policy)**:
     - The OS image layer (`files/system/...`) is strictly generic and unopinionated: it mounts only canonical XDG paths (`~/Documents`) read-only (`:ro`). Never hardcode personal paths into image Quadlets or system units.
     - Developer workspaces are registered dynamically via `ujust dx-workspace-add <path>` / `ujust dx-workspace-remove <path>` (persisted in `~/.config/bazzite-dx/workspaces.dirs`).
-    - `ujust dx-workspace-add` maintains a declarative user Quadlet drop-in at `~/.config/containers/systemd/nomad-recoll.container.d/10-workspaces.conf` (`Volume=<path>:/export/<name>:ro`), reloads the systemd daemon, and updates `topdirs` in `~/.config/recoll/recoll.conf`.
+    - `ujust dx-workspace-add` maintains a declarative user Quadlet drop-in at `~/.config/containers/systemd/mesh-recoll.container.d/10-workspaces.conf` (`Volume=<path>:/export/<name>:ro`), reloads the systemd daemon, and updates `topdirs` in `~/.config/recoll/recoll.conf`.
     - Dynamic indexer (`ujust recoll-index`) dynamically mounts all registered paths for incremental indexing alongside `~/Documents`.
   - Exclusion & Noise Control: `skippedNames` in `recoll.conf` filters noise directories (`vendor`, `fuzz`, `corpora`, `roms`, `node_modules`, `build`, caches) and credentials (`.env*`, `*.key`, `*.pem`, secrets).
   - Standby by default (0 MB cold-boot). Auto-started transparently on `:local` search or via `ujust recoll-up`.
-  - Nightly indexer scheduled at 04:00 AM (`nomad-recoll-index.timer`, `Nice=19`, `IOSchedulingClass=idle`, `CPUQuota=40%`).
+  - Nightly indexer scheduled at 04:00 AM (`mesh-recoll-index.timer`, `Nice=19`, `IOSchedulingClass=idle`, `CPUQuota=40%`).
   - Tailscale-first: `ujust remote-recoll-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61389`.
   - Recipes: `72-agent-mesh.just` (`ujust recoll-up`, `ujust recoll-down`, `ujust recoll-index`, `ujust recoll-status`, `ujust remote-recoll-setup`, `ujust remote-recoll-teardown`).
 

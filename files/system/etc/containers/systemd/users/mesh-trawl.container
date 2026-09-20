@@ -15,7 +15,7 @@ StartLimitBurst=5
 
 [Container]
 Image=ghcr.io/germondai/trawl:latest@sha256:fc39225a890a40b64ac65731dddd66e52f83fc9c20b54b7ed87c6cecdf355b13
-ContainerName=nomad_trawl
+ContainerName=mesh_trawl
 Network=project-nomad_default.network
 NetworkAlias=trawl
 

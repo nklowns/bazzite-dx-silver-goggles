@@ -11,12 +11,12 @@
 Description=SearXNG Metasearch Engine (Agent Mesh)
 StartLimitIntervalSec=300
 StartLimitBurst=5
-Wants=nomad-redis.service nomad-tor.service nomad-trawl.service
-After=nomad-redis.service nomad-tor.service nomad-trawl.service
+Wants=nomad-redis.service mesh-tor.service mesh-trawl.service
+After=nomad-redis.service mesh-tor.service mesh-trawl.service
 
 [Container]
 Image=docker.io/searxng/searxng:latest@sha256:f1aca3f61c7ff4552b8d54c0ab7fb458e907b78f51c503210cf450c900adca2c
-ContainerName=nomad_searxng
+ContainerName=mesh_searxng
 Network=project-nomad_default.network
 NetworkAlias=searxng
 

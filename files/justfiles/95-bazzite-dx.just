@@ -234,8 +234,8 @@ dx-workspace-add target_dir="":
         fi
     fi
 
-    # Sync Quadlet drop-in for nomad-recoll so WebUI container mounts registered workspaces
-    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-recoll.container.d"
+    # Sync Quadlet drop-in for mesh-recoll so WebUI container mounts registered workspaces
+    DROPIN_DIR="$HOME/.config/containers/systemd/mesh-recoll.container.d"
     DROPIN_FILE="$DROPIN_DIR/10-workspaces.conf"
     mkdir -p "$DROPIN_DIR"
     echo "# Declarative workspace mounts generated from ~/.config/bazzite-dx/workspaces.dirs" > "$DROPIN_FILE"
@@ -295,8 +295,8 @@ dx-workspace-remove target_dir="":
     sed -i "\|^$TARGET\$|d" "$CFG_FILE"
     echo "🗑️ Removed $TARGET from $CFG_FILE"
 
-    # Sync Quadlet drop-in for nomad-recoll
-    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-recoll.container.d"
+    # Sync Quadlet drop-in for mesh-recoll
+    DROPIN_DIR="$HOME/.config/containers/systemd/mesh-recoll.container.d"
     DROPIN_FILE="$DROPIN_DIR/10-workspaces.conf"
     RECOLL_TOPDIRS="/export/Documents"
     if [[ -s "$CFG_FILE" ]]; then

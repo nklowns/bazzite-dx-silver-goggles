@@ -14,7 +14,7 @@ StartLimitBurst=5
 
 [Container]
 Image=docker.io/purplei2p/i2pd:latest@sha256:ba2ba3a50eed1e8b8d72c8be07deb40a9907ca5d66432c4318019a81bb40e6c7
-ContainerName=nomad_i2pd
+ContainerName=mesh_i2pd
 Network=project-nomad_default.network
 NetworkAlias=i2pd
 

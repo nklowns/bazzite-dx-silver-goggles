@@ -22,7 +22,7 @@ searxng-up:
     set -euo pipefail
     /usr/libexec/agent-mesh-bootstrap-env
     systemctl --user daemon-reload
-    systemctl --user start nomad-searxng.service
+    systemctl --user start mesh-searxng.service
     echo "✅ SearXNG ativo em http://localhost:61387"
     echo "   API JSON: http://localhost:61387/search?q=query&format=json"
     echo "   Para expor remotamente no Tailscale com TLS: ujust remote-searxng-setup"
@@ -32,7 +32,7 @@ searxng-up:
 searxng-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user stop nomad-searxng.service
+    systemctl --user stop mesh-searxng.service
     echo "🛑 SearXNG desativado."
 
 # 📊 Diagnóstico do SearXNG
@@ -40,8 +40,8 @@ searxng-down:
 searxng-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-searxng.service 2>/dev/null || true)
-    if [[ -f "$HOME/.config/containers/systemd/nomad-searxng.container.d/10-autostart.conf" ]]; then
+    STATE=$(systemctl --user is-active mesh-searxng.service 2>/dev/null || true)
+    if [[ -f "$HOME/.config/containers/systemd/mesh-searxng.container.d/10-autostart.conf" ]]; then
         BOOT="enabled"
     else
         BOOT="disabled"
@@ -64,11 +64,11 @@ searxng-status:
 searxng-enable-boot:
     #!/usr/bin/env bash
     set -euo pipefail
-    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-searxng.container.d"
+    DROPIN_DIR="$HOME/.config/containers/systemd/mesh-searxng.container.d"
     mkdir -p "$DROPIN_DIR"
     printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
     systemctl --user daemon-reload
-    systemctl --user restart nomad-searxng.service
+    systemctl --user restart mesh-searxng.service
     echo "⚡ SearXNG configurado para iniciar automaticamente no boot."
 
 # 🔌 Desabilitar SearXNG do boot
@@ -76,8 +76,8 @@ searxng-enable-boot:
 searxng-disable-boot:
     #!/usr/bin/env bash
     set -uo pipefail
-    rm -f "$HOME/.config/containers/systemd/nomad-searxng.container.d/10-autostart.conf"
-    rmdir "$HOME/.config/containers/systemd/nomad-searxng.container.d" 2>/dev/null || true
+    rm -f "$HOME/.config/containers/systemd/mesh-searxng.container.d/10-autostart.conf"
+    rmdir "$HOME/.config/containers/systemd/mesh-searxng.container.d" 2>/dev/null || true
     systemctl --user daemon-reload
     echo "🔌 SearXNG removido do boot automático."
 
@@ -86,7 +86,7 @@ searxng-disable-boot:
 remote-searxng-setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! systemctl --user is-active --quiet nomad-searxng.service; then
+    if ! systemctl --user is-active --quiet mesh-searxng.service; then
         echo "❌ SearXNG não está rodando. Rode 'ujust searxng-up' primeiro."
         exit 1
     fi
@@ -110,9 +110,9 @@ vane-up:
     set -euo pipefail
     /usr/libexec/agent-mesh-bootstrap-env
     # Se o SearXNG não estiver ativo, avisa e inicia
-    if ! systemctl --user is-active --quiet nomad-searxng.service; then
+    if ! systemctl --user is-active --quiet mesh-searxng.service; then
         echo "Iniciando dependência de pesquisa (SearXNG)..."
-        systemctl --user start nomad-searxng.service
+        systemctl --user start mesh-searxng.service
     fi
     # Se o Ollama GPU não estiver ativo, avisa e inicia
     if ! systemctl --user is-active --quiet nomad-ollama.service; then
@@ -120,7 +120,7 @@ vane-up:
         systemctl --user start nomad-ollama.service
     fi
     systemctl --user daemon-reload
-    systemctl --user start nomad-vane.service
+    systemctl --user start mesh-vane.service
     echo "✅ Vane ativo em http://localhost:61385"
     echo "   Para expor remotamente no Tailscale com TLS: ujust remote-vane-setup"
 
@@ -131,7 +131,7 @@ alias perplexica-up := vane-up
 vane-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user stop nomad-vane.service
+    systemctl --user stop mesh-vane.service
     echo "🛑 Vane desativado."
     if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null; then
         echo "💡 Ollama GPU ainda está ativo segurando VRAM da NVIDIA. Para liberar memória de vídeo: ujust ollama-down"
@@ -144,8 +144,8 @@ alias perplexica-down := vane-down
 vane-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-vane.service 2>/dev/null || true)
-    if [[ -f "$HOME/.config/containers/systemd/nomad-vane.container.d/10-autostart.conf" ]]; then
+    STATE=$(systemctl --user is-active mesh-vane.service 2>/dev/null || true)
+    if [[ -f "$HOME/.config/containers/systemd/mesh-vane.container.d/10-autostart.conf" ]]; then
         BOOT="enabled"
     else
         BOOT="disabled"
@@ -170,11 +170,11 @@ alias perplexica-status := vane-status
 vane-enable-boot:
     #!/usr/bin/env bash
     set -euo pipefail
-    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-vane.container.d"
+    DROPIN_DIR="$HOME/.config/containers/systemd/mesh-vane.container.d"
     mkdir -p "$DROPIN_DIR"
     printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
     systemctl --user daemon-reload
-    systemctl --user restart nomad-vane.service
+    systemctl --user restart mesh-vane.service
     echo "⚡ Vane configurado para iniciar automaticamente no boot."
 
 # 🔌 Desabilitar Vane do boot
@@ -182,8 +182,8 @@ vane-enable-boot:
 vane-disable-boot:
     #!/usr/bin/env bash
     set -uo pipefail
-    rm -f "$HOME/.config/containers/systemd/nomad-vane.container.d/10-autostart.conf"
-    rmdir "$HOME/.config/containers/systemd/nomad-vane.container.d" 2>/dev/null || true
+    rm -f "$HOME/.config/containers/systemd/mesh-vane.container.d/10-autostart.conf"
+    rmdir "$HOME/.config/containers/systemd/mesh-vane.container.d" 2>/dev/null || true
     systemctl --user daemon-reload
     echo "🔌 Vane removido do boot automático."
 
@@ -192,7 +192,7 @@ vane-disable-boot:
 remote-vane-setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! systemctl --user is-active --quiet nomad-vane.service; then
+    if ! systemctl --user is-active --quiet mesh-vane.service; then
         echo "❌ Vane não está rodando. Rode 'ujust vane-up' primeiro."
         exit 1
     fi
@@ -250,7 +250,7 @@ tor-up:
     #!/usr/bin/env bash
     set -euo pipefail
     systemctl --user daemon-reload
-    systemctl --user start nomad-tor.service
+    systemctl --user start mesh-tor.service
     echo "✅ Tor SOCKS5 Proxy ativo em 127.0.0.1:9050"
 
 # 🛑 Parar o Tor SOCKS5 Proxy
@@ -258,7 +258,7 @@ tor-up:
 tor-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user stop nomad-tor.service
+    systemctl --user stop mesh-tor.service
     echo "🛑 Tor SOCKS5 Proxy desativado."
 
 # 📊 Diagnóstico do Tor SOCKS5 Proxy
@@ -266,7 +266,7 @@ tor-down:
 tor-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-tor.service 2>/dev/null || true)
+    STATE=$(systemctl --user is-active mesh-tor.service 2>/dev/null || true)
     printf '%-16s %s\n' "tor-proxy:" "${STATE:-inactive}"
     if ss -tln 2>/dev/null | grep -q ':9050 '; then
         echo "  Porta 9050: ABERTA (socks5://127.0.0.1:9050)"
@@ -281,7 +281,7 @@ i2p-up:
     set -euo pipefail
     mkdir -p /var/srv/i2pd/data
     systemctl --user daemon-reload
-    systemctl --user start nomad-i2pd.service
+    systemctl --user start mesh-i2pd.service
     echo "✅ I2P Client Daemon ativo."
     echo "   Proxy HTTP (Eepsites): http://127.0.0.1:4444"
     echo "   Proxy SOCKS5:          socks5://127.0.0.1:4447"
@@ -292,7 +292,7 @@ i2p-up:
 i2p-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user stop nomad-i2pd.service
+    systemctl --user stop mesh-i2pd.service
     echo "🛑 I2P Client Daemon desativado."
 
 # 📊 Diagnóstico do daemon I2P (i2pd)
@@ -300,7 +300,7 @@ i2p-down:
 i2p-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-i2pd.service 2>/dev/null || true)
+    STATE=$(systemctl --user is-active mesh-i2pd.service 2>/dev/null || true)
     printf '%-16s %s\n' "i2p-daemon:" "${STATE:-inactive}"
     if ss -tln 2>/dev/null | grep -q ':4444 '; then
         echo "  Porta 4444 (HTTP Proxy): ABERTA"
@@ -321,7 +321,7 @@ i2p-status:
 # 📜 Visualizar logs do daemon I2P
 [group('Agent Mesh')]
 i2p-logs:
-    journalctl --user -u nomad-i2pd.service -f
+    journalctl --user -u mesh-i2pd.service -f
 
 # 🪝 Iniciar o motor Trawl Anti-Captcha & Scraper (:8191 / :8192)
 [group('Agent Mesh')]
@@ -330,7 +330,7 @@ trawl-up:
     set -euo pipefail
     mkdir -p /var/srv/trawl/ca 2>/dev/null || true
     systemctl --user daemon-reload
-    systemctl --user start nomad-trawl.service
+    systemctl --user start mesh-trawl.service
     echo "✅ Trawl Anti-Captcha & Scraper ativo em http://127.0.0.1:8191 (Proxy MITM :8192)"
 
 # 🛑 Parar o motor Trawl Anti-Captcha & Scraper
@@ -338,7 +338,7 @@ trawl-up:
 trawl-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user stop nomad-trawl.service
+    systemctl --user stop mesh-trawl.service
     echo "🛑 Trawl Anti-Captcha & Scraper desativado."
 
 # 📊 Diagnóstico do motor Trawl
@@ -346,7 +346,7 @@ trawl-down:
 trawl-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-trawl.service 2>/dev/null || true)
+    STATE=$(systemctl --user is-active mesh-trawl.service 2>/dev/null || true)
     printf '%-16s %s\n' "trawl-engine:" "${STATE:-inactive}"
     if ss -tln 2>/dev/null | grep -q ':8191 '; then
         echo "  Porta 8191 (API): ABERTA"
@@ -362,7 +362,7 @@ trawl-status:
 # 📜 Visualizar logs do motor Trawl
 [group('Agent Mesh')]
 trawl-logs:
-    journalctl --user -u nomad-trawl.service -f
+    journalctl --user -u mesh-trawl.service -f
 
 # 🚀 Iniciar a suíte completa da Agent Mesh (Tor + I2P + Trawl + SearXNG + Recoll + Vane + Lightpanda)
 [group('Agent Mesh')]
@@ -453,7 +453,7 @@ recoll-up:
         fi
     fi
     systemctl --user daemon-reload
-    systemctl --user start nomad-recoll.service
+    systemctl --user start mesh-recoll.service
     echo "✅ Recoll WebUI ativo em http://localhost:61389"
     echo "   Para expor remotamente no Tailscale com TLS: ujust remote-recoll-setup"
 
@@ -462,7 +462,7 @@ recoll-up:
 recoll-down:
     #!/usr/bin/env bash
     set -uo pipefail
-    systemctl --user stop nomad-recoll.service
+    systemctl --user stop mesh-recoll.service
     echo "🛑 Recoll WebUI desativado."
 
 # 🔄 Executar indexação incremental sob demanda
@@ -488,8 +488,8 @@ recoll-index *args:
 recoll-status:
     #!/usr/bin/env bash
     set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-recoll.service 2>/dev/null | head -n1 || true)
-    TIMER_STATE=$(systemctl --user is-active nomad-recoll-index.timer 2>/dev/null | head -n1 || true)
+    STATE=$(systemctl --user is-active mesh-recoll.service 2>/dev/null | head -n1 || true)
+    TIMER_STATE=$(systemctl --user is-active mesh-recoll-index.timer 2>/dev/null | head -n1 || true)
     printf '%-16s %s (timer noturno: %s)\n' "recoll-webui:" "${STATE:-inactive}" "${TIMER_STATE:-inactive}"
     if ss -tln 2>/dev/null | grep -q ':61389 '; then
         echo "  Porta 61389 (WebUI / JSON): ABERTA (http://127.0.0.1:61389)"
@@ -510,14 +510,14 @@ recoll-status:
 # 📜 Visualizar logs do Recoll
 [group('Agent Mesh')]
 recoll-logs:
-    journalctl --user -u nomad-recoll.service -f
+    journalctl --user -u mesh-recoll.service -f
 
 # 🔒 Expor o Recoll WebUI com TLS via Tailscale Serve (:61389)
 [group('Agent Mesh')]
 remote-recoll-setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! systemctl --user is-active --quiet nomad-recoll.service; then
+    if ! systemctl --user is-active --quiet mesh-recoll.service; then
         echo "❌ Recoll WebUI não está rodando. Rode 'ujust recoll-up' primeiro."
         exit 1
     fi

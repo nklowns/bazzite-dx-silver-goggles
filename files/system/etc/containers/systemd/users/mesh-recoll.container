@@ -14,7 +14,7 @@ StartLimitBurst=5
 
 [Container]
 Image=docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95
-ContainerName=nomad_recoll
+ContainerName=mesh_recoll
 Network=project-nomad_default.network
 NetworkAlias=recoll
 
