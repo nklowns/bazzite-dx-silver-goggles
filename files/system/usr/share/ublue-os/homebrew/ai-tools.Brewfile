@@ -7,6 +7,7 @@ tap "ublue-os/experimental-tap"                     # For Antigravity
 tap "charmbracelet/tap"                             # For Crush
 tap "anomalyco/tap"                                 # For Opencode
 tap "rtk-ai/tap"                                    # For RTK
+tap "mostlygeek/llama-swap"                         # For llama-swap
 
 # --- Core AI Agents ---
 cask "claude-code@latest"                           # Anthropic's official terminal agent
@@ -21,6 +22,7 @@ cask "ublue-os/tap/antigravity-ide-linux"           # The next-gen Linux agentic
 
 # --- Local LLM & Model Servers ---
 brew "llama.cpp"                                    # LLM: C++ implementation (GGUF runner)
+brew "mostlygeek/llama-swap/llama-swap"             # On-demand model router/proxy for llama-server (tool-calling backend)
 brew "ramalama"                                     # AI: Host LLM engine
 brew "ollama"                                       # Local inference server (easy-mode)
 cask "ublue-os/tap/lm-studio-linux"                 # Premium GUI for model management
