@@ -34,7 +34,7 @@ StartLimitBurst=5
 # and a 6 GB VRAM workload should never be dragged up as a side effect of opening Wikipedia.
 
 [Container]
-Image=docker.io/ollama/ollama@sha256:684d8674b4315fa18f4f0e973a118ec2652ed96f67563277839985175858e0ba
+Image=docker.io/ollama/ollama@sha256:da6e0dc5651df159e45686fd663c4dbe1624a52c44d7280eeac1551d8f865532
 
 # NOT `nomad_ollama`, which is what this was called first and is the single most important
 # line in the file. admin/constants/service_names.ts declares:
