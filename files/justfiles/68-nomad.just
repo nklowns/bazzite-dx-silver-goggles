@@ -243,7 +243,7 @@ ollama-pull-models:
         echo "❌ Ollama não está rodando. Rode 'ujust ollama-up' primeiro."
         exit 1
     fi
-    for m in nomic-embed-text:v1.5 richardyoung/qwen2.5-3b-instruct-abliterated dagbs/qwen2.5-coder-7b-instruct-abliterated hermes3:8b dolphin3:latest nexusriot/deepseek-r1-abliterated:8b deepseek-coder-v2:16b minicpm-v:latest; do
+    for m in nomic-embed-text:v1.5 richardyoung/qwen2.5-3b-instruct-abliterated dagbs/qwen2.5-coder-7b-instruct-abliterated qwen2.5:7b-instruct-q4_K_M hermes3:8b dolphin3:latest nexusriot/deepseek-r1-abliterated:8b deepseek-coder-v2:16b minicpm-v:latest; do
         echo "→ $m"
         podman exec nomad_ollama_gpu ollama pull "$m"
     done
@@ -251,6 +251,7 @@ ollama-pull-models:
     echo "   nomic-embed-text:v1.5                             RAG & Busca Vetorial"
     echo "   richardyoung/qwen2.5-3b-instruct-abliterated      Assistente Tático / Base nomad-tactical (>100 tok/s)"
     echo "   dagbs/qwen2.5-coder-7b-instruct-abliterated       Desenvolvimento / Coding Diário (100% VRAM, ~37 tok/s)"
+    echo "   qwen2.5:7b-instruct-q4_K_M                        Agent Mesh tool-calling (~32 tok/s)"
     echo "   hermes3:8b                                        Escrita criativa e roleplay uncensored (~35 tok/s)"
     echo "   dolphin3:latest                                   Agente uncensored & contexto longo 128k (~29 tok/s)"
     echo "   nexusriot/deepseek-r1-abliterated:8b              Raciocínio profundo analítico sem recusas (~28 tok/s)"
