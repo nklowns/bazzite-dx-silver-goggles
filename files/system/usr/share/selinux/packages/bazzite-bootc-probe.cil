@@ -1,0 +1,7 @@
+(block bazzite_bootc_probe
+    ;; Silences the intentional invalid context probe executed by bootc / tuned during background update checks.
+    ;; bootc intentionally tests setting 'system_u:object_r:invalid_bootcinstall_testlabel_t:s0' via chcon/setxattr
+    ;; to verify kernel SELinux enforcement. Suppressing audit alerts prevents 140+ false positives in Cockpit/auditd.
+    (dontaudit tuned_t self (capability2 (mac_admin)))
+    (dontaudit unconfined_service_t self (capability2 (mac_admin)))
+)

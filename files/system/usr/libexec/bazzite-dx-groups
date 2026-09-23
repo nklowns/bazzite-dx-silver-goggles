@@ -475,6 +475,14 @@ ConfigureVisualStorage() {
 			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
 		restorecon -R "$root" || true
 	fi
+
+	# Ensure user deliverables under ~/Pictures/AI_Studio inherit container_file_t declaratively
+	local deliverable_spec="/var/home/[^/]+/Pictures/AI_Studio(/.*)?"
+	if ! grep -qF "$deliverable_spec" <<<"$listing"; then
+		echo "Registering SELinux fcontext container_file_t for user Pictures/AI_Studio deliverables..."
+		semanage fcontext -a -t container_file_t "$deliverable_spec" 2>/dev/null ||
+			semanage fcontext -m -t container_file_t "$deliverable_spec" 2>/dev/null || true
+	fi
 }
 
 ConfigureAudioStorage() {
@@ -518,6 +526,14 @@ ConfigureAudioStorage() {
 		semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
 			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
 		restorecon -R "$root" || true
+	fi
+
+	# Ensure user deliverables under ~/Music/AI_Studio inherit container_file_t declaratively
+	local deliverable_spec="/var/home/[^/]+/Music/AI_Studio(/.*)?"
+	if ! grep -qF "$deliverable_spec" <<<"$listing"; then
+		echo "Registering SELinux fcontext container_file_t for user Music/AI_Studio deliverables..."
+		semanage fcontext -a -t container_file_t "$deliverable_spec" 2>/dev/null ||
+			semanage fcontext -m -t container_file_t "$deliverable_spec" 2>/dev/null || true
 	fi
 }
 
@@ -691,6 +707,26 @@ ConfigurePcpServices() {
 	fi
 }
 
+SanitizeUserMediaContexts() {
+	# Self-healing: sanitizes alien dosfs_t labels inherited from FAT/exFAT USBs or Windows migrations
+	# inside user media folders. Only touches files explicitly carrying dosfs_t, skipping AI_Studio subtrees.
+	command -v restorecon >/dev/null 2>&1 || return 0
+	local user_home
+	for user_home in /var/home/*; do
+		[ -d "$user_home" ] || continue
+		local media_dir
+		for media_dir in "$user_home/Pictures" "$user_home/Videos" "$user_home/Music"; do
+			[ -d "$media_dir" ] || continue
+			while IFS=' ' read -r ctx filepath; do
+				if [[ "$ctx" == *dosfs_t* ]] && [[ -n "$filepath" ]]; then
+					echo "Self-healing: restoring canonical SELinux context on $filepath..."
+					restorecon "$filepath" 2>/dev/null || true
+				fi
+			done < <(find "$media_dir" -name "AI_Studio" -prune -o -exec stat -c "%C %n" {} + 2>/dev/null)
+		done
+	done
+}
+
 # --- Principal Flow ---
 
 ConfigureQemuAcl
@@ -709,6 +745,7 @@ ConfigureRustDeskStorage
 ConfigureAiSearchStorage
 ConfigureFirewall
 ConfigurePcpServices
+SanitizeUserMediaContexts
 
 if IsStateSynchronized; then
 	exit 0

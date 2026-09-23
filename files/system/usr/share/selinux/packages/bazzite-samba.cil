@@ -1,0 +1,8 @@
+(block bazzite_samba_compat
+    ;; Allows Samba daemon (smbd_t) to read external FAT/exFAT (dosfs_t) and NTFS/FUSE (fusefs_t) media
+    ;; and migrated user files without AVC denials or needing the blanket samba_export_all_rw boolean.
+    (allow smbd_t dosfs_t (dir (open read getattr search ioctl)))
+    (allow smbd_t dosfs_t (file (open read getattr ioctl)))
+    (allow smbd_t fusefs_t (dir (open read getattr search ioctl)))
+    (allow smbd_t fusefs_t (file (open read getattr ioctl)))
+)

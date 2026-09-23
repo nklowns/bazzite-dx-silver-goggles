@@ -50,7 +50,7 @@ Environment=PYTHONPATH=/app/omnivoice_data/site-packages:/app/backend
 Environment=PYTHONUNBUFFERED=1
 
 Volume=/var/srv/audio/data:/app/omnivoice_data:Z
-Volume=%h/Music/AI_Studio:/app/omnivoice_data/output:Z
+Volume=%h/Music/AI_Studio:/app/omnivoice_data/output:z
 UserNS=keep-id
 
 [Service]

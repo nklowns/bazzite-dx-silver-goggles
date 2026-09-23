@@ -204,6 +204,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/selinux/packages/kvmfr.cil|Asset: SELinux KVMFR Policy|Error"
 	"file|/usr/share/selinux/packages/pipewire.cil|Asset: SELinux PipeWire Policy|Error"
 	"file|/usr/share/selinux/packages/bazzite-bootupd.cil|Asset: SELinux Bootupd Policy|Error"
+	"file|/usr/share/selinux/packages/bazzite-bootc-probe.cil|Asset: SELinux Bootc Probe Policy|Error"
+	"file|/usr/share/selinux/packages/bazzite-samba.cil|Asset: SELinux Samba Compatibility Policy|Error"
 	"file|/usr/share/selinux/packages/virtqemud.cil|Asset: SELinux VirtQEMU Policy|Error"
 
 	"file|/usr/share/ublue-os/homebrew/cli.Brewfile|Brew: CLI Suite|Error"
