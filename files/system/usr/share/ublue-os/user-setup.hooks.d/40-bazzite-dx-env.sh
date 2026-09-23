@@ -13,12 +13,13 @@ version-script bazzite-dx-env user 2 || exit 0
 ENV_FILE="$HOME/.config/environment.d/95-bazzite-dx-env.conf"
 mkdir -p "$(dirname "$ENV_FILE")"
 
-# Mise shims & user bin — always written, even if mise isn't installed yet.
-# ~/.local/bin is prioritized for user wrappers; mise shims shadow system tools.
+# Mise shims & user bin — User-First priority for developer workstation
+# ~/.local/bin and Mise shims are prepended so user-managed runtimes take precedence
+# in all access terminals, subshells, IDE tasks, and GUI applications.
 cat >"$ENV_FILE" <<'EOF'
 # Managed by Bazzite-DX (bazzite-dx-env v2)
 # Brew paths: /usr/lib/environment.d/homebrew.conf
 
-# User wrappers and mise shims — prepended for correct version manager priority
+# User wrappers and mise shims — prepended for developer runtime priority
 PATH=${HOME}/.local/bin:${HOME}/.local/share/mise/shims:${PATH}
 EOF

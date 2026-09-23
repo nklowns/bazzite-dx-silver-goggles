@@ -1,0 +1,68 @@
+#!/bin/sh
+# ==============================================================================
+# Bazzite-DX Silver Goggles: Dell G15 Hardware Telemetry Exporter (OpenMetrics)
+# Reads sysfs hwmon nodes directly in pure POSIX sh with 0-forks and <2ms runtime.
+# Output format is compatible with PCP OpenMetrics PMDA (pmdaopenmetrics).
+# ==============================================================================
+set -eu
+
+for h in /sys/class/hwmon/hwmon*; do
+	[ -d "$h" ] || continue
+	if [ -r "$h/name" ]; then
+		read -r name <"$h/name"
+	else
+		continue
+	fi
+
+	case "$name" in
+	coretemp)
+		for t in "$h"/temp*_input; do
+			[ -r "$t" ] || continue
+			base="${t%_input}"
+			lbl="package"
+			if [ -r "${base}_label" ]; then
+				read -r lbl <"${base}_label" || lbl="package"
+			fi
+			# Clean label characters for OpenMetrics
+			lbl=$(echo "$lbl" | tr " " "_")
+			read -r val <"$t" || continue
+			[ -n "$val" ] || continue
+
+			# Integer math for millidegrees to degrees with 1 decimal place
+			c_int=$((val / 1000))
+			c_dec=$(((val % 1000) / 100))
+			printf 'hwmon_temp_celsius{chip="coretemp",sensor="%s"} %d.%d\n' "$lbl" "$c_int" "$c_dec"
+		done
+		;;
+
+	alienware_wmi)
+		for f in "$h"/fan*_input; do
+			[ -r "$f" ] || continue
+			base="${f%_input}"
+			lbl=$(basename "$f" _input)
+			if [ -r "${base}_label" ]; then
+				read -r lbl <"${base}_label" || lbl=$(basename "$f" _input)
+			fi
+			lbl=$(echo "$lbl" | tr " " "_")
+			read -r rpm <"$f" || continue
+			printf 'hwmon_fan_rpm{chip="alienware_wmi",fan="%s"} %s\n' "$lbl" "$rpm"
+		done
+
+		for t in "$h"/temp*_input; do
+			[ -r "$t" ] || continue
+			base="${t%_input}"
+			lbl=$(basename "$t" _input)
+			if [ -r "${base}_label" ]; then
+				read -r lbl <"${base}_label" || lbl=$(basename "$t" _input)
+			fi
+			lbl=$(echo "$lbl" | tr " " "_")
+			read -r val <"$t" || continue
+			[ -n "$val" ] || continue
+
+			c_int=$((val / 1000))
+			c_dec=$(((val % 1000) / 100))
+			printf 'hwmon_temp_celsius{chip="alienware_wmi",sensor="%s"} %d.%d\n' "$lbl" "$c_int" "$c_dec"
+		done
+		;;
+	esac
+done

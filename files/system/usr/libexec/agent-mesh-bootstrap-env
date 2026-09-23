@@ -169,4 +169,3 @@ if [[ ! -f "$TRAWL_DIR/trawl.env.example" ]]; then
 EOF
 	chmod 644 "$TRAWL_DIR/trawl.env.example"
 fi
-

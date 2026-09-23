@@ -78,6 +78,7 @@ modules:
       - pcp-system-tools # System: Performance Co-Pilot diagnostic tools
       - pcp-zeroconf # System: PCP automated services and logger configuration
       - pcp-pmda-nvidia-gpu # GPU: Performance Metrics Domain Agent for NVIDIA GPU
+      - pcp-pmda-openmetrics # Metrics: OpenMetrics bridge for hardware sensor telemetry
       # - zeroboot # VM: Sub-millisecond snapshotting
       # - profile-bee # eBPF: Rust-based live CPU profiler
       - sysprof # System: Profiler
