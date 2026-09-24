@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# ollama: Declarative Host Overlay Wrapper
+# Bridges host tools, Homebrew CLI, and user sessions to nomad-ollama (GPU inference)
+# ==============================================================================
+set -euo pipefail
+
+# 1. Declarative routing: if OLLAMA_HOST is unset by caller, check if nomad-ollama is active
+if [[ -z "${OLLAMA_HOST:-}" ]]; then
+	if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null || \
+		ss -tln 2>/dev/null | grep -q '127\.0\.0\.1:61382'; then
+		export OLLAMA_HOST="127.0.0.1:61382"
+	fi
+fi
+
+# 2. Intercept 'ollama serve' to prevent spawning unaccelerated CPU daemons via brew
+if [[ "${1:-}" == "serve" ]]; then
+	echo "💡 Silver Goggles: 'nomad-ollama' é o servidor oficial gerenciado com GPU (RTX 3060)."
+	echo "   Iniciando serviço Quadlet..."
+	exec systemctl --user start nomad-ollama.service
+fi
+
+# 3. Execution: Prioritize Homebrew client binary if installed; otherwise fallback to container
+if [[ -x /home/linuxbrew/.linuxbrew/bin/ollama ]]; then
+	exec /home/linuxbrew/.linuxbrew/bin/ollama "$@"
+elif systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null; then
+	if [[ -t 0 ]]; then
+		exec podman exec -it nomad_ollama_gpu ollama "$@"
+	else
+		exec podman exec -i nomad_ollama_gpu ollama "$@"
+	fi
+else
+	echo "❌ O serviço 'nomad-ollama' está inativo e nenhum binário local foi encontrado."
+	echo "   Inicie o container com aceleração GPU: ujust ollama-up"
+	exit 1
+fi

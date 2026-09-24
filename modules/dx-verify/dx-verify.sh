@@ -125,6 +125,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/libexec/agent-mesh-bootstrap-env|Asset: Agent Mesh Secret Bootstrap|Error"
 	"file|/usr/libexec/bazzite-dx-recoll-index|Asset: Recoll Indexer Helper|Error"
 	"file|/usr/bin/lightpanda|Asset: Lightpanda CLI Wrapper|Error"
+	"file|/usr/bin/ollama|Asset: Ollama Host Wrapper|Error"
 	"file|/usr/share/applications/project-nomad.desktop|Asset: Project NOMAD Desktop Launcher|Error"
 	"file|/usr/lib/systemd/system/nvidia-persistenced.service.d/10-device-nodes.conf|Asset: NVIDIA Persistenced Device-Node Override|Error"
 	"file|/usr/lib/systemd/system/ublue-nvctk-cdi.service.d/10-after-persistenced.conf|Asset: CDI Generation Ordering Override|Error"

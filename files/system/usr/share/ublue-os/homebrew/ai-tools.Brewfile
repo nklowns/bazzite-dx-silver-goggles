@@ -24,7 +24,7 @@ cask "ublue-os/tap/antigravity-ide-linux"           # The next-gen Linux agentic
 brew "llama.cpp"                                    # LLM: C++ implementation (GGUF runner)
 brew "mostlygeek/llama-swap/llama-swap"             # On-demand model router/proxy for llama-server (tool-calling backend)
 brew "ramalama"                                     # AI: Host LLM engine
-brew "ollama"                                       # Local inference server (easy-mode)
+brew "ollama"                                       # Local inference client CLI (bridges to nomad-ollama on :61382)
 cask "ublue-os/tap/lm-studio-linux"                 # Premium GUI for model management
 flatpak "ai.jan.Jan"                                # The open source desktop LLM platform
 flatpak "com.jeffser.Alpaca"                        # Local LLM chat GUI (Ollama compatible)
@@ -35,6 +35,7 @@ brew "aichat"                                       # Interactive chat in the te
 brew "llm"                                          # Streamlined CLI for OpenAI/Anthropic/Local
 brew "whisper-cpp"                                  # High-performance speech-to-text
 cask "ublue-os/tap/antigravity-cli-linux"           # Google's antigravity CLI interface
+brew "gemini-cli"                                   # Google Gemini CLI assistant
 brew "kimi-cli"                                     # DeepSearch-capable CLI integration
 brew "mistral-vibe"                                 # CLI for Mistral AI models
 brew "qwen-code"                                    # Specialized Qwen code completion CLI

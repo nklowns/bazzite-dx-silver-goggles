@@ -105,6 +105,9 @@ HealthRetries=3
 Restart=on-failure
 # The image is several GB; the systemd default of 90s is not enough for a cold pull.
 TimeoutStartSec=900
+# Dynamically expose OLLAMA_HOST in the user session only while the container is active
+ExecStartPost=-/usr/bin/systemctl --user set-environment OLLAMA_HOST=127.0.0.1:61382
+ExecStopPost=-/usr/bin/systemctl --user unset-environment OLLAMA_HOST
 
 # [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
 # containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,
