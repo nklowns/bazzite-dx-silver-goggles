@@ -7,7 +7,7 @@ set -euo pipefail
 
 # 1. Declarative routing: if OLLAMA_HOST is unset by caller, check if nomad-ollama is active
 if [[ -z "${OLLAMA_HOST:-}" ]]; then
-	if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null || \
+	if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null ||
 		ss -tln 2>/dev/null | grep -q '127\.0\.0\.1:61382'; then
 		export OLLAMA_HOST="127.0.0.1:61382"
 	fi

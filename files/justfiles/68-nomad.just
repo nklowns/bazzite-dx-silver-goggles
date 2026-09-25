@@ -243,12 +243,23 @@ ollama-pull-models:
         echo "❌ Ollama não está rodando. Rode 'ujust ollama-up' primeiro."
         exit 1
     fi
-    for m in nomic-embed-text:v1.5 richardyoung/qwen2.5-3b-instruct-abliterated dagbs/qwen2.5-coder-7b-instruct-abliterated qwen2.5:7b-instruct-q4_K_M hermes3:8b dolphin3:latest nexusriot/deepseek-r1-abliterated:8b deepseek-coder-v2:16b minicpm-v:latest; do
+    for m in \
+        nomic-embed-text:v1.5 \
+        qwen2.5:0.5b \
+        richardyoung/qwen2.5-3b-instruct-abliterated \
+        dagbs/qwen2.5-coder-7b-instruct-abliterated \
+        qwen2.5:7b-instruct-q4_K_M \
+        hermes3:8b \
+        dolphin3:latest \
+        nexusriot/deepseek-r1-abliterated:8b \
+        deepseek-coder-v2:16b \
+        minicpm-v:latest; do
         echo "→ $m"
         podman exec nomad_ollama_gpu ollama pull "$m"
     done
     echo "✅ Modelos sincronizados."
     echo "   nomic-embed-text:v1.5                             RAG & Busca Vetorial"
+    echo "   qwen2.5:0.5b                                      Drafting especulativo (llama-swap -md) & inferência ultraleve"
     echo "   richardyoung/qwen2.5-3b-instruct-abliterated      Assistente Tático (>100 tok/s)"
     echo "   dagbs/qwen2.5-coder-7b-instruct-abliterated       Desenvolvimento / Coding Diário (100% VRAM, ~37 tok/s)"
     echo "   qwen2.5:7b-instruct-q4_K_M                        Agent Mesh tool-calling (~32 tok/s)"

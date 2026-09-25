@@ -78,4 +78,3 @@ echo "::group::🚀 [dx-cockpit] Provisioning Declarative Cockpit Extensions..."
 InstallCtop
 PatchPcpChannel
 echo "::endgroup::"
-
