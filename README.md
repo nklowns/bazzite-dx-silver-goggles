@@ -130,7 +130,7 @@ These overrides are synced as atomic symlinks via `tmpfiles.d` using the `L+` pa
 | `nomad-dozzle.service` | `nomad_dozzle` | `61381` | Container log viewer |
 | `nomad-mysql.service` | `nomad_mysql` | — | Application database |
 | `nomad-redis.service` | `nomad_redis` | — | Job queue |
-| `nomad-ollama.service` | `nomad_ollama_gpu` | `61382` | GPU inference (**separate on purpose** — see below) |
+| `nomad-ollama.service` | `nomad_ollama_gpu` | `61382` | *Deprecated* GPU inference, replaced by `nomad-llama` (kept **separate on purpose** — see below) |
 | `nomad-llama.service` | `nomad_llama_gpu` | `61383` | Optional: llama-swap + llama.cpp CUDA, OpenAI-compatible with structured `tool_calls` (see *nomad-llama* below) |
 
 Units live in `/etc/containers/systemd/users/` and a systemd generator turns each `.container` into a `.service`. They are under `/etc` rather than `/usr` because **rootless Quadlet has no `/usr` search path** (`man podman-systemd.unit`); running them rootful to get `/usr/share/containers/systemd/` would forfeit the security property described under *Container socket access*.
@@ -214,7 +214,8 @@ Qdrant, which backs RAG search, is not in the management stack either — it is 
 /var/srv/nomad/storage    ZIMs, maps, notes, uploads   (the Command Center's /app/storage)
 /var/srv/nomad/mysql      database
 /var/srv/nomad/redis      queue persistence
-/var/srv/nomad/ollama     model weights
+/var/srv/nomad/gguf       GGUF weights for nomad-llama (llama-models-fetch)
+/var/srv/nomad/ollama     Ollama model weights (deprecated backend)
 ```
 
 They are **siblings, not nested**. The Command Center resolves the host path behind its own `/app/storage` mount and rewrites every child app's bind to live underneath it, so a database inside `storage/` would be counted as offline content by the disk-usage view and the content browser — and be reachable by a content reset.
