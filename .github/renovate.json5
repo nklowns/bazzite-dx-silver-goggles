@@ -13,7 +13,7 @@
     {
       customType: 'regex',
       description: 'Track base-image tag and digest in image-versions.yaml',
-      managerFilePatterns: [
+      fileMatch: [
         '/^image-versions\\.yaml$/',
       ],
       matchStrings: [
@@ -28,7 +28,7 @@
       // Pinned inline in the units rather than in image-versions.yaml: the unit is what
       // ships, so pinning it directly removes the render step and the chance of the two
       // copies disagreeing. Matches `Image=registry/path[:tag]@sha256:...` in any .container file.
-      managerFilePatterns: [
+      fileMatch: [
         '/^files/system/etc/containers/systemd/users/.+\\.container$/',
       ],
       matchStrings: [
@@ -40,7 +40,7 @@
     {
       customType: 'regex',
       description: 'Track image dependencies in Justfile',
-      managerFilePatterns: [
+      fileMatch: [
         '/^Justfile$/',
       ],
       matchStrings: [
@@ -52,7 +52,7 @@
     {
       customType: 'regex',
       description: 'Track Cockpit Top (ctop) releases in dx-cockpit module',
-      managerFilePatterns: [
+      fileMatch: [
         '/^modules/dx-cockpit/dx-cockpit\\.sh$/',
       ],
       matchStrings: [

@@ -29,6 +29,24 @@ check:
       just generate-recipe "bazzite-nvidia" "latest" || rc=1
       bluebuild validate recipes/build-recipe.yml || rc=1
     fi
+    echo "Validating Renovate configuration..."
+    renovate_configs=()
+    while IFS= read -r -d '' f; do
+    	renovate_configs+=("$f")
+    done < <(find .github -maxdepth 1 -type f \( -name 'renovate.json' -o -name 'renovate.json5' \) -print0 2>/dev/null || true)
+    if [ "${#renovate_configs[@]}" -gt 0 ]; then
+    	if command -v "${PODMAN}" &>/dev/null; then
+    		${PODMAN} run --rm -v "$PWD:/repo:ro,Z" -w /repo \
+    			ghcr.io/renovatebot/renovate:slim \
+    			renovate-config-validator --strict || rc=1
+    	elif command -v npx &>/dev/null; then
+    		npx --yes @renovatebot/config-validator "${renovate_configs[@]}" || rc=1
+    	else
+    		echo "SKIP: no container engine or npx available; cannot validate Renovate config." >&2
+    	fi
+    else
+    	echo "No Renovate config found, skipping."
+    fi
     echo "Running ShellCheck on Bash scripts..."
     just lint || rc=1
     if [ "$rc" -ne 0 ]; then
