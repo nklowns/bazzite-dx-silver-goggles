@@ -24,7 +24,7 @@
     },
     {
       customType: 'regex',
-      description: 'Track Quadlet container image digests (Project NOMAD stack, Ollama)',
+      description: 'Track Quadlet container image digests (Project NOMAD stack, nomad-llama, Ollama)',
       // Pinned inline in the units rather than in image-versions.yaml: the unit is what
       // ships, so pinning it directly removes the render step and the chance of the two
       // copies disagreeing. Matches `Image=registry/path[:tag]@sha256:...` in any .container file.
@@ -143,6 +143,8 @@
         'files/system/etc/containers/systemd/users/nomad-mysql.container',
         'files/system/etc/containers/systemd/users/nomad-redis.container',
         'files/system/etc/containers/systemd/users/nomad-ollama.container',
+        // llama-swap:cuda digest bumps also bump the llama.cpp build: re-run the bench before merging.
+        'files/system/etc/containers/systemd/users/nomad-llama.container',
       ],
       matchUpdateTypes: [
         'digest',
