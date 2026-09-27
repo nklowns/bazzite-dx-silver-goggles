@@ -19,6 +19,13 @@ if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null; then
 	PURGED=1
 fi
 
+# 3. Stop nomad-llama (llama-swap + llama.cpp CUDA) if active — a loaded MoE model holds several GB
+if systemctl --user is-active --quiet nomad-llama.service 2>/dev/null; then
+	echo "🎮 GameMode: Descarregando nomad-llama (llama.cpp) da VRAM..." >&2
+	systemctl --user stop nomad-llama.service 2>/dev/null || true
+	PURGED=1
+fi
+
 if [[ "$PURGED" -eq 1 ]]; then
 	echo "✅ VRAM 100% liberada para a sessão de jogos." >&2
 fi
