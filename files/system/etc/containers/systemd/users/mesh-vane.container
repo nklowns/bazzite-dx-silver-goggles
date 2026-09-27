@@ -33,6 +33,10 @@ Environment=PORT=3000
 Environment=DATA_DIR=/home/vane
 Environment=SEARXNG_API_URL=http://searxng:8080
 Environment=OLLAMA_BASE_URL=http://ollama:11434
+# Optional OpenAI-compatible provider: nomad-llama (llama.cpp CUDA, structured tool_calls) over the
+# stack network. Not a dependency — if nomad-llama is down, only this provider's model list is empty.
+Environment=OPENAI_BASE_URL=http://llama:8080/v1
+Environment=OPENAI_API_KEY=nomad-local
 
 [Service]
 Restart=on-failure
