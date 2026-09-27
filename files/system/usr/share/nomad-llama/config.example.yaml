@@ -31,3 +31,34 @@ models:
       setParams: {"chat_template_kwargs": {"enable_thinking": false}}
       setParamsByID: {"${MODEL_ID}:think": {"chat_template_kwargs": {"enable_thinking": true}}}
     ttl: 600
+
+  # Embedding model for RAG (Project NOMAD, Vane, anything OpenAI-compatible). The name is what the
+  # NOMAD Command Center hard-codes (EMBEDDING_MODEL_NAME); vectors match Ollama's nomic-embed-text
+  # (cosine >= 0.99999), so an index built with Ollama keeps working.
+  #  - CUDA_VISIBLE_DEVICES= keeps it 100% on the CPU: with -ngl 0 the CUDA backend would still
+  #    allocate its compute buffer on the GPU and fail next to a loaded chat model.
+  #  - embeddings need the whole input in one ubatch, and -np 1 keeps -c from being split per slot.
+  #    The model itself was trained for 2048 tokens; longer inputs get an error (Ollama truncates).
+  "nomic-embed-text:v1.5":
+    cmd: |
+      /app/llama-server --port ${PORT} --host 127.0.0.1 -ngl 0
+      -m /models/gguf/nomic-ai/nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf
+      --embeddings --pooling mean -c 8192 -np 1 -b 8192 -ub 8192 -t 4
+    env:
+      - "CUDA_VISIBLE_DEVICES="
+    # `task` is read by `ujust vane-llama-sync` (llama-swap reserves `type`).
+    metadata: {"task": "embedding", "dims": 768}
+    ttl: 0
+
+# The embedding model lives in its own persistent group, so loading or swapping a chat model on the
+# GPU never unloads it (and it never takes VRAM from the chat model).
+routing:
+  router:
+    use: group
+    settings:
+      groups:
+        embeddings:
+          swap: false
+          exclusive: false
+          persistent: true
+          members: ["nomic-embed-text:v1.5"]

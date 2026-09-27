@@ -154,7 +154,7 @@ Why not the distro's llama.cpp: the Homebrew build is Vulkan. Measured on the RT
 | Server binary | — | `/app/llama-server` |
 | Endpoint | `http://127.0.0.1:61383/v1` | stack network: `http://llama:8080/v1` |
 
-Vane is pre-wired with an OpenAI provider pointing at `http://llama:8080/v1`; it simply lists no models while `nomad-llama` is down. `ai-vram-purge` (GameMode) stops `nomad-llama` together with Ollama.
+The default config serves a chat model on the GPU and `nomic-embed-text:v1.5` on the CPU (persistent group, never evicted by a model swap), so one endpoint covers agents, Vane and the Command Center's RAG. Vane is pre-wired with an OpenAI provider pointing at `http://llama:8080/v1`; `ujust vane-llama-sync` registers the served models in it (Vane does not discover models from a custom base URL). `ai-vram-purge` (GameMode) stops `nomad-llama` together with Ollama.
 
 ## The AI assistant is not a Supply Depot app, and that is not an oversight
 
