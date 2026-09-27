@@ -339,23 +339,27 @@ llama-models-fetch *ids:
     llama-models-fetch {{ ids }}
 alias nomad-models-fetch := llama-models-fetch
 
-# 🧹 Purgar a VRAM imediatamente (descarrega modelos carregados)
+# 🧹 Purgar a VRAM imediatamente (descarrega modelos dos backends de IA locais)
 [group('NOMAD')]
-ollama-vram-purge:
+llm-vram-purge:
     #!/usr/bin/env bash
-    set -euo pipefail
-    if systemctl --user is-active --quiet nomad-ollama.service; then
-        systemctl --user restart nomad-ollama.service
-        echo "🧹 VRAM purgada com sucesso. Nenhum modelo residente."
-    else
-        echo "Ollama já está inativo."
+    set -uo pipefail
+    if systemctl --user is-active --quiet nomad-llama.service; then
+        curl -s -m 30 -X POST http://127.0.0.1:61383/api/models/unload -o /dev/null && echo "🧹 nomad-llama: modelos descarregados."
     fi
+    # Ollama: um modelo apagado continua residente e não sai pela API — só o restart garante.
+    if systemctl --user is-active --quiet nomad-ollama.service; then
+        systemctl --user restart nomad-ollama.service && echo "🧹 Ollama reiniciado: nenhum modelo residente."
+    fi
+    nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader 2>/dev/null | sed 's/^/   VRAM: /' || true
 
-alias vram-purge := ollama-vram-purge
+alias vram-purge := llm-vram-purge
+# DEPRECATED — some junto com o Ollama (etapa de remoção); use llm-vram-purge
+alias ollama-vram-purge := llm-vram-purge
 
 # ⚖️ Analisar compatibilidade de LLMs locais com a GPU RTX 3060 (6GB) e 64GB RAM (llmfit)
 [group('NOMAD')]
-ollama-fit +ARGS="fit":
+llm-fit +ARGS="fit":
     #!/usr/bin/env bash
     if command -v llmfit >/dev/null 2>&1; then
         llmfit {{ ARGS }}
@@ -366,11 +370,12 @@ ollama-fit +ARGS="fit":
         exit 1
     fi
 
-alias llm-fit := ollama-fit
+# DEPRECATED — nome antigo (a ferramenta nunca dependeu do Ollama)
+alias ollama-fit := llm-fit
 
 # 🎯 Recomendar o melhor LLM local com benchmarks reais (whichllm)
 [group('NOMAD')]
-ollama-which +ARGS="--speed usable --vram-headroom auto":
+llm-which +ARGS="--speed usable --vram-headroom auto":
     #!/usr/bin/env bash
     if command -v whichllm >/dev/null 2>&1; then
         whichllm {{ ARGS }}
@@ -381,62 +386,63 @@ ollama-which +ARGS="--speed usable --vram-headroom auto":
         exit 1
     fi
 
-alias which-llm := ollama-which
-alias llm-which := ollama-which
+alias which-llm := llm-which
+# DEPRECATED — nome antigo (a ferramenta nunca dependeu do Ollama)
+alias ollama-which := llm-which
 
-# 🧠 Guia de dimensionamento e arquitetura de LLM para Dell G15 (6GB VRAM + 64GB DDR5)
+# 🧠 Guia de dimensionamento de LLM para Dell G15 (6GB VRAM + 64GB DDR5), medido neste hardware
 [group('NOMAD')]
-ollama-advisor:
+llm-advisor:
     #!/usr/bin/env bash
     set -euo pipefail
     cat << 'EOF'
     ================================================================================
     🧠 DIRETRIZES DE LLM: DELL G15 5520 (RTX 3060 6GB + 64GB DDR5 + i7-12700H)
+    Backend: nomad-llama (llama-swap + llama.cpp CUDA) — ujust llama-up
     ================================================================================
 
-    📌 MATRIZ DE DIMENSIONAMENTO POR CAMADAS (TIERS):
+    📌 O LIMITE REAL É O KV CACHE, NÃO OS PESOS
     --------------------------------------------------------------------------------
-    1. TIER 1: INFERÊNCIA 100% EM VRAM (~35-60 tok/s) — LATÊNCIA MÍNIMA
-       • Tamanho: 3B a 8B parâmetros em quantização Q4_K_M ou Q5_K_M.
-       • Alocação: ~4.5 GB a 5.2 GB de VRAM (sobrando headroom para KV Cache).
-       • Modelos recomendados:
-         - richardyoung/qwen2.5-3b-instruct-abliterated (RAG fast rewrite)
-         - llama3.2:3b / richardyoung/llama-3.2-3b-instruct-abliterated
-         - qwen2.5-coder:7b / hermes3:8b
-         - minicpm-v:8b (Visão / OCR multimodal)
+    • 7-8B denso com atenção plena em todas as camadas: KV não cabe na VRAM com
+      contexto útil (OOM a 16k); com KV em RAM (--no-kv-offload) o decode cai
+      ~56 → 24 → 15 tok/s em 0/8k/16k. Sempre meça com contexto PREENCHIDO
+      (llama-bench -d), não só -c.
+    • Modelos de atenção híbrida (Gated DeltaNet 3:1, sliding window) têm KV 3-4×
+      menor: é isso que viabiliza 48-64k de contexto em 6 GB.
 
-    2. TIER 2: OFFLOAD HÍBRIDO GPU + DDR5 (~12-25 tok/s) — EQUILÍBRIO IDEAL
-       • Tamanho: 9B a 14B parâmetros em Q4_K_M.
-       • Alocação: ~20-25 camadas na RTX 3060 + restante nos 64 GB de RAM DDR5.
-       • Modelos recomendados:
-         - qwen2.5-coder:14b-instruct-abliterated (Engenharia sênior / código)
-         - nexusriot/deepseek-r1-abliterated:8b (Raciocínio complexo)
-         - gemma2:9b
+    1. TUDO NA VRAM — denso pequeno híbrido (ex: Qwen3.5-4B Q4_K_XL)
+       • ~80 tok/s (≈116 com MTP --spec-type draft-mtp), 45 tok/s a 64k de contexto.
+       • Visão via mmproj (--no-mmproj-offload se faltar VRAM).
 
-    3. TIER 3: OFFLOAD PESADO EM DDR5 (~3-8 tok/s) — MÁXIMA CAPACIDADE COGNITIVA
-       • Tamanho: 27B a 35B parâmetros em Q4_K_M (~20 GB em RAM DDR5).
-       • Alocação: 8-12 camadas na GPU para acelerar o prompt processing (prefill).
-       • Modelos recomendados:
-         - qwen2.5:32b-instruct-q4_K_M
-         - command-r (35B)
+    2. MoE COM EXPERTS NA CPU — melhor qualidade (ex: Qwen3.6-35B-A3B Q4_K)
+       • --n-cpu-moe <nº de camadas> (todos na CPU) + atenção/KV na GPU: ~4 GB VRAM,
+         ~41 tok/s, 64k de contexto; -ub 2048 = prefill 2.4× mais rápido.
+       • Quant uniforme Q4_K > UD (tensores Q5/Q6) > IQ4_XS com experts na CPU.
+       • MTP rende pouco aqui (+8%) e custa ~0.9 GB de VRAM.
 
-    ⚠️ REGRAS DE OURO CONTRA ARMADILHAS DE QUANTIZAÇÃO:
+    3. NÃO VALE: denso 27B+ (não cabe na GPU; na CPU ~2-3 tok/s).
+
+    ⚠️ REGRAS
     --------------------------------------------------------------------------------
-    • EVITE Q2 e Q3 BRUTOS: A perda de raciocínio é severa (brain damage).
-      Prefira sempre um modelo menor em Q5_K_M / Q8 do que um modelo grande em Q2!
-    • QUANTIZAÇÃO MÍNIMA: Use Q4_K_M ou IQ4_XS/IQ3_M (com matriz de importância imatrix).
-    • KV CACHE OVERHEAD: Janelas longas (16k-32k) consomem GBs de VRAM. No Ollama,
-      já configuramos OLLAMA_KV_CACHE_TYPE=q8_0 e OLLAMA_FLASH_ATTENTION=1 no Quadlet.
+    • CUDA, não Vulkan: +15% decode (KV na GPU), +40-50% (KV em RAM), e no MoE o
+      Vulkan fez 23 vs 31 tok/s e OOM a 32k.
+    • KV q8_0 (-ctk/-ctv) + -fa on; 1 thread por P-core (-t 6 -C 0x555).
+    • Evite Q2/Q3 brutos; prefira modelo menor em Q4_K/Q5_K.
+    • Abliteration varia por modelo: meça antes de adotar (uma variante 4B perdeu
+      a capacidade de código; a 35B-A3B não perdeu nada mensurável).
+    • Embedding em CPU (CUDA_VISIBLE_DEVICES=) num grupo persistente do llama-swap:
+      convive com o chat sem disputar VRAM.
 
-    🔧 FERRAMENTAS INTEGRADAS:
+    🔧 FERRAMENTAS
     --------------------------------------------------------------------------------
     • ujust llm-fit        -> Medição e avaliação de modelos via llmfit (TUI/CLI)
-    • ujust which-llm      -> Recomendação baseada em benchmarks reais via whichllm
-    • tps.bunai.cc         -> Calculadora detalhada de VRAM, KV Cache e TTFT
+    • ujust which-llm      -> Recomendação baseada em benchmarks via whichllm
+    • ujust llama-models-fetch -> Pesos GGUF do catálogo (sha256)
     ================================================================================
     EOF
 
-alias llm-advisor := ollama-advisor
+# DEPRECATED — nome antigo
+alias ollama-advisor := llm-advisor
 
 # 🗂️ Shell com o mapeamento de UID do rootless, para mexer nos arquivos do NOMAD
 [group('NOMAD')]

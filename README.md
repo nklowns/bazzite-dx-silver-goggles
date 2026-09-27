@@ -273,7 +273,7 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust ollama-pull-models` | *Deprecated* — fetch `nomic-embed-text:v1.5` into Ollama (nomad-llama serves it from the GGUF catalog) |
 | `ujust llama-up` / `llama-down` / `llama-status` | Start / stop / inspect the optional `nomad-llama` service (seeds `~/.config/llama-swap/config.yaml` on first start) |
 | `ujust llama-models-fetch [ids…]` | Download GGUF weights from the model catalog to `/var/srv/nomad/gguf`, resumable, sha256-verified |
-| `ujust vram-purge` | Immediately purge resident models from VRAM |
+| `ujust vram-purge` | Unload resident models from both local AI backends (nomad-llama, Ollama) |
 | `ujust llm-fit` | Evaluate hardware fit and tokens/sec for local LLMs (`llmfit`) |
 | `ujust which-llm` | Recommend best models based on actual community benchmarks (`whichllm`) |
 | `ujust llm-advisor` | Architecture & sizing guidelines for Dell G15 (6GB VRAM + 64GB DDR5) |

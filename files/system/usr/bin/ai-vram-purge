@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# /usr/bin/ai-vram-purge — Free 100% of GPU VRAM by unloading AI workloads (ComfyUI / Ollama).
+# /usr/bin/ai-vram-purge — Free 100% of GPU VRAM by unloading AI workloads (ComfyUI / Ollama / nomad-llama).
 # Called by GameMode hooks or manual gaming launchers before booting heavy 3D titles.
 set -uo pipefail
 
