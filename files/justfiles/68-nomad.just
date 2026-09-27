@@ -271,6 +271,90 @@ ollama-pull-models:
 
 alias nomad-pull-models := ollama-pull-models
 
+# 🦙 Subir o nomad-llama: llama-swap + llama.cpp CUDA (OpenAI-compatível, opcional DX)
+# Config do usuário: ~/.config/llama-swap/config.yaml (semeado do exemplo se não existir).
+# Contrato completo (paths no container, portas): nomad-llama.container.
+[group('NOMAD')]
+llama-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Mesmos três gates de GPU do ollama-up; a falha aqui não é silenciosa (llama-server aborta),
+    # mas o erro que aparece não aponta a causa.
+    if ! systemctl is-active --quiet nvidia-persistenced.service; then
+        echo "⚠️  nvidia-persistenced parado — a injeção CDI vai falhar."
+    fi
+    if [[ "$(getsebool container_use_devices 2>/dev/null || echo '--> off')" == *off ]]; then
+        echo "⚠️  container_use_devices=off — o container vai receber Permission denied nos devices."
+    fi
+    CFG="$HOME/.config/llama-swap/config.yaml"
+    if [[ ! -e "$CFG" ]]; then
+        mkdir -p "$(dirname "$CFG")"
+        cp /usr/share/nomad-llama/config.example.yaml "$CFG"
+        echo "📝 Config inicial criada em $CFG (exemplo com Qwen3.5-4B)."
+        echo "   Pesos do exemplo: ujust llama-models-fetch"
+    fi
+    systemctl --user start nomad-llama.service
+    echo "✅ nomad-llama ativo. Host: http://127.0.0.1:61383/v1   Stack: http://llama:8080/v1"
+    curl -s -m 5 http://127.0.0.1:61383/v1/models | jq -r '"   modelos: " + ([.data[].id] | join(", "))' 2>/dev/null || true
+
+[group('NOMAD')]
+llama-down:
+    systemctl --user stop nomad-llama.service
+    echo "🛑 nomad-llama parado. VRAM liberada."
+
+# Reinicia (necessário quando o config.yaml é SUBSTITUÍDO — edição in-place recarrega sozinha)
+[group('NOMAD')]
+llama-restart:
+    systemctl --user restart nomad-llama.service
+    echo "🔄 nomad-llama reiniciado."
+
+# 🧹 Descarregar o modelo ativo da VRAM sem parar o serviço
+[group('NOMAD')]
+llama-unload:
+    curl -s -m 30 -X POST http://127.0.0.1:61383/api/models/unload -o /dev/null && echo "✅ Modelo descarregado."
+
+[group('NOMAD')]
+llama-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    STATE=$(systemctl --user is-active nomad-llama.service 2>/dev/null || true)
+    if [[ -f "$HOME/.config/containers/systemd/nomad-llama.container.d/10-autostart.conf" ]]; then BOOT=enabled; else BOOT=disabled; fi
+    printf "%-12s %s (boot: %s)\n" "llama:" "${STATE:-inactive}" "$BOOT"
+    CFG="$HOME/.config/llama-swap/config.yaml"
+    printf "%-12s %s\n" "config:" "$( [[ -e "$CFG" ]] && readlink -f "$CFG" || echo 'ausente (ujust llama-up cria)')"
+    if [[ "$STATE" == "active" ]]; then
+        curl -s -m 5 http://127.0.0.1:61383/v1/models | jq -r '"modelos:     " + ([.data[].id] | join(", "))' 2>/dev/null || true
+        curl -s -m 5 http://127.0.0.1:61383/running | jq -r '"carregado:   " + ([.running[]? | "\(.model) (\(.state))"] | join(", ") | if . == "" then "nenhum" else . end)' 2>/dev/null || true
+    fi
+    llama-models-fetch --list 2>/dev/null | sed 's/^/pesos:       /' || true
+
+[group('NOMAD')]
+llama-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-llama.container.d"
+    mkdir -p "$DROPIN_DIR"
+    printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
+    systemctl --user daemon-reload
+    just llama-up
+    echo "⚡ nomad-llama habilitado no boot."
+
+[group('NOMAD')]
+llama-disable-boot:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    rm -f "$HOME/.config/containers/systemd/nomad-llama.container.d/10-autostart.conf"
+    rmdir "$HOME/.config/containers/systemd/nomad-llama.container.d" 2>/dev/null || true
+    systemctl --user daemon-reload
+    echo "🔌 nomad-llama removido do boot."
+
+# 📥 Baixar pesos GGUF do catálogo (retomável, sha256 verificado) para /var/srv/nomad/gguf
+# Catálogo: $LLAMA_MODELS_CATALOG, ~/.config/llama-swap/catalog.json ou o exemplo da imagem.
+[group('NOMAD')]
+llama-models-fetch *ids:
+    llama-models-fetch {{ ids }}
+alias nomad-models-fetch := llama-models-fetch
+
 # 🧹 Purgar a VRAM imediatamente (descarrega modelos carregados)
 [group('NOMAD')]
 ollama-vram-purge:

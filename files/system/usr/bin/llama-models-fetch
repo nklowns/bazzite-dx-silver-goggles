@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# llama-models-fetch — download GGUF weights declared in a catalog and verify their sha256.
+#
+# Part of the optional nomad-llama DX layer (see nomad-llama.container). The catalog is the
+# user's; the image only ships an example so the service works out of the box.
+#
+# Catalog (JSON): { "models": [ { "id", "repo", "file", "sha256", "size", "status" }, ... ] }
+#   repo/file are a Hugging Face repository and a file in it; sha256 is the file's LFS oid
+#   (https://huggingface.co/api/models/<repo>/tree/main -> .lfs.oid). status is
+#   candidate | promoted | retired — retired entries are skipped.
+#
+# Lookup order: $LLAMA_MODELS_CATALOG, ~/.config/llama-swap/catalog.json,
+#               /usr/share/nomad-llama/catalog.example.json
+# Destination:  $GGUF_ROOT/<repo>/<file>   (default /var/srv/nomad/gguf, mounted in nomad-llama
+#               at /models/gguf, so a config.yaml `cmd:` uses /models/gguf/<repo>/<file>)
+#
+# Usage:
+#   llama-models-fetch                 all candidate|promoted entries
+#   llama-models-fetch <id> [<id>...]  only these
+#   llama-models-fetch --verify [ids]  check what is on disk, download nothing
+#   llama-models-fetch --path <id>     print the host path
+#   llama-models-fetch --list          id, status, size
+#
+# A file counts as present only if its size and sha256 match the catalog. Downloads resume
+# (aria2c if installed, otherwise curl -C -). Undo: rm the file under $GGUF_ROOT/<repo>/.
+set -euo pipefail
+
+GGUF_ROOT="${GGUF_ROOT:-/var/srv/nomad/gguf}"
+if [[ -n "${LLAMA_MODELS_CATALOG:-}" ]]; then
+  CATALOG="$LLAMA_MODELS_CATALOG"
+elif [[ -f "$HOME/.config/llama-swap/catalog.json" ]]; then
+  CATALOG="$HOME/.config/llama-swap/catalog.json"
+else
+  CATALOG=/usr/share/nomad-llama/catalog.example.json
+fi
+[[ -f "$CATALOG" ]] || { echo "catalog not found: $CATALOG" >&2; exit 1; }
+
+entry() { jq -r --arg id "$1" '.models[] | select(.id==$id) | "\(.repo) \(.file) \(.sha256) \(.size)"' "$CATALOG"; }
+
+case "${1:-}" in
+  --path)
+    read -r repo file _ _ < <(entry "${2:?id}") || true
+    [[ -n "${repo:-}" ]] || { echo "unknown id: $2 (catalog: $CATALOG)" >&2; exit 1; }
+    echo "$GGUF_ROOT/$repo/$file"; exit 0 ;;
+  --list)
+    jq -r '.models[] | "\(.status)\t\(.size/1073741824*100|floor/100) GiB\t\(.id)"' "$CATALOG"; exit 0 ;;
+esac
+
+VERIFY_ONLY=0
+[[ "${1:-}" == "--verify" ]] && { VERIFY_ONLY=1; shift; }
+if [[ $# -gt 0 ]]; then
+  ids=("$@")
+else
+  mapfile -t ids < <(jq -r '.models[] | select(.status != "retired") | .id' "$CATALOG")
+fi
+
+download() { # url dest
+  if command -v aria2c >/dev/null 2>&1; then
+    aria2c -c -x 8 -s 8 -k 64M --file-allocation=none --summary-interval=60 --console-log-level=warn \
+      -d "$(dirname "$2")" -o "$(basename "$2")" "$1"
+  else
+    curl -fL --retry 5 -C - -o "$2" "$1"
+  fi
+}
+
+echo "catalog: $CATALOG"
+fail=0
+for id in "${ids[@]}"; do
+  read -r repo file sha size < <(entry "$id") || true
+  [[ -n "${repo:-}" ]] || { echo "✗ unknown id: $id" >&2; fail=1; continue; }
+  dest="$GGUF_ROOT/$repo/$file"
+  if [[ -f "$dest" && $(stat -c %s "$dest") == "$size" ]] && echo "$sha  $dest" | sha256sum -c --status; then
+    echo "✓ $id"; continue
+  fi
+  if [[ $VERIFY_ONLY -eq 1 ]]; then echo "✗ $id missing or corrupt"; fail=1; continue; fi
+  echo "↓ $id ($((size / 1048576)) MiB)"
+  mkdir -p "$(dirname "$dest")"
+  download "https://huggingface.co/$repo/resolve/main/$file" "$dest"
+  if echo "$sha  $dest" | sha256sum -c --status; then
+    echo "✓ $id (sha256 ok)"
+  else
+    echo "✗ $id sha256 mismatch — removing $dest" >&2; rm -f "$dest"; fail=1
+  fi
+done
+exit $fail

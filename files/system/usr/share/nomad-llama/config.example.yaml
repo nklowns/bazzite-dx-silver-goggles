@@ -1,0 +1,33 @@
+# nomad-llama — example llama-swap config (optional DX layer).
+#
+# `ujust llama-up` copies this to ~/.config/llama-swap/config.yaml when that file does not exist.
+# Edit it there (or replace it with your own/generated one); nomad-llama mounts it read-only at
+# /app/config.yaml and llama-swap reloads it on in-place edits (-watch-config).
+#
+# Paths inside the container (see nomad-llama.container):
+#   /app/llama-server      llama.cpp server, CUDA build
+#   /models/gguf/<repo>/<file>   weights fetched by `ujust llama-models-fetch`
+#   /models/ollama/<sha256-…>    Ollama blob store (reuse weights pulled through Ollama)
+# Reference: https://github.com/mostlygeek/llama-swap/blob/main/docs/config.example.yaml
+#
+# The default below fits a 6 GB GPU: Qwen3.5-4B (hybrid Gated DeltaNet attention, so the KV cache
+# is small) fully in VRAM, native MTP speculative decoding, vision projector kept on the CPU.
+# Measured on an RTX 3060 Laptop: ~78 tok/s plain, ~116 tok/s with MTP; structured tool_calls OK.
+
+healthCheckTimeout: 300
+logLevel: info
+
+models:
+  "qwen3.5-4b":
+    cmd: |
+      /app/llama-server --port ${PORT} --host 127.0.0.1 --jinja
+      -m /models/gguf/unsloth/Qwen3.5-4B-MTP-GGUF/Qwen3.5-4B-UD-Q4_K_XL.gguf
+      --mmproj /models/gguf/unsloth/Qwen3.5-4B-MTP-GGUF/mmproj-F16.gguf --no-mmproj-offload
+      -ngl 999 -c 32768 -fa on -np 1 -ctk q8_0 -ctv q8_0 --cache-prompt
+      --spec-type draft-mtp --spec-draft-n-max 2 -ctkd q8_0 -ctvd q8_0
+    # Thinking off by default (fast agent turns); request "qwen3.5-4b:think" to enable it on the
+    # same loaded process.
+    filters:
+      setParams: {"chat_template_kwargs": {"enable_thinking": false}}
+      setParamsByID: {"${MODEL_ID}:think": {"chat_template_kwargs": {"enable_thinking": true}}}
+    ttl: 600

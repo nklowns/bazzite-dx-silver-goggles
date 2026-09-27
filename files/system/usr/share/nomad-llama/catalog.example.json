@@ -1,0 +1,23 @@
+{
+  "_doc": "Example catalog for llama-models-fetch (nomad-llama optional DX). Copy to ~/.config/llama-swap/catalog.json and add your own entries; sha256 = Hugging Face LFS oid of the file.",
+  "models": [
+    {
+      "id": "qwen3.5-4b:ud-q4_k_xl",
+      "repo": "unsloth/Qwen3.5-4B-MTP-GGUF",
+      "file": "Qwen3.5-4B-UD-Q4_K_XL.gguf",
+      "sha256": "d2bfbee4de17c74e6308a4dc750be4c2271f92ae2df1e28f5c5afa0dcdb6fccc",
+      "size": 2990664000,
+      "status": "promoted",
+      "note": "denso, 8 full+24 linear attn, cabe inteiro na VRAM"
+    },
+    {
+      "id": "mmproj:Qwen3.5-4B-MTP-GGUF",
+      "repo": "unsloth/Qwen3.5-4B-MTP-GGUF",
+      "file": "mmproj-F16.gguf",
+      "sha256": "d63b1a847fe9cd52e8e1525008cd33703821299f5a9eae40b2865426208767e7",
+      "size": 672423488,
+      "status": "promoted",
+      "note": "projetor de visão"
+    }
+  ]
+}

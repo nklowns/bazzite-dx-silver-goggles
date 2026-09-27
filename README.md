@@ -131,10 +131,30 @@ These overrides are synced as atomic symlinks via `tmpfiles.d` using the `L+` pa
 | `nomad-mysql.service` | `nomad_mysql` | — | Application database |
 | `nomad-redis.service` | `nomad_redis` | — | Job queue |
 | `nomad-ollama.service` | `nomad_ollama_gpu` | `61382` | GPU inference (**separate on purpose** — see below) |
+| `nomad-llama.service` | `nomad_llama_gpu` | `61383` | Optional: llama-swap + llama.cpp CUDA, OpenAI-compatible with structured `tool_calls` (see *nomad-llama* below) |
 
 Units live in `/etc/containers/systemd/users/` and a systemd generator turns each `.container` into a `.service`. They are under `/etc` rather than `/usr` because **rootless Quadlet has no `/usr` search path** (`man podman-systemd.unit`); running them rootful to get `/usr/share/containers/systemd/` would forfeit the security property described under *Container socket access*.
 
 All ports sit in this layer's reserved DX range **`61300-61399`** so nothing here squats a port a project's own dev server would want. Upstream defaults — `8080` for the Command Center, `11434` for Ollama, `9999` for Dozzle — are all changed for that reason.
+
+## nomad-llama — optional llama.cpp CUDA endpoint (bring your own models)
+
+Ollama's `/v1` endpoint does not return structured `tool_calls`, which coding agents and MCP clients need. `nomad-llama` runs [llama-swap](https://github.com/mostlygeek/llama-swap) in front of llama.cpp's server, **CUDA build, in one container** (`ghcr.io/mostlygeek/llama-swap:cuda`, pinned by digest), so any OpenAI-compatible tool can point at it and models are loaded on demand. It is opt-in like the rest of the stack: `ujust llama-up`.
+
+Why not the distro's llama.cpp: the Homebrew build is Vulkan. Measured on the RTX 3060 Laptop, CUDA is +15% decode with the KV cache on the GPU, +40-50% with the KV cache in system RAM, and on MoE models with experts offloaded to the CPU Vulkan was 23 vs 31 tok/s and ran out of VRAM at 32k context.
+
+**Plug interface** — the only things a user (or a dotfiles layer) has to provide:
+
+| What | Where on the host | Inside the container |
+| :--- | :--- | :--- |
+| llama-swap config | `~/.config/llama-swap/config.yaml` (seeded from `/usr/share/nomad-llama/config.example.yaml`) | `/app/config.yaml` (ro, reloaded on in-place edits) |
+| Weights catalog | `~/.config/llama-swap/catalog.json` (or `$LLAMA_MODELS_CATALOG`; example in `/usr/share/nomad-llama/`) | — (host tool `llama-models-fetch`) |
+| GGUF weights | `/var/srv/nomad/gguf/<repo>/<file>` | `/models/gguf/<repo>/<file>` (ro) |
+| Ollama blobs (reuse) | `/var/srv/nomad/ollama/models/blobs` | `/models/ollama` (ro) |
+| Server binary | — | `/app/llama-server` |
+| Endpoint | `http://127.0.0.1:61383/v1` | stack network: `http://llama:8080/v1` |
+
+Vane is pre-wired with an OpenAI provider pointing at `http://llama:8080/v1`; it simply lists no models while `nomad-llama` is down. `ai-vram-purge` (GameMode) stops `nomad-llama` together with Ollama.
 
 ## The AI assistant is not a Supply Depot app, and that is not an oversight
 
@@ -158,7 +178,7 @@ So GPU inference runs as its own unit with a real CDI device, and NOMAD is point
 http://ollama:11434
 ```
 
-That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Note that `OllamaService` speaks Ollama's native API (`/api/generate`), not the OpenAI-compatible `/v1/*` surface — so this field is Ollama-specific, not a generic "point at any local LLM" slot. If you run an alternative backend (e.g. llama.cpp/llama-swap installed on your own via Homebrew) it won't drop in here unless it speaks the same native protocol. Then `ujust ollama-pull-models` fetches models sized for 6 GB of VRAM (`llama3.2:3b`, `qwen2.5-coder:7b`, and `nomic-embed-text`, which is what the RAG indexer uses).
+That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Note that `OllamaService` speaks Ollama's native API (`/api/generate`), not the OpenAI-compatible `/v1/*` surface — so this field is Ollama-specific, not a generic "point at any local LLM" slot. The optional `nomad-llama` service (llama.cpp) speaks OpenAI, not this protocol, so it does not drop in here — it serves agents and Vane instead. Then `ujust ollama-pull-models` fetches `nomic-embed-text`, which is what the RAG indexer and Vane's embeddings use.
 
 ### The Supply Depot will say "AI Assistant — Stopped". Leave it stopped.
 
@@ -241,6 +261,8 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust ollama-up` | Start GPU inference |
 | `ujust ollama-down` | Stop it and release VRAM |
 | `ujust ollama-pull-models` | Fetch the models NOMAD actually names (`nomic-embed-text:v1.5`, `qwen2.5:7b-instruct-q4_K_M`, `richardyoung/qwen2.5-3b-instruct-abliterated`, …) |
+| `ujust llama-up` / `llama-down` / `llama-status` | Start / stop / inspect the optional `nomad-llama` service (seeds `~/.config/llama-swap/config.yaml` on first start) |
+| `ujust llama-models-fetch [ids…]` | Download GGUF weights from the model catalog to `/var/srv/nomad/gguf`, resumable, sha256-verified |
 | `ujust vram-purge` | Immediately purge resident models from VRAM |
 | `ujust llm-fit` | Evaluate hardware fit and tokens/sec for local LLMs (`llmfit`) |
 | `ujust which-llm` | Recommend best models based on actual community benchmarks (`whichllm`) |

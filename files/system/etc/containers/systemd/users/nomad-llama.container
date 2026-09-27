@@ -1,0 +1,85 @@
+# llama-swap + llama.cpp (CUDA) — OpenAI-compatible, on-demand local models. Optional DX layer.
+#
+# WHY THIS EXISTS NEXT TO nomad-ollama
+# ------------------------------------
+# Ollama's /v1 endpoint does not emit structured `tool_calls`, which is what coding agents and
+# MCP clients (opencode, crush, aider, pi, Vane's OpenAI provider) need. llama.cpp's server does,
+# and llama-swap in front of it loads/unloads models per request (one model in 6 GB VRAM at a
+# time) behind a single OpenAI endpoint.
+#
+# ONE CONTAINER, NO NESTED PODMAN
+# -------------------------------
+# The upstream image `ghcr.io/mostlygeek/llama-swap:cuda` is `ghcr.io/ggml-org/llama.cpp:server-cuda`
+# with llama-swap added, so llama-swap spawns `/app/llama-server` as a child process inside the
+# container. The alternative — llama-swap on the host spawning `podman run` per model — needs the
+# unit to drop ProtectClock/ProtectHostname/ProtectKernel* (each implies PrivateUsers= in a user
+# unit, and rootless podman then fails with "cannot re-exec process to join the existing user
+# namespace"), and it cannot be reached from the stack network. Both measured.
+#
+# The distro's llama.cpp (Homebrew) is built with Vulkan, not CUDA. Measured on the RTX 3060:
+# CUDA is +15% decode with the KV cache on GPU, +40-50% with KV in system RAM, and on MoE models
+# with experts offloaded to CPU Vulkan was 23 vs 31 tok/s and ran out of VRAM at 32k context.
+#
+# THE PLUG INTERFACE (everything a user or a personal dotfiles layer needs to know)
+# ----------------------------------------------------------------------------------
+#   ~/.config/llama-swap/config.yaml   llama-swap config, mounted read-only at /app/config.yaml.
+#                                      `ujust llama-up` seeds it from /usr/share/nomad-llama/ if
+#                                      missing. Reloaded automatically (-watch-config) when edited
+#                                      in place; after replacing the file, `ujust llama-restart`.
+#   ~/.config/llama-swap/catalog.json  GGUF catalog for `llama-models-fetch` (host side only).
+#   /var/srv/nomad/gguf        -> /models/gguf:ro     GGUF weights (llama-models-fetch writes here)
+#   /var/srv/nomad/ollama/...  -> /models/ollama:ro   Ollama blob store, so weights already pulled
+#                                                     through Ollama load without a second copy
+#   /app/llama-server                                 binary to use in `cmd:` entries
+#   host   http://127.0.0.1:61383/v1                  stack network   http://llama:8080/v1
+
+[Unit]
+Description=Project NOMAD — llama-swap + llama.cpp CUDA (OpenAI-compatible local models)
+StartLimitIntervalSec=300
+StartLimitBurst=5
+# Same stance as nomad-ollama: shares the stack network so Vane and the Command Center can reach
+# it by alias, but nothing Requires= it. A 6 GB VRAM workload is never started as a side effect.
+
+[Container]
+# Pinned by digest like every other stack image. Tag at pin time: `cuda` =
+# llama-swap v260 + llama.cpp build 11206 (commit 2b129ccfa).
+Image=ghcr.io/mostlygeek/llama-swap:cuda@sha256:6fb5071c2ea02e0827ca198095314dce82e274de33bdd0814bd448658bc9ae4a
+
+# `_gpu` suffix for the same reason as nomad_ollama_gpu: names the Command Center does not own.
+ContainerName=nomad_llama_gpu
+Network=project-nomad_default.network
+NetworkAlias=llama
+
+# Native CDI — same three GPU gates as nomad-ollama (nvidia-persistenced, regenerated CDI spec,
+# container_use_devices); `ujust llama-up` checks them.
+AddDevice=nvidia.com/gpu=all
+
+# The config is a single file, not a directory: a dotfiles manager typically makes it a symlink
+# into a repository, and podman resolves a file bind-mount at start time, whereas a symlink
+# inside a mounted directory would dangle in the container.
+Volume=%h/.config/llama-swap/config.yaml:/app/config.yaml:ro
+Volume=/var/srv/nomad/gguf:/models/gguf:ro
+Volume=/var/srv/nomad/ollama/models/blobs:/models/ollama:ro
+# GGUF files are large and read-mostly; relabeling tens of GB per start is not worth it, and the
+# config lives in $HOME where a relabel would touch the user's files. Same trade as the GPU
+# workloads' device access.
+SecurityLabelDisable=true
+
+# 61383 in the reserved DX range, loopback only: llama-swap has no authentication by default
+# (see the reasoning in nomad-ollama.container — tailscale0 is a trusted zone on this image).
+PublishPort=127.0.0.1:61383:8080
+
+HealthCmd=curl -fsS http://localhost:8080/health
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+
+[Service]
+Restart=on-failure
+# The image is ~4.4 GB; a cold pull does not fit the systemd default of 90s.
+TimeoutStartSec=900
+# OpenAI-compatible clients pick the endpoint up from the session while the service is active.
+ExecStartPost=-/usr/bin/systemctl --user set-environment OPENAI_BASE_URL=http://127.0.0.1:61383/v1 OPENAI_API_KEY=nomad-local
+ExecStopPost=-/usr/bin/systemctl --user unset-environment OPENAI_BASE_URL OPENAI_API_KEY
+
+# [Install] omitted on purpose (Boot Impact Policy) — opt in with `ujust llama-enable-boot`.
