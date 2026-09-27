@@ -151,7 +151,7 @@ nomad-update:
     systemctl --user restart nomad-admin.service
     echo "✅ Project NOMAD atualizado."
 
-# 🧠 Iniciar o Ollama com GPU (separado do NOMAD — ver nomad-ollama.container)
+# 🧠 [DEPRECATED] Iniciar o Ollama com GPU — o nomad-llama (ujust llama-up) o substitui
 [group('NOMAD')]
 ollama-up:
     #!/usr/bin/env bash
@@ -170,13 +170,11 @@ ollama-up:
     systemctl --user start nomad-ollama.service
     echo "✅ Ollama ativo. Endpoint no host: http://localhost:61382"
     echo
-    echo "Para ligar ao NOMAD, uma vez, na UI do Command Center:"
-    echo "   Settings → AI → base URL remota  =  http://ollama:11434"
-    echo "(grava a chave KVStore 'ai.remoteOllamaUrl'; sem ela o NOMAD procura o app do"
-    echo " Supply Depot, que nesta imagem roda sem GPU — ver nomad-ollama.container)"
-    echo "Nota: esse campo fala o protocolo nativo do Ollama (/api/generate), não é"
-    echo "genérico OpenAI-compat — backends alternativos (ex. llama-swap) só servem"
-    echo "aqui se expuserem a mesma API."
+    echo "⚠️  DEPRECATED: dois runtimes na mesma GPU de 6 GB despejam os modelos um do outro."
+    echo "   Backend recomendado para o NOMAD: ujust llama-up e, na UI do Command Center,"
+    echo "   Settings → AI → base URL remota = http://llama:8080  (o NOMAD fala OpenAI: chat,"
+    echo "   /v1/models e /v1/embeddings com fallback automático — ver README)."
+    echo "   Para seguir no Ollama: base URL remota = http://ollama:11434"
 
 # 🛑 Parar o Ollama e liberar a VRAM
 [group('NOMAD')]

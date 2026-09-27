@@ -172,19 +172,29 @@ Docker, given the identical payload on the same host, injects the devices. Nothi
 
 So GPU inference runs as its own unit with a real CDI device, and NOMAD is pointed at it as an external endpoint. That path is supported upstream: `OllamaService` checks the `ai.remoteOllamaUrl` setting first and only falls back to the Supply Depot container when it is unset.
 
-**Wiring it up, once:** start it with `ujust ollama-up`, then in the Command Center go to **Settings → AI** and set the remote base URL to:
+**The endpoint does not have to be Ollama.** Despite the name, `OllamaService` (`admin/app/services/ollama_service.ts` in the pinned image) talks to any OpenAI-compatible server:
+
+| Command Center feature | How it reaches the backend | Against `nomad-llama` |
+| :--- | :--- | :--- |
+| Chat | always the OpenAI client at `<url>/v1` | works |
+| Model list | `/api/tags`, falls back to `/v1/models` | works (fallback) |
+| RAG embeddings | `/api/embed`, falls back to `/v1/embeddings`, model name fixed to `nomic-embed-text:v1.5` | works — the default `nomad-llama` config serves that name, vectors identical to Ollama's (cosine ≥ 0.99999), so an existing index stays valid |
+| "Download model" | `/api/pull` | disabled by NOMAD itself with a notice; weights come from `ujust llama-models-fetch` |
+| GPU/thinking probes | `/api/ps`, `/api/show` | degrade to "no" without errors |
+
+**Wiring it up, once:** `ujust llama-up` (and `ujust llama-models-fetch` for the weights), then in the Command Center go to **Settings → AI** and set the remote base URL to:
 
 ```
-http://ollama:11434
+http://llama:8080
 ```
 
-That is the container-network alias, not a host port — the Command Center reaches Ollama directly over the shared network. Note that `OllamaService` speaks Ollama's native API (`/api/generate`), not the OpenAI-compatible `/v1/*` surface — so this field is Ollama-specific, not a generic "point at any local LLM" slot. The optional `nomad-llama` service (llama.cpp) speaks OpenAI, not this protocol, so it does not drop in here — it serves agents and Vane instead. Then `ujust ollama-pull-models` fetches `nomic-embed-text`, which is what the RAG indexer and Vane's embeddings use.
+That is the container-network alias, not a host port, and **without** `/v1` — NOMAD appends it. The embedding model runs on the CPU in a persistent llama-swap group, so RAG indexing never competes with the chat model for VRAM. The Ollama route (`ujust ollama-up`, URL `http://ollama:11434`, `ujust ollama-pull-models` for `nomic-embed-text`) still works but is deprecated: two runtimes on one 6 GB GPU evict each other's models.
 
 ### The Supply Depot will say "AI Assistant — Stopped". Leave it stopped.
 
 That entry tracks the Ollama the Command Center manages itself, and it is genuinely not
-running — deliberately. Yours runs beside it, outside NOMAD's registry, which is the only way
-it gets the GPU. The chat view is where the truth shows: it reports **Remote Connected**.
+running — deliberately. Your backend (nomad-llama, or the deprecated nomad-ollama) runs beside it,
+outside NOMAD's registry, which is the only way it gets the GPU. The chat view is where the truth shows: it reports **Remote Connected**.
 
 **Do not press Start on that card.** It would create a second Ollama, CPU-only for the reason
 above, listening on its own port and holding its own copy of the weights, competing for the
@@ -258,9 +268,9 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust nomad-status` | Unit states, containers, GPU/VRAM, disk usage, nodatacow check |
 | `ujust nomad-update` | Re-pull the pinned images and restart |
 | `ujust nomad-shell` | `podman unshare` shell for managing NOMAD's files |
-| `ujust ollama-up` | Start GPU inference |
-| `ujust ollama-down` | Stop it and release VRAM |
-| `ujust ollama-pull-models` | Fetch the Ollama models the stack itself uses (`nomic-embed-text:v1.5`) |
+| `ujust ollama-up` | *Deprecated* — start the Ollama backend (nomad-llama replaces it) |
+| `ujust ollama-down` | *Deprecated* — stop Ollama and release its VRAM |
+| `ujust ollama-pull-models` | *Deprecated* — fetch `nomic-embed-text:v1.5` into Ollama (nomad-llama serves it from the GGUF catalog) |
 | `ujust llama-up` / `llama-down` / `llama-status` | Start / stop / inspect the optional `nomad-llama` service (seeds `~/.config/llama-swap/config.yaml` on first start) |
 | `ujust llama-models-fetch [ids…]` | Download GGUF weights from the model catalog to `/var/srv/nomad/gguf`, resumable, sha256-verified |
 | `ujust vram-purge` | Immediately purge resident models from VRAM |
