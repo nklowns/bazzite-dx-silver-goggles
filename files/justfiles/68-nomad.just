@@ -260,7 +260,6 @@ llm-fit +ARGS="fit":
         exit 1
     fi
 
-
 # 🎯 Recomendar o melhor LLM local com benchmarks reais (whichllm)
 [group('NOMAD')]
 llm-which +ARGS="--speed usable --vram-headroom auto":
@@ -326,7 +325,6 @@ llm-advisor:
     • ujust llama-models-fetch -> Pesos GGUF do catálogo (sha256)
     ================================================================================
     EOF
-
 
 # 🗂️ Shell com o mapeamento de UID do rootless, para mexer nos arquivos do NOMAD
 [group('NOMAD')]

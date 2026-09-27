@@ -27,59 +27,83 @@ set -euo pipefail
 
 GGUF_ROOT="${GGUF_ROOT:-/var/srv/nomad/gguf}"
 if [[ -n "${LLAMA_MODELS_CATALOG:-}" ]]; then
-  CATALOG="$LLAMA_MODELS_CATALOG"
+	CATALOG="$LLAMA_MODELS_CATALOG"
 elif [[ -f "$HOME/.config/llama-swap/catalog.json" ]]; then
-  CATALOG="$HOME/.config/llama-swap/catalog.json"
+	CATALOG="$HOME/.config/llama-swap/catalog.json"
 else
-  CATALOG=/usr/share/nomad-llama/catalog.example.json
+	CATALOG=/usr/share/nomad-llama/catalog.example.json
 fi
-[[ -f "$CATALOG" ]] || { echo "catalog not found: $CATALOG" >&2; exit 1; }
+[[ -f "$CATALOG" ]] || {
+	echo "catalog not found: $CATALOG" >&2
+	exit 1
+}
 
 entry() { jq -r --arg id "$1" '.models[] | select(.id==$id) | "\(.repo) \(.file) \(.sha256) \(.size)"' "$CATALOG"; }
 
 case "${1:-}" in
-  --path)
-    read -r repo file _ _ < <(entry "${2:?id}") || true
-    [[ -n "${repo:-}" ]] || { echo "unknown id: $2 (catalog: $CATALOG)" >&2; exit 1; }
-    echo "$GGUF_ROOT/$repo/$file"; exit 0 ;;
-  --list)
-    jq -r '.models[] | "\(.status)\t\(.size/1073741824*100|floor/100) GiB\t\(.id)"' "$CATALOG"; exit 0 ;;
+--path)
+	read -r repo file _ _ < <(entry "${2:?id}") || true
+	[[ -n "${repo:-}" ]] || {
+		echo "unknown id: $2 (catalog: $CATALOG)" >&2
+		exit 1
+	}
+	echo "$GGUF_ROOT/$repo/$file"
+	exit 0
+	;;
+--list)
+	jq -r '.models[] | "\(.status)\t\(.size/1073741824*100|floor/100) GiB\t\(.id)"' "$CATALOG"
+	exit 0
+	;;
 esac
 
 VERIFY_ONLY=0
-[[ "${1:-}" == "--verify" ]] && { VERIFY_ONLY=1; shift; }
+[[ "${1:-}" == "--verify" ]] && {
+	VERIFY_ONLY=1
+	shift
+}
 if [[ $# -gt 0 ]]; then
-  ids=("$@")
+	ids=("$@")
 else
-  mapfile -t ids < <(jq -r '.models[] | select(.status != "retired") | .id' "$CATALOG")
+	mapfile -t ids < <(jq -r '.models[] | select(.status != "retired") | .id' "$CATALOG")
 fi
 
 download() { # url dest
-  if command -v aria2c >/dev/null 2>&1; then
-    aria2c -c -x 8 -s 8 -k 64M --file-allocation=none --summary-interval=60 --console-log-level=warn \
-      -d "$(dirname "$2")" -o "$(basename "$2")" "$1"
-  else
-    curl -fL --retry 5 -C - -o "$2" "$1"
-  fi
+	if command -v aria2c >/dev/null 2>&1; then
+		aria2c -c -x 8 -s 8 -k 64M --file-allocation=none --summary-interval=60 --console-log-level=warn \
+			-d "$(dirname "$2")" -o "$(basename "$2")" "$1"
+	else
+		curl -fL --retry 5 -C - -o "$2" "$1"
+	fi
 }
 
 echo "catalog: $CATALOG"
 fail=0
 for id in "${ids[@]}"; do
-  read -r repo file sha size < <(entry "$id") || true
-  [[ -n "${repo:-}" ]] || { echo "✗ unknown id: $id" >&2; fail=1; continue; }
-  dest="$GGUF_ROOT/$repo/$file"
-  if [[ -f "$dest" && $(stat -c %s "$dest") == "$size" ]] && echo "$sha  $dest" | sha256sum -c --status; then
-    echo "✓ $id"; continue
-  fi
-  if [[ $VERIFY_ONLY -eq 1 ]]; then echo "✗ $id missing or corrupt"; fail=1; continue; fi
-  echo "↓ $id ($((size / 1048576)) MiB)"
-  mkdir -p "$(dirname "$dest")"
-  download "https://huggingface.co/$repo/resolve/main/$file" "$dest"
-  if echo "$sha  $dest" | sha256sum -c --status; then
-    echo "✓ $id (sha256 ok)"
-  else
-    echo "✗ $id sha256 mismatch — removing $dest" >&2; rm -f "$dest"; fail=1
-  fi
+	read -r repo file sha size < <(entry "$id") || true
+	[[ -n "${repo:-}" ]] || {
+		echo "✗ unknown id: $id" >&2
+		fail=1
+		continue
+	}
+	dest="$GGUF_ROOT/$repo/$file"
+	if [[ -f "$dest" && $(stat -c %s "$dest") == "$size" ]] && echo "$sha  $dest" | sha256sum -c --status; then
+		echo "✓ $id"
+		continue
+	fi
+	if [[ $VERIFY_ONLY -eq 1 ]]; then
+		echo "✗ $id missing or corrupt"
+		fail=1
+		continue
+	fi
+	echo "↓ $id ($((size / 1048576)) MiB)"
+	mkdir -p "$(dirname "$dest")"
+	download "https://huggingface.co/$repo/resolve/main/$file" "$dest"
+	if echo "$sha  $dest" | sha256sum -c --status; then
+		echo "✓ $id (sha256 ok)"
+	else
+		echo "✗ $id sha256 mismatch — removing $dest" >&2
+		rm -f "$dest"
+		fail=1
+	fi
 done
 exit $fail
