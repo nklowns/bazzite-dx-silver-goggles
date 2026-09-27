@@ -24,7 +24,7 @@ cask "ublue-os/tap/antigravity-ide-linux"           # The next-gen Linux agentic
 brew "llama.cpp"                                    # LLM: C++ implementation (GGUF runner)
 brew "mostlygeek/llama-swap/llama-swap"             # On-demand model router/proxy for llama-server (tool-calling backend)
 brew "ramalama"                                     # AI: Host LLM engine
-brew "ollama"                                       # Local inference client CLI (bridges to nomad-ollama on :61382)
+brew "ollama"                                       # Standalone Ollama CLI/server (optional; the stack's AI backend is nomad-llama)
 cask "ublue-os/tap/lm-studio-linux"                 # Premium GUI for model management
 flatpak "ai.jan.Jan"                                # The open source desktop LLM platform
 flatpak "com.jeffser.Alpaca"                        # Local LLM chat GUI (Ollama compatible)
