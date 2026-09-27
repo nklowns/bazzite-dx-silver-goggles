@@ -212,10 +212,10 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
   - Recipes: `72-agent-mesh.just` (`ujust searxng-up`, `ujust searxng-down`, `ujust searxng-status`, `ujust remote-searxng-setup`, `ujust remote-searxng-teardown`).
 
 - **Vane AI Search & Research (`mesh-vane.container`, Port :61385)**:
-  - Perplexica fork powered by local Ollama LLMs and SearXNG metasearch.
-  - Bounds: `Memory=1.5G` ceiling enforced. Auto-starts Ollama GPU dependencies on `ujust vane-up`.
+  - Perplexica fork powered by nomad-llama (OpenAI provider `http://llama:8080/v1`, chat + embeddings) and SearXNG metasearch.
+  - Bounds: `Memory=1.5G` ceiling enforced. `ujust vane-up` starts nomad-llama when a llama-swap config exists; `ujust vane-llama-sync` registers its models in Vane.
   - Tailscale-first: `ujust remote-vane-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61385`.
-  - Recipes: `72-agent-mesh.just` (`ujust vane-up`, `ujust vane-down`, `ujust vane-status`, `ujust remote-vane-setup`, `ujust remote-vane-teardown`).
+  - Recipes: `72-agent-mesh.just` (`ujust vane-up`, `ujust vane-down`, `ujust vane-status`, `ujust vane-llama-sync`, `ujust remote-vane-setup`, `ujust remote-vane-teardown`).
 
 - **Trawl Anti-Bot Solver (`mesh-trawl.container`, Port :8191 / :8192)**:
   - Cloudflare Turnstile, DDoS-Guard & WAF bypass engine powered by Camoufox Firefox + Whisper STT audio solver.

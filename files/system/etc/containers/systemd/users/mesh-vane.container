@@ -1,7 +1,8 @@
 # Vane (Perplexica) — AI Answering & Deep Research Engine
 #
 # Part of the Agent Mesh. Operates autonomously on the shared OCI network.
-# Connects to SearXNG (http://searxng:8080) for web queries and Ollama (http://ollama:11434) for LLMs.
+# Connects to SearXNG (http://searxng:8080) for web queries and to nomad-llama (http://llama:8080/v1,
+# OpenAI provider) for chat and embeddings. Neither LLM backend is a hard unit dependency.
 # Loopback publication on 127.0.0.1:61385; remote exposure via `ujust remote-vane-setup`.
 #
 # [Install] is omitted on purpose: preserves Boot Impact Policy under user lingering.
@@ -11,8 +12,8 @@
 Description=Vane AI Answering & Deep Research Engine (Agent Mesh)
 StartLimitIntervalSec=300
 StartLimitBurst=5
-Wants=mesh-searxng.service nomad-ollama.service
-After=mesh-searxng.service nomad-ollama.service
+Wants=mesh-searxng.service
+After=mesh-searxng.service
 
 [Container]
 Image=docker.io/itzcrazykns1337/vane:slim-latest@sha256:21759f5428af08a6fcc0caadd96f2a604813100fc96ae9f127804b72e8e976ac

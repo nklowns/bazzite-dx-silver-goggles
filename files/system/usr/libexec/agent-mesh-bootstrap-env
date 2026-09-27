@@ -108,17 +108,6 @@ if [[ ! -f "$VANE_CONFIG" ]]; then
         "name": "Transformers"
       },
       "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-    },
-    {
-      "id": "6af46cb0-a98a-415f-999d-6e24cb4eebfb",
-      "name": "NOMAD-Ollama-GPU",
-      "type": "ollama",
-      "config": {
-        "baseURL": "http://ollama:11434"
-      },
-      "chatModels": [],
-      "embeddingModels": [],
-      "hash": "bd39b6ac7fca1a24f55ccdae5d8c118fbc8259c5358c38be976f962f4b9f679c"
     }
   ],
   "search": {

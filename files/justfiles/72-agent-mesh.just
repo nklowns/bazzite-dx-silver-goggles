@@ -114,14 +114,16 @@ vane-up:
         echo "Iniciando dependência de pesquisa (SearXNG)..."
         systemctl --user start mesh-searxng.service
     fi
-    # Se o Ollama GPU não estiver ativo, avisa e inicia
-    if ! systemctl --user is-active --quiet nomad-ollama.service; then
-        echo "Iniciando dependência de inferência LLM (Ollama GPU)..."
-        systemctl --user start nomad-ollama.service
+    # Inferência (chat + embedding) vem do nomad-llama pelo provider OpenAI (http://llama:8080/v1).
+    # Sem config do llama-swap, o Vane sobe mas não lista modelos: 'ujust llama-up' semeia uma.
+    if [[ -e "$HOME/.config/llama-swap/config.yaml" ]] && ! systemctl --user is-active --quiet nomad-llama.service; then
+        echo "Iniciando dependência de inferência LLM (nomad-llama)..."
+        systemctl --user start nomad-llama.service
     fi
     systemctl --user daemon-reload
     systemctl --user start mesh-vane.service
     echo "✅ Vane ativo em http://localhost:61385"
+    echo "   Modelos do nomad-llama no Vane: ujust vane-llama-sync"
     echo "   Para expor remotamente no Tailscale com TLS: ujust remote-vane-setup"
 
 alias perplexica-up := vane-up
@@ -133,11 +135,36 @@ vane-down:
     set -uo pipefail
     systemctl --user stop mesh-vane.service
     echo "🛑 Vane desativado."
-    if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null; then
-        echo "💡 Ollama GPU ainda está ativo segurando VRAM da NVIDIA. Para liberar memória de vídeo: ujust ollama-down"
+    if systemctl --user is-active --quiet nomad-llama.service 2>/dev/null; then
+        echo "💡 nomad-llama ainda está ativo (pode estar segurando VRAM). Para liberar: ujust llama-unload ou ujust llama-down"
     fi
 
 alias perplexica-down := vane-down
+
+# 🔗 Registrar no Vane os modelos servidos pelo nomad-llama (idempotente)
+# O provider OpenAI do Vane (criado do env OPENAI_BASE_URL=http://llama:8080/v1) não descobre modelos
+# de um baseURL próprio. Lê /v1/models e registra cada um como chat, ou como embedding quando o
+# config do llama-swap marca `metadata: {task: embedding}`.
+[group('Agent Mesh')]
+vane-llama-sync:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VANE=http://127.0.0.1:61385
+    MODELS=$(curl -sf -m 5 http://127.0.0.1:61383/v1/models) || { echo "❌ nomad-llama não responde (ujust llama-up)"; exit 1; }
+    CFG=$(curl -sf -m 5 "$VANE/api/config") || { echo "❌ Vane não responde (ujust vane-up)"; exit 1; }
+    PID=$(jq -r '.values.modelProviders[] | select(.type=="openai") | .id' <<< "$CFG" | head -1)
+    [[ -n "$PID" ]] || { echo "❌ Vane sem provider OpenAI — mesh-vane precisa de OPENAI_BASE_URL"; exit 1; }
+    jq -r '.data[] | "\(if .meta.llamaswap.task == "embedding" then "embedding" else "chat" end) \(.id)"' <<< "$MODELS" | while read -r kind id; do
+        if jq -e --arg id "$id" --arg k "$kind" '.values.modelProviders[] | select(.type=="openai")
+             | (if $k=="embedding" then .embeddingModels else .chatModels end) | any(.key==$id)' <<< "$CFG" >/dev/null; then
+            echo "  = $kind $id"
+        else
+            jq -n --arg id "$id" --arg k "$kind" '{key:$id, name:($id+" (nomad-llama)"), type:$k}' \
+              | curl -sf -m 10 -X POST "$VANE/api/providers/$PID/models" -H 'Content-Type: application/json' -d @- >/dev/null
+            echo "  + $kind $id"
+        fi
+    done
+    echo "✅ Vane sincronizado com o nomad-llama."
 
 # 📊 Diagnóstico do Vane
 [group('Agent Mesh')]
