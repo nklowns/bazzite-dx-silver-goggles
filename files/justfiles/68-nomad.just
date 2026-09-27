@@ -234,7 +234,9 @@ ollama-disable-boot:
     systemctl --user daemon-reload
     echo "🔌 Ollama removido do boot automático. Use 'ujust ollama-up' quando precisar."
 
-# 📥 Baixar modelos dimensionados para os 6 GB de VRAM da RTX 3060
+# 📥 Baixar os modelos Ollama que a própria stack usa
+# Hoje só o embedding default do Vane. Modelos de chat/agente com tool-calling estruturado são
+# servidos pelo nomad-llama (llama.cpp CUDA) — ver 'ujust llama-up' e 'ujust llama-models-fetch'.
 [group('NOMAD')]
 ollama-pull-models:
     #!/usr/bin/env bash
@@ -244,30 +246,14 @@ ollama-pull-models:
         exit 1
     fi
     for m in \
-        nomic-embed-text:v1.5 \
-        qwen2.5:0.5b \
-        richardyoung/qwen2.5-3b-instruct-abliterated \
-        dagbs/qwen2.5-coder-7b-instruct-abliterated \
-        qwen2.5:7b-instruct-q4_K_M \
-        hermes3:8b \
-        dolphin3:latest \
-        nexusriot/deepseek-r1-abliterated:8b \
-        deepseek-coder-v2:16b \
-        minicpm-v:latest; do
+        nomic-embed-text:v1.5; do
         echo "→ $m"
         podman exec nomad_ollama_gpu ollama pull "$m"
     done
     echo "✅ Modelos sincronizados."
-    echo "   nomic-embed-text:v1.5                             RAG & Busca Vetorial"
-    echo "   qwen2.5:0.5b                                      Drafting especulativo (llama-swap -md) & inferência ultraleve"
-    echo "   richardyoung/qwen2.5-3b-instruct-abliterated      Assistente Tático (>100 tok/s)"
-    echo "   dagbs/qwen2.5-coder-7b-instruct-abliterated       Desenvolvimento / Coding Diário (100% VRAM, ~37 tok/s)"
-    echo "   qwen2.5:7b-instruct-q4_K_M                        Agent Mesh tool-calling (~32 tok/s)"
-    echo "   hermes3:8b                                        Escrita criativa e roleplay uncensored (~35 tok/s)"
-    echo "   dolphin3:latest                                   Agente uncensored & contexto longo 128k (~29 tok/s)"
-    echo "   nexusriot/deepseek-r1-abliterated:8b              Raciocínio profundo analítico sem recusas (~28 tok/s)"
-    echo "   deepseek-coder-v2:16b                             Engenharia de software MoE (~33 tok/s)"
-    echo "   minicpm-v:latest                                  Visão computacional e OCR (8B, ~24 tok/s)"
+    echo "   nomic-embed-text:v1.5    Embedding (RAG / Vane)"
+    echo ""
+    echo "   Chat/agente/visão com tool_calls: ujust llama-up + ujust llama-models-fetch"
 
 alias nomad-pull-models := ollama-pull-models
 

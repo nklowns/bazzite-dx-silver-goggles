@@ -260,7 +260,7 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust nomad-shell` | `podman unshare` shell for managing NOMAD's files |
 | `ujust ollama-up` | Start GPU inference |
 | `ujust ollama-down` | Stop it and release VRAM |
-| `ujust ollama-pull-models` | Fetch the models NOMAD actually names (`nomic-embed-text:v1.5`, `qwen2.5:7b-instruct-q4_K_M`, `richardyoung/qwen2.5-3b-instruct-abliterated`, …) |
+| `ujust ollama-pull-models` | Fetch the Ollama models the stack itself uses (`nomic-embed-text:v1.5`) |
 | `ujust llama-up` / `llama-down` / `llama-status` | Start / stop / inspect the optional `nomad-llama` service (seeds `~/.config/llama-swap/config.yaml` on first start) |
 | `ujust llama-models-fetch [ids…]` | Download GGUF weights from the model catalog to `/var/srv/nomad/gguf`, resumable, sha256-verified |
 | `ujust vram-purge` | Immediately purge resident models from VRAM |
