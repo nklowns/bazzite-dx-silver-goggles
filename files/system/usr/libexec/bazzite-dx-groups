@@ -369,7 +369,7 @@ ConfigureNomadStorage() {
 	# datadir the only fix is recreating the database, so a directory with contents is
 	# reported and skipped rather than given a reassuring no-op.
 	local dir
-	for dir in "$root/mysql" "$root/redis" "$root/ollama" "$root/gguf"; do
+	for dir in "$root/mysql" "$root/redis" "$root/gguf"; do
 		[ -d "$dir" ] || continue
 		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
 			continue

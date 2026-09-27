@@ -130,12 +130,11 @@ These overrides are synced as atomic symlinks via `tmpfiles.d` using the `L+` pa
 | `nomad-dozzle.service` | `nomad_dozzle` | `61381` | Container log viewer |
 | `nomad-mysql.service` | `nomad_mysql` | — | Application database |
 | `nomad-redis.service` | `nomad_redis` | — | Job queue |
-| `nomad-ollama.service` | `nomad_ollama_gpu` | `61382` | *Deprecated* GPU inference, replaced by `nomad-llama` (kept **separate on purpose** — see below) |
 | `nomad-llama.service` | `nomad_llama_gpu` | `61383` | Optional: llama-swap + llama.cpp CUDA, OpenAI-compatible with structured `tool_calls` (see *nomad-llama* below) |
 
 Units live in `/etc/containers/systemd/users/` and a systemd generator turns each `.container` into a `.service`. They are under `/etc` rather than `/usr` because **rootless Quadlet has no `/usr` search path** (`man podman-systemd.unit`); running them rootful to get `/usr/share/containers/systemd/` would forfeit the security property described under *Container socket access*.
 
-All ports sit in this layer's reserved DX range **`61300-61399`** so nothing here squats a port a project's own dev server would want. Upstream defaults — `8080` for the Command Center, `11434` for Ollama, `9999` for Dozzle — are all changed for that reason.
+All ports sit in this layer's reserved DX range **`61300-61399`** so nothing here squats a port a project's own dev server would want. Upstream defaults — `8080` for the Command Center and for llama-swap, `9999` for Dozzle — are all changed for that reason.
 
 ## nomad-llama — optional llama.cpp CUDA endpoint (bring your own models)
 
@@ -150,7 +149,6 @@ Why not the distro's llama.cpp: the Homebrew build is Vulkan. Measured on the RT
 | llama-swap config | `~/.config/llama-swap/config.yaml` (seeded from `/usr/share/nomad-llama/config.example.yaml`) | `/app/config.yaml` (ro, reloaded on in-place edits) |
 | Weights catalog | `~/.config/llama-swap/catalog.json` (or `$LLAMA_MODELS_CATALOG`; example in `/usr/share/nomad-llama/`) | — (host tool `llama-models-fetch`) |
 | GGUF weights | `/var/srv/nomad/gguf/<repo>/<file>` | `/models/gguf/<repo>/<file>` (ro) |
-| Ollama blobs (reuse) | `/var/srv/nomad/ollama/models/blobs` | `/models/ollama` (ro) |
 | Server binary | — | `/app/llama-server` |
 | Endpoint | `http://127.0.0.1:61383/v1` | stack network: `http://llama:8080/v1` |
 
@@ -188,15 +186,15 @@ So GPU inference runs as its own unit with a real CDI device, and NOMAD is point
 http://llama:8080
 ```
 
-That is the container-network alias, not a host port, and **without** `/v1` — NOMAD appends it. The embedding model runs on the CPU in a persistent llama-swap group, so RAG indexing never competes with the chat model for VRAM. The Ollama route (`ujust ollama-up`, URL `http://ollama:11434`, `ujust ollama-pull-models` for `nomic-embed-text`) still works but is deprecated: two runtimes on one 6 GB GPU evict each other's models.
+That is the container-network alias, not a host port, and **without** `/v1` — NOMAD appends it. The embedding model runs on the CPU in a persistent llama-swap group, so RAG indexing never competes with the chat model for VRAM.
 
 ### The Supply Depot will say "AI Assistant — Stopped". Leave it stopped.
 
 That entry tracks the Ollama the Command Center manages itself, and it is genuinely not
-running — deliberately. Your backend (nomad-llama, or the deprecated nomad-ollama) runs beside it,
+running — deliberately. Your backend, nomad-llama, runs beside it,
 outside NOMAD's registry, which is the only way it gets the GPU. The chat view is where the truth shows: it reports **Remote Connected**.
 
-**Do not press Start on that card.** It would create a second Ollama, CPU-only for the reason
+**Do not press Start on that card.** It would create an Ollama instance, CPU-only for the reason
 above, listening on its own port and holding its own copy of the weights, competing for the
 same 6 GB of VRAM the moment anything loads a model. Nothing warns you — both would appear to
 work, one just answers slowly. The same applies to installing "AI Assistant" from the catalog.
@@ -204,7 +202,7 @@ work, one just answers slowly. The same applies to installing "AI Assistant" fro
 This is the price of the arrangement, and it was accepted knowingly: NOMAD cannot show a
 container it does not manage, and it cannot manage this one without taking the GPU away.
 
-**The container is called `nomad_ollama_gpu`, and the suffix is load-bearing.** `admin/constants/service_names.ts` reserves `nomad_ollama` for the instance the Command Center manages itself, and the Command Center holds the container socket — so anything wearing one of its service names is a container it may stop, remove or recreate at will. The first version of this unit was named `nomad_ollama`, which handed it straight back to the orchestrator this arrangement exists to keep it away from: it answered the admin's probes and disappeared in the same second, leaving no stop reason in its own journal. The network alias stays `ollama`, so the endpoint you configure in the UI never changes; only the container name has to stay outside NOMAD's namespace.
+**The container is called `nomad_llama_gpu`, and the suffix is load-bearing.** `admin/constants/service_names.ts` reserves names such as `nomad_ollama` for the instances the Command Center manages itself, and the Command Center holds the container socket — so anything wearing one of its service names is a container it may stop, remove or recreate at will. This was learned the hard way: the first GPU unit of this image was named `nomad_ollama`, which handed it straight back to the orchestrator this arrangement exists to keep it away from — it answered the admin's probes and disappeared in the same second, leaving no stop reason in its own journal. The network alias (`llama`) is what the UI is configured with, so it stays stable; only the container name has to stay outside NOMAD's namespace.
 
 Qdrant, which backs RAG search, is not in the management stack either — it is provisioned on demand as a Supply Depot app when you first use the knowledge base. It needs no GPU, so it is unaffected by the above.
 
@@ -215,7 +213,6 @@ Qdrant, which backs RAG search, is not in the management stack either — it is 
 /var/srv/nomad/mysql      database
 /var/srv/nomad/redis      queue persistence
 /var/srv/nomad/gguf       GGUF weights for nomad-llama (llama-models-fetch)
-/var/srv/nomad/ollama     Ollama model weights (deprecated backend)
 ```
 
 They are **siblings, not nested**. The Command Center resolves the host path behind its own `/app/storage` mount and rewrites every child app's bind to live underneath it, so a database inside `storage/` would be counted as offline content by the disk-usage view and the content browser — and be reachable by a content reset.
@@ -269,12 +266,9 @@ Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There
 | `ujust nomad-status` | Unit states, containers, GPU/VRAM, disk usage, nodatacow check |
 | `ujust nomad-update` | Re-pull the pinned images and restart |
 | `ujust nomad-shell` | `podman unshare` shell for managing NOMAD's files |
-| `ujust ollama-up` | *Deprecated* — start the Ollama backend (nomad-llama replaces it) |
-| `ujust ollama-down` | *Deprecated* — stop Ollama and release its VRAM |
-| `ujust ollama-pull-models` | *Deprecated* — fetch `nomic-embed-text:v1.5` into Ollama (nomad-llama serves it from the GGUF catalog) |
 | `ujust llama-up` / `llama-down` / `llama-status` | Start / stop / inspect the optional `nomad-llama` service (seeds `~/.config/llama-swap/config.yaml` on first start) |
 | `ujust llama-models-fetch [ids…]` | Download GGUF weights from the model catalog to `/var/srv/nomad/gguf`, resumable, sha256-verified |
-| `ujust vram-purge` | Unload resident models from both local AI backends (nomad-llama, Ollama) |
+| `ujust vram-purge` | Unload the resident nomad-llama model from VRAM (the service keeps running) |
 | `ujust llm-fit` | Evaluate hardware fit and tokens/sec for local LLMs (`llmfit`) |
 | `ujust which-llm` | Recommend best models based on actual community benchmarks (`whichllm`) |
 | `ujust llm-advisor` | Architecture & sizing guidelines for Dell G15 (6GB VRAM + 64GB DDR5) |
@@ -291,7 +285,7 @@ This is not hypothetical. While the stack was briefly published on all interface
 
 ```
 curl http://<host>:61381/            -> HTTP 200      (Dozzle: logs of every container)
-curl http://<host>:61382/api/tags    -> {"models":[]} (Ollama: no auth, no rate limit)
+curl http://<host>:61382/api/tags    -> {"models":[]} (the former Ollama backend: no auth, no rate limit)
 ```
 
 So the containers publish on `127.0.0.1` instead, and `ujust remote-nomad-setup` is the one deliberate way out — which also gets you real TLS rather than plain HTTP. It is the same shape code-server and Cockpit already use. Nothing internal is affected: the Command Center talks to its apps over the container network, not through host ports.

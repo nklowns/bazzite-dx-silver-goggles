@@ -25,10 +25,10 @@
 #     -> 201 Created, Warnings: [], start 204, logs: NO_NVIDIA_DEVICES
 # while docker, same payload and same host, injects the devices. So the Command Center cannot
 # give a child container a GPU on podman — it would report "NVIDIA container runtime detected"
-# to the UI and run Ollama on CPU with no error anywhere. Rather than pay for that with a
+# to the UI and run its AI app on CPU with no error anywhere. Rather than pay for that with a
 # global `[containers] devices=` default (which would hand a GPU to mysql and redis too), the
-# GPU workload moved out: Ollama is its own Quadlet with a real CDI device, and the admin
-# points at it as an endpoint. Nothing this container spawns needs a GPU any more, which is
+# GPU workload moved out: nomad-llama is its own Quadlet with a real CDI device, and the admin
+# points at it as an OpenAI-compatible endpoint (Settings → AI → http://llama:8080). Nothing this container spawns needs a GPU any more, which is
 # what makes rootless podman viable at all.
 
 [Unit]

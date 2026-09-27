@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# /usr/bin/ai-vram-purge — Free 100% of GPU VRAM by unloading AI workloads (ComfyUI / Ollama / nomad-llama).
+# /usr/bin/ai-vram-purge — Free 100% of GPU VRAM by unloading AI workloads (ComfyUI / nomad-llama).
 # Called by GameMode hooks or manual gaming launchers before booting heavy 3D titles.
 set -uo pipefail
 
@@ -12,14 +12,7 @@ if systemctl --user is-active --quiet aistudio-visual.service 2>/dev/null; then
 	PURGED=1
 fi
 
-# 2. Stop NOMAD Ollama (GPU inference) if active
-if systemctl --user is-active --quiet nomad-ollama.service 2>/dev/null; then
-	echo "🎮 GameMode: Descarregando Ollama (LLMs) da VRAM..." >&2
-	systemctl --user stop nomad-ollama.service 2>/dev/null || true
-	PURGED=1
-fi
-
-# 3. Stop nomad-llama (llama-swap + llama.cpp CUDA) if active — a loaded MoE model holds several GB
+# 2. Stop nomad-llama (llama-swap + llama.cpp CUDA) if active — a loaded MoE model holds several GB
 if systemctl --user is-active --quiet nomad-llama.service 2>/dev/null; then
 	echo "🎮 GameMode: Descarregando nomad-llama (llama.cpp) da VRAM..." >&2
 	systemctl --user stop nomad-llama.service 2>/dev/null || true

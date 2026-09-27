@@ -1,7 +1,7 @@
 # llama-swap + llama.cpp (CUDA) — OpenAI-compatible, on-demand local models. Optional DX layer.
 #
-# WHY THIS EXISTS NEXT TO nomad-ollama
-# ------------------------------------
+# WHY llama.cpp AND NOT OLLAMA
+# ----------------------------
 # Ollama's /v1 endpoint does not emit structured `tool_calls`, which is what coding agents and
 # MCP clients (opencode, crush, aider, pi, Vane's OpenAI provider) need. llama.cpp's server does,
 # and llama-swap in front of it loads/unloads models per request (one model in 6 GB VRAM at a
@@ -28,8 +28,6 @@
 #                                      in place; after replacing the file, `ujust llama-restart`.
 #   ~/.config/llama-swap/catalog.json  GGUF catalog for `llama-models-fetch` (host side only).
 #   /var/srv/nomad/gguf        -> /models/gguf:ro     GGUF weights (llama-models-fetch writes here)
-#   /var/srv/nomad/ollama/...  -> /models/ollama:ro   Ollama blob store, so weights already pulled
-#                                                     through Ollama load without a second copy
 #   /app/llama-server                                 binary to use in `cmd:` entries
 #   host   http://127.0.0.1:61383/v1                  stack network   http://llama:8080/v1
 
@@ -37,21 +35,25 @@
 Description=Project NOMAD — llama-swap + llama.cpp CUDA (OpenAI-compatible local models)
 StartLimitIntervalSec=300
 StartLimitBurst=5
-# Same stance as nomad-ollama: shares the stack network so Vane and the Command Center can reach
-# it by alias, but nothing Requires= it. A 6 GB VRAM workload is never started as a side effect.
+# Shares the stack network so Vane and the Command Center can reach it by alias, but nothing
+# Requires= it: the Command Center is usable for offline content with no AI at all, and a 6 GB
+# VRAM workload is never started as a side effect.
 
 [Container]
 # Pinned by digest like every other stack image. Tag at pin time: `cuda` =
 # llama-swap v260 + llama.cpp build 11206 (commit 2b129ccfa).
 Image=ghcr.io/mostlygeek/llama-swap:cuda@sha256:6fb5071c2ea02e0827ca198095314dce82e274de33bdd0814bd448658bc9ae4a
 
-# `_gpu` suffix for the same reason as nomad_ollama_gpu: names the Command Center does not own.
+# `_gpu` suffix keeps the name outside the Command Center's registry. It holds the container
+# socket and treats any container named like one of its SERVICE_NAMES (admin/constants/
+# service_names.ts, e.g. `nomad_ollama`) as its own — free to stop, remove or recreate. A GPU
+# workload it manages would also lose the GPU: its Docker DeviceRequests are dropped by podman.
 ContainerName=nomad_llama_gpu
 Network=project-nomad_default.network
 NetworkAlias=llama
 
-# Native CDI — same three GPU gates as nomad-ollama (nvidia-persistenced, regenerated CDI spec,
-# container_use_devices); `ujust llama-up` checks them.
+# Native CDI. Three image-side gates must hold (nvidia-persistenced running, CDI spec regenerated
+# with it up, SELinux container_use_devices on); `ujust llama-up` checks them.
 AddDevice=nvidia.com/gpu=all
 
 # The config is a single file, not a directory: a dotfiles manager typically makes it a symlink
@@ -59,14 +61,15 @@ AddDevice=nvidia.com/gpu=all
 # inside a mounted directory would dangle in the container.
 Volume=%h/.config/llama-swap/config.yaml:/app/config.yaml:ro
 Volume=/var/srv/nomad/gguf:/models/gguf:ro
-Volume=/var/srv/nomad/ollama/models/blobs:/models/ollama:ro
 # GGUF files are large and read-mostly; relabeling tens of GB per start is not worth it, and the
 # config lives in $HOME where a relabel would touch the user's files. Same trade as the GPU
 # workloads' device access.
 SecurityLabelDisable=true
 
-# 61383 in the reserved DX range, loopback only: llama-swap has no authentication by default
-# (see the reasoning in nomad-ollama.container — tailscale0 is a trusted zone on this image).
+# 61383 in the reserved DX range, loopback only: llama-swap has no authentication by default, and
+# tailscale0 is in firewalld's trusted zone on this image, so publishing on all interfaces would
+# put free inference on the tailnet. Stack containers use http://llama:8080; remote access goes
+# through `tailscale serve` deliberately.
 PublishPort=127.0.0.1:61383:8080
 
 HealthCmd=curl -fsS http://localhost:8080/health

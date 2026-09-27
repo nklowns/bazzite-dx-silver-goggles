@@ -151,110 +151,6 @@ nomad-update:
     systemctl --user restart nomad-admin.service
     echo "✅ Project NOMAD atualizado."
 
-# 🧠 [DEPRECATED] Iniciar o Ollama com GPU — o nomad-llama (ujust llama-up) o substitui
-[group('NOMAD')]
-ollama-up:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # The three GPU gates this depends on are all image-side and declarative, but they only
-    # take effect after a rebase — so check rather than assume, because the failure is silent:
-    # Ollama falls back to CPU and simply answers slowly.
-    if ! systemctl is-active --quiet nvidia-persistenced.service; then
-        echo "⚠️  nvidia-persistenced parado — a injeção CDI vai falhar."
-        echo "   Esperado depois do rebase; se persistir: systemctl status nvidia-persistenced"
-    fi
-    if [[ "$(getsebool container_use_devices 2>/dev/null || echo '--> off')" == *off ]]; then
-        echo "⚠️  container_use_devices=off — o container vai receber os devices e levar"
-        echo "   Permission denied neles. Esperado até o rebase (bazzite-dx-groups liga isso)."
-    fi
-    systemctl --user start nomad-ollama.service
-    echo "✅ Ollama ativo. Endpoint no host: http://localhost:61382"
-    echo
-    echo "⚠️  DEPRECATED: dois runtimes na mesma GPU de 6 GB despejam os modelos um do outro."
-    echo "   Backend recomendado para o NOMAD: ujust llama-up e, na UI do Command Center,"
-    echo "   Settings → AI → base URL remota = http://llama:8080  (o NOMAD fala OpenAI: chat,"
-    echo "   /v1/models e /v1/embeddings com fallback automático — ver README)."
-    echo "   Para seguir no Ollama: base URL remota = http://ollama:11434"
-
-# 🛑 Parar o Ollama e liberar a VRAM
-[group('NOMAD')]
-ollama-down:
-    systemctl --user stop nomad-ollama.service
-    echo "🛑 Ollama parado. VRAM liberada."
-
-# 🧹 Descarregar modelos do Ollama da VRAM sem parar o serviço
-[group('NOMAD')]
-ollama-unload:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    podman exec nomad_ollama_gpu sh -c 'ollama ps | awk "NR>1 {print \$1}" | xargs -r -n1 ollama stop'
-    echo "✅ Modelos descarregados da VRAM pelo Ollama."
-
-# 📊 Diagnóstico do Ollama (LLMs locais)
-[group('NOMAD')]
-ollama-status:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    STATE=$(systemctl --user is-active nomad-ollama.service 2>/dev/null || true)
-    if [[ -f "$HOME/.config/containers/systemd/nomad-ollama.container.d/10-autostart.conf" ]]; then
-        BOOT="enabled"
-    else
-        BOOT="disabled"
-    fi
-    printf "%-12s %s (boot: %s)\n" "ollama:" "${STATE:-inactive}" "$BOOT"
-    if [[ "$STATE" == "active" ]]; then
-        echo "--- Modelos Ativos na Memória (ollama ps) ---"
-        podman exec nomad_ollama_gpu ollama ps 2>/dev/null || true
-        echo
-        echo "--- Modelos Instalados no Disco (ollama list) ---"
-        podman exec nomad_ollama_gpu ollama list 2>/dev/null || true
-    fi
-
-# ⚡ Habilitar o Ollama no boot (Ative e esqueça)
-[group('NOMAD')]
-ollama-enable-boot:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    DROPIN_DIR="$HOME/.config/containers/systemd/nomad-ollama.container.d"
-    mkdir -p "$DROPIN_DIR"
-    printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
-    systemctl --user daemon-reload
-    just ollama-up
-    echo "⚡ Ollama habilitado para iniciar automaticamente no boot!"
-
-# 🔌 Desabilitar o Ollama do boot
-[group('NOMAD')]
-ollama-disable-boot:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    rm -f "$HOME/.config/containers/systemd/nomad-ollama.container.d/10-autostart.conf"
-    rmdir "$HOME/.config/containers/systemd/nomad-ollama.container.d" 2>/dev/null || true
-    systemctl --user daemon-reload
-    echo "🔌 Ollama removido do boot automático. Use 'ujust ollama-up' quando precisar."
-
-# 📥 Baixar os modelos Ollama que a própria stack usa
-# Hoje só o embedding default do Vane. Modelos de chat/agente com tool-calling estruturado são
-# servidos pelo nomad-llama (llama.cpp CUDA) — ver 'ujust llama-up' e 'ujust llama-models-fetch'.
-[group('NOMAD')]
-ollama-pull-models:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! systemctl --user is-active --quiet nomad-ollama.service; then
-        echo "❌ Ollama não está rodando. Rode 'ujust ollama-up' primeiro."
-        exit 1
-    fi
-    for m in \
-        nomic-embed-text:v1.5; do
-        echo "→ $m"
-        podman exec nomad_ollama_gpu ollama pull "$m"
-    done
-    echo "✅ Modelos sincronizados."
-    echo "   nomic-embed-text:v1.5    Embedding (RAG / Vane)"
-    echo ""
-    echo "   Chat/agente/visão com tool_calls: ujust llama-up + ujust llama-models-fetch"
-
-alias nomad-pull-models := ollama-pull-models
-
 # 🦙 Subir o nomad-llama: llama-swap + llama.cpp CUDA (OpenAI-compatível, opcional DX)
 # Config do usuário: ~/.config/llama-swap/config.yaml (semeado do exemplo se não existir).
 # Contrato completo (paths no container, portas): nomad-llama.container.
@@ -262,8 +158,8 @@ alias nomad-pull-models := ollama-pull-models
 llama-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Mesmos três gates de GPU do ollama-up; a falha aqui não é silenciosa (llama-server aborta),
-    # mas o erro que aparece não aponta a causa.
+    # Os três gates de GPU são declarativos na imagem, mas só valem depois do rebase — então
+    # checa em vez de assumir: o llama-server aborta com um erro que não aponta a causa.
     if ! systemctl is-active --quiet nvidia-persistenced.service; then
         echo "⚠️  nvidia-persistenced parado — a injeção CDI vai falhar."
     fi
@@ -339,7 +235,7 @@ llama-models-fetch *ids:
     llama-models-fetch {{ ids }}
 alias nomad-models-fetch := llama-models-fetch
 
-# 🧹 Purgar a VRAM imediatamente (descarrega modelos dos backends de IA locais)
+# 🧹 Purgar a VRAM imediatamente (descarrega os modelos do nomad-llama)
 [group('NOMAD')]
 llm-vram-purge:
     #!/usr/bin/env bash
@@ -347,15 +243,9 @@ llm-vram-purge:
     if systemctl --user is-active --quiet nomad-llama.service; then
         curl -s -m 30 -X POST http://127.0.0.1:61383/api/models/unload -o /dev/null && echo "🧹 nomad-llama: modelos descarregados."
     fi
-    # Ollama: um modelo apagado continua residente e não sai pela API — só o restart garante.
-    if systemctl --user is-active --quiet nomad-ollama.service; then
-        systemctl --user restart nomad-ollama.service && echo "🧹 Ollama reiniciado: nenhum modelo residente."
-    fi
     nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader 2>/dev/null | sed 's/^/   VRAM: /' || true
 
 alias vram-purge := llm-vram-purge
-# DEPRECATED — some junto com o Ollama (etapa de remoção); use llm-vram-purge
-alias ollama-vram-purge := llm-vram-purge
 
 # ⚖️ Analisar compatibilidade de LLMs locais com a GPU RTX 3060 (6GB) e 64GB RAM (llmfit)
 [group('NOMAD')]
@@ -370,8 +260,6 @@ llm-fit +ARGS="fit":
         exit 1
     fi
 
-# DEPRECATED — nome antigo (a ferramenta nunca dependeu do Ollama)
-alias ollama-fit := llm-fit
 
 # 🎯 Recomendar o melhor LLM local com benchmarks reais (whichllm)
 [group('NOMAD')]
@@ -387,8 +275,6 @@ llm-which +ARGS="--speed usable --vram-headroom auto":
     fi
 
 alias which-llm := llm-which
-# DEPRECATED — nome antigo (a ferramenta nunca dependeu do Ollama)
-alias ollama-which := llm-which
 
 # 🧠 Guia de dimensionamento de LLM para Dell G15 (6GB VRAM + 64GB DDR5), medido neste hardware
 [group('NOMAD')]
@@ -441,8 +327,6 @@ llm-advisor:
     ================================================================================
     EOF
 
-# DEPRECATED — nome antigo
-alias ollama-advisor := llm-advisor
 
 # 🗂️ Shell com o mapeamento de UID do rootless, para mexer nos arquivos do NOMAD
 [group('NOMAD')]

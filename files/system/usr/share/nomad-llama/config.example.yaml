@@ -7,7 +7,6 @@
 # Paths inside the container (see nomad-llama.container):
 #   /app/llama-server      llama.cpp server, CUDA build
 #   /models/gguf/<repo>/<file>   weights fetched by `ujust llama-models-fetch`
-#   /models/ollama/<sha256-…>    Ollama blob store (reuse weights pulled through Ollama)
 # Reference: https://github.com/mostlygeek/llama-swap/blob/main/docs/config.example.yaml
 #
 # The default below fits a 6 GB GPU: Qwen3.5-4B (hybrid Gated DeltaNet attention, so the KV cache

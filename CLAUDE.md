@@ -14,5 +14,5 @@
 ## 🚨 Inviolable Guardrails (Always Enforce)
 1. **Generated Recipe File**: Never manually edit `recipes/build-recipe.yml` — it is dynamically generated at CI time by `scripts/generate-recipe.sh`.
 2. **Localhost Binding & Tailnet Ports**: DX services must bind strictly to `127.0.0.1` (never `0.0.0.0`) in the reserved port range `61300-61399`. Expose remotely only via `tailscale serve` / `ujust remote-*-setup`.
-3. **No Boot-Enabled Background Daemons**: This is a gaming/dev machine. Services (NOMAD, nomad-llama, Ollama, code-server) are on-demand. Do NOT add `systemd: enabled:` blocks in `nomad.yml` or `casting.yml`. User units in `ujust` recipes must use `systemctl --user start`, never `enable` (due to user lingering).
+3. **No Boot-Enabled Background Daemons**: This is a gaming/dev machine. Services (NOMAD, nomad-llama, code-server) are on-demand. Do NOT add `systemd: enabled:` blocks in `nomad.yml` or `casting.yml`. User units in `ujust` recipes must use `systemctl --user start`, never `enable` (due to user lingering).
 4. **Shell Script Rigor**: Every script in `files/system/` must start with `set -euo pipefail`, pass ShellCheck, and handle atomic replacements cleanly.
