@@ -125,6 +125,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/libexec/agent-mesh-bootstrap-env|Asset: Agent Mesh Secret Bootstrap|Error"
 	"file|/usr/libexec/bazzite-dx-recoll-index|Asset: Recoll Indexer Helper|Error"
 	"file|/usr/bin/lightpanda|Asset: Lightpanda CLI Wrapper|Error"
+	"file|/usr/libexec/project-nomad-loopback-apps|Asset: NOMAD Supply Depot Loopback Enforcer|Error"
 	"file|/usr/bin/llama-models-fetch|Asset: GGUF Catalog Fetcher (nomad-llama)|Error"
 	"file|/usr/share/nomad-llama/config.example.yaml|Asset: nomad-llama Default Config|Error"
 	"file|/usr/share/nomad-llama/catalog.example.json|Asset: nomad-llama Default Catalog|Error"

@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# project-nomad-loopback-apps — keep every Supply Depot app published on 127.0.0.1 only.
+#
+# WHY
+# ---
+# The Command Center's seeder (database/seeders/service_seeder.ts) declares a host port for
+# each app it can install — `PortBindings: {'6333/tcp': [{HostPort: '6333'}]}` — with no HostIp,
+# and the container API reads that as 0.0.0.0. tailscale0 sits in firewalld's trusted zone on
+# this image, so every app the user installs (Qdrant, Vaultwarden, Filebrowser, Jellyfin, …)
+# becomes reachable, unauthenticated, from every device on the tailnet. Measured with Qdrant,
+# installed on demand by the knowledge base: `0.0.0.0:6333-6334`, no API key, 200 on the
+# tailscale IP.
+#
+# The host port is not needed by NOMAD itself: in production getServiceURL() resolves an app as
+# http://<service_name>:<port> over the stack network. Loopback keeps it reachable from this
+# machine (the UI links, debugging) and remote access goes through `tailscale serve`, like every
+# other service in this layer.
+#
+# HOW
+# ---
+# The seeder runs at every Command Center start, before its HTTP server (entrypoint: migrations,
+# `node ace db:seed`, then bin/server.js), and rewrites container_config for every app not marked
+# is_user_modified. Installs only happen through HTTP. So this runs as ExecStartPost of
+# nomad-admin, waits for HTTP, and rewrites only the HostIp of each binding — nothing else, and
+# without setting is_user_modified, so upstream config changes to the apps keep landing. There is
+# no window in which an install could pick up the 0.0.0.0 config.
+#
+# Containers created before this existed keep their old binding until recreated: they are
+# reported, and `--recreate` (ujust nomad-loopback-apps) recreates them through NOMAD's own
+# force-reinstall API. Apps keep their data in bind mounts under /var/srv/nomad/storage; the
+# reinstall only removes Docker named volumes belonging to the app.
+set -uo pipefail
+
+RECREATE=0
+[[ "${1:-}" == "--recreate" ]] && RECREATE=1
+ADMIN=http://127.0.0.1:61380
+ENV_FILE=/var/srv/nomad/.env
+
+log() { echo "nomad-loopback-apps: $*" >&2; }
+
+# Wait for the Command Center's HTTP server = the seeder has finished.
+for _ in $(seq 1 180); do
+	curl -s -o /dev/null -m 2 "$ADMIN/" && break
+	sleep 1
+done
+curl -s -o /dev/null -m 2 "$ADMIN/" || {
+	log "Command Center did not answer on $ADMIN; nothing changed"
+	exit 0
+}
+
+DB_PASSWORD=$(sed -n 's/^DB_PASSWORD=//p' "$ENV_FILE" 2>/dev/null | tr -d '"')
+DB_USER=$(podman exec nomad_mysql printenv MYSQL_USER 2>/dev/null)
+DB_NAME=$(podman exec nomad_mysql printenv MYSQL_DATABASE 2>/dev/null)
+if [[ -z "$DB_PASSWORD" || -z "$DB_USER" || -z "$DB_NAME" ]]; then
+	log "could not read the database credentials; nothing changed"
+	exit 0
+fi
+sql() { podman exec -i -e MYSQL_PWD="$DB_PASSWORD" nomad_mysql mysql -u"$DB_USER" -N -B "$DB_NAME"; }
+
+# Rewrite HostIp in every row's container_config. Base64 on both directions keeps the JSON away
+# from shell and SQL quoting.
+rows=$(echo "SELECT service_name, TO_BASE64(container_config) FROM services WHERE container_config IS NOT NULL;" | sql) || {
+	log "query failed; nothing changed"
+	exit 0
+}
+updates=$(python3 -c '
+import base64, json, re, sys
+out = []
+for line in sys.stdin.read().splitlines():
+    name, b64 = line.split("\t", 1)
+    if not re.fullmatch(r"[a-z0-9_]+", name):
+        continue
+    cfg = json.loads(base64.b64decode(b64.replace("\\n", "")))
+    changed = False
+    for bindings in (cfg.get("HostConfig", {}).get("PortBindings") or {}).values():
+        for b in bindings or []:
+            if b.get("HostIp") in (None, "", "0.0.0.0", "::"):
+                b["HostIp"] = "127.0.0.1"
+                changed = True
+    if changed:
+        enc = base64.b64encode(json.dumps(cfg, separators=(",", ":")).encode()).decode()
+        out.append(f"UPDATE services SET container_config = CONVERT(FROM_BASE64(\x27{enc}\x27) USING utf8mb4) WHERE service_name = \x27{name}\x27;")
+        out.append(f"-- {name}")
+print("\n".join(out))
+' <<<"$rows")
+if [[ -n "$updates" ]]; then
+	if sql <<<"$updates"; then
+		sed -n 's/^-- /loopback config for /p' <<<"$updates" | while read -r l; do log "$l"; done
+	else
+		log "update failed"
+	fi
+fi
+
+# Report (or recreate) containers still published beyond loopback.
+exposed=$(podman ps --format '{{.Names}} {{.Ports}}' | awk '$1 ~ /^nomad_/ && /(0\.0\.0\.0|\[::\]):/ {print $1}')
+for name in $exposed; do
+	if [[ $RECREATE -eq 1 ]]; then
+		log "recreating $name through the Command Center (force-reinstall)"
+		curl -s -m 600 -X POST "$ADMIN/api/system/services/force-reinstall" \
+			-H 'Content-Type: application/json' -d "{\"service_name\":\"$name\"}" >&2
+		echo >&2
+	else
+		log "WARNING: $name is still published on all interfaces — run 'ujust nomad-loopback-apps'"
+	fi
+done
+exit 0

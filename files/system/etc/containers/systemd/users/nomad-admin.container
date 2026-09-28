@@ -119,6 +119,10 @@ HealthRetries=3
 [Service]
 Restart=on-failure
 TimeoutStartSec=300
+# The seeder resets every Supply Depot app's container_config at each start, with host ports that
+# bind 0.0.0.0 (tailscale0 is a trusted zone here). This re-applies HostIp=127.0.0.1 after the
+# seeder and before any install can happen — see /usr/libexec/project-nomad-loopback-apps.
+ExecStartPost=-/usr/libexec/project-nomad-loopback-apps
 
 # [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
 # containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,

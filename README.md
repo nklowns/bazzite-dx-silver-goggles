@@ -290,6 +290,8 @@ curl http://<host>:61382/api/tags    -> {"models":[]} (the former Ollama backend
 
 So the containers publish on `127.0.0.1` instead, and `ujust remote-nomad-setup` is the one deliberate way out — which also gets you real TLS rather than plain HTTP. It is the same shape code-server and Cockpit already use. Nothing internal is affected: the Command Center talks to its apps over the container network, not through host ports.
 
+**Supply Depot apps too.** The containers the Command Center spawns are not quadlets: they come from its seeder, which declares a host port with no `HostIp` for every app (`6333` for Qdrant, `8480` for Vaultwarden, `8410` for Filebrowser, …) — i.e. `0.0.0.0`. Measured: Qdrant, installed on demand by the knowledge base, answered unauthenticated on the tailscale IP. NOMAD itself never needs those host ports (it reaches its apps as `http://<service_name>:<port>` on the stack network), so `nomad-admin` runs `/usr/libexec/project-nomad-loopback-apps` after every start: the seeder rewrites the configs on each boot, and the hook re-applies `HostIp=127.0.0.1` before any install can happen, without marking the apps user-modified (upstream config changes still land). Containers created before that keep their old bind until `ujust nomad-loopback-apps` recreates them through NOMAD's own force-reinstall (data in `/var/srv/nomad/storage` is kept).
+
 If you want to share NOMAD with specific machines rather than your whole tailnet, that is a Tailscale ACL decision. firewalld cannot express it.
 
 ---

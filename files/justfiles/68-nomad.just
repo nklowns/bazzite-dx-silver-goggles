@@ -326,6 +326,22 @@ llm-advisor:
     ================================================================================
     EOF
 
+# 🔒 Recriar apps do Supply Depot que ainda publicam em todas as interfaces
+# O nomad-admin já grava HostIp=127.0.0.1 em cada start (ExecStartPost); containers criados antes
+# disso mantêm o bind antigo até serem recriados. Isto os recria pelo force-reinstall do próprio
+# Command Center (dados em /var/srv/nomad/storage ficam). Acesso remoto: tailscale serve.
+[group('NOMAD')]
+nomad-loopback-apps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! systemctl --user is-active --quiet nomad-admin.service; then
+        echo "❌ Command Center parado. Rode 'ujust nomad-up' primeiro."
+        exit 1
+    fi
+    /usr/libexec/project-nomad-loopback-apps --recreate
+    echo "--- containers do NOMAD e seus binds:"
+    podman ps --format '{{{{.Names}} {{{{.Ports}}' | awk '$1 ~ /^nomad_/'
+
 # 🗂️ Shell com o mapeamento de UID do rootless, para mexer nos arquivos do NOMAD
 [group('NOMAD')]
 nomad-shell:
