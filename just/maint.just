@@ -37,8 +37,8 @@ check:
     if [ "${#renovate_configs[@]}" -gt 0 ]; then
     	if command -v "${PODMAN}" &>/dev/null; then
     		${PODMAN} run --rm -v "$PWD:/repo:ro,Z" -w /repo \
-    			ghcr.io/renovatebot/renovate:slim \
-    			renovate-config-validator --strict || rc=1
+    			ghcr.io/renovatebot/renovate:latest \
+    			renovate-config-validator || rc=1
     	elif command -v npx &>/dev/null; then
     		npx --yes @renovatebot/config-validator "${renovate_configs[@]}" || rc=1
     	else
