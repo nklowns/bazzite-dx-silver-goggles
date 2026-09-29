@@ -23,7 +23,11 @@ NetworkAlias=searxng
 # Loopback binding per workstation security policy
 PublishPort=127.0.0.1:61387:8080
 
-Volume=/var/srv/searxng:/etc/searxng:Z
+# :z (shared, not :Z private) — single-consumer dir, avoids per-file MCS
+# category drift on relabel that :Z's exclusive-relabel-on-create triggers
+# (settings.yml and ca-bundle.crt getting mismatched categories, causing
+# PermissionError -> curl: (77) error adding trust anchors)
+Volume=/var/srv/searxng:/etc/searxng:z
 
 Environment=SEARXNG_BASE_URL=http://localhost:61387
 Environment=CURL_CA_BUNDLE=/etc/searxng/ca-bundle.crt
