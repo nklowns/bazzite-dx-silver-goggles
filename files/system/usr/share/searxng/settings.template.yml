@@ -47,6 +47,13 @@ outgoing:
   pool_connections: 100
   enable_http2: true
   using_tor_proxy: false
+  # verify:false required at top level (covers default network too, e.g. yacy,
+  # TRACKER_PATTERNS fetch) because curl_cffi (BoringSSL-backed libcurl fork,
+  # searxng/searxng#6620) rejects agent-mesh-bootstrap-env's merged
+  # ca-bundle.crt with `curl: (77) error adding trust anchors` even though
+  # plain system curl accepts the same file. Do NOT remove without fixing the
+  # underlying curl_cffi CAfile parsing bug upstream first.
+  verify: false
   networks:
     tor:
       enable_http: true
@@ -94,8 +101,9 @@ engines:
     weight: 2.0
     timeout: 3.5
 
-  - name: google cse
-    engine: google_cse
+  - name: google
+    engine: google
+    network: trawl
     categories: [general, it]
     disabled: false
     weight: 3
@@ -115,6 +123,7 @@ engines:
     categories: [general]
     network: trawl
     disabled: false
+    weight: 0.6
 
   - name: wikidata
     engine: wikidata
