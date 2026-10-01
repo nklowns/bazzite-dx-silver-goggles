@@ -13,8 +13,8 @@
     {
       customType: 'regex',
       description: 'Track base-image tag and digest in image-versions.yaml',
-      fileMatch: [
-        '/^image-versions\\.yaml$/',
+      managerFilePatterns: [
+        '//^image-versions\\.yaml$//',
       ],
       matchStrings: [
         'image:\\s+(?<depName>[^\\n]+)\\n\\s+tag:\\s+(?<currentValue>[^\\n]+)\\n\\s+digest:\\s+(?<currentDigest>sha256:[a-f0-9]+)',
@@ -25,11 +25,8 @@
     {
       customType: 'regex',
       description: 'Track Quadlet container image digests (Project NOMAD stack, nomad-llama)',
-      // Pinned inline in the units rather than in image-versions.yaml: the unit is what
-      // ships, so pinning it directly removes the render step and the chance of the two
-      // copies disagreeing. Matches `Image=registry/path[:tag]@sha256:...` in any .container file.
-      fileMatch: [
-        '/^files/system/etc/containers/systemd/users/.+\\.container$/',
+      managerFilePatterns: [
+        '//^files/system/etc/containers/systemd/users/.+\\.container$//',
       ],
       matchStrings: [
         'Image=(?<depName>[^\\s@:]+)(:(?<currentValue>[^@\\s]+))?@(?<currentDigest>sha256:[a-f0-9]+)',
@@ -40,8 +37,8 @@
     {
       customType: 'regex',
       description: 'Track image dependencies in Justfile',
-      fileMatch: [
-        '/^Justfile$/',
+      managerFilePatterns: [
+        '//^Justfile$//',
       ],
       matchStrings: [
         '["\'](?<depName>fedora):(?<currentValue>[^"\']+)["\']',
@@ -52,8 +49,8 @@
     {
       customType: 'regex',
       description: 'Track Cockpit Top (ctop) releases in dx-cockpit module',
-      fileMatch: [
-        '/^modules/dx-cockpit/dx-cockpit\\.sh$/',
+      managerFilePatterns: [
+        '//^modules/dx-cockpit/dx-cockpit\\.sh$//',
       ],
       matchStrings: [
         'CTOP_VERSION="(?<currentValue>[^"]+)"',
@@ -142,7 +139,6 @@
         'files/system/etc/containers/systemd/users/nomad-admin.container',
         'files/system/etc/containers/systemd/users/nomad-mysql.container',
         'files/system/etc/containers/systemd/users/nomad-redis.container',
-        // llama-swap:cuda digest bumps also bump the llama.cpp build: re-run the bench before merging.
         'files/system/etc/containers/systemd/users/nomad-llama.container',
       ],
       matchUpdateTypes: [
