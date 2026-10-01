@@ -21,6 +21,9 @@
 #   - Audio (Vozes & Músicas): $XDG_MUSIC_DIR/AI_Studio/
 # ==============================================================================
 
+# 🐳 ComfyUI base image — single source of truth; update here and all recipes follow.
+COMFY_IMAGE := "docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961"
+
 # 🚀 Iniciar a suíte completa do AI Studio (Visual + Audio)
 [group('AI Studio')]
 aistudio-up:
@@ -178,6 +181,51 @@ visual-status:
 alias comfyui-status := visual-status
 alias aistudio-visual-status := visual-status
 
+# 🔍 Comparar o digest do COMFY_IMAGE (justfile) vs container Quadlet vs runtime
+[group('AI Studio Visual')]
+visual-digest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== ComfyUI Image Drift Check ==="
+
+    # Source of truth: COMFY_IMAGE in justfile
+    COMFY_REF=$(grep '^COMFY_IMAGE' files/justfiles/70-aistudio-visual.just | head -1 | sed 's/^COMFY_IMAGE[ :=]*//; s/^"//; s/"$//')
+    COMFY_DIGEST=$(echo "$COMFY_REF" | grep -o 'sha256:[a-f0-9]*' || true)
+    echo "📄 justfile (COMFY_IMAGE): ${COMFY_IMAGE}"
+    echo "   digest:    ${COMFY_DIGEST}"
+
+    # Quadlet source of truth: Image= in .container
+    QUADLET_REF=$(grep '^Image=' files/system/etc/containers/systemd/users/aistudio-visual.container | head -1)
+    QUADLET_DIGEST=$(echo "$QUADLET_REF" | grep -o 'sha256:[a-f0-9]*' || true)
+    echo "🐳 quadlet (Image=):     ${QUADLET_REF}"
+    echo "   digest:    ${QUADLET_DIGEST}"
+
+    # Runtime: podman inspect the actual running/last image
+    if podman inspect aistudio_visual >/dev/null 2>&1; then
+        RUNTIME_DIGEST=$(podman inspect aistudio_visual 2>/dev/null | grep '"Image"' | head -1 | sed 's/.*"Image": "\(.*\)".*/\1/')
+        echo "🔄 runtime (podman):     ${RUNTIME_DIGEST}"
+    elif podman ps -a 2>/dev/null | grep -q aistudio; then
+        RUNTIME_DIGEST=$(podman inspect aistudio_visual 2>/dev/null | grep '"Image"' | head -1 | sed 's/.*"Image": "\(.*\)".*/\1/')
+        echo "🔄 runtime (podman):     ${RUNTIME_DIGEST}"
+    else
+        RUNTIME_DIGEST="(no container found)"
+        echo "🔄 runtime (podman):     ${RUNTIME_DIGEST}"
+    fi
+
+    # Drift detection
+    if [[ "${COMFY_DIGEST}" == "${QUADLET_DIGEST}" ]]; then
+        echo
+        echo "✅ sem drift — COMFY_IMAGE (justfile) e Image= (quadlet) estão sincronizados"
+    else
+        echo
+        echo "⚠️  drift detectado:"
+        echo "   justfile digest:  ${COMFY_DIGEST}"
+        echo "   quadlet digest:   ${QUADLET_DIGEST}"
+        echo "   O Renovate atualiza o quadlet; atualize COMFY_IMAGE em 70-aistudio-visual.just"
+    fi
+
+alias comfyui-digest := visual-digest
+
 # 📜 Acompanhar os logs do AI Studio Visual em tempo real
 [group('AI Studio Visual')]
 visual-logs:
@@ -214,7 +262,7 @@ visual-sync:
     podman run --rm \
         -v /var/srv/visual/site-packages:/target:Z \
         -v "$TMP_REQ":/requirements.txt:ro,Z \
-        docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961 \
+        $${COMFY_IMAGE} \
         pip install --upgrade -q --no-warn-script-location --target /target -r /requirements.txt
     # Limpa overrides acidentais de torch para manter a aceleração CUDA da imagem base
     rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
@@ -246,7 +294,7 @@ visual-install package:
     mkdir -p /var/srv/visual/site-packages
     podman run --rm \
         -v /var/srv/visual/site-packages:/target:Z \
-        docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961 \
+        $${COMFY_IMAGE} \
         pip install -q --no-warn-script-location --target /target "{{ package }}"
     rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
     python3 -c "import os, glob, re, shutil; from collections import defaultdict; d=defaultdict(list); [d[m.group(1)].append((tuple(int(x) if x.isdigit() else x for x in re.split(r'[\.-]', m.group(2))), p)) for p in glob.glob('/var/srv/visual/site-packages/*.dist-info') if (m := re.match(r'^(.+)-([0-9a-zA-Z._+]+)\.dist-info$', os.path.basename(p)))]; [shutil.rmtree(p, ignore_errors=True) for v in d.values() if len(v)>1 for _, p in sorted(v, key=lambda x: x[0])[:-1]]" 2>/dev/null || true
@@ -306,12 +354,46 @@ visual-update:
     echo "🔄 Atualizando ComfyUI Core..."
     podman run --rm \
         -v /var/srv/visual/ComfyUI:/root/ComfyUI:Z \
-        docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961 \
+        $${COMFY_IMAGE} \
         bash -c "cd /root/ComfyUI && git pull --ff-only"
+    echo "📦 Sincronizando pacotes comfy_* após atualização do core..."
+    just visual-pkg-sync
     if systemctl --user is-active --quiet aistudio-visual.service; then
         systemctl --user restart aistudio-visual.service
     fi
     echo "✅ ComfyUI Core atualizado com sucesso."
+
+# 🩹 Sincronizar pacotes comfy_* no volume SSD após atualização do ComfyUI Manager
+# Detecta e faz upgrade de comfy_aimdo, comfy_kitchen, comfy_angle e afins que o ComfyUI
+# Manager pode ter desatualizado ao atualizar o core. Não toca em torch/nvidia/cuda.
+# Chamado automaticamente por visual-update; use manualmente se o boot falhar com
+# ModuleNotFoundError em qualquer pacote comfy_*.
+[group('AI Studio Visual')]
+visual-pkg-sync:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SITE_PKG="/var/srv/visual/site-packages"
+    # Discover installed comfy_* package names from dist-info metadata in the volume.
+    mapfile -t PKGS < <(
+        find "${SITE_PKG}" -maxdepth 1 -name "comfy_*-*.dist-info" -printf "%f\n" \
+            | sed 's/-[0-9].*//' \
+            | sort -u
+    )
+    if (( ${#PKGS[@]} == 0 )); then
+        echo "⚠  Nenhum pacote comfy_* encontrado em ${SITE_PKG}. Nada a sincronizar."
+        exit 0
+    fi
+    echo "📦 Pacotes comfy_* detectados: ${PKGS[*]}"
+    echo "🔄 Fazendo upgrade no volume persistente (torch/nvidia/cuda nunca são tocados)..."
+    podman run --rm \
+        --env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
+        --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
+        $${COMFY_IMAGE} \
+        pip install --upgrade --quiet --no-warn-script-location \
+            --target /root/.local/lib/python3.12/site-packages \
+            "${PKGS[@]}"
+    echo "✅ visual-pkg-sync concluído. Versões atualizadas:"
+    find "${SITE_PKG}" -maxdepth 1 -name "comfy_*-*.dist-info" -printf "  %f\n" | sed 's/\.dist-info//' | sort
 
 # 📥 Baixar modelos dimensionados para os 6 GB de VRAM da RTX 3060
 [group('AI Studio Visual')]

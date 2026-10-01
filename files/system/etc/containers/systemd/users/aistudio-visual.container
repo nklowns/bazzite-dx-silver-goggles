@@ -11,7 +11,10 @@
 # ---------------------------
 # All validated Python dependencies (LivePortrait, MediaPipe, VideoHelperSuite, ChatTTS)
 # are stored permanently on SSD in /var/srv/visual/site-packages and mounted to /root/.local.
-# Zero runtime installations occur on boot.
+# Zero runtime pip installs occur on healthy boots. If the ComfyUI core (also on SSD) is
+# updated via ComfyUI Manager and introduces new package requirements, the preflight script
+# /usr/libexec/aistudio-visual-preflight detects the drift via a dry-run import check and
+# upgrades only the missing package — once — before handing off to the real container.
 #
 # PUBLISHED ON TAILSCALE AT :61384
 # --------------------------------
@@ -48,6 +51,11 @@ Environment=CLI_ARGS=--fast --cache-classic --reserve-vram 1.0
 [Service]
 Restart=on-failure
 TimeoutStartSec=600
+# Preflight: validates the persistent site-packages volume against the live ComfyUI source tree.
+# Cost on a healthy boot: one ephemeral container (~0.5 s) that exits 0 with no pip activity.
+# Cost after a ComfyUI Manager update that added a new dependency: one pip upgrade, then starts.
+# Blocked packages (torch/nvidia/cuda) are never touched — they live in the base image.
+ExecStartPre=/usr/libexec/aistudio-visual-preflight docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961
 
 # [Install] is omitted on purpose: respect Boot Impact Policy for gaming sessions.
 # Start on-demand via `ujust comfyui-up` or `ujust aistudio-visual-up`.

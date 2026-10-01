@@ -58,6 +58,18 @@
       depNameTemplate: 'ismetozalp/ctop',
       datasourceTemplate: 'github-releases',
     },
+    {
+      customType: 'regex',
+      description: 'Track ComfyUI base image in AI Studio visual justfile (COMFY_IMAGE)',
+      managerFilePatterns: [
+        '//^files/justfiles/70-aistudio-visual\\.just$//',
+      ],
+      matchStrings: [
+        'COMFY_IMAGE=(?<depName>docker\\.io/yanwk/comfyui-boot):(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+    },
   ],
   packageRules: [
     {
@@ -210,6 +222,25 @@
       description: 'Auto-update ComfyUI AI Studio container digest in Quadlet unit',
       matchFileNames: [
         'files/system/etc/containers/systemd/users/aistudio-visual.container',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
+      pinDigests: true,
+      groupName: 'AI Studio ComfyUI container digest',
+      schedule: [
+        'before 6am on monday',
+      ],
+      commitMessagePrefix: 'chore(deps-ai): ',
+    },
+    {
+      description: 'Auto-update ComfyUI base image (COMFY_IMAGE) in justfile alongside Quadlet digest',
+      matchPackageNames: [
+        'docker.io/yanwk/comfyui-boot',
+      ],
+      matchFileNames: [
+        'files/justfiles/70-aistudio-visual.just',
       ],
       matchUpdateTypes: [
         'digest',
