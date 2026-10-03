@@ -42,7 +42,7 @@ StartLimitBurst=5
 [Container]
 # Pinned by digest like every other stack image. Tag at pin time: `cuda` =
 # llama-swap v260 + llama.cpp build 11206 (commit 2b129ccfa).
-Image=ghcr.io/mostlygeek/llama-swap:cuda@sha256:cd2eb3faca67940a8edd5dfdf790b04a1e448533c1cca54029f56e40811e5a96
+Image=ghcr.io/mostlygeek/llama-swap:cuda@sha256:3ef6935133915b4ec968e7f2fd9931deaa9f8dbbcf3fc7a8ad9f494775f46564
 
 # `_gpu` suffix keeps the name outside the Command Center's registry. It holds the container
 # socket and treats any container named like one of its SERVICE_NAMES (admin/constants/
