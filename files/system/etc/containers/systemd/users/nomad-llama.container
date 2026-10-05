@@ -40,9 +40,9 @@ StartLimitBurst=5
 # VRAM workload is never started as a side effect.
 
 [Container]
-# Pinned by digest like every other stack image. Tag at pin time: `cuda` =
-# llama-swap v260 + llama.cpp build 11206 (commit 2b129ccfa).
-Image=ghcr.io/mostlygeek/llama-swap:cuda@sha256:f0f38b9ec0f971a462ec0bb25539117d9ff6e55c45d0d06c14a049a438202375
+# Pinned by immutable version tag and digest to prevent GHCR manifest drops when floating tags move.
+# Tag at pin time: llama-swap v262 + llama.cpp build 11382.
+Image=ghcr.io/mostlygeek/llama-swap:v262-cuda-b11382@sha256:16fce005c4e38b497e1f2d4335991b6212e3552e0b9e586e78d7641cc6365081
 
 # `_gpu` suffix keeps the name outside the Command Center's registry. It holds the container
 # socket and treats any container named like one of its SERVICE_NAMES (admin/constants/
