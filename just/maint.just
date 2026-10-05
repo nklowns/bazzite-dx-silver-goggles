@@ -49,6 +49,20 @@ check:
     fi
     echo "Running ShellCheck on Bash scripts..."
     just lint || rc=1
+    if command -v skopeo >/dev/null 2>&1; then
+        echo "Validating Quadlet container image accessibility..."
+        while IFS= read -r -d '' cfile; do
+            while IFS= read -r img; do
+                if [ -n "$img" ]; then
+                    ref=$(echo "$img" | sed -E 's/:[^@]+@/@/')
+                    skopeo inspect --raw "docker://$ref" >/dev/null || {
+                        echo "❌ Quadlet image unreachable: $img (in $cfile)"
+                        rc=1
+                    }
+                fi
+            done < <(grep -hoP '(?<=^Image=)\S+' "$cfile" 2>/dev/null || true)
+        done < <(find files/system/etc/containers/systemd/users/ -type f -name '*.container' -print0 2>/dev/null || true)
+    fi
     if [ "$rc" -ne 0 ]; then
       echo "❌ just check: one or more validations failed (see above)."
     fi

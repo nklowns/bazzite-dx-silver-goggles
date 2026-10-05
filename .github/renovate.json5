@@ -5,7 +5,7 @@
   ],
   forkProcessing: 'enabled',
   dependencyDashboard: true,
-  rebaseWhen: 'never',
+  rebaseWhen: 'behind-base-branch',
   'git-submodules': {
     enabled: true,
   },
@@ -151,12 +151,27 @@
         'files/system/etc/containers/systemd/users/nomad-admin.container',
         'files/system/etc/containers/systemd/users/nomad-mysql.container',
         'files/system/etc/containers/systemd/users/nomad-redis.container',
-        'files/system/etc/containers/systemd/users/nomad-llama.container',
       ],
       matchUpdateTypes: [
         'digest',
         'pinDigest',
       ],
+      pinDigests: true,
+      groupName: 'Project NOMAD container digests',
+      schedule: [
+        'before 6am on monday',
+      ],
+      commitMessagePrefix: 'chore(deps-nomad): ',
+    },
+    {
+      description: 'Track immutable versioned CUDA releases for llama-swap',
+      matchPackageNames: [
+        'ghcr.io/mostlygeek/llama-swap',
+      ],
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/nomad-llama.container',
+      ],
+      versioning: 'regex:^v(?<major>\\d+)-cuda-b(?<minor>\\d+)$',
       pinDigests: true,
       groupName: 'Project NOMAD container digests',
       schedule: [
