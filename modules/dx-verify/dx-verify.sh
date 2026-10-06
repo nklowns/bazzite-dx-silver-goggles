@@ -169,6 +169,8 @@ readonly AUDIT_REGISTRY=(
 	"unit|/usr/lib/systemd/user/lock-on-session-start.service|Behaviour: Session Lock Unit Parses Clean|Error"
 	"file|/usr/lib/systemd/user/xdg-document-portal.service.d/10-resource-limits.conf|Policy: Document Portal Resource Safeguard|Error"
 	"unit|/usr/lib/systemd/user/xdg-document-portal.service.d/10-resource-limits.conf|Behaviour: Document Portal Override Parses Clean|Error"
+	"file|/usr/lib/systemd/user/plasma-plasmashell.service.d/10-igpu-video.conf|Policy: Plasmashell Video Decode on iGPU|Error"
+	"unit|/usr/lib/systemd/user/plasma-plasmashell.service.d/10-igpu-video.conf|Behaviour: Plasmashell iGPU Drop-in Parses Clean|Error"
 	"nostage|/usr/share/bluebuild/justfiles|Policy: No ujust Recipe Stages a Unit into \$HOME|Error"
 
 	"file|/usr/lib/systemd/user/uxplay.service|Asset: Casting UxPlay Unit|Error"
