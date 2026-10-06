@@ -137,7 +137,7 @@ remote-sunshine-setup:
         echo "   Se necessário, inicie o serviço com: ujust sunshine-up"
         exit 1
     fi
-    CONF_FILE="$HOME/.config/sunshine/sunshine.conf"
+    CONF_FILE="$HOME/.var/app/dev.lizardbyte.app.Sunshine/config/sunshine/sunshine.conf"
     if [ -f "$CONF_FILE" ] && ! grep -q 'origin_web_ui_allowed = pc' "$CONF_FILE"; then
         echo "origin_web_ui_allowed = pc" >> "$CONF_FILE"
         systemctl --user restart sunshine.service 2>/dev/null || true
@@ -208,6 +208,11 @@ remote-webcam-setup win_ip="":
 sunshine-up:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Flatpak is Bazzite's supported desktop build and the only one that can encode on the Intel iGPU.
+    if ! flatpak info dev.lizardbyte.app.Sunshine >/dev/null 2>&1; then
+        echo "Instalando Sunshine (flatpak dev.lizardbyte.app.Sunshine)..."
+        flatpak install --system -y flathub dev.lizardbyte.app.Sunshine
+    fi
     systemctl --user daemon-reload
     systemctl --user start sunshine.service
     /usr/libexec/bazzite-dx-sunshine-apps || true
@@ -232,6 +237,11 @@ sunshine-status:
     printf "%-12s %s (boot: %s)\n" "sunshine:" "${STATE:-inactive}" "${ENABLED:-disabled}"
     if ss -tln 2>/dev/null | grep -q ':47990 '; then
         echo "   Web UI: http://localhost:47990"
+    fi
+    LOG="$HOME/.var/app/dev.lizardbyte.app.Sunshine/config/sunshine/sunshine.log"
+    if [ -f "$LOG" ]; then
+        ENC=$(grep -oE 'Found (H.264|HEVC) encoder: [a-z0-9_]+' "$LOG" | tail -2 | awk '{print $NF}' | paste -sd, -)
+        echo "   encoder: ${ENC:-desconhecido} (vaapi = iGPU Intel, nvenc = dGPU)"
     fi
 
 # ⚡ Habilitar Sunshine no boot da sessão (Ative e esqueça)

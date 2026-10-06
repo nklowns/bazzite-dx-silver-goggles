@@ -165,6 +165,8 @@ readonly AUDIT_REGISTRY=(
 	"unit|/usr/lib/systemd/user/ide-tunnel@.service|Behaviour: IDE Tunnel Unit Parses Clean|Error"
 	"file|/usr/lib/systemd/user/sunshine.service|Asset: Sunshine Streaming Unit|Error"
 	"unit|/usr/lib/systemd/user/sunshine.service|Behaviour: Sunshine Unit Parses Clean|Error"
+	"file|/usr/lib/udev/rules.d/61-sunshine-virtualhid.rules|Policy: Sunshine Virtual Gamepad udev Rules|Error"
+	"file|/usr/lib/modules-load.d/60-sunshine.conf|Policy: Sunshine uhid Module Autoload|Error"
 	"file|/usr/lib/systemd/user/lock-on-session-start.service|Asset: Session Lock Unit|Error"
 	"unit|/usr/lib/systemd/user/lock-on-session-start.service|Behaviour: Session Lock Unit Parses Clean|Error"
 	"file|/usr/lib/systemd/user/xdg-document-portal.service.d/10-resource-limits.conf|Policy: Document Portal Resource Safeguard|Error"

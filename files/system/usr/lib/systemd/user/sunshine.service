@@ -1,20 +1,30 @@
 [Unit]
 Description=Sunshine Game Streaming and Remote Desktop Server
-Documentation=https://docs.lizardbyte.dev/projects/sunshine/
+Documentation=https://docs.lizardbyte.dev/projects/sunshine/ https://docs.bazzite.gg/Advanced/sunshine/
 After=graphical-session.target plasma-kwin_wayland.service plasma-xdg-desktop-portal-kde.service pipewire.service wireplumber.service pipewire-pulse.service
 Wants=pipewire.service wireplumber.service pipewire-pulse.service
 Requisite=graphical-session.target
 PartOf=graphical-session.target
 
+# Flatpak (dev.lizardbyte.app.Sunshine), Bazzite's supported desktop path. The Homebrew build links its own
+# glibc and cannot load Fedora's Intel VAAPI driver, so it could only encode with NVENC on the dGPU; the
+# flatpak runtime ships org.freedesktop.Platform.VAAPI.Intel and encodes on the iGPU (QuickSync), keeping the
+# dGPU free for games and the local LLM (verified 2026-10-05: hevc_vaapi, 0 MiB on the dGPU while streaming).
+# Capture is KWin ScreenCast (the flatpak cannot do KMS); the per-user KWin permission desktop file and the
+# encoder/adapter keys are provisioned by user-setup hook 45-sunshine-graphical-session-fix.sh.
+# The unit keeps the name sunshine.service on purpose: recipes, set-output.sh and lock-on-session-start
+# depend on it. Do not also install the flatpak's own app-dev.lizardbyte.app.Sunshine.service (it aliases
+# sunshine.service too).
+ConditionPathExists=/var/lib/flatpak/app/dev.lizardbyte.app.Sunshine
+
 [Service]
 Type=simple
 LimitNICE=-15
-Environment="__NV_PRIME_RENDER_OFFLOAD=1"
-Environment="__GLX_VENDOR_LIBRARY_NAME=nvidia"
-Environment="__VK_LAYER_NV_optimus=NVIDIA_only"
-Environment="LD_LIBRARY_PATH=/usr/lib64:/usr/lib64/dri"
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do busctl --user list 2>/dev/null | grep -q org.freedesktop.portal.Desktop && exit 0; sleep 1; done; echo "screencast portal interface not ready after 30s" >&2; exit 1'
-ExecStart=/home/linuxbrew/.linuxbrew/bin/sunshine %h/.config/sunshine/sunshine.conf
+ExecStart=/usr/bin/flatpak run --command=sunshine dev.lizardbyte.app.Sunshine
+# flatpak run places the sandbox in its own app-flatpak-*.scope, outside this unit's cgroup: without an
+# explicit kill a stop/restart leaves the old instance holding ports 47984-48010 ("Couldn't bind RTSP").
+ExecStop=/usr/bin/flatpak kill dev.lizardbyte.app.Sunshine
 Restart=on-failure
 RestartSec=5s
 TimeoutStartSec=45

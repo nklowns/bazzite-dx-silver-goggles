@@ -4,19 +4,39 @@ set -ouex pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script sunshine-graphical-session-fix user 10 || exit 0
+version-script sunshine-graphical-session-fix user 11 || exit 0
 
-# Sunshine is natively packaged and managed via canonical /usr/lib/systemd/user/sunshine.service.
-# Clean up legacy Homebrew unit files and obsolete drop-ins that targeted default.target.
+# Sunshine runs as the flatpak dev.lizardbyte.app.Sunshine under the canonical
+# /usr/lib/systemd/user/sunshine.service (Homebrew build retired: it cannot load the host's Intel VAAPI
+# driver, so it pinned NVENC on the dGPU). Clean up legacy unit files that shadow or alias it.
 rm -f "${HOME}/.config/systemd/user/default.target.wants/homebrew.sunshine.service" \
 	"${HOME}/.config/systemd/user/default.target.wants/sunshine.service" \
 	"${HOME}/.config/systemd/user/homebrew.sunshine.service"
-
 rm -rf "${HOME}/.config/systemd/user/homebrew.sunshine.service.d"
+# A user-level copy of the old brew unit hides the image unit entirely.
+if grep -qs 'linuxbrew' "${HOME}/.config/systemd/user/sunshine.service"; then
+	rm -f "${HOME}/.config/systemd/user/sunshine.service"
+fi
+# The flatpak's own unit (from additional-install.sh) also claims Alias=sunshine.service.
+if [ -f "${HOME}/.config/systemd/user/app-dev.lizardbyte.app.Sunshine.service" ]; then
+	systemctl --user disable app-dev.lizardbyte.app.Sunshine.service || true
+	rm -f "${HOME}/.config/systemd/user/app-dev.lizardbyte.app.Sunshine.service"
+fi
 
-# Ensure Sunshine settings (Web UI localhost security + low-latency NVENC parameters) are declaratively set.
-SUNSHINE_CONF_DIR="${HOME}/.config/sunshine"
+OLD_DIR="${HOME}/.config/sunshine"
+SUNSHINE_CONF_DIR="${HOME}/.var/app/dev.lizardbyte.app.Sunshine/config/sunshine"
 SUNSHINE_CONF="${SUNSHINE_CONF_DIR}/sunshine.conf"
+
+# Move the brew-era config (pairing credentials, apps, state) to the flatpak location ourselves, so paths
+# inside sunshine.conf/apps.json are rewritten too (the flatpak's SUNSHINE_MIGRATE_CONFIG only moves files).
+if [ -d "${OLD_DIR}" ] && [ ! -L "${OLD_DIR}" ] && [ ! -e "${SUNSHINE_CONF}" ]; then
+	mkdir -p "$(dirname "${SUNSHINE_CONF_DIR}")"
+	rm -rf "${SUNSHINE_CONF_DIR}"
+	mv "${OLD_DIR}" "${SUNSHINE_CONF_DIR}"
+	for f in sunshine.conf apps.json; do
+		[ -f "${SUNSHINE_CONF_DIR}/${f}" ] && sed -i "s|${OLD_DIR}/|${SUNSHINE_CONF_DIR}/|g; s|/var${OLD_DIR}/|${SUNSHINE_CONF_DIR}/|g" "${SUNSHINE_CONF_DIR}/${f}"
+	done
+fi
 mkdir -p "${SUNSHINE_CONF_DIR}"
 touch "${SUNSHINE_CONF}"
 
@@ -24,7 +44,7 @@ set_sunshine_key() {
 	local key="$1"
 	local val="$2"
 	if grep -q "^\s*${key}\s*=" "${SUNSHINE_CONF}"; then
-		sed -i "s/^\s*${key}\s*=.*/${key} = ${val}/" "${SUNSHINE_CONF}"
+		sed -i "s|^\s*${key}\s*=.*|${key} = ${val}|" "${SUNSHINE_CONF}"
 	else
 		echo "${key} = ${val}" >>"${SUNSHINE_CONF}"
 	fi
@@ -32,12 +52,50 @@ set_sunshine_key() {
 
 set_sunshine_key "origin_web_ui_allowed" "pc"
 set_sunshine_key "upnp" "disabled"
+set_sunshine_key "color_range" "2"
+# The flatpak cannot do KMS capture; KWin ScreenCast is the supported path on Plasma.
+set_sunshine_key "capture" "kwin"
+# NVENC fallback tuning (only used when no Intel iGPU is present).
 set_sunshine_key "nv_preset" "p1"
 set_sunshine_key "nv_tune" "ll"
 set_sunshine_key "nv_rc" "vbr"
-set_sunshine_key "color_range" "2"
 
-# Provision multi-monitor display outputs in apps.json (Notebook & AOC, Dual Canvas removed)
+# Encode on the Intel iGPU (QuickSync via VAAPI) when present, keeping the dGPU free for games/LLM.
+INTEL_RENDER=""
+for node in /sys/class/drm/renderD*; do
+	if [ "$(cat "${node}/device/vendor" 2>/dev/null)" = "0x8086" ]; then
+		INTEL_RENDER="/dev/dri/$(basename "${node}")"
+		break
+	fi
+done
+if [ -n "${INTEL_RENDER}" ]; then
+	set_sunshine_key "encoder" "vaapi"
+	set_sunshine_key "adapter_name" "${INTEL_RENDER}"
+fi
+
+# Wake the panel before each stream (wake.sh is written by bazzite-dx-sunshine-apps).
+if ! grep -q '^\s*global_prep_cmd\s*=' "${SUNSHINE_CONF}"; then
+	echo "global_prep_cmd = [{\"do\":\"${SUNSHINE_CONF_DIR}/wake.sh\",\"undo\":\"\"}]" >>"${SUNSHINE_CONF}"
+fi
+
+# KWin only exposes zkde_screencast_unstable_v1 to clients whose desktop file asks for it. Flatpak apps are
+# matched by app id, and ~/.local/share/applications shadows the exported entry, so the grant stays scoped
+# to Sunshine (instead of the global KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 workaround).
+mkdir -p "${HOME}/.local/share/applications"
+cat >"${HOME}/.local/share/applications/dev.lizardbyte.app.Sunshine.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Sunshine
+Comment=Self-hosted game stream host for Moonlight
+Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=sunshine.sh dev.lizardbyte.app.Sunshine
+Icon=dev.lizardbyte.app.Sunshine
+Categories=RemoteAccess;Network;
+X-Flatpak=dev.lizardbyte.app.Sunshine
+X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1
+EOF
+command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 >/dev/null 2>&1 || true
+
+# Provision multi-monitor display outputs in apps.json and the prep helpers (Notebook & AOC)
 if [ -x /usr/libexec/bazzite-dx-sunshine-apps ]; then
 	/usr/libexec/bazzite-dx-sunshine-apps || true
 fi

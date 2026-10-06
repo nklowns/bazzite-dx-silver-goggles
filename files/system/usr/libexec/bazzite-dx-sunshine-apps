@@ -5,9 +5,11 @@
 # ==============================================================================
 set -euo pipefail
 
-SUNSHINE_DIR="$HOME/.config/sunshine"
+# Sunshine runs as the flatpak dev.lizardbyte.app.Sunshine (see /usr/lib/systemd/user/sunshine.service).
+SUNSHINE_DIR="$HOME/.var/app/dev.lizardbyte.app.Sunshine/config/sunshine"
 APPS_FILE="$SUNSHINE_DIR/apps.json"
 SET_OUTPUT_SCRIPT="$SUNSHINE_DIR/set-output.sh"
+WAKE_SCRIPT="$SUNSHINE_DIR/wake.sh"
 
 mkdir -p "$SUNSHINE_DIR"
 
@@ -15,27 +17,32 @@ if [ ! -f "$APPS_FILE" ] || [ ! -s "$APPS_FILE" ]; then
 	echo '{"env":null,"apps":[]}' >"$APPS_FILE"
 fi
 
-# Ensure set-output.sh helper exists
+# Helpers run as prep commands inside the flatpak sandbox: host tools need flatpak-spawn --host
+# (the app has org.freedesktop.Flatpak talk access). Both also work when Sunshine runs natively.
 cat <<'EOF' >"$SET_OUTPUT_SCRIPT"
 #!/bin/bash
-CONF="$HOME/.config/sunshine/sunshine.conf"
+# Switch Sunshine's captured output, then restart the service on the host.
+CONF="$(dirname "$(readlink -f "$0")")/sunshine.conf"
 NAME="$1"
 CURRENT="$(grep '^output_name' "$CONF" 2>/dev/null | sed 's/^output_name *= *//')"
-
-if [ "$CURRENT" = "$NAME" ]; then
-    exit 0
-fi
-
+[ "$CURRENT" = "$NAME" ] && exit 0
 sed -i '/^output_name/d' "$CONF"
-if [ -n "$NAME" ]; then
-    echo "output_name = ${NAME}" >> "$CONF"
-fi
-
-nohup systemctl --user restart sunshine.service >/dev/null 2>&1 &
+[ -n "$NAME" ] && echo "output_name = ${NAME}" >> "$CONF"
+H=(); [ -f /.flatpak-info ] && H=(flatpak-spawn --host)
+nohup "${H[@]}" systemctl --user restart sunshine.service >/dev/null 2>&1 &
 disown
 exit 0
 EOF
 chmod +x "$SET_OUTPUT_SCRIPT"
+
+cat <<'EOF' >"$WAKE_SCRIPT"
+#!/bin/bash
+# Global prep command: wake the panel (DPMS) before a stream starts.
+H=(); [ -f /.flatpak-info ] && H=(flatpak-spawn --host)
+"${H[@]}" env XDG_RUNTIME_DIR="/run/user/$(id -u)" WAYLAND_DISPLAY=wayland-0 kscreen-doctor --dpms on >/dev/null 2>&1 &
+exit 0
+EOF
+chmod +x "$WAKE_SCRIPT"
 
 # Construct valid JSON app objects using jq
 AUTO_APP=$(jq -n --arg script "$SET_OUTPUT_SCRIPT" '{

@@ -241,7 +241,7 @@ security-audit:
 
     echo
     echo "=== 3. Sunshine UPnP WAN Exposure ==="
-    sunshine_conf="$HOME/.config/sunshine/sunshine.conf"
+    sunshine_conf="$HOME/.var/app/dev.lizardbyte.app.Sunshine/config/sunshine/sunshine.conf"
     if [ -f "$sunshine_conf" ]; then
         if grep -qE '^\s*upnp\s*=\s*enabled' "$sunshine_conf"; then
             echo "  ❌ Sunshine UPnP ativado! Portas de streaming estão perfuradas no roteador WAN."
