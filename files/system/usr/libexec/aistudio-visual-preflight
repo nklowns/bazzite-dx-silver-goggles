@@ -25,11 +25,11 @@ MAX_ATTEMPTS=3
 MAX_PREFLIGHT_SECS=30
 
 # Packages that must NEVER be upgraded into the volume (provided by the base image).
-BLOCKED_PKGS=( "torch" "torchvision" "torchaudio" "functorch" )
+BLOCKED_PKGS=("torch" "torchvision" "torchaudio" "functorch")
 # nvidia/ cuda: exact match only — pip packages like nvidia-cuda-cupti are NOT blocked.
-BLOCKED_EXACT=( "nvidia" "cuda" )
+BLOCKED_EXACT=("nvidia" "cuda")
 
-log()  { echo "[preflight] $*"; }
+log() { echo "[preflight] $*"; }
 warn() { echo "[preflight] ⚠  $*" >&2; }
 
 # ---------------------------------------------------------------------------
@@ -38,15 +38,15 @@ warn() { echo "[preflight] ⚠  $*" >&2; }
 # name on stdout so the caller can pip-install it.
 # ---------------------------------------------------------------------------
 fast_check() {
-    local out
-    out=$(podman run --rm \
-        --env PYTHONPATH=/root/.local/lib/python3.12/site-packages \
-        --env PYTHONUSERBASE=/root/.local \
-        --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
-        --volume "${COMFYUI_DIR}:/root/ComfyUI:Z" \
-        --workdir /root/ComfyUI \
-        "${IMAGE}" \
-        python3 -c "
+	local out
+	out=$(podman run --rm \
+		--env PYTHONPATH=/root/.local/lib/python3.12/site-packages \
+		--env PYTHONUSERBASE=/root/.local \
+		--volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
+		--volume "${COMFYUI_DIR}:/root/ComfyUI:Z" \
+		--workdir /root/ComfyUI \
+		"${IMAGE}" \
+		python3 -c "
 import sys, importlib
 sys.path.insert(0, '/root/ComfyUI')
 modules = ['comfy.utils', 'comfy.storage', 'comfy.model_management']
@@ -60,9 +60,9 @@ for m in modules:
         sys.exit(1)
 " 2>/dev/null) && return 0
 
-    # out contains the missing top-level package name
-    echo "${out}"
-    return 1
+	# out contains the missing top-level package name
+	echo "${out}"
+	return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -73,35 +73,35 @@ for m in modules:
 # cuda-python are NOT blocked — they live in the image but are installable via pip.
 # ---------------------------------------------------------------------------
 is_blocked() {
-    local pkg="${1,,}"   # lowercase
+	local pkg="${1,,}" # lowercase
 
-    # Exact-match packages: nvidia and cuda (pip-installable sub-packages OK)
-    for exact in "${BLOCKED_EXACT[@]}"; do
-        [[ "${pkg}" == "${exact}" ]] && return 0
-    done
+	# Exact-match packages: nvidia and cuda (pip-installable sub-packages OK)
+	for exact in "${BLOCKED_EXACT[@]}"; do
+		[[ "${pkg}" == "${exact}" ]] && return 0
+	done
 
-    # Prefix-match: torch, torchvision, torchaudio, functorch
-    for prefix in "${BLOCKED_PKGS[@]}"; do
-        [[ "${pkg}" == "${prefix}"* ]] && return 0
-    done
+	# Prefix-match: torch, torchvision, torchaudio, functorch
+	for prefix in "${BLOCKED_PKGS[@]}"; do
+		[[ "${pkg}" == "${prefix}"* ]] && return 0
+	done
 
-    return 1
+	return 1
 }
 
 # ---------------------------------------------------------------------------
 # pip_upgrade — install/upgrade a package into the persistent SSD volume.
 # ---------------------------------------------------------------------------
 pip_upgrade() {
-    local pkg="$1"
-    log "Upgrading '${pkg}' into ${SITE_PKG}…"
-    podman run --rm \
-        --env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
-        --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
-        "${IMAGE}" \
-        pip install --upgrade --quiet --no-warn-script-location \
-            --target /root/.local/lib/python3.12/site-packages \
-            "${pkg}"
-    log "  ✔ '${pkg}' upgraded."
+	local pkg="$1"
+	log "Upgrading '${pkg}' into ${SITE_PKG}…"
+	podman run --rm \
+		--env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
+		--volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
+		"${IMAGE}" \
+		pip install --upgrade --quiet --no-warn-script-location \
+		--target /root/.local/lib/python3.12/site-packages \
+		"${pkg}"
+	log "  ✔ '${pkg}' upgraded."
 }
 
 # ---------------------------------------------------------------------------
@@ -112,35 +112,35 @@ log "Starting ComfyUI dependency preflight…"
 
 start_sec=$SECONDS
 attempt=0
-while (( attempt < MAX_ATTEMPTS )); do
-    # Check preflight budget before each podman run
-    elapsed=$(( SECONDS - start_sec ))
-    if (( elapsed > MAX_PREFLIGHT_SECS )); then
-        warn "Preflight budget exhausted (${elapsed}s / ${MAX_PREFLIGHT_SECS}s). Proceeding."
-        break
-    fi
+while ((attempt < MAX_ATTEMPTS)); do
+	# Check preflight budget before each podman run
+	elapsed=$((SECONDS - start_sec))
+	if ((elapsed > MAX_PREFLIGHT_SECS)); then
+		warn "Preflight budget exhausted (${elapsed}s / ${MAX_PREFLIGHT_SECS}s). Proceeding."
+		break
+	fi
 
-    (( attempt++ ))
-    missing=$(fast_check) && break   # all imports OK → done
+	((attempt++))
+	missing=$(fast_check) && break # all imports OK → done
 
-    if [[ -z "${missing}" ]]; then
-        warn "Import failed but could not identify the missing package. Proceeding anyway."
-        break
-    fi
+	if [[ -z "${missing}" ]]; then
+		warn "Import failed but could not identify the missing package. Proceeding anyway."
+		break
+	fi
 
-    log "Attempt ${attempt}/${MAX_ATTEMPTS}: missing module top-level package = '${missing}'"
+	log "Attempt ${attempt}/${MAX_ATTEMPTS}: missing module top-level package = '${missing}'"
 
-    if is_blocked "${missing}"; then
-        warn "'${missing}' is a blocked package (image-resident). Skipping pip upgrade."
-        warn "This may be a base-image mismatch. Start will proceed; ComfyUI may fail."
-        break
-    fi
+	if is_blocked "${missing}"; then
+		warn "'${missing}' is a blocked package (image-resident). Skipping pip upgrade."
+		warn "This may be a base-image mismatch. Start will proceed; ComfyUI may fail."
+		break
+	fi
 
-    pip_upgrade "${missing}"
+	pip_upgrade "${missing}"
 done
 
-if (( attempt >= MAX_ATTEMPTS )); then
-    warn "Reached max heal attempts (${MAX_ATTEMPTS}). Proceeding — ComfyUI may still fail."
+if ((attempt >= MAX_ATTEMPTS)); then
+	warn "Reached max heal attempts (${MAX_ATTEMPTS}). Proceeding — ComfyUI may still fail."
 fi
 
 log "Preflight complete. Handing off to ComfyUI."
