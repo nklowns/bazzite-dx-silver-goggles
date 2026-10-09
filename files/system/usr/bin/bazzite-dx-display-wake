@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# bazzite-dx-display-wake:
+# Wakes display power (DPMS) and ScreenSaver/KWin on KDE Plasma Wayland.
+# Restores PipeWire screencast frame production for remote access streams.
+# ==============================================================================
+set -euo pipefail
+
+# 1. Wake display output via kscreen-doctor (turns on DPMS)
+env WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" kscreen-doctor --dpms on >/dev/null 2>&1 || true
+
+# 2. Simulate user activity to wake ScreenSaver / lock screen
+qdbus org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || true
+
+# 3. Wake KDE Solid Power Management
+qdbus org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || true

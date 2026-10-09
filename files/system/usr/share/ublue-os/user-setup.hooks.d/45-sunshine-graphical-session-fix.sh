@@ -88,9 +88,12 @@ else
 	fi
 fi
 
-# Wake the panel before each stream (wake.sh is written by bazzite-dx-sunshine-apps).
+# Wake the panel before each stream via declarative host script (/usr/bin/bazzite-dx-display-wake).
 if ! grep -q '^\s*global_prep_cmd\s*=' "${SUNSHINE_CONF}"; then
-	echo "global_prep_cmd = [{\"do\":\"${SUNSHINE_CONF_DIR}/wake.sh\",\"undo\":\"\"}]" >>"${SUNSHINE_CONF}"
+	echo 'global_prep_cmd = [{"do":"flatpak-spawn --host /usr/bin/bazzite-dx-display-wake","undo":""}]' >>"${SUNSHINE_CONF}"
+else
+	# Upgrade legacy wake.sh path to declarative flatpak-spawn
+	sed -i 's|.*wake\.sh.*|global_prep_cmd = [{"do":"flatpak-spawn --host /usr/bin/bazzite-dx-display-wake","undo":""}]|' "${SUNSHINE_CONF}"
 fi
 
 # KWin only exposes zkde_screencast_unstable_v1 to clients whose desktop file asks for it. Flatpak apps are

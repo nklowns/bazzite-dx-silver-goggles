@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# bazzite-dx-remote-wake-watcher:
+# Monitors remote desktop connection events (RustDesk and Sunshine) in real time
+# and triggers bazzite-dx-display-wake to ensure KWin Wayland renders PipeWire frames.
+# ==============================================================================
+set -euo pipefail
+
+LOG_RUSTDESK="${XDG_DATA_HOME:-$HOME/.local/share}/logs/RustDesk/rustdesk_rCURRENT.log"
+LOG_SUNSHINE="${XDG_CONFIG_HOME:-$HOME/.var/app/dev.lizardbyte.app.Sunshine/config}/sunshine/sunshine.log"
+
+wake_screen() {
+	if command -v bazzite-dx-display-wake >/dev/null 2>&1; then
+		bazzite-dx-display-wake
+	elif [ -x "/var/home/cloud/dev/personal/os/bazzite-dx-silver-goggles/files/system/usr/bin/bazzite-dx-display-wake" ]; then
+		/var/home/cloud/dev/personal/os/bazzite-dx-silver-goggles/files/system/usr/bin/bazzite-dx-display-wake
+	else
+		env WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" kscreen-doctor --dpms on >/dev/null 2>&1 || true
+		qdbus org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || true
+		qdbus org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || true
+	fi
+}
+
+mkdir -p "$(dirname "$LOG_RUSTDESK")" "$(dirname "$LOG_SUNSHINE")"
+touch "$LOG_RUSTDESK" "$LOG_SUNSHINE"
+
+# Follow logs across file creations, restarts, and rotations
+tail -F -n0 "$LOG_RUSTDESK" "$LOG_SUNSHINE" 2>/dev/null | while read -r line; do
+	case "$line" in
+	*"Connection opened from"* | *"direct access from"* | *"CLIENT CONNECTED"* | *"Creating encoder"*)
+		wake_screen
+		;;
+	esac
+done
