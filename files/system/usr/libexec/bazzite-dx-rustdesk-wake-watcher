@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# bazzite-dx-rustdesk-wake-watcher:
+# Wakes display power (DPMS) and ScreenSaver when an incoming RustDesk connection starts.
+# Solves KWin Wayland 0-FPS black screen when connecting to a locked/idle host.
+# ==============================================================================
+set -euo pipefail
+
+LOG_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/logs/RustDesk/rustdesk_rCURRENT.log"
+
+wake_screen() {
+	# Ensure DPMS powers on the display output and notify ScreenSaver/KWin of activity
+	env WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" kscreen-doctor --dpms on >/dev/null 2>&1 || true
+	qdbus org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || true
+	qdbus org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || true
+}
+
+mkdir -p "$(dirname "$LOG_FILE")"
+touch "$LOG_FILE"
+
+# Follow the active log file across rotations and restarts
+tail -F -n0 "$LOG_FILE" 2>/dev/null | while read -r line; do
+	case "$line" in
+	*"Connection opened from"* | *"direct access from"*)
+		wake_screen
+		;;
+	esac
+done

@@ -294,7 +294,6 @@ rustdesk-up:
     fi
     mkdir -p "$HOME/.config/autostart"
     ln -sf /dev/null "$HOME/.config/autostart/com.rustdesk.RustDesk.desktop" 2>/dev/null || true
-    flatpak override --user --talk-name=org.kde.StatusNotifierWatcher --talk-name=org.freedesktop.StatusNotifierWatcher --talk-name=org.freedesktop.Notifications com.rustdesk.RustDesk 2>/dev/null || true
     CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
     mkdir -p "$(dirname "$CONF")"
     if [ -f /usr/share/ublue-os/rustdesk/RustDesk2.toml.template ] && [ ! -s "$CONF" ]; then

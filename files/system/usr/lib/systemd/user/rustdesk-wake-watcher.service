@@ -1,0 +1,15 @@
+[Unit]
+Description=RustDesk Display Wake Watcher (KWin Wayland DPMS Wake)
+Documentation=https://rustdesk.com/docs/
+After=graphical-session.target rustdesk.service
+PartOf=rustdesk.service
+BindsTo=rustdesk.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/bazzite-dx-rustdesk-wake-watcher
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=rustdesk.service
