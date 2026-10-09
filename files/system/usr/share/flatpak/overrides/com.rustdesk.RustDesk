@@ -7,10 +7,6 @@ sockets=x11;wayland;pulseaudio;
 PULSE_LATENCY_MSEC=35
 PIPEWIRE_LATENCY=512/48000
 PATH=/var/data/bin:/app/bin:/usr/bin
-# Encode on the Intel iGPU (VAAPI) instead of NVENC: hide CUDA and force Mesa EGL so RustDesk never opens
-# a ~150 MiB CUDA context on the dGPU (games/local LLM keep it). Verified: iHD VAAPI on Intel renderD128.
-CUDA_VISIBLE_DEVICES=
-__EGL_VENDOR_LIBRARY_FILENAMES=/usr/lib/x86_64-linux-gnu/GL/glvnd/egl_vendor.d/50_mesa.json
 
 [Session Bus Policy]
 org.freedesktop.portal.Desktop=talk
@@ -24,7 +20,7 @@ org.freedesktop.ScreenSaver=talk
 org.freedesktop.PowerManagement=talk
 org.kde.ScreenSaver=talk
 org.kde.Solid.PowerManagement=talk
+org.kde.KWin=talk
 
 [System Bus Policy]
 org.freedesktop.login1=talk
-
