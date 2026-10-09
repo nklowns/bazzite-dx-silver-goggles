@@ -4,7 +4,7 @@ set -ouex pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script sunshine-graphical-session-fix user 11 || exit 0
+version-script sunshine-graphical-session-fix user 12 || exit 0
 
 # Sunshine runs as the flatpak dev.lizardbyte.app.Sunshine under the canonical
 # /usr/lib/systemd/user/sunshine.service (Homebrew build retired: it cannot load the host's Intel VAAPI
@@ -60,17 +60,32 @@ set_sunshine_key "nv_preset" "p1"
 set_sunshine_key "nv_tune" "ll"
 set_sunshine_key "nv_rc" "vbr"
 
-# Encode on the Intel iGPU (QuickSync via VAAPI) when present, keeping the dGPU free for games/LLM.
-INTEL_RENDER=""
-for node in /sys/class/drm/renderD*; do
-	if [ "$(cat "${node}/device/vendor" 2>/dev/null)" = "0x8086" ]; then
-		INTEL_RENDER="/dev/dri/$(basename "${node}")"
+# Prefer NVENC on NVIDIA hosts (Dell G15 dGPU) for ultra-low latency game/desktop streaming.
+# Only fall back to Intel VAAPI when no NVIDIA GPU is detected.
+HAS_NVIDIA=0
+for v in /sys/class/drm/card*/device/vendor; do
+	if [ -f "$v" ] && [ "$(cat "$v" 2>/dev/null)" = "0x10de" ]; then
+		HAS_NVIDIA=1
 		break
 	fi
 done
-if [ -n "${INTEL_RENDER}" ]; then
-	set_sunshine_key "encoder" "vaapi"
-	set_sunshine_key "adapter_name" "${INTEL_RENDER}"
+
+if [ "$HAS_NVIDIA" -eq 1 ]; then
+	# Remove any stale VAAPI overrides so Sunshine defaults to NVENC
+	sed -i '/^\s*encoder\s*=/d' "${SUNSHINE_CONF}"
+	sed -i '/^\s*adapter_name\s*=/d' "${SUNSHINE_CONF}"
+else
+	INTEL_RENDER=""
+	for node in /sys/class/drm/renderD*; do
+		if [ "$(cat "${node}/device/vendor" 2>/dev/null)" = "0x8086" ]; then
+			INTEL_RENDER="/dev/dri/$(basename "${node}")"
+			break
+		fi
+	done
+	if [ -n "${INTEL_RENDER}" ]; then
+		set_sunshine_key "encoder" "vaapi"
+		set_sunshine_key "adapter_name" "${INTEL_RENDER}"
+	fi
 fi
 
 # Wake the panel before each stream (wake.sh is written by bazzite-dx-sunshine-apps).

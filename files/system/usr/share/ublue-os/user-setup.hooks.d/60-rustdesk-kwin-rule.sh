@@ -76,6 +76,7 @@ case "$cmd" in
                 *) [ -z "$sess" ] && sess="$1"; shift ;;
             esac
         done
+        [ -z "$sess" ] && sess=$(grep -l 'IS_DISPLAY=1' "$SESSION_DIR"/* 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null || true)
         [ -z "$sess" ] && sess=$(ls -1 "$SESSION_DIR" 2>/dev/null | head -1)
         target="$SESSION_DIR/$sess"
         if [ ! -f "$target" ]; then
@@ -84,7 +85,16 @@ case "$cmd" in
         if [ -n "$prop" ]; then
             uprop=$(echo "$prop" | tr '[:lower:]' '[:upper:]')
             [ "$uprop" = "NAME" ] && uprop="USER"
-            val=$(grep -E "^${uprop}=" "$target" 2>/dev/null | cut -d= -f2-)
+            if [ "$uprop" = "LOCKEDHINT" ]; then
+                spath=$(gdbus call --system --dest org.freedesktop.login1 --object-path /org/freedesktop/login1 --method org.freedesktop.login1.Manager.GetSession "$sess" 2>/dev/null | grep -o "'/org/freedesktop/login1/session/[^']*'" | tr -d "'")
+                if [ -n "$spath" ] && gdbus call --system --dest org.freedesktop.login1 --object-path "$spath" --method org.freedesktop.DBus.Properties.Get org.freedesktop.login1.Session LockedHint 2>/dev/null | grep -q true; then
+                    val="yes"
+                else
+                    val="no"
+                fi
+            else
+                val=$(grep -E "^${uprop}=" "$target" 2>/dev/null | cut -d= -f2-)
+            fi
             if [ "$val_only" -eq 1 ]; then
                 echo "$val"
             else
@@ -120,3 +130,13 @@ case "$cmd" in
 esac
 EOF
 chmod +x "$SHIM_DIR/loginctl"
+
+# Ensure allow-hide-cm is enabled in RustDesk2.toml to prevent leaking orphaned --cm processes
+RUSTDESK_CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
+if [ -f "$RUSTDESK_CONF" ]; then
+	if ! grep -q '^allow-hide-cm' "$RUSTDESK_CONF" 2>/dev/null; then
+		if grep -q '^\[options\]' "$RUSTDESK_CONF" 2>/dev/null; then
+			sed -i "/^\[options\]/a allow-hide-cm = 'Y'" "$RUSTDESK_CONF"
+		fi
+	fi
+fi

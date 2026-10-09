@@ -40,6 +40,7 @@ cat <<'EOF' >"$WAKE_SCRIPT"
 # Global prep command: wake the panel (DPMS) before a stream starts.
 H=(); [ -f /.flatpak-info ] && H=(flatpak-spawn --host)
 "${H[@]}" env XDG_RUNTIME_DIR="/run/user/$(id -u)" WAYLAND_DISPLAY=wayland-0 kscreen-doctor --dpms on >/dev/null 2>&1 &
+"${H[@]}" qdbus org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 &
 exit 0
 EOF
 chmod +x "$WAKE_SCRIPT"
