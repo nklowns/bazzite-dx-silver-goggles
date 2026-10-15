@@ -100,13 +100,21 @@ setup-default-brew flavor="" action="":
     # Step 1: Choose Flavor
     if [[ -z "$FLAVOR" ]]; then
         echo "Choose a Bazzite-DX Workstation Flavor (High-Fidelity):"
-        FLAVOR=$(gum choose "cli" "ai" "cncf" "all")
+        if [[ -t 0 ]] 2>/dev/null; then
+            FLAVOR=$(gum choose "cli" "ai" "cncf" "all") || FLAVOR="all"
+        else
+            FLAVOR="all"
+        fi
     fi
 
     # Step 2: Choose Action
     if [[ -z "$ACTION" ]]; then
         echo "Choose action for $FLAVOR bundle:"
-        ACTION=$(gum choose "install" "check" "cleanup")
+        if [[ -t 0 ]] 2>/dev/null; then
+            ACTION=$(gum choose "install" "check" "cleanup") || ACTION="install"
+        else
+            ACTION="install"
+        fi
     fi
 
     FILES=()
