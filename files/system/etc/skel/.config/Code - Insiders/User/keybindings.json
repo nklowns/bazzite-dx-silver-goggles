@@ -132,7 +132,7 @@
         "command": "workbench.action.terminal.sendSequence",
         "when": "terminalFocus",
         "args": {
-            "text": "\\\r\n"
+            "text": "\u001b[13;5u"
         }
     },
     {
@@ -276,7 +276,7 @@
         "command": "workbench.action.terminal.sendSequence",
         "when": "terminalFocus",
         "args": {
-            "text": "\\\r\n"
+            "text": "\u001b[13;2u"
         }
     }
 ]
