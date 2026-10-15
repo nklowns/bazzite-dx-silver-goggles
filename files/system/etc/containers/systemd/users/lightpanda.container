@@ -13,7 +13,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/lightpanda/browser:nightly@sha256:275217078a297262edceab1ed55257e7d4e30703743f83841852ede7813b2c8a
+Image=docker.io/lightpanda/browser:nightly@sha256:1c60cb1380e80de316ed2b28f6cee5753f4c999af45d16c14d310d53545c38ec
 ContainerName=lightpanda_cdp
 PublishPort=127.0.0.1:9225:9225
 Exec=/bin/lightpanda serve --host 0.0.0.0 --port 9225
