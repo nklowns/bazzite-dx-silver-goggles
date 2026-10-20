@@ -42,7 +42,7 @@ StartLimitBurst=5
 [Container]
 # Pinned by immutable version tag and digest to prevent GHCR manifest drops when floating tags move.
 # Tag at pin time: llama-swap v262 + llama.cpp build 11382.
-Image=ghcr.io/mostlygeek/llama-swap:v265-cuda-b11718@sha256:b2ffae236c58b9777d9c7b6c42c30179519ca391cb7c82bb3e0cb7e5474431e7
+Image=ghcr.io/mostlygeek/llama-swap:v265-cuda-b11723@sha256:e4a55a9f128fbf839302a4b50099360b48e8c66037819d58428f1e321a440bba
 
 # `_gpu` suffix keeps the name outside the Command Center's registry. It holds the container
 # socket and treats any container named like one of its SERVICE_NAMES (admin/constants/
