@@ -877,3 +877,63 @@ gpu-status:
 
 alias kwin-gpu-status := gpu-status
 alias kde-gpu-status := gpu-status
+
+# ====================================================================
+# GPU UNLOCK (Zagitta/gpu-unlock) — FP16/BF16 tensor-core rate, RTX 3060 Laptop
+# Local, validated flow only: signed RPM built against the booted kernel (upstream PR #79).
+# Needs the silver-goggles kmod key enrolled in the MOK (Secure Boot) and a COLD boot.
+# ====================================================================
+
+# Enroll the silver-goggles kmod signing key into the MOK (once; needs console at next boot)
+[group('Hardware')]
+enroll-silver-goggles-key:
+    #!/usr/bin/bash
+    set -euo pipefail
+    KEY=/etc/pki/silver-goggles/kmod.der
+    if sudo mokutil --test-key "$KEY" 2>&1 | grep -q 'is already enrolled'; then
+        echo "Key already enrolled: nothing to do."
+        exit 0
+    fi
+    echo "Enrolling $KEY. Choose a one-time password; you need it at the next boot."
+    sudo mokutil --import "$KEY"
+    echo 'Reboot with a keyboard/monitor attached: MokManager -> "Enroll MOK" -> Continue -> password.'
+    echo "Rollback: sudo mokutil --delete $KEY"
+
+# Install a locally built signed gpu-unlock RPM and set the karg (reboot + cold boot after)
+[group('Hardware')]
+gpu-unlock-install rpm pci="0000:01:00.0":
+    #!/usr/bin/bash
+    set -euo pipefail
+    [[ -f "{{ rpm }}" ]] || { echo "RPM not found: {{ rpm }}" >&2; exit 1; }
+    if ! sudo mokutil --test-key /etc/pki/silver-goggles/kmod.der 2>&1 | grep -q 'is already enrolled'; then
+        echo "Key not enrolled: run 'ujust enroll-silver-goggles-key' and reboot first." >&2
+        exit 1
+    fi
+    sudo rpm-ostree install "{{ rpm }}"
+    sudo rpm-ostree initramfs --enable
+    sudo rpm-ostree kargs --append-if-missing="gpu_unlock.targets={{ pci }}"
+    echo "Staged. Shut down fully (poweroff, not reboot) and power on."
+    echo "Rollback: ujust gpu-unlock-remove"
+
+# Remove gpu-unlock (package, initramfs hook, karg)
+[group('Hardware')]
+gpu-unlock-remove:
+    #!/usr/bin/bash
+    set -euo pipefail
+    sudo rpm-ostree uninstall gpu-unlock-local || true
+    sudo rpm-ostree initramfs --disable || true
+    for karg in $(rpm-ostree kargs | tr ' ' '\n' | grep '^gpu_unlock\.targets='); do
+        sudo rpm-ostree kargs --delete="$karg"
+    done
+    echo "Done. Takes effect after the next boot."
+
+# gpu-unlock status (read-only)
+[group('Hardware')]
+gpu-unlock-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "--- karg ---";   grep -o 'gpu_unlock[^ ]*' /proc/cmdline || echo "  not set"
+    echo "--- module ---"; lsmod | grep -E '^gpu_unlock' || echo "  not loaded"
+    echo "--- key ---";    mokutil --test-key /etc/pki/silver-goggles/kmod.der 2>&1 | tail -1
+    echo "--- package ---"; rpm -q gpu-unlock-local || echo "  not installed"
+    echo "--- kernel log ---"; journalctl -k -b --no-pager | grep -i gpu_unlock | tail -20 || echo "  no entries"
