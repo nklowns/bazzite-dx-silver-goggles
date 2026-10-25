@@ -46,3 +46,8 @@ brew "fabric"                                       # Fabric: Prompt patterns CL
 brew "aider"                                        # CLI pair programming agent
 brew "gptme"                                        # Gptme: Local-first agentic shell
 brew "openclaw-cli"                                 # OpenClaw: Local AI gateway interface
+
+# --- Reverse Engineering (static analysis CLIs) ---
+brew "jadx"                                         # Android/DEX decompiler
+brew "apktool"                                      # APK resource/smali unpack
+brew "binwalk"                                      # Firmware signature scan/extract
