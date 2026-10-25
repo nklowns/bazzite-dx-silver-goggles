@@ -3,7 +3,7 @@
 # WHY llama.cpp AND NOT OLLAMA
 # ----------------------------
 # Ollama's /v1 endpoint does not emit structured `tool_calls`, which is what coding agents and
-# MCP clients (opencode, crush, aider, pi, Vane's OpenAI provider) need. llama.cpp's server does,
+# MCP clients (opencode, pi, Vane's OpenAI provider) need. llama.cpp's server does,
 # and llama-swap in front of it loads/unloads models per request (one model in 6 GB VRAM at a
 # time) behind a single OpenAI endpoint.
 #
