@@ -265,7 +265,7 @@ visual-sync:
         -v /var/srv/visual/site-packages:/target:Z \
         -v "$REQ":/requirements.txt:ro,Z \
         "${MOUNT[@]}" \
-        {{COMFY_IMAGE}} \
+        {{ COMFY_IMAGE }} \
         pip install --upgrade -q --no-warn-script-location --target /target "${ARGS[@]}"
     # Mantém torch/CUDA da imagem base
     rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
@@ -282,7 +282,7 @@ visual-sync:
 visual-versions:
     #!/usr/bin/env bash
     set -uo pipefail
-    echo "Imagem base: {{COMFY_IMAGE}}"
+    echo "Imagem base: {{ COMFY_IMAGE }}"
     if [[ -d /var/srv/visual/ComfyUI/.git ]]; then
         echo "ComfyUI instalado: $(git -C /var/srv/visual/ComfyUI describe --tags --always)"
     fi
@@ -305,7 +305,7 @@ visual-install package:
     mkdir -p /var/srv/visual/site-packages
     podman run --rm \
         -v /var/srv/visual/site-packages:/target:Z \
-        {{COMFY_IMAGE}} \
+        {{ COMFY_IMAGE }} \
         pip install -q --no-warn-script-location --target /target "{{ package }}"
     rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
     python3 -c "import os, glob, re, shutil; from collections import defaultdict; d=defaultdict(list); [d[m.group(1)].append((tuple(int(x) if x.isdigit() else x for x in re.split(r'[\.-]', m.group(2))), p)) for p in glob.glob('/var/srv/visual/site-packages/*.dist-info') if (m := re.match(r'^(.+)-([0-9a-zA-Z._+]+)\.dist-info$', os.path.basename(p)))]; [shutil.rmtree(p, ignore_errors=True) for v in d.values() if len(v)>1 for _, p in sorted(v, key=lambda x: x[0])[:-1]]" 2>/dev/null || true
@@ -365,7 +365,7 @@ visual-update:
     echo "🔄 Atualizando ComfyUI Core..."
     podman run --rm \
         -v /var/srv/visual/ComfyUI:/root/ComfyUI:Z \
-        {{COMFY_IMAGE}} \
+        {{ COMFY_IMAGE }} \
         bash -c "cd /root/ComfyUI && git pull --ff-only"
     echo "📦 Sincronizando pacotes comfy_* após atualização do core..."
     just visual-pkg-sync
@@ -399,7 +399,7 @@ visual-pkg-sync:
     podman run --rm \
         --env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
         --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
-        {{COMFY_IMAGE}} \
+        {{ COMFY_IMAGE }} \
         pip install --upgrade --quiet --no-warn-script-location \
             --target /root/.local/lib/python3.12/site-packages \
             "${PKGS[@]}"
