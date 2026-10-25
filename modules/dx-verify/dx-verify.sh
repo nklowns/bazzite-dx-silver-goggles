@@ -188,6 +188,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/firewalld/services/fcast.xml|Asset: Firewalld FCast Service Def|Error"
 	"file|/etc/pipewire/pipewire-pulse.conf.d/50-rustdesk.conf|Asset: PipeWire-Pulse RustDesk Low-Latency Config|Error"
 	"unit|/usr/lib/systemd/user/rustdesk.service|Behavior: RustDesk Service Verify|Error"
+	"unit|/usr/lib/systemd/user/bazzite-dx-remote-display-watcher.service|Behavior: Remote Display Hotplug Watcher|Error"
 	"file|/usr/libexec/bazzite-dx-rustdesk-audio-fix|Asset: RustDesk Dynamic Audio-Input Fix Script|Error"
 
 	"file|/usr/libexec/bazzite-dx-virt-setup|Asset: Virt Setup Script|Error"

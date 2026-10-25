@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# bazzite-dx-remote-display-watcher:
+# Restarts Sunshine and RustDesk when the set of connected display outputs changes
+# (monitor hot-unplug/plug). Both capture through KWin/PipeWire and keep a stale
+# output list and GPU context after a hotplug: Sunshine reports "no display" and
+# the NVENC encoder fails to open until the services are restarted.
+# ==============================================================================
+set -euo pipefail
+
+DEBOUNCE_SECS=3
+# Ignore display changes closer than this to the previous restart (flapping cable, hotplug burst).
+COOLDOWN_SECS=30
+
+# Stable signature of the connected connectors, e.g. "card0-HDMI-A-1 card1-eDP-1".
+display_signature() {
+	local status
+	for status in /sys/class/drm/card*-*/status; do
+		[ -r "$status" ] || continue
+		if [ "$(<"$status")" = "connected" ]; then
+			basename "$(dirname "$status")"
+		fi
+	done | sort | tr '\n' ' '
+}
+
+# Record dGPU state before the restart wipes it: the NVENC failure cause is still unproven.
+log_gpu_state() {
+	local pci_status="/sys/bus/pci/devices/0000:01:00.0/power/runtime_status"
+	logger -t bazzite-dx-remote-display-watcher "dGPU runtime_status=$(cat "$pci_status" 2>/dev/null || echo n/a)" || true
+	if command -v nvidia-smi >/dev/null 2>&1; then
+		logger -t bazzite-dx-remote-display-watcher "nvidia-smi: $(nvidia-smi --query-gpu=pstate,power.draw,memory.used --format=csv,noheader 2>&1 | head -1)" || true
+	fi
+}
+
+restart_remote_services() {
+	local unit
+	for unit in sunshine.service rustdesk.service; do
+		if systemctl --user is-active --quiet "$unit"; then
+			systemctl --user restart "$unit" || echo "failed to restart $unit" >&2
+		fi
+	done
+}
+
+last="$(display_signature)"
+last_restart=0
+
+# One udev drm event per connector change; drain the burst, then compare signatures.
+udevadm monitor --udev --subsystem-match=drm | while read -r _; do
+	while read -r -t "$DEBOUNCE_SECS" _; do :; done
+	current="$(display_signature)"
+	if [ "$current" != "$last" ]; then
+		echo "display set changed: [${last}] -> [${current}]; restarting remote services"
+		last="$current"
+		now="$(date +%s)"
+		if [ $((now - last_restart)) -lt "$COOLDOWN_SECS" ]; then
+			echo "within ${COOLDOWN_SECS}s cooldown; skipping restart"
+			continue
+		fi
+		last_restart="$now"
+		log_gpu_state
+		restart_remote_services
+	fi
+done
