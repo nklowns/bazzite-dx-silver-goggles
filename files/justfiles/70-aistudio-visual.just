@@ -22,7 +22,7 @@
 # ==============================================================================
 
 # 🐳 ComfyUI base image — single source of truth; update here and all recipes follow.
-COMFY_IMAGE := "docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961"
+COMFY_IMAGE := "docker.io/yanwk/comfyui-boot:cu126-slim@sha256:b6d611541e84ab76d496feed1d7a8da02081291fa3079fd6dce9ebb5c25721cb"
 
 # 🚀 Iniciar a suíte completa do AI Studio (Visual + Audio)
 [group('AI Studio')]
@@ -248,42 +248,53 @@ alias comfyui-fix-perms := visual-fix-perms
 visual-sync:
     #!/usr/bin/env bash
     set -euo pipefail
-    TMP_REQ=$(mktemp /tmp/comfy_req.XXXXXX.txt)
-    trap 'rm -f "$TMP_REQ"' EXIT
-    if [[ -f "/var/srv/visual/requirements.txt" ]]; then
-        cp "/var/srv/visual/requirements.txt" "$TMP_REQ"
-    elif [[ -f "./files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt" ]]; then
-        cp "./files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt" "$TMP_REQ"
-    elif [[ -f "/usr/share/bazzite-dx/aistudio-visual/requirements.txt" ]]; then
-        cp "/usr/share/bazzite-dx/aistudio-visual/requirements.txt" "$TMP_REQ"
+    # Fonte única: requirements empacotado na imagem (nunca /var/srv/visual/requirements.txt, que fica obsoleto).
+    REQ=/usr/share/bazzite-dx/aistudio-visual/requirements.txt
+    [[ -f "$REQ" ]] || REQ=./files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt
+    [[ -f "$REQ" ]] || { echo "✖ requirements.txt do AI Studio Visual não encontrado." >&2; exit 1; }
+    ARGS=(-r /requirements.txt)
+    MOUNT=()
+    # Os requirements do próprio checkout do ComfyUI são autoritativos para comfy-*/frontend/templates.
+    if [[ -f /var/srv/visual/ComfyUI/requirements.txt ]]; then
+        MOUNT=(-v /var/srv/visual/ComfyUI/requirements.txt:/comfyui-requirements.txt:ro,Z)
+        ARGS+=(-r /comfyui-requirements.txt)
     fi
     echo "📦 Sincronizando pacotes do Visual Studio para /var/srv/visual/site-packages..."
     mkdir -p /var/srv/visual/site-packages
     podman run --rm \
         -v /var/srv/visual/site-packages:/target:Z \
-        -v "$TMP_REQ":/requirements.txt:ro,Z \
-        $${COMFY_IMAGE} \
-        pip install --upgrade -q --no-warn-script-location --target /target -r /requirements.txt
-    # Limpa overrides acidentais de torch para manter a aceleração CUDA da imagem base
+        -v "$REQ":/requirements.txt:ro,Z \
+        "${MOUNT[@]}" \
+        {{COMFY_IMAGE}} \
+        pip install --upgrade -q --no-warn-script-location --target /target "${ARGS[@]}"
+    # Mantém torch/CUDA da imagem base
     rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
-    # Remove resíduos de NumPy 2.x e garante integridade do NumPy 1.x
-    rm -rf /var/srv/visual/site-packages/numpy-2* /var/srv/visual/site-packages/numpy/_core 2>/dev/null || true
     # Remove metadados .dist-info obsoletos gerados por pip install --target
     python3 -c "import os, glob, re, shutil; from collections import defaultdict; d=defaultdict(list); [d[m.group(1)].append((tuple(int(x) if x.isdigit() else x for x in re.split(r'[\.-]', m.group(2))), p)) for p in glob.glob('/var/srv/visual/site-packages/*.dist-info') if (m := re.match(r'^(.+)-([0-9a-zA-Z._+]+)\.dist-info$', os.path.basename(p)))]; [shutil.rmtree(p, ignore_errors=True) for v in d.values() if len(v)>1 for _, p in sorted(v, key=lambda x: x[0])[:-1]]" 2>/dev/null || true
-    # Patch defensivo para custom_op infer_schema em comfy_kitchen na.py e sol_attn.py se necessário
-    if [[ -f /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py ]]; then
-        sed -i 's/kernel_size: list\[int\]/kernel_size: List\[int\]/g; s/is_causal: list\[bool\]/is_causal: List\[bool\]/g; s/scale: float | None/scale: Optional[float]/g' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py 2>/dev/null || true
-        grep -q 'from typing import' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py || sed -i 's/from comfy_kitchen.registry import registry/from typing import List, Optional\nfrom comfy_kitchen.registry import registry/' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/na.py 2>/dev/null || true
-    fi
-    if [[ -f /var/srv/visual/site-packages/comfy_kitchen/backends/eager/sol_attn.py ]]; then
-        sed -i 's/sink_blocks: list\[int\]/sink_blocks: List\[int\]/g; s/sink_q: list\[int\]/sink_q: List\[int\]/g; s/scale: float | None/scale: Optional[float]/g; s/key_bias: torch\.Tensor | None/key_bias: Optional[torch.Tensor]/g; s/block_len: torch\.Tensor | None/block_len: Optional[torch.Tensor]/g; s/coarse_gate: torch\.Tensor | None/coarse_gate: Optional[torch.Tensor]/g' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/sol_attn.py 2>/dev/null || true
-        grep -q 'from typing import' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/sol_attn.py || sed -i 's/from \.\.\.registry import registry/from typing import List, Optional\nfrom ...registry import registry/' /var/srv/visual/site-packages/comfy_kitchen/backends/eager/sol_attn.py 2>/dev/null || true
-    fi
     if systemctl --user is-active --quiet aistudio-visual.service; then
         echo "🔄 Reiniciando aistudio-visual.service..."
         systemctl --user restart aistudio-visual.service
     fi
     echo "✅ Sincronização concluída com sucesso."
+
+# 📋 Versões instaladas vs. upstream (ComfyUI, kitchen, imagem base) + link de changelog
+[group('AI Studio Visual')]
+visual-versions:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "Imagem base: {{COMFY_IMAGE}}"
+    if [[ -d /var/srv/visual/ComfyUI/.git ]]; then
+        echo "ComfyUI instalado: $(git -C /var/srv/visual/ComfyUI describe --tags --always)"
+    fi
+    if command -v gh >/dev/null; then
+        echo "ComfyUI upstream:  $(gh release view -R comfyanonymous/ComfyUI --json tagName -q .tagName 2>/dev/null || echo '?')"
+        echo "  changelog: gh release view -R comfyanonymous/ComfyUI"
+        echo "comfy-kitchen upstream: $(gh release view -R Comfy-Org/comfy-kitchen --json tagName -q .tagName 2>/dev/null || echo '?')"
+    fi
+    for p in comfy_kitchen comfy_aimdo comfyui_frontend_package huggingface_hub; do
+        v=$(ls -d /var/srv/visual/site-packages/${p}-*.dist-info 2>/dev/null | sed -E 's|.*/[^/]+-([^-/]+)\.dist-info|\1|' | tail -1)
+        echo "$p instalado: ${v:-?}"
+    done
 
 # ➕ Instalar ou atualizar um pacote Python no ambiente persistente do ComfyUI sem reboot
 [group('AI Studio Visual')]
@@ -294,7 +305,7 @@ visual-install package:
     mkdir -p /var/srv/visual/site-packages
     podman run --rm \
         -v /var/srv/visual/site-packages:/target:Z \
-        $${COMFY_IMAGE} \
+        {{COMFY_IMAGE}} \
         pip install -q --no-warn-script-location --target /target "{{ package }}"
     rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
     python3 -c "import os, glob, re, shutil; from collections import defaultdict; d=defaultdict(list); [d[m.group(1)].append((tuple(int(x) if x.isdigit() else x for x in re.split(r'[\.-]', m.group(2))), p)) for p in glob.glob('/var/srv/visual/site-packages/*.dist-info') if (m := re.match(r'^(.+)-([0-9a-zA-Z._+]+)\.dist-info$', os.path.basename(p)))]; [shutil.rmtree(p, ignore_errors=True) for v in d.values() if len(v)>1 for _, p in sorted(v, key=lambda x: x[0])[:-1]]" 2>/dev/null || true
@@ -354,7 +365,7 @@ visual-update:
     echo "🔄 Atualizando ComfyUI Core..."
     podman run --rm \
         -v /var/srv/visual/ComfyUI:/root/ComfyUI:Z \
-        $${COMFY_IMAGE} \
+        {{COMFY_IMAGE}} \
         bash -c "cd /root/ComfyUI && git pull --ff-only"
     echo "📦 Sincronizando pacotes comfy_* após atualização do core..."
     just visual-pkg-sync
@@ -388,7 +399,7 @@ visual-pkg-sync:
     podman run --rm \
         --env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
         --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
-        $${COMFY_IMAGE} \
+        {{COMFY_IMAGE}} \
         pip install --upgrade --quiet --no-warn-script-location \
             --target /root/.local/lib/python3.12/site-packages \
             "${PKGS[@]}"

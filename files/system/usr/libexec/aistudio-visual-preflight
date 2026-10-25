@@ -120,7 +120,7 @@ while ((attempt < MAX_ATTEMPTS)); do
 		break
 	fi
 
-	((attempt++))
+	attempt=$((attempt + 1))
 	missing=$(fast_check) && break # all imports OK → done
 
 	if [[ -z "${missing}" ]]; then

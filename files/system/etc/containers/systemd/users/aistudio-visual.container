@@ -26,7 +26,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961
+Image=docker.io/yanwk/comfyui-boot:cu126-slim@sha256:b6d611541e84ab76d496feed1d7a8da02081291fa3079fd6dce9ebb5c25721cb
 ContainerName=aistudio_visual
 Network=project-nomad_default.network
 NetworkAlias=aistudio-visual
@@ -55,7 +55,7 @@ TimeoutStartSec=600
 # Cost on a healthy boot: one ephemeral container (~0.5 s) that exits 0 with no pip activity.
 # Cost after a ComfyUI Manager update that added a new dependency: one pip upgrade, then starts.
 # Blocked packages (torch/nvidia/cuda) are never touched — they live in the base image.
-ExecStartPre=/usr/libexec/aistudio-visual-preflight docker.io/yanwk/comfyui-boot:cu124-slim@sha256:ea9d4add90a53ee8e4496d1281b47111e558e61eb1ee6b599888d8e776e80961
+ExecStartPre=/usr/libexec/aistudio-visual-preflight docker.io/yanwk/comfyui-boot:cu126-slim@sha256:b6d611541e84ab76d496feed1d7a8da02081291fa3079fd6dce9ebb5c25721cb
 
 # [Install] is omitted on purpose: respect Boot Impact Policy for gaming sessions.
 # Start on-demand via `ujust comfyui-up` or `ujust aistudio-visual-up`.
