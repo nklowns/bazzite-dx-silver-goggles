@@ -14,11 +14,13 @@
 #   - ShellCheck-clean; set -euo pipefail throughout.
 #
 # Called by: aistudio-visual.container  [Service] ExecStartPre=
-# Image ref is passed as $1 so the quadlet stays the single source of truth for the digest.
+# Image ref is read from the quadlet's Image= (single source of truth, tracked by Renovate); $1 overrides.
 
 set -euo pipefail
 
-IMAGE="${1:?aistudio-visual-preflight: IMAGE argument required}"
+QUADLET=/etc/containers/systemd/users/aistudio-visual.container
+IMAGE="${1:-$(sed -n 's/^Image=//p' "${QUADLET}" | head -n1)}"
+[[ -n "${IMAGE}" ]] || { echo "aistudio-visual-preflight: no Image= in ${QUADLET}" >&2; exit 1; }
 SITE_PKG="/var/srv/visual/site-packages"
 COMFYUI_DIR="/var/srv/visual/ComfyUI"
 MAX_ATTEMPTS=3

@@ -65,7 +65,7 @@
         '//^files/justfiles/70-aistudio-visual\\.just$//',
       ],
       matchStrings: [
-        'COMFY_IMAGE=(?<depName>docker\\.io/yanwk/comfyui-boot):(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)',
+        'COMFY_IMAGE\\s*:=\\s*"(?<depName>docker\\.io/yanwk/comfyui-boot):(?<currentValue>[^@"]+)@(?<currentDigest>sha256:[a-f0-9]+)"',
       ],
       datasourceTemplate: 'docker',
       versioningTemplate: 'docker',
@@ -232,6 +232,13 @@
         'before 6am on monday',
       ],
       commitMessagePrefix: 'chore(deps-remote): ',
+    },
+    {
+      description: 'ComfyUI base image: track digest of the pinned tag only (cu126-slim, py3.12 matches the persistent site-packages); tag/CUDA/Python moves are manual',
+      matchPackageNames: [
+        'docker.io/yanwk/comfyui-boot',
+      ],
+      allowedVersions: '/^cu126-slim$/',
     },
     {
       description: 'Auto-update ComfyUI AI Studio container digest in Quadlet unit',
