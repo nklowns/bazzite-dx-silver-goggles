@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/module-v1.json
+name: gpu-unlock
+shortdesc: Installs the pre-signed gpu_unlock kernel module staged by CI, if its vermagic matches the image kernel.
+example: |
+  type: gpu-unlock
+  source: local
