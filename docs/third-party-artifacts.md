@@ -44,8 +44,8 @@ and not done here.
 ## Updating the pinned source
 
 `GPU_UNLOCK_REF` in `.github/workflows/kmod-sign.yml` pins the gpu-unlock
-commit. It currently points at the `add-ga106m-2560` branch commit (upstream PR
-#160). Move it to an upstream commit when that PR, or an equivalent, lands.
+commit. It points to upstream `Zagitta/gpu-unlock` at commit `990a14e9b7dc8eaad8e6925133aa0e8382efe6cf`
+(which merged PR #160 adding GA106M `0x2520` and `0x2560` support). Bump deliberately.
 
 ## Status & Proven Findings
 
