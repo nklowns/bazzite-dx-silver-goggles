@@ -45,6 +45,7 @@ jobs:
   kmod:
     name: Sign gpu-unlock kmod
     uses: ./.github/workflows/kmod-sign.yml
+    secrets: inherit
 
   bluebuild:
     name: Build Custom Image
