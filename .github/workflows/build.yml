@@ -65,7 +65,9 @@ jobs:
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
 
       - name: Stage signed gpu-unlock kmod
-        if: ${{ needs.kmod.result == 'success' }}
+        # kmod reports success even when its inner sign job was skipped (PR, merge queue):
+        # a missing artifact must not fail the build; modules/gpu-unlock then skips with a warning.
+        continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: gpu-unlock-kmod
