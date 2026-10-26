@@ -1,0 +1,86 @@
+---
+name: Sign gpu-unlock kmod
+# Builds gpu_unlock against the kernel of the PINNED base image digest
+# (image-versions.yaml) and signs it with the kmod-signing environment key.
+# Called by build.yml before the image build; also runnable by hand.
+# Produces an artifact only. Runs on main only: the key never reaches PR code.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # nklowns/gpu-unlock add-ga106m-2560 (Zagitta/gpu-unlock PR #160). Bump deliberately.
+  GPU_UNLOCK_REPO: nklowns/gpu-unlock
+  GPU_UNLOCK_REF: 5b24f4466f7376ca4c74a4b1825b1c7af7a90c8d
+
+jobs:
+  resolve:
+    name: Resolve pinned base image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.pin.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - id: pin
+        run: |
+          set -euo pipefail
+          img=$(yq '.images[] | select(.name == "bazzite-nvidia") | .image + "@" + .digest' image-versions.yaml)
+          [[ "$img" == ghcr.io/*@sha256:* ]] || { echo "bad pin: $img" >&2; exit 1; }
+          echo "image=$img" >>"$GITHUB_OUTPUT"
+
+  sign:
+    name: Build and sign gpu_unlock
+    needs: resolve
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: kmod-signing
+    container:
+      image: ${{ needs.resolve.outputs.image }}
+    steps:
+      - name: Resolve kernel and build deps
+        run: |
+          set -euo pipefail
+          KVER=$(rpm -q kernel-core --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -V | tail -1)
+          echo "KVER=$KVER" >>"$GITHUB_ENV"
+          if [ ! -d "/lib/modules/$KVER/build" ]; then
+            dnf -y install "kernel-devel-$KVER" || { echo "kernel-devel-$KVER unavailable; cannot build" >&2; exit 1; }
+          fi
+          dnf -y install gcc make openssl git
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Fetch pinned gpu-unlock source
+        run: |
+          set -euo pipefail
+          git init -q /tmp/gpu-unlock
+          git -C /tmp/gpu-unlock fetch -q --depth 1 "https://github.com/$GPU_UNLOCK_REPO" "$GPU_UNLOCK_REF"
+          git -C /tmp/gpu-unlock checkout -q FETCH_HEAD
+          test "$(git -C /tmp/gpu-unlock rev-parse HEAD)" = "$GPU_UNLOCK_REF"
+
+      - name: Build
+        run: make -C /tmp/gpu-unlock/kernel/gpu_unlock KDIR="/lib/modules/$KVER/build"
+
+      - name: Sign and verify fingerprint
+        env:
+          KMOD_SIGNING_KEY: ${{ secrets.KMOD_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          bash scripts/sign-kmod.sh /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko \
+            files/system/etc/pki/silver-goggles/kmod.der "$KVER"
+          modinfo -F vermagic /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+          sha256sum /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+
+      - name: Upload signed module
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gpu-unlock-kmod
+          path: /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+          if-no-files-found: error
+          retention-days: 3
