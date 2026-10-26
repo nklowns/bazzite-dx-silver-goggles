@@ -40,47 +40,47 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: kmod-signing
-    container:
-      image: ${{ needs.resolve.outputs.image }}
     steps:
-      - name: Resolve kernel and build deps
-        run: |
-          set -euo pipefail
-          KVER=$(rpm -q kernel-core --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -V | tail -1)
-          echo "KVER=$KVER" >>"$GITHUB_ENV"
-          if [ ! -d "/lib/modules/$KVER/build" ]; then
-            dnf -y install "kernel-devel-$KVER" || { echo "kernel-devel-$KVER unavailable; cannot build" >&2; exit 1; }
-          fi
-          dnf -y install gcc make openssl git
+      - name: Free disk space
+        uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v1.1.0
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Fetch pinned gpu-unlock source
-        run: |
-          set -euo pipefail
-          git init -q /tmp/gpu-unlock
-          git -C /tmp/gpu-unlock fetch -q --depth 1 "https://github.com/$GPU_UNLOCK_REPO" "$GPU_UNLOCK_REF"
-          git -C /tmp/gpu-unlock checkout -q FETCH_HEAD
-          test "$(git -C /tmp/gpu-unlock rev-parse HEAD)" = "$GPU_UNLOCK_REF"
-
-      - name: Build
-        run: make -C /tmp/gpu-unlock/kernel/gpu_unlock KDIR="/lib/modules/$KVER/build"
-
-      - name: Sign and verify fingerprint
+      - name: Build and sign in Podman container
         env:
+          IMAGE: ${{ needs.resolve.outputs.image }}
           KMOD_SIGNING_KEY: ${{ secrets.KMOD_SIGNING_KEY }}
+          GPU_UNLOCK_REPO: ${{ env.GPU_UNLOCK_REPO }}
+          GPU_UNLOCK_REF: ${{ env.GPU_UNLOCK_REF }}
         run: |
           set -euo pipefail
-          bash scripts/sign-kmod.sh /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko \
-            files/system/etc/pki/silver-goggles/kmod.der "$KVER"
-          modinfo -F vermagic /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
-          sha256sum /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+          mkdir -p out
+          podman run --rm \
+            -v "$PWD:/work:z" \
+            -e KMOD_SIGNING_KEY \
+            -e GPU_UNLOCK_REPO \
+            -e GPU_UNLOCK_REF \
+            "$IMAGE" /bin/bash -c '
+              set -euo pipefail
+              KVER=$(rpm -q kernel-core --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" | sort -V | tail -1)
+              echo "Detected kernel: $KVER"
+              git init -q /tmp/gpu-unlock
+              git -C /tmp/gpu-unlock fetch -q --depth 1 "https://github.com/$GPU_UNLOCK_REPO" "$GPU_UNLOCK_REF"
+              git -C /tmp/gpu-unlock checkout -q FETCH_HEAD
+              test "$(git -C /tmp/gpu-unlock rev-parse HEAD)" = "$GPU_UNLOCK_REF"
+              make -C /tmp/gpu-unlock/kernel/gpu_unlock KDIR="/lib/modules/$KVER/build"
+              bash /work/scripts/sign-kmod.sh /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko \
+                /work/files/system/etc/pki/silver-goggles/kmod.der "$KVER"
+              modinfo -F vermagic /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+              sha256sum /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+              cp /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko /work/out/gpu_unlock.ko
+            '
 
       - name: Upload signed module
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gpu-unlock-kmod
-          path: /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+          path: out/gpu_unlock.ko
           if-no-files-found: error
           retention-days: 3
