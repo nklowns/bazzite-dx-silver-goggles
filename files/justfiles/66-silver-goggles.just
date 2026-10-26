@@ -909,7 +909,8 @@ gpu-unlock-setup fw_dir="$HOME/.cache/gpu-unlock/assets" pci="0000:01:00.0":
         echo "Image has no gpu_unlock.ko for $KVER (CI skipped it or kernel moved). Not enabling." >&2
         exit 1
     }
-    if ! mokutil --test-key /etc/pki/silver-goggles/kmod.der 2>&1 | grep -q 'is already enrolled'; then
+    key_test=$(mokutil --test-key /etc/pki/silver-goggles/kmod.der 2>&1 || true)
+    if ! echo "$key_test" | grep -q 'is already enrolled'; then
         echo "Key not enrolled: run 'ujust enroll-silver-goggles-key' and reboot first." >&2
         exit 1
     fi
@@ -921,6 +922,7 @@ gpu-unlock-setup fw_dir="$HOME/.cache/gpu-unlock/assets" pci="0000:01:00.0":
     FW=/etc/gpu-unlock/fw/gpu-unlock/610.43.03
     sudo install -d -m 755 "$FW"
     while read -r _ name; do sudo install -m 644 "{{ fw_dir }}/$name" "$FW/"; done <"$MANIFEST"
+    sudo rpm-ostree initramfs --disable 2>/dev/null || true
     sudo rpm-ostree initramfs-etc --track=/etc/gpu-unlock
     sudo rpm-ostree kargs --append-if-missing="firmware_class.path=/etc/gpu-unlock/fw" --append-if-missing="gpu_unlock.targets={{ pci }}"
     echo "Staged. Shut down fully (poweroff, not reboot) and power on."

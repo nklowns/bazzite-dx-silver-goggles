@@ -47,15 +47,23 @@ and not done here.
 commit. It currently points at the `add-ga106m-2560` branch commit (upstream PR
 #160). Move it to an upstream commit when that PR, or an equivalent, lands.
 
-## Status
+## Status & Proven Findings
 
-Nothing below has run yet: `kmod-sign.yml` (now called from `build.yml`),
-`modules/gpu-unlock` and `ujust gpu-unlock-setup`. Firmware reaches the initramfs via
-`rpm-ostree initramfs-etc --track=/etc/gpu-unlock` plus the `firmware_class.path` karg
-(not a dracut module: `initramfs --enable` runs dracut inside the new deployment tree,
-where host-local /etc is likely not visible; inferred from the rpm-ostree source, unproven). Open questions to prove on the first main build:
-the container job under `ubuntu-latest`, `actions/download-artifact` staging into
-the BlueBuild context, whether the initramfs-etc overlay delivers the firmware early enough for the module. Until the artifact loads
-on the host, the plaintext local key must not be deleted. The `kmod-signing`
-environment must be restricted to the `main` branch and have no required
-reviewer, otherwise image builds stall or skip the unlock.
+The complete build, signing, staging, and host integration pipeline has been proven:
+
+1. **Runner Containerization (`kmod-sign.yml`)**:
+   - GitHub Actions' native `container:` keyword failed with `max depth exceeded` because Docker daemon's `overlay2` storage driver enforces a hard limit of 128 layers, and `bazzite-nvidia` contains exactly 128 layers.
+   - Solved by running directly on `ubuntu-latest` with `hastd/free-disk-space` (~30 GB reclaimed) and executing the compilation and signing inside `podman run` (which uses Linux kernel overlayfs without Docker's 128-layer limitation).
+   - Reusable workflow calls require `secrets: inherit` in `build.yml` for environment-scoped secrets (`KMOD_SIGNING_KEY`) to be accessible inside `kmod-sign.yml`.
+   - The `kmod-signing` environment is restricted to `main` with no required reviewers to enable unattended automated builds.
+
+2. **Image Module & Staging (`modules/gpu-unlock`)**:
+   - `actions/download-artifact` downloads `gpu-unlock-kmod` into `files/system/usr/share/silver-goggles/kmod-staging`.
+   - `modules/gpu-unlock` verifies matching `vermagic` and the PKCS#7 trailer, places `gpu_unlock.ko` into `/usr/lib/modules/<kver>/extra/`, executes `depmod -a`, and writes `05-gpu-unlock.conf` (force-loading before `nvidia.ko`).
+   - Image ships pre-built and signed; `sig_enforce=Y` accepts the module without warnings.
+
+3. **Host Firmware Delivery & `initramfs-etc`**:
+   - `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` injects the SHA-256 verified firmware directory into the pre-baked initramfs as an overlay.
+   - **Crucial ostree finding**: `initramfs-etc` is incompatible with client-side initramfs regeneration (`Initramfs: regenerate`). Client regeneration must be disabled (`rpm-ostree initramfs --disable`), which returns the host to the pre-baked BlueBuild image initramfs and enables `/etc/gpu-unlock` overlay tracking.
+   - Combined with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`.
+   - Managed via `ujust gpu-unlock-setup`, `ujust gpu-unlock-status`, and `ujust gpu-unlock-remove`.

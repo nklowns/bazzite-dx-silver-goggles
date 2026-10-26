@@ -322,6 +322,7 @@ racing the daemon.
 
 - **Lighting**: Handled exclusively by upstream OpenRGB (merged into `master` via MR !3577 for AW-ELC `187c:0550`). Operates directly over USB hidraw in userspace with hardware EEPROM persistence.
 - **Thermals & Fans**: Handled via in-tree `alienware-wmi-wmax` platform profiles (`/sys/class/platform-profile`) and `tuned-ppd`.
+- **GPU Unlock (RTX 3060 Laptop GA106M BF16)**: Handled declaratively via CI-signed `gpu_unlock.ko` (built with runner Podman against pinned base kernel, signed with MOK key via `kmod-signing` environment, installed by `modules/gpu-unlock` into `/usr/lib/modules/<kver>/extra/`). Proprietary firmware generated locally and delivered via `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`. Requires client initramfs regeneration disabled (`rpm-ostree initramfs --disable`), preserving the pre-baked BlueBuild initramfs. See [`docs/third-party-artifacts.md`](./docs/third-party-artifacts.md).
 - **Legacy Tools**: AWCC, `acpi_call`, and `alienfx-linux` are obsolete and must not be reintroduced.
 
 #### What max fan actually buys (measured, so stop guessing)
