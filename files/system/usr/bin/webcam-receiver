@@ -56,26 +56,27 @@ fi
 echo "🏷️ Remote device identified: ${HOST_LABEL} (${WIN_IP})"
 
 # Ensure PipeWire Virtual Microphone sink exists for remote audio (isolated null-sink & virtual source)
-MIC_LABEL="Mic (${HOST_LABEL})"
+MIC_INDEX=$((DEVICE_INDEX >= 10 ? DEVICE_INDEX - 9 : 1))
+MIC_LABEL="Mic-Virtual-${MIC_INDEX}"
+TARGET_AUDIO_SINK="Mic_Virtual_${MIC_INDEX}_Sink"
+
 if command -v pactl >/dev/null 2>&1; then
-	if ! pactl list sinks short 2>/dev/null | grep -q "Virtual_Mic_Sink"; then
-		pactl load-module module-null-sink sink_name=Virtual_Mic_Sink sink_properties=device.description="Virtual_Mic_Loopback" 2>/dev/null || true
+	if ! pactl list sinks short 2>/dev/null | grep -q "${TARGET_AUDIO_SINK}"; then
+		pactl load-module module-null-sink sink_name="${TARGET_AUDIO_SINK}" sink_properties="device.description='${MIC_LABEL}_Loopback'" 2>/dev/null || true
 	fi
-	if ! pactl list sources short 2>/dev/null | grep -q "Virtual_Mic"; then
-		pactl load-module module-remap-source source_name=Virtual_Mic master=Virtual_Mic_Sink.monitor source_properties="device.description=\"${MIC_LABEL}\",media.class=\"Audio/Source\"" 2>/dev/null || true
+	if ! pactl list sources short 2>/dev/null | grep -q "${MIC_LABEL}"; then
+		pactl load-module module-remap-source source_name="${MIC_LABEL}" master="${TARGET_AUDIO_SINK}.monitor" source_properties="device.description='${MIC_LABEL}',media.class='Audio/Source'" 2>/dev/null || true
 	fi
 fi
 
-TARGET_AUDIO_SINK="Virtual_Mic_Sink"
-if command -v pactl >/dev/null 2>&1 && pactl list sinks short 2>/dev/null | grep -q "remote_mic_sink"; then
-	TARGET_AUDIO_SINK="remote_mic_sink"
-fi
-
-# Pipe RTSP video to v4l2loopback and audio to PipeWire Virtual Microphone (ultra-low latency)
-exec ffmpeg -loglevel warning \
-	-flags low_delay -fflags nobuffer+fastseek+flush_packets \
-	-probesize 32 -analyzeduration 0 \
-	-rtsp_transport tcp \
-	-i "rtsp://${WIN_IP}:${RTSP_PORT}/webcam" \
-	-map 0:v:0 -vf "format=yuv420p" -r 30 -f v4l2 "${DEVICE_PATH}" \
-	-map 0:a:0? -c:a pcm_s16le -f pulse "${TARGET_AUDIO_SINK}"
+# Pipe RTSP video to v4l2loopback and audio to PipeWire Virtual Microphone (auto-reconnecting loop)
+echo "🔄 Receiver loop active. Listening for stream from ${WIN_IP}..."
+while true; do
+	env PULSE_SINK="${TARGET_AUDIO_SINK}" ffmpeg -loglevel warning \
+		-flags low_delay -fflags nobuffer+fastseek+flush_packets \
+		-rtsp_transport tcp \
+		-i "rtsp://${WIN_IP}:${RTSP_PORT}/webcam" \
+		-map 0:v:0 -vf "format=yuv420p" -r 30 -f v4l2 "${DEVICE_PATH}" \
+		-map 0:a:0? -c:a pcm_s16le -f pulse "${TARGET_AUDIO_SINK}" || true
+	sleep 1
+done

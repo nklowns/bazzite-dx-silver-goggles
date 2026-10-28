@@ -174,6 +174,67 @@ wol-status:
         ./files/system/usr/bin/smart-idle-checker || true
     fi
 
+# 🎥 Iniciar receptor de webcam e microfone remoto (MediaMTX + webcam-receiver)
+[group('Network')]
+webcam-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    systemctl --user daemon-reload
+    systemctl --user start mediamtx.service
+    systemctl --user start webcam-receiver.service
+    echo "✅ Receptor de Webcam e Microfone ativo."
+    echo "   Câmera : Cam-Virtual-1 (/dev/video10)"
+    echo "   Áudio  : Mic-Virtual-1"
+    echo "   RTSP   : rtsp://127.0.0.1:8554/webcam"
+
+# 🛑 Parar receptor de webcam e microfone remoto
+[group('Network')]
+webcam-down:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    systemctl --user stop webcam-receiver.service
+    systemctl --user stop mediamtx.service
+    echo "🛑 Receptor de Webcam e Microfone desativado."
+
+# 📊 Status do receptor de webcam e microfone remoto
+[group('Network')]
+webcam-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "== MediaMTX RTSP Router =="
+    systemctl --user status mediamtx.service --no-pager -n 3 2>/dev/null || echo "mediamtx inativo"
+    echo ""
+    echo "== Webcam Receiver Service =="
+    systemctl --user status webcam-receiver.service --no-pager -n 3 2>/dev/null || echo "webcam-receiver inativo"
+    echo ""
+    echo "== Dispositivos V4L2 =="
+    ls -l /dev/video10 /dev/video9 2>/dev/null || echo "Nenhum nó loopback encontrado"
+    echo ""
+    echo "== Microfones Virtuais (PipeWire) =="
+    pactl list sources short 2>/dev/null | grep -E "Mic_Virtual|OBS_Virtual" || echo "Nenhum microfone virtual ativo"
+
+# ⚡ Habilitar webcam e microfone remoto na inicialização
+[group('Network')]
+webcam-enable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    systemctl --user enable mediamtx.service
+    systemctl --user enable webcam-receiver.service
+    echo "✅ Webcam e microfone remoto habilitados no boot."
+
+# 🚫 Desabilitar webcam e microfone remoto da inicialização
+[group('Network')]
+webcam-disable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    systemctl --user disable webcam-receiver.service
+    systemctl --user disable mediamtx.service
+    echo "🚫 Webcam e microfone remoto desabilitados do boot."
+
+alias remote-webcam-up := webcam-up
+alias remote-webcam-down := webcam-down
+alias remote-webcam-status := webcam-status
+
 # 🎥 Configure virtual webcam receiver (/dev/video10) from Windows GUEST RTSP stream
 [group('Network')]
 remote-webcam-setup win_ip="":
@@ -181,19 +242,12 @@ remote-webcam-setup win_ip="":
     set -euo pipefail
     WIN_IP="{{ win_ip }}"
     if [ -z "$WIN_IP" ]; then
-        WIN_IP="${DEFAULT_WEBCAM_IP:-}"
+        WIN_IP="${DEFAULT_WEBCAM_IP:-127.0.0.1}"
     fi
     if [ -z "$WIN_IP" ] && [ -f "${HOME}/.config/bazzite-dx/webcam.conf" ]; then
         WIN_IP="$(grep -E '^WEBCAM_IP=' "${HOME}/.config/bazzite-dx/webcam.conf" 2>/dev/null | cut -d= -f2- | tr -d '"'\'' ' || true)"
     fi
-    if [ -z "$WIN_IP" ] && [ -t 0 ] && command -v gum >/dev/null 2>&1; then
-        WIN_IP=$(gum input --placeholder "IP or hostname of RTSP webcam stream (e.g. 100.x.y.z)")
-    fi
-    if [ -z "$WIN_IP" ]; then
-        echo "❌ Usage: ujust remote-webcam-setup <ip_or_hostname>"
-        echo "   Or configure WEBCAM_IP in ~/.config/bazzite-dx/webcam.conf"
-        exit 1
-    fi
+    systemctl --user start mediamtx.service 2>/dev/null || true
     if [ -x /usr/bin/webcam-receiver ]; then
         /usr/bin/webcam-receiver "$WIN_IP"
     elif [ -x ./files/system/usr/bin/webcam-receiver ]; then

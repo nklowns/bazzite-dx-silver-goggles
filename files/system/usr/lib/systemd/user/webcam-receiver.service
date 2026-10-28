@@ -1,0 +1,14 @@
+[Unit]
+Description=Remote Webcam and Microphone RTSP Receiver
+After=mediamtx.service pipewire.service
+Wants=mediamtx.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/webcam-receiver 127.0.0.1
+Restart=always
+RestartSec=2s
+
+[Install]
+WantedBy=default.target
+

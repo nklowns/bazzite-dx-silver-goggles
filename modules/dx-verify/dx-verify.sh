@@ -113,6 +113,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/etc/containers/systemd/users/aistudio-visual.container|Asset: AI Studio Visual Quadlet (ComfyUI)|Error"
 	"file|/etc/containers/systemd/users/aistudio-audio.container|Asset: AI Studio Audio Quadlet (Speaches)|Error"
 	"file|/etc/containers/systemd/users/mediamtx.container|Asset: MediaMTX Quadlet|Error"
+	"file|/usr/lib/systemd/user/webcam-receiver.service|Asset: Webcam Receiver Unit|Error"
+	"unit|/usr/lib/systemd/user/webcam-receiver.service|Behaviour: Webcam Receiver Unit Parses Clean|Error"
 	"file|/etc/containers/systemd/users/rustdesk-hbbr.container|Asset: RustDesk Relay Quadlet|Error"
 	"file|/etc/containers/systemd/users/rustdesk-hbbs.container|Asset: RustDesk Server Quadlet|Error"
 	"file|/usr/lib/tmpfiles.d/aistudio-visual.conf|Policy: AI Studio Visual Storage Structure|Error"
