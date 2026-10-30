@@ -1,5 +1,6 @@
 {
-  "_doc": "Example catalog for llama-models-fetch (nomad-llama optional DX). Copy to ~/.config/llama-swap/catalog.json and add your own entries; sha256 = Hugging Face LFS oid of the file.",
+  "_doc": "Example catalog for llama-models-fetch (nomad-llama optional DX). Copy to ~/.config/llama-swap/catalog.json and add your own entries; sha256 = Hugging Face LFS oid of the file. The ids here mirror the models referenced by config.example.yaml — if you add a model to one file, add it to the other, or `ujust llama-models-fetch` will fetch weights nothing loads.",
+  "_local_weights": "Weights produced locally (imatrix merges, MTP grafts) cannot be fetched by repo/file and therefore do not belong here: drop the file under /var/srv/nomad/gguf/local/<name>.gguf and reference /models/gguf/local/<name>.gguf in config.yaml. The production 4B on this host is such a file (HauhauCS MTP Q4_K_M); the fetchable UD-Q4_K_XL below is the drop-in equivalent.",
   "models": [
     {
       "id": "qwen3.5-4b:ud-q4_k_xl",
@@ -8,7 +9,7 @@
       "sha256": "d2bfbee4de17c74e6308a4dc750be4c2271f92ae2df1e28f5c5afa0dcdb6fccc",
       "size": 2990664000,
       "status": "promoted",
-      "note": "denso, 8 full+24 linear attn, cabe inteiro na VRAM"
+      "note": "denso, 8 full+24 linear attn, cabe inteiro na VRAM — persona qwen3.5-4b"
     },
     {
       "id": "mmproj:Qwen3.5-4B-MTP-GGUF",
@@ -17,7 +18,34 @@
       "sha256": "d63b1a847fe9cd52e8e1525008cd33703821299f5a9eae40b2865426208767e7",
       "size": 672423488,
       "status": "promoted",
-      "note": "projetor de visão"
+      "note": "projetor de visão do 4B (encoder roda na CPU: --no-mmproj-offload)"
+    },
+    {
+      "id": "qwen3.5-9b:q3_k_m",
+      "repo": "unsloth/Qwen3.5-9B-MTP-GGUF",
+      "file": "Qwen3.5-9B-Q3_K_M.gguf",
+      "sha256": "b29f4ce425735b02e99be85daa2c9485cc707f32a28079a14177150c47f81fab",
+      "size": 4834783584,
+      "status": "promoted",
+      "note": "tier agêntico, -c 16384 — persona qwen3.5-9b (Q3 é a exceção deliberada à regra de Q4_K)"
+    },
+    {
+      "id": "qwen3.6-35b-a3b:q4_k",
+      "repo": "huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF",
+      "file": "Huihui-Qwen3.6-35B-A3B-abliterated-ggml-model-Q4_K.gguf",
+      "sha256": "63b75afb4b68fc61059c78115b580037074de88146e0762f4a496081e410cf81",
+      "size": 21712409824,
+      "status": "promoted",
+      "note": "MoE 35B-A3B abliterado, experts na RAM (--n-cpu-moe 40) — persona qwen3.6-35b"
+    },
+    {
+      "id": "mmproj:Qwen3.6-35B-A3B-GGUF:q8_0",
+      "repo": "ggml-org/Qwen3.6-35B-A3B-GGUF",
+      "file": "mmproj-Qwen3.6-35B-A3B-Q8_0.gguf",
+      "sha256": "904cbf8c8e876220066ab3bf676c7efa40f3da372276fdaf8b01d2fb2a37a51d",
+      "size": 614194304,
+      "status": "promoted",
+      "note": "projetor de visão do 35B (Q8_0, não F16)"
     },
     {
       "id": "nomic-embed-text-v1.5:f16",
