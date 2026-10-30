@@ -294,6 +294,16 @@
       allowedVersions: '<2.0.0',
     },
     {
+      description: 'Pin huggingface-hub to 1.x in ComfyUI visual studio: 2.x swaps httpx for httpx2 and breaks the persistent site-packages (see the note in requirements.txt; re-test before lifting)',
+      matchFileNames: [
+        'files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt',
+      ],
+      matchPackageNames: [
+        'huggingface-hub',
+      ],
+      allowedVersions: '<2',
+    },
+    {
       description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',
       matchPackageNames: [
         'fedora',
