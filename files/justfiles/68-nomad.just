@@ -170,8 +170,8 @@ llama-up:
     if [[ ! -e "$CFG" ]]; then
         mkdir -p "$(dirname "$CFG")"
         cp /usr/share/nomad-llama/config.example.yaml "$CFG"
-        echo "📝 Config inicial criada em $CFG (exemplo com Qwen3.5-4B, Qwen3.5-9B e Qwen3.6-35B)."
-        echo "   Pesos do exemplo: ujust llama-models-fetch   (~29 GiB; use 'ujust llama-models-fetch <id>' para baixar só um)"
+        echo "📝 Config inicial criada em $CFG (exemplo com Qwen3.5-4B e Qwen3.6-35B)."
+        echo "   Pesos do exemplo: ujust llama-models-fetch   (~25 GiB; use 'ujust llama-models-fetch <id>' para baixar só um)"
     fi
     systemctl --user start nomad-llama.service
     echo "✅ nomad-llama ativo. Host: http://127.0.0.1:61383/v1   Stack: http://llama:8080/v1"
@@ -313,11 +313,13 @@ llm-advisor:
     • CUDA, não Vulkan: +15% decode (KV na GPU), +40-50% (KV em RAM), e no MoE o
       Vulkan fez 23 vs 31 tok/s e OOM a 32k.
     • KV q8_0 (-ctk/-ctv) + -fa on; 1 thread por P-core (-t 6 -C 0x555).
-      Exceção: qwen3.6-35b roda KV f16 — KV q8_0 a 98k nessa persona ainda não foi
-      validado em qualidade (o binário já tem a rotação de ativações do upstream).
+      Exceção: qwen3.6-35b roda KV f16. Medido em b12004 a 98k: q8_0 economiza 886 MiB e
+      abre -c 131072 (1045 MiB livres) por ~0,2 t/s de geração, mas o KLD do KV dessa
+      persona ainda não foi medido — só muda depois disso.
     • Evite Q2/Q3 brutos; prefira modelo menor em Q4_K/Q5_K.
-      Exceção medida: qwen3.5-9b em Q3_K_M — o Q4_K do 9B (~5,7 GB de pesos) não caberia
-      nos 6 GB da GPU com o desktop residente. Qualquer quant abaixo de Q3 exige medição.
+      (A exceção antiga, 9B em Q3_K_M, saiu da curadoria: o Q4_K não cabia em 6 GB e o Q3
+      limitava a janela a 16k, menor que um system prompt longo de agente. Qualquer quant
+      abaixo de Q3 exige medição.)
     • Abliteration varia por modelo: meça antes de adotar (uma variante 4B perdeu
       a capacidade de código; a 35B-A3B não perdeu nada mensurável).
     • Embedding em CPU (CUDA_VISIBLE_DEVICES=) num grupo persistente do llama-swap:

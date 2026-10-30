@@ -14,13 +14,16 @@
 # Measured on build b12004 (llama.cpp 0.8.0-dev): 4B prefill 2.2k tok/s and 738 tok/s on a
 # copy-heavy edit (draft_mtp+ngram acceptance 680/680); 35B (MoE, --n-cpu-moe 40) 475 tok/s
 # prefill and 47.8 tok/s on a 962-token edit (ngram-mod acceptance 616/713), 33.4 tok/s on novel
-# text. Structured tool_calls OK on all three.
+# text. Structured tool_calls OK on both.
 #
-# VRAM budget (measured, desktop resident): 4B @49k ≈ 4.9 GiB · 35B @98k ≈ 5.0 GiB · 9B @16k
-# smaller. One chat model at a time — that is why they all sit on `ttl` instead of a group.
+# VRAM budget (measured on b12004, GPU idle, np1): 4B @49k ≈ 4.8 GiB with KV q8_0 · 35B @98k
+# ≈ 5.5 GiB with KV f16 and the experts in system RAM. One chat model at a time — that is why they
+# all sit on `ttl` instead of a group.
 # The 4B keeps its vision projector on the CPU (`--no-mmproj-offload`): offloading the encoder is
-# 11x faster (38 s → 3 s per 1080p screenshot) but does not fit together with MTP at -c 49152 —
-# it needs ~5.7 GiB and OOMs. Drop to -c 32768 if a vision-heavy workload ever justifies it.
+# 11x faster (38 s → 3 s per 1080p screenshot) but does not fit together with MTP at -c 49152
+# (~5.7 GiB, OOM). With q4_0 KV it fits by 15 MiB — i.e. inside the 900 MiB reserve — and doubles
+# KV divergence (KLD 0.0118 vs 0.0051 for q8_0), so it is still not worth it. Drop to -c 32768 if a
+# vision-heavy workload ever justifies it (measured 3.0 s per 1200x700 image there).
 
 healthCheckTimeout: 600
 logLevel: info
@@ -42,23 +45,15 @@ models:
       setParamsByID: {"${MODEL_ID}:think": {"chat_template_kwargs": {"enable_thinking": true}}}
     ttl: 600
 
-  # 9B — agentic middle tier. 16k window: enough for a single tool-call turn, not for a long
-  # system prompt. Q3_K_M keeps it inside the VRAM budget; do not go lower without measuring.
-  "qwen3.5-9b":
-    cmd: |
-      /app/llama-server --port ${PORT} --host 127.0.0.1 --jinja -ngl 999
-      -m /models/gguf/unsloth/Qwen3.5-9B-MTP-GGUF/Qwen3.5-9B-Q3_K_M.gguf
-      -c 16384 -fa on -t 6 -C 0x555 --cpu-strict 1 -np 1 -ctk q8_0 -ctv q8_0
-      --cache-prompt --no-cache-idle-slots
-      --spec-type draft-mtp,ngram-mod --spec-draft-n-max 2
-    filters:
-      setParams: {"chat_template_kwargs": {"enable_thinking": false}}
-    ttl: 600
-    unloadTimeout: 30
+  # No 9B tier on purpose. A 9B at Q3_K_M (the only quant that fits 6 GB with the desktop resident)
+  # tops out at a 16k window — 14 336 tokens after the template — which is smaller than a long
+  # agent system prompt (measured 15 559 on a real one). It was retired from the curated set for
+  # that reason; see the retired catalog entry for the weights.
 
   # 35B-A3B (MoE, ~3B active per token) — quality/vision tier. 98k window, experts in system RAM
-  # via --n-cpu-moe, KV at f16 (the only persona that does: halving it with q8_0 is untested
-  # quality-wise on this abliterated MoE). Prefill is slow by design; it is the quality tier.
+  # via --n-cpu-moe, KV at f16 (the only persona that does: q8_0 halves it to 4567 MiB and opens
+  # -c 131072 for ~0.2 t/s, but its KV quality on this abliterated MoE is not measured yet).
+  # Prefill is slow by design; it is the quality tier.
   "qwen3.6-35b":
     cmd: |
       /app/llama-server --port ${PORT} --host 127.0.0.1 --jinja -ngl 999
