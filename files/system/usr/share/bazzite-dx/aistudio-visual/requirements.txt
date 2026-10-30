@@ -7,7 +7,7 @@
 # here let Renovate drift ahead of the checkout.
 # huggingface-hub: diffusers/transformers/WanVideoWrapper need >=1.32; 2.x breaks (httpx2).
 
-huggingface-hub>=1.32,<2
+huggingface-hub>=2.4,<3
 
 blake3
 comfy-angle
