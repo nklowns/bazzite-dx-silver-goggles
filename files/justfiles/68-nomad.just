@@ -175,6 +175,7 @@ llama-up:
     fi
     systemctl --user start nomad-llama.service
     echo "✅ nomad-llama ativo. Host: http://127.0.0.1:61383/v1   Stack: http://llama:8080/v1"
+    echo "   CLI OpenAI-compatible no shell: set -a; . ~/.config/llama-swap/env.sh; set +a"
     curl -s -m 5 http://127.0.0.1:61383/v1/models | jq -r '"   modelos: " + ([.data[].id] | join(", "))' 2>/dev/null || true
 
 [group('NOMAD')]
