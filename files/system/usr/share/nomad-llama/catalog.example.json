@@ -1,5 +1,5 @@
 {
-  "_doc": "Example catalog for llama-models-fetch (nomad-llama optional DX). Copy to ~/.config/llama-swap/catalog.json and add your own entries; sha256 = Hugging Face LFS oid of the file. The ids here mirror the models referenced by config.example.yaml — if you add a model to one file, add it to the other, or `ujust llama-models-fetch` will fetch weights nothing loads.",
+  "_doc": "Example catalog for llama-models-fetch (nomad-llama optional DX). Copy to ~/.config/llama-swap/catalog.json and add your own entries; sha256 = Hugging Face LFS oid of the file. The ids here mirror the models referenced by config.example.yaml — if you add a model to one file, add it to the other, or `ujust llama-models-fetch` will fetch weights nothing loads. Entries marked `retired` are kept only so their checksums stay resolvable; fetch skips them.",
   "_local_weights": "Weights produced locally (imatrix merges, MTP grafts) cannot be fetched by repo/file and therefore do not belong here: drop the file under /var/srv/nomad/gguf/local/<name>.gguf and reference /models/gguf/local/<name>.gguf in config.yaml. The production 4B on this host is such a file (HauhauCS MTP Q4_K_M); the fetchable UD-Q4_K_XL below is the drop-in equivalent.",
   "models": [
     {
@@ -26,8 +26,8 @@
       "file": "Qwen3.5-9B-Q3_K_M.gguf",
       "sha256": "b29f4ce425735b02e99be85daa2c9485cc707f32a28079a14177150c47f81fab",
       "size": 4834783584,
-      "status": "promoted",
-      "note": "tier agêntico, -c 16384 — persona qwen3.5-9b (Q3 é a exceção deliberada à regra de Q4_K)"
+      "status": "retired",
+      "note": "retirado: o Q4_K do 9B não cabe em 6 GB e o Q3_K_M limita a janela a 16k (14 336 após o template), menor que um system prompt longo de agente (15 559 medido). Fora da curadoria e do download"
     },
     {
       "id": "qwen3.6-35b-a3b:q4_k",
