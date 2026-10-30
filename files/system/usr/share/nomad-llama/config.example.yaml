@@ -9,27 +9,66 @@
 #   /models/gguf/<repo>/<file>   weights fetched by `ujust llama-models-fetch`
 # Reference: https://github.com/mostlygeek/llama-swap/blob/main/docs/config.example.yaml
 #
-# The default below fits a 6 GB GPU: Qwen3.5-4B (hybrid Gated DeltaNet attention, so the KV cache
-# is small) fully in VRAM, native MTP speculative decoding, vision projector kept on the CPU.
-# Measured on an RTX 3060 Laptop: ~78 tok/s plain, ~116 tok/s with MTP; structured tool_calls OK.
+# The default below mirrors the curated set for a 6 GB GPU (RTX 3060 Laptop): one model in VRAM at
+# a time, MoE experts of the 35B kept in system RAM, MTP speculative decoding on the dense models.
+# Measured on build b12004 (llama.cpp 0.8.0-dev): 4B prefill 2.2k tok/s and 738 tok/s on a
+# copy-heavy edit (draft_mtp+ngram acceptance 680/680); 35B (MoE, --n-cpu-moe 40) 475 tok/s
+# prefill and 47.8 tok/s on a 962-token edit (ngram-mod acceptance 616/713), 33.4 tok/s on novel
+# text. Structured tool_calls OK on all three.
+#
+# VRAM budget (measured, desktop resident): 4B @49k ≈ 4.9 GiB · 35B @98k ≈ 5.0 GiB · 9B @16k
+# smaller. One chat model at a time — that is why they all sit on `ttl` instead of a group.
+# The 4B keeps its vision projector on the CPU (`--no-mmproj-offload`): offloading the encoder is
+# 11x faster (38 s → 3 s per 1080p screenshot) but does not fit together with MTP at -c 49152 —
+# it needs ~5.7 GiB and OOMs. Drop to -c 32768 if a vision-heavy workload ever justifies it.
 
-healthCheckTimeout: 300
+healthCheckTimeout: 600
 logLevel: info
 
 models:
   "qwen3.5-4b":
     cmd: |
-      /app/llama-server --port ${PORT} --host 127.0.0.1 --jinja
+      /app/llama-server --port ${PORT} --host 127.0.0.1 --jinja -ngl 999
       -m /models/gguf/unsloth/Qwen3.5-4B-MTP-GGUF/Qwen3.5-4B-UD-Q4_K_XL.gguf
+      -c 49152 -fa on -t 6 -C 0x555 --cpu-strict 1 -np 1 -ctk q8_0 -ctv q8_0
+      --cache-prompt --cache-reuse 256 --no-cache-idle-slots
       --mmproj /models/gguf/unsloth/Qwen3.5-4B-MTP-GGUF/mmproj-F16.gguf --no-mmproj-offload
-      -ngl 999 -c 32768 -fa on -np 1 -ctk q8_0 -ctv q8_0 --cache-prompt
-      --spec-type draft-mtp --spec-draft-n-max 2 -ctkd q8_0 -ctvd q8_0
+      --spec-type draft-mtp,ngram-mod --spec-draft-n-max 2 -ctkd q8_0 -ctvd q8_0
+      --reasoning-budget 2500
     # Thinking off by default (fast agent turns); request "qwen3.5-4b:think" to enable it on the
     # same loaded process.
     filters:
       setParams: {"chat_template_kwargs": {"enable_thinking": false}}
       setParamsByID: {"${MODEL_ID}:think": {"chat_template_kwargs": {"enable_thinking": true}}}
     ttl: 600
+
+  # 9B — agentic middle tier. 16k window: enough for a single tool-call turn, not for a long
+  # system prompt. Q3_K_M keeps it inside the VRAM budget; do not go lower without measuring.
+  "qwen3.5-9b":
+    cmd: |
+      /app/llama-server --port ${PORT} --host 127.0.0.1 --jinja -ngl 999
+      -m /models/gguf/unsloth/Qwen3.5-9B-MTP-GGUF/Qwen3.5-9B-Q3_K_M.gguf
+      -c 16384 -fa on -t 6 -C 0x555 --cpu-strict 1 -np 1 -ctk q8_0 -ctv q8_0
+      --cache-prompt --no-cache-idle-slots
+      --spec-type draft-mtp,ngram-mod --spec-draft-n-max 2
+    filters:
+      setParams: {"chat_template_kwargs": {"enable_thinking": false}}
+    ttl: 600
+    unloadTimeout: 30
+
+  # 35B-A3B (MoE, ~3B active per token) — quality/vision tier. 98k window, experts in system RAM
+  # via --n-cpu-moe, KV at f16 (the only persona that does: halving it with q8_0 is untested
+  # quality-wise on this abliterated MoE). Prefill is slow by design; it is the quality tier.
+  "qwen3.6-35b":
+    cmd: |
+      /app/llama-server --port ${PORT} --host 127.0.0.1 --jinja -ngl 999
+      -m /models/gguf/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF/Huihui-Qwen3.6-35B-A3B-abliterated-ggml-model-Q4_K.gguf
+      -c 98304 -fa on --n-cpu-moe 40 -t 6 -C 0x555 --cpu-strict 1 -b 2048 -ub 2048 -np 1
+      -ctk f16 -ctv f16 --cache-prompt --cache-reuse 256 --no-cache-idle-slots
+      --mmproj /models/gguf/ggml-org/Qwen3.6-35B-A3B-GGUF/mmproj-Qwen3.6-35B-A3B-Q8_0.gguf
+      --spec-type ngram-mod --image-max-tokens 1536
+    ttl: 600
+    unloadTimeout: 30
 
   # Embedding model for RAG (Project NOMAD, Vane, anything OpenAI-compatible). The name is what the
   # NOMAD Command Center hard-codes (EMBEDDING_MODEL_NAME); vectors match Ollama's nomic-embed-text
