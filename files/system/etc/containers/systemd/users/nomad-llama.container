@@ -81,8 +81,15 @@ HealthRetries=3
 Restart=on-failure
 # The image is ~4.4 GB; a cold pull does not fit the systemd default of 90s.
 TimeoutStartSec=900
-# OpenAI-compatible clients pick the endpoint up from the session while the service is active.
-ExecStartPost=-/usr/bin/systemctl --user set-environment OPENAI_BASE_URL=http://127.0.0.1:61383/v1 OPENAI_API_KEY=nomad-local
-ExecStopPost=-/usr/bin/systemctl --user unset-environment OPENAI_BASE_URL OPENAI_API_KEY
+# OpenAI-compatible clients used to pick the endpoint up from the session: ExecStartPost ran
+# `systemctl --user set-environment`, which writes into the systemd *user manager* — not into this
+# unit — so every service and session started afterwards inherited OPENAI_API_KEY. OpenCode and Pi
+# enable a provider as soon as that variable exists, so the side effect was a phantom `openai`
+# provider pointing at llama-swap: the full cloud model catalog listed, and any of those models
+# 404ing against a server that has never served them. The endpoint is now exported to a file that
+# a shell can source on demand, and containers set their own env (see mesh-vane.container):
+#   set -a; . ~/.config/llama-swap/env.sh; set +a
+ExecStartPost=-/bin/sh -c 'mkdir -p %h/.config/llama-swap && printf "export OPENAI_BASE_URL=http://127.0.0.1:61383/v1\nexport OPENAI_API_KEY=nomad-local\n" > %h/.config/llama-swap/env.sh'
+ExecStopPost=-/bin/rm -f %h/.config/llama-swap/env.sh
 
 # [Install] omitted on purpose (Boot Impact Policy) — opt in with `ujust llama-enable-boot`.
