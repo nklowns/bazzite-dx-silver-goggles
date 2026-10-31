@@ -301,8 +301,8 @@ llm-advisor:
        • Visão via mmproj (--no-mmproj-offload se faltar VRAM).
 
     2. MoE COM EXPERTS NA CPU — melhor qualidade (ex: Qwen3.6-35B-A3B Q4_K)
-       • --n-cpu-moe <nº de camadas> (todos na CPU) + atenção/KV na GPU: ~4 GB VRAM,
-         ~41 tok/s, 64k de contexto; -ub 2048 = prefill 2.4× mais rápido.
+       • --n-cpu-moe <nº de camadas> (todos na CPU) + atenção/KV na GPU: ~5 GB VRAM,
+         ~36 tok/s, 128k de contexto (medido); -ub 2048 = prefill 2.4× mais rápido.
        • Quant uniforme Q4_K > UD (tensores Q5/Q6) > IQ4_XS com experts na CPU.
        • MTP rende pouco aqui (+8%) e custa ~0.9 GB de VRAM.
 
@@ -312,10 +312,10 @@ llm-advisor:
     --------------------------------------------------------------------------------
     • CUDA, não Vulkan: +15% decode (KV na GPU), +40-50% (KV em RAM), e no MoE o
       Vulkan fez 23 vs 31 tok/s e OOM a 32k.
-    • KV q8_0 (-ctk/-ctv) + -fa on; 1 thread por P-core (-t 6 -C 0x555).
-      Exceção: qwen3.6-35b roda KV f16. Medido em b12004 a 98k: q8_0 economiza 886 MiB e
-      abre -c 131072 (1045 MiB livres) por ~0,2 t/s de geração, mas o KLD do KV dessa
-      persona ainda não foi medido — só muda depois disso.
+    • KV q8_0 (-ctk/-ctv) + -fa on; 1 thread por P-core (-t 6 -C 0x555); -np 1 explícito.
+      Todas as personas usam q8_0. No 35B o KLD fechou (mean 0,0079 / p99 0,0776,
+      same-top-p 96,1%, Δppl −0,003): -c 131k e o servidor entrega 7/8 ao cliente, então
+      114 688 contra 86 016 antes — 5115 MiB e 690 MiB livres em produção.
     • Evite Q2/Q3 brutos; prefira modelo menor em Q4_K/Q5_K.
       (A exceção antiga, 9B em Q3_K_M, saiu da curadoria: o Q4_K não cabia em 6 GB e o Q3
       limitava a janela a 16k, menor que um system prompt longo de agente. Qualquer quant
