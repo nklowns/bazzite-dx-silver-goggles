@@ -69,7 +69,8 @@ yq -i "
   .labels.\"org.opencontainers.image.url\" = \"https://github.com/\" + env(REPO_OWNER) + \"/bazzite-dx-silver-goggles\" |
   .labels.\"org.opencontainers.image.documentation\" = \"https://raw.githubusercontent.com/\" + env(REPO_OWNER) + \"/bazzite-dx-silver-goggles/main/README.md\" |
   .labels.\"org.opencontainers.image.version\" = env(VERSION_FULL) |
-  .labels.\"org.opencontainers.image.revision\" = env(REVISION)
+  .labels.\"org.opencontainers.image.revision\" = env(REVISION) |
+  .alt-tags[] style=\"double\"
 " recipes/build-recipe.yml
 
 if [[ -n "$KERNEL_RELEASE" ]]; then
