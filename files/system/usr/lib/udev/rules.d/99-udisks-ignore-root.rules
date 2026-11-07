@@ -1,0 +1,8 @@
+# Never let udisks/Dolphin/Filelight mount the running root device on top of "/".
+# Doing so hides the composefs root and breaks /usr exec, mount namespaces and
+# user namespaces (Flatpak/Steam/rpm-ostree/Podman). Upstream: ublue-os/bazzite#5145.
+#
+# The helper reads root=UUID/PARTUUID/LABEL//dev from /proc/cmdline and prints
+# UDISKS_IGNORE=1 only for that device. It runs after 60-persistent-storage.rules,
+# so ID_FS_UUID/ID_PART_ENTRY_UUID are already populated.
+SUBSYSTEM=="block", ENV{ID_FS_UUID}!="", IMPORT{program}="/usr/libexec/udisks-ignore-root"
