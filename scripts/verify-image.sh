@@ -89,6 +89,14 @@ podman run --rm "$img" bash -c '
 	check "lxc present" "command -v lxc-create >/dev/null"
 	check "cloud-hypervisor present" "command -v cloud-hypervisor >/dev/null"
 	check "looking-glass client present" "command -v looking-glass-client >/dev/null"
+
+	# Weak dependencies used to arrive through rpm-ostree. The base image sets
+	# install_weak_deps=False, so a build that forgets to override it silently
+	# drops these. Assert the ones whose absence breaks a capability.
+	check "libvirt KVM driver present" "rpm -q libvirt-daemon-kvm >/dev/null"
+	check "uxplay discovery beacon present" "rpm -q uxplay-beacon >/dev/null"
+	check "bcc tools present" "rpm -q bcc-tools >/dev/null"
+	check "docker rootless extras present" "rpm -q moby-engine-rootless-extras >/dev/null"
 	exit "$fail"
 ' || rc=1
 echo "::endgroup::"
