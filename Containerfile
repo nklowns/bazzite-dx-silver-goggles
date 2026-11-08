@@ -18,12 +18,40 @@ COPY build_files /build_files
 COPY packages /packages
 COPY files /files
 COPY modules /modules
+# The public key is baked into the image and referenced by the container policy,
+# so the host can verify its own updates. `ostree-image-signed:docker://...`
+# refuses an image that is not signed with this key.
+COPY cosign.pub /cosign.pub
 
 FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
 
 ARG IMAGE_NAME=bazzite-dx-silver-goggles
 ARG IMAGE_VENDOR=nklowns
+ARG IMAGE_VERSION=dev
+ARG IMAGE_REVISION=unknown
+ARG IMAGE_CREATED=unknown
 ENV IMAGE_NAME=${IMAGE_NAME} IMAGE_VENDOR=${IMAGE_VENDOR}
+
+# OCI + Artifact Hub labels. org.opencontainers.image.version is what
+# `bootc status` / `rpm-ostree status` prints, so it must describe this image
+# and not the base it was built from.
+LABEL org.opencontainers.image.title="bazzite-dx-silver-goggles" \
+      org.opencontainers.image.description="Developer Experience (DX) layer for Dell G15 5520. KDE/NVIDIA — Slim Edition." \
+      org.opencontainers.image.source="https://github.com/nklowns/bazzite-dx-silver-goggles" \
+      org.opencontainers.image.url="https://github.com/nklowns/bazzite-dx-silver-goggles" \
+      org.opencontainers.image.documentation="https://raw.githubusercontent.com/nklowns/bazzite-dx-silver-goggles/main/README.md" \
+      org.opencontainers.image.vendor="nklowns" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.created="${IMAGE_CREATED}" \
+      org.opencontainers.image.base.name="ghcr.io/ublue-os/bazzite-nvidia:45.20261105@sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6136b28cd50c97" \
+      org.opencontainers.image.base.digest="sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6136b28cd50c97" \
+      io.artifacthub.package.logo-url="https://avatars.githubusercontent.com/u/187439889?s=200&v=4" \
+      io.artifacthub.package.readme-url="https://raw.githubusercontent.com/nklowns/bazzite-dx-silver-goggles/main/README.md" \
+      io.artifacthub.package.keywords="bootc,bazzite,dx,silver-goggles,dell-g15,ublue,universal-blue,fedora,gaming,developer" \
+      io.artifacthub.package.deprecated="false" \
+      io.artifacthub.package.prerelease="false"
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
