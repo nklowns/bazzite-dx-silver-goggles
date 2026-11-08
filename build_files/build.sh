@@ -10,7 +10,7 @@ export CONTEXT_PATH BUILD_SCRIPTS_PATH
 
 run_scripts() {
 	local script
-	find "${BUILD_SCRIPTS_PATH}" -maxdepth 1 -iname "[0-9][0-9]-*.sh" -type f -print0 |
+	find "${BUILD_SCRIPTS_PATH}" -maxdepth 1 -iname "[0-9]*-*.sh" -type f -print0 |
 		sort --zero-terminated |
 		while IFS= read -r -d '' script; do
 			printf '::group::=== %s ===\n' "$(basename "$script")"

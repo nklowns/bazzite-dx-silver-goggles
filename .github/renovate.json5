@@ -101,20 +101,20 @@
       ignoreTests: true,
     },
     {
-      description: 'Auto-update and automerge Bazzite-Nvidia base image digest in image-versions.yaml',
-      matchFileNames: [
-        'image-versions.yaml',
-      ],
+      description: 'Bazzite-Nvidia base image: group image-versions.yaml and the Containerfile default into one manually merged PR',
+      groupName: 'bazzite base image',
       matchUpdateTypes: [
         'digest',
         'pinDigest',
+        'pin',
+        'major',
+        'minor',
+        'patch',
       ],
       matchPackageNames: [
         'ghcr.io/ublue-os/bazzite-nvidia',
       ],
       pinDigests: true,
-      automerge: true,
-      ignoreTests: true,
       commitMessagePrefix: 'chore(deps): ',
     },
     {

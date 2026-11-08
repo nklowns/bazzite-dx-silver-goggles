@@ -49,7 +49,7 @@ There is no recipe generator and no custom schema: adding a package is one line,
 1. **Atomic Symlinks (`tmpfiles.d`)**: Managed via `L+` symlinks in `files/system/usr/lib/tmpfiles.d/`. The root filesystem is the single source of truth — no `flatpak override` commands.
 2. **Global Environment (`environment.d`)**: Variables like `CHROME_EXTRA_FLAGS` are set in `files/system/usr/lib/environment.d/`, ensuring consistency between Wayland, X11, and terminal sessions.
 3. **Service Orchestration**:
-   - Services are enabled via **Systemd Presets** (`files/system/usr/lib/systemd/system-preset/`).
+   - Services are enabled or masked in `build_files/20-services.sh` (`systemctl -f enable` / `systemctl -f mask`), so the image state is explicit. Presets are only used when a package ships one.
    - Conflicting services are **masked in-image** (symlinked to `/dev/null`) for absolute determinism:
      - `thermald.service`: Prevents aggressive userspace RAPL throttling, allowing native EC/PROCHOT and platform-profile thermal management.
      - `systemd-udev-settle.service`: Fixes boot hangs with VFIO/IOMMU kargs.

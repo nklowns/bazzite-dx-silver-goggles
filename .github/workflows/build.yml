@@ -50,7 +50,7 @@ jobs:
     # never a broken build.
     if: ${{ !cancelled() && needs.check.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
@@ -88,6 +88,7 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Build with podman
+        timeout-minutes: 25
         env:
           BASE_TAG: ${{ steps.base.outputs.tag }}
         run: |
@@ -150,6 +151,7 @@ jobs:
       - name: Push versioned tags
         id: push
         if: steps.publish.outputs.publish == 'true'
+        timeout-minutes: 15
         env:
           EVENT: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.number }}
@@ -182,7 +184,7 @@ jobs:
           podman manifest create --amend "${registry}:${tags[0]}" local/silver-goggles
           for tag in "${tags[@]}"; do
             echo "Pushing ${registry}:${tag}"
-            podman manifest push --compression-format=gzip \
+            podman manifest push --compression-format=zstd \
               --digestfile="/tmp/digest.${tag}" \
               "${registry}:${tags[0]}" "docker://${registry}:${tag}"
           done
@@ -231,7 +233,7 @@ jobs:
 
           # The index signature above says nothing about the per-architecture
           # manifests, which is what the host actually verifies.
-          children=$(podman manifest inspect --raw "${registry}@${digest}" \
+          children=$(skopeo inspect --raw "docker://${registry}@${digest}" \
             | jq -r '.manifests[]?.digest')
           if [ -z "$children" ]; then
             echo "::error::no child manifests found in ${digest}"
@@ -258,6 +260,6 @@ jobs:
           # only the unqualified pointers move here.
           for pointer in latest stable; do
             echo "Moving ${registry}:${pointer}"
-            podman manifest push --compression-format=gzip \
+            podman manifest push --compression-format=zstd \
               "$source" "docker://${registry}:${pointer}" >/dev/null
           done

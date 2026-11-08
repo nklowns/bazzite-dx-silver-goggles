@@ -21,6 +21,7 @@ install_list() {
 	dnf5 -y install $(sed -E 's/#.*//' "$file" | grep -vE '^\s*$')
 }
 
-install_list "${CONTEXT_PATH}/packages/dx.txt"
-install_list "${CONTEXT_PATH}/packages/hardware.txt"
-install_list "${CONTEXT_PATH}/packages/casting.txt"
+# Every list in packages/ is installed; adding a domain is dropping a file there.
+for list in "${CONTEXT_PATH}"/packages/*.txt; do
+	install_list "$list"
+done

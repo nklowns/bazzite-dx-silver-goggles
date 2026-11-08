@@ -25,8 +25,15 @@ check:
     # Pin consistency: image-versions.yaml is the single source of truth; the
     # Containerfile default exists only so a bare `podman build .` works.
     echo "Checking base pin consistency..."
-    want="$(yq -r '.images[] | select(.name == "bazzite-nvidia") | .image + ":" + .tag + "@" + .digest' image-versions.yaml)"
-    if grep -qF -- "ARG BASE_IMAGE_REF=${want}" Containerfile; then
+    # yq -e fails when the entry is missing, and the non-empty check below
+    # stops the comparison from passing vacuously against "ARG ...=".
+    if ! want="$(yq -e -r '.images[] | select(.name == "bazzite-nvidia") | .image + ":" + .tag + "@" + .digest' image-versions.yaml 2>/dev/null)"; then
+      echo "❌ image-versions.yaml has no 'bazzite-nvidia' entry"
+      rc=1
+    elif [[ -z "$want" ]]; then
+      echo "❌ resolved base pin is empty"
+      rc=1
+    elif grep -qxF -- "ARG BASE_IMAGE_REF=${want}" Containerfile; then
       echo "ok: Containerfile matches ${want}"
     else
       echo "❌ Containerfile BASE_IMAGE_REF diverges from image-versions.yaml (${want})"
@@ -94,11 +101,16 @@ fix:
     echo "Formatting Bash scripts..."
     just format
 
+# Verify a built image against the repository contract
+[group('Build')]
+verify img="localhost/{{ image_name }}:{{ default_tag }}":
+    bash scripts/verify-image.sh "{{ img }}"
+
 # Runs shell check on all scripts (ShellCheck for Bash, zsh -n for Zsh, fish -n for Fish)
 [group('Utility')]
 lint:
     #!/usr/bin/env bash
-    set -eoux pipefail
+    set -eou pipefail
     # 1. ShellCheck for Bash/Sh — containerized by default (hermetic build tooling);
     # host binary (dnf/brew) only as fallback. Batched in a single run so the
     # tool's exit code propagates (find -exec ';' silently swallows failures).

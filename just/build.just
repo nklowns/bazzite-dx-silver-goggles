@@ -4,14 +4,20 @@
 
 # Build the image locally, pinned to the base in image-versions.yaml
 [group('Build')]
-build target_image="bazzite-nvidia" tag=default_tag:
+build pin="bazzite-nvidia" tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    base_image=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .image" image-versions.yaml)
-    base_tag=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .tag" image-versions.yaml)
-    base_digest=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .digest" image-versions.yaml)
+    if ! base_image=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .image" image-versions.yaml 2>/dev/null) || [[ -z "$base_image" ]]; then
+        echo "unknown pin '{{ pin }}'; valid pins:" >&2
+        yq -e -r ".images[].name" image-versions.yaml >&2
+        exit 1
+    fi
+    base_tag=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .tag" image-versions.yaml)
+    base_digest=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .digest" image-versions.yaml)
     "${PODMAN}" build \
         --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
+        --build-arg "IMAGE_NAME={{ image_name }}" \
+        --build-arg "IMAGE_VENDOR={{ image_vendor }}" \
         --build-arg "IMAGE_VERSION=${base_tag}.$(date -u +%Y%m%d)" \
         --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
         --build-arg "IMAGE_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -19,14 +25,20 @@ build target_image="bazzite-nvidia" tag=default_tag:
 
 # Build the image without any layer cache
 [group('Build')]
-build-nocache target_image="bazzite-nvidia" tag=default_tag:
+build-nocache pin="bazzite-nvidia" tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    base_image=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .image" image-versions.yaml)
-    base_tag=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .tag" image-versions.yaml)
-    base_digest=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .digest" image-versions.yaml)
+    if ! base_image=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .image" image-versions.yaml 2>/dev/null) || [[ -z "$base_image" ]]; then
+        echo "unknown pin '{{ pin }}'; valid pins:" >&2
+        yq -e -r ".images[].name" image-versions.yaml >&2
+        exit 1
+    fi
+    base_tag=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .tag" image-versions.yaml)
+    base_digest=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .digest" image-versions.yaml)
     "${PODMAN}" build --no-cache \
         --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
+        --build-arg "IMAGE_NAME={{ image_name }}" \
+        --build-arg "IMAGE_VENDOR={{ image_vendor }}" \
         --build-arg "IMAGE_VERSION=${base_tag}.$(date -u +%Y%m%d)" \
         --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
         --build-arg "IMAGE_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -39,6 +51,8 @@ build-fork base_ref tag=default_tag:
     set -euo pipefail
     "${PODMAN}" build \
         --build-arg "BASE_IMAGE_REF={{ base_ref }}" \
+        --build-arg "IMAGE_NAME={{ image_name }}" \
+        --build-arg "IMAGE_VENDOR={{ image_vendor }}" \
         --build-arg "IMAGE_VERSION=dev.$(date -u +%Y%m%d)" \
         --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
         --build-arg "IMAGE_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
