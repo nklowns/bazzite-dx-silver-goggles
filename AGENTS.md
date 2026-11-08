@@ -2,7 +2,7 @@
 
 Single source of truth for AI agents in this repository (`CLAUDE.md` and `GEMINI.md` are symlinks to this file).
 
-Developer Experience (DX) customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 44. Builds a declarative, immutable OCI container image with the [BlueBuild](https://blue-build.org) framework.
+Developer Experience (DX) customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 45. Builds a declarative, immutable OCI container image with the [BlueBuild](https://blue-build.org) framework.
 
 - **Base image**: `ghcr.io/ublue-os/bazzite-nvidia` — DX tooling is applied by this repo's own `recipes/dx.yml`, following `bazzite-dx` patterns.
 - **Entry point**: `recipes/recipe.yml`. Everything flows from there.
