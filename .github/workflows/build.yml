@@ -225,7 +225,9 @@ jobs:
             --registry-referrers-mode=legacy --tlog-upload=false \
             --recursive "${registry}@${digest}"
 
-          cosign verify --key cosign.pub "${registry}@${digest}"
+          # The trust anchor is the pinned key, not the transparency log, and
+          # the signature was created with tlog disabled on purpose.
+          cosign verify --key cosign.pub --insecure-ignore-tlog=true "${registry}@${digest}"
 
           # The index signature above says nothing about the per-architecture
           # manifests, which is what the host actually verifies.
@@ -237,7 +239,7 @@ jobs:
           fi
           for child in $children; do
             echo "Verifying child manifest ${child}"
-            cosign verify --key cosign.pub "${registry}@${child}"
+            cosign verify --key cosign.pub --insecure-ignore-tlog=true "${registry}@${child}"
           done
 
       - name: Move latest and stable
