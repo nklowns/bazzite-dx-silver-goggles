@@ -82,10 +82,15 @@ Adding a new always-on DX service: pick the next free port in `61300-61399`, wir
 
 ## 🥾 Boot Impact Policy (this is a gaming + dev box, not a server)
 
-Bazzite serves two conflicting jobs on the same hardware — play and develop — and every service enabled at boot is CPU/RAM/VRAM the game or the build isn't getting, plus slower cold start. The only things this layer's own build enables by default are:
+Bazzite serves two conflicting jobs on the same hardware — play and develop — and every service enabled at boot is CPU/RAM/VRAM the game or the build isn't getting, plus slower cold start. What the build actually enables (`ujust boot-audit` is the live view):
 
-- **`tailscale` + `sunshine`** — the actual remote-access path into the system, and the one thing that stays on. Note the mechanism, because it was described wrongly here before: neither is enabled *by the image*. `tailscaled.service` ships `preset: disabled` and is turned on by upstream's own `ujust tailscale enable` (`80-bazzite.just`); Sunshine likewise. They show up in `ujust boot-audit` as "enabled outside the image" and that is correct and intended — the audit reports facts, it does not label them violations.
-- Socket-activated units already established pre-NOMAD (`cockpit.socket`, `docker.socket`, `podman.socket`, `virtqemud.socket` and siblings in `build_files/20-services.sh`) — near-zero idle cost since the daemon only spawns on first connection. Not something this change revisits.
+- **One-shot provisioning and hardware glue** — `ublue-system-setup`, `bazzite-dx-groups`, `ublue-os-libvirt-workarounds`, `swtpm-workaround`, `ublue-nvctk-cdi`: run once and exit, no idle cost.
+- **Socket-activated units** — `cockpit.socket`, `docker.socket`, `podman.socket`, `virtqemud.socket` and its siblings: the daemon only spawns on first connection.
+- **Timers** — `uupd.timer` (updates).
+- **Two resident daemons, kept on purpose** — `pmcd` (~8 MB) backs Cockpit's PCP channel; `input-remapper` serves controller remapping, which is a gaming feature, not a dev one.
+- **Not the image's doing** — `tailscaled.service` and `sunshine.service` ship `preset: disabled` and are turned on by their own `ujust` recipes (`80-bazzite.just` and the Sunshine setup). They show up in `ujust boot-audit` as "enabled outside the image" and that is correct and intended — the audit reports facts, it does not label them violations.
+
+PCP's archival trio (`pmlogger`, `pmie`, `pmproxy`) is explicitly **disabled** by the build. On the G15 it held ~40 MB resident and wrote 2.9 GB under `/var/log/pcp`, logging the local host plus LAN and tailnet peers discovered by `pcp-zeroconf`. Live metrics need `pmcd` only — Cockpit's PCP channel connects to it directly. Start `pmlogger` by hand for an archive session if you ever want one.
 
 Everything else — **NOMAD (Command Center, mysql, redis, dozzle, nomad-llama, and any Supply Depot app), code-server, VS Code Remote Tunnels, casting receivers (uxplay/FCast/scrcpy)** — is opt-in: those units ship inert and only a `ujust ...-up`/`...-setup` call starts them. **Do not add them to `build_files/20-services.sh`** — that would turn an on-demand feature into permanent background load (mysql/redis daemons, a container socket held open, VRAM pressure from nomad-llama) fighting the same RTX 3060 a game session needs. If a future service seems to want boot-enablement, that's a signal to re-check this policy with the user first, not a default to reach for.
 
@@ -376,6 +381,19 @@ racing the daemon.
 - **Thermals & Fans**: Handled via in-tree `alienware-wmi-wmax` platform profiles (`/sys/class/platform-profile`) and `tuned-ppd`.
 - **GPU Unlock (RTX 3060 Laptop GA106M BF16)**: Handled declaratively via CI-signed `gpu_unlock.ko` (built with runner Podman against pinned base kernel, signed with MOK key via `kmod-signing` environment, installed by `modules/gpu-unlock` into `/usr/lib/modules/<kver>/extra/`). Proprietary firmware generated locally and delivered via `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`. Requires client initramfs regeneration disabled (`rpm-ostree initramfs --disable`), preserving the pre-baked image initramfs. See [`docs/third-party-artifacts.md`](./docs/third-party-artifacts.md).
 - **Legacy Tools**: AWCC, `acpi_call`, and `alienfx-linux` are obsolete and must not be reintroduced.
+
+#### GPU unlock vs EAC Linux v2 — the layer cannot have both
+
+`ujust check-anticheat` fails while the `silver-goggles kmod` MOK is enrolled: EAC Linux v2 accepts
+only well-known keys, and this layer's key is not one. The recipe states it plainly and adds that
+the key cannot be deleted while `gpu_unlock` depends on it. This host also carries older third-party
+keys (`zorin`, `grub`) that fail the same check on their own, so the readiness verdict is not the
+layer's alone — but the layer's key is the one it owns.
+
+The precedence decides the default rather than hiding it: the unlock is **opt-in** through
+`ujust gpu-unlock-setup`, and a machine that must run EAC v2 titles simply does not enroll the key.
+Keeping it buys BF16/compute on GA106M and costs EAC readiness; deleting it (`mokutil --delete`,
+then the MOK manager at reboot) does the reverse. No configuration provides both.
 
 #### What max fan actually buys (measured, so stop guessing)
 
