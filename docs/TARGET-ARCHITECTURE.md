@@ -27,9 +27,17 @@ reimplementação do `bazzite-dx` (que hoje só publica variantes deck).
 | É preferência pessoal (tema, shell, fonte, dotfile)? | — | dotfiles, ou `/etc/skel` se precisar de default |
 | Só um projeto usa? | — | container do projeto (distrobox/devcontainer) |
 
-Corolário: **a imagem encolhe por padrão**. Se algo novo não passa nas três
-primeiras linhas, não entra. Isso é o oposto de "adicionar capacidade", e é o que
-mantém a camada simples.
+Duas perguntas que **não** se aplicam, porque poupar bytes não é o objetivo:
+
+| Pergunta errada | Por quê |
+| :--- | :--- |
+| "Já temos um runtime de container, podemos remover o outro?" | Moby e Podman são **alternativas reais**, não duplicatas. DX é poder escolher. O que sai é *shim* (`podman-docker`) que torna o comando ambíguo. |
+| "Esse VMM/hypervisor é usado hoje?" | `libvirt`, `incus`, `lxc` e `cloud-hypervisor` existem para o dia em que forem necessários. Alternativa instalada e funcional é capacidade; remover por desuso é limitar. |
+
+Corolário: **a imagem encolhe de duplicata, não de alternativa.** O que sai é
+fork de upstream, registro que só verifica presença, e shim que esconde qual
+runtime está respondendo. Duas implementações do mesmo dono com a mesma função
+(nenhuma hoje) seriam duplicata.
 
 ## 3. Princípios de plataforma (Silverblue/Bazzite, 2026)
 
@@ -107,6 +115,9 @@ Regras do layout:
 4. **Imagem de persona.** Dotfiles resolvem; CI impede caminho de usuário no overlay.
 5. **Fork de `84-bazzite-virt.just` / `95-bazzite-dx.just`.** Adotar upstream e
    complementar em `96-*.just`.
+6. **Remoção de runtime alternativo.** Moby e Podman coexistem porque são
+   alternativas; o que não entra é `podman-docker`, que tornaria `docker` ambíguo.
+   A verificação prova que os dois respondem, não que um foi removido.
 
 ## 7. Verificação proporcional ao risco
 

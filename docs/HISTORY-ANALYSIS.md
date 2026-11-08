@@ -93,7 +93,7 @@ Isso valida três decisões e reprova uma:
 | 3 features mortas em < 48 h, 2 em < 3 meses | Inerte + opt-in por padrão; nada de enable no boot. |
 | Servidores em container sobreviveram | NOMAD/mesh/aistudio permanecem containers; host só recebe motor. |
 | Vão de 47 dias no pin | `dx-metrics` com lag + alerta; bump de 3 linhas. |
-| 15 imagens / 87 deps commits | Agrupar updates semanais; reduzir stacks que ninguém usa. |
+| 15 imagens / 87 deps commits | Agrupar updates semanais; nenhuma stack é removida por desuso. |
 | Trabalho direto na main | Mudança de arquitetura em branch/worktree (Paseo), não em main. |
 
 ## 7. O que o histórico valida do alvo proposto

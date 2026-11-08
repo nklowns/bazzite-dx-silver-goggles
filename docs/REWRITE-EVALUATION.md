@@ -85,13 +85,20 @@ inflar a imagem:
 | :--- | :--- | :--- |
 | Hardware (kargs, kmod, udev, thermal) | **imagem** | não há como existir fora |
 | Motor (podman, libvirt, uxplay, sunshine) | **imagem** | precisa antes do login/sessão |
+| **Runtime alternativo** (moby além de podman, incus/lxc além de libvirt) | **imagem** | alternativa é capacidade; DX é poder escolher |
 | Servidor/stack (NOMAD, mesh, aistudio, guacamole) | **container rootless (Quadlet)** | sobreviveu ao histórico; atualiza independente |
 | App com GUI (FCast, navegador, RustDesk) | **Flatpak / Brew** | ciclo próprio de update |
 | Ferramenta de projeto (node, python, rust, CLIs) | **mise/uv/brew** | não deve arrastar rebuild |
 | Preferência (shell, tema, keybinding) | **dotfiles / `skel`** | muda mais que hardware |
 
+Regra de convivência: **um dono por função, sem shim**. Moby e Podman coexistem
+porque são alternativas explícitas — `docker` é o CLI do Moby, `podman` é o
+Podman, e `podman-docker` não entra porque tornaria o comando ambíguo. O mesmo
+vale para libvirt/incus/lxc/cloud-hypervisor: são opções, não duplicatas.
+
 Teste rápido para qualquer item futuro: *"isso precisa existir antes do login do
-usuário?"* Se não, não entra na imagem.
+usuário?"* Se não, não entra. **Não** vale como teste: *"já temos um runtime
+parecido?"* — parecido não é igual.
 
 ## 6. Decisão D — verificação e atualização
 
@@ -119,9 +126,10 @@ Tudo que existe hoje e para onde vai. Nada é removido; o que muda é a camada.
 | RustDesk, Guacamole, MediaMTX, webcam receiver | imagem + just | **container/Flatpak + just** |
 | code-server, ide-tunnel, remote-ide-setup | imagem + just | **imagem** (motor) |
 | `remote-suite` (tailscale serve) | imagem | **imagem** |
-| Virtualização (libvirt, incus, qemu, cloud-hypervisor, templates, win/macos utils, VFIO, KVMFR, Looking Glass) | imagem + just | **imagem**; motores não usados viram opcionais |
+| Virtualização (libvirt, incus, qemu, cloud-hypervisor, templates, win/macos utils, VFIO, KVMFR, Looking Glass) | imagem + just | **imagem**; todos mantidos como alternativas funcionais |
 | Podman + Quadlets rootless | imagem | **imagem** |
-| Moby/containerd/docker-* **sem uso real** (0 invocações) | imagem | **remover** ou `podman-docker` shim |
+| Moby/containerd/docker-* **como alternativa ao Podman** | imagem | **mantidos**; sem `podman-docker`, para `docker` continuar sendo o Docker |
+| Virtualização alternativa (incus, lxc, cloud-hypervisor) | imagem | **mantidos**; cada um com seu CLI, nenhum alias |
 | Observabilidade (bpf, pcp, sysprof, tiptop, wireshark, nmap) | imagem | **imagem** (diagnóstico) |
 | NOMAD (Command Center, mysql, redis, llama-swap) | Quadlets | **inalterado** |
 | llama-* (models-fetch, fit, which, advisor, vram-purge) | just | **inalterado** |
@@ -142,7 +150,7 @@ quando cada linha tiver destino verificado.
 | :--- | :--- | :--- |
 | **0** | F45 + dnf5 (PR #181) | build verde no CI |
 | **1** | `Containerfile` + `build_files` reproduzindo o recipe atual | `rpm -qa \| sort` e `find /usr /etc` idênticos aos do build anterior |
-| **2** | Poda: motores não usados, forks `84`/`95`, path `/var/home/cloud`, nomes `amyos` | checklist §7 + `dx-verify` reduzido |
+| **2** | Poda de duplicata e fork: `84`/`95`, path `/var/home/cloud`, nomes `amyos`. Nenhum runtime alternativo é removido | checklist §7 + coexistência dos engines verificada |
 | **3** | `bootc container lint` + `bcvk` + `ujust dx-metrics` | boot em VM no CI |
 | **4** | Persona fora do caminho crítico (opcional, só se o churn justificar) | rebuild de shell sem rebuild de imagem |
 
