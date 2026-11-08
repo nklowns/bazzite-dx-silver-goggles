@@ -6,7 +6,15 @@ set -euo pipefail
 bash "${CONTEXT_PATH}/modules/dx-flavor/dx-flavor.sh"
 
 # os-release properties, previously declared inline in the recipe.
+#
+# /etc/os-release is a symlink to ../usr/lib/os-release in Fedora. `sed -i`
+# replaces a symlink with a regular file, which would leave the real file
+# untouched and turn /etc/os-release into a permanent local override. Resolve
+# the link first and write through it.
 OS_RELEASE="/etc/os-release"
+if [[ -L "$OS_RELEASE" ]]; then
+	OS_RELEASE="$(readlink -f "$OS_RELEASE")"
+fi
 [[ -f "$OS_RELEASE" ]] || OS_RELEASE="/usr/lib/os-release"
 
 set_key() {
