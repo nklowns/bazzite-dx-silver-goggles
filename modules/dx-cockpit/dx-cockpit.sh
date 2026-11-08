@@ -14,7 +14,13 @@ InstallCtop() {
 	temp_zip=$(mktemp --suffix=.zip)
 	local download_url="https://github.com/ismetozalp/ctop/releases/download/v${CTOP_VERSION}/ctop-${CTOP_VERSION}.zip"
 
-	curl --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSL "$download_url" -o "$temp_zip"
+	# ctop is an optional Cockpit extension downloaded from a GitHub release.
+	# A GitHub asset outage must not block publishing the image: warn and skip.
+	if ! curl --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSL "$download_url" -o "$temp_zip"; then
+		echo "WARNING: could not download ctop ${CTOP_VERSION}; skipping the optional Cockpit extension." >&2
+		rm -f "$temp_zip"
+		return 0
+	fi
 
 	local temp_extract
 	temp_extract=$(mktemp -d)
