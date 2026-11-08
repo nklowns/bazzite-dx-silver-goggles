@@ -8,6 +8,34 @@ Developer Experience (DX) customization layer targeting **Dell G15 5520** (Intel
 - **Entry point**: `Containerfile`. Everything flows from there.
 - Use the `[Silver Goggles]` prefix for agent-created issues or messages.
 
+## 🎯 Precedence: Games > Dev > LLM
+
+Bazzite is the base and owns the machine's first job. This layer sits above it and never trades
+the base's maxima for its own features. The order is a decision rule, not a slogan:
+
+1. **Games** keep Bazzite's defaults exactly as upstream ships them: session, compositor,
+   scheduler, kernel args and the `ujust` gaming surface (`check-anticheat`, `bazzite-verify`,
+   `bazzite-rollback-helper`, ...). No DX feature changes them or adds boot-time cost for dev or
+   LLM work. The gaming tier is upstream's; this layer is a guest there.
+2. **Dev** is where this layer spends its budget, and it follows Bazzite's own software doctrine
+   (`docs.bazzite.gg/Installing_and_Managing_Software/software-intro`): `ujust` → Flatpak →
+   Homebrew → containers → image. The image carries only what user space cannot provide: kernel
+   modules, udev, system services, desktop integration, keys and certificates. A CLI tool that
+   Homebrew already ships belongs in a `*.Brewfile`, not in `packages/*.txt`.
+3. **LLM/agents** are opt-in Quadlets: zero idle cost until `ujust ...-up`, never enabled at boot.
+
+Consequences that are easy to get wrong:
+
+- `install_weak_deps` stays at Bazzite's value (`False`, its `system_files` dnf.conf). A capability
+  whose package needs one of its `Recommends` declares that package in `packages/*.txt`. Turning
+  weak deps back on would make the image a function of Fedora's metadata instead of this repo's
+  lists.
+- A capability assert names the tool the user invokes (`/usr/share/bcc/tools/execsnoop`), not a
+  package name alone.
+- Removing something is a line in a package list, never a side effect of a build change.
+- Alternatives coexist (moby + podman; libvirt/incus/lxc/cloud-hypervisor); this layer does not
+  choose for the user.
+
 ## 🛠️ Commands
 
 ```bash

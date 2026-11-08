@@ -86,3 +86,12 @@ util-linux-script
 waypipe
 qt6-qttools
 zsh
+
+# --- Weak dependencies, declared explicitly ------------------------------
+# Bazzite ships install_weak_deps=False and this layer keeps it (see AGENTS.md,
+# "Precedence"). A capability whose package needs one of its Recommends names
+# that package here, so the image stays a function of these lists instead of
+# Fedora's metadata. Each line below is a Recommend that would vanish silently.
+libvirt-daemon-kvm # virt-manager recommends it; without the KVM driver a VM is a definition that cannot boot
+bcc-tools          # bcc recommends it; the library alone runs none of the tools in /usr/share/bcc/tools
+xset               # powertop recommends it; --calibrate shells out to `xset dpms force off/on`

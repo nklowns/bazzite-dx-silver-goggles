@@ -17,12 +17,13 @@ curl -fsSL --retry 5 --retry-all-errors \
 install_list() {
 	local file="$1"
 	echo "Installing packages from $(basename "$file")"
-	# The base image ships install_weak_deps=False in /etc/dnf/dnf.conf.
-	# The previous rpm-ostree path installed weak dependencies, and dropping
-	# them silently removed libvirt-daemon-kvm, moby-engine-nano, uxplay-beacon,
-	# bcc-tools and others. Explicitly restore the old behaviour.
+	# Weak dependencies stay off, explicitly. That is Bazzite's own policy
+	# (system_files/desktop/shared/etc/dnf/dnf.conf in ublue-os/bazzite), and
+	# stating it here keeps the image a function of packages/*.txt instead of
+	# Fedora's Recommends metadata. A capability that needs a completion
+	# declares it in its list; verify-image.sh asserts the tool it provides.
 	# shellcheck disable=SC2046
-	dnf5 -y --setopt=install_weak_deps=True install \
+	dnf5 -y --setopt=install_weak_deps=False install \
 		$(sed -E 's/#.*//' "$file" | grep -vE '^\s*$')
 }
 
