@@ -1,0 +1,55 @@
+---
+name: gpu_unlock compile test (throwaway)
+# Answers one question without touching the pin or the host: does gpu_unlock
+# compile against the kernel of a candidate base image? No signing, no secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Candidate base image reference"
+        required: true
+        default: "ghcr.io/ublue-os/bazzite-nvidia-open:45.20261105@sha256:9c3c4df94a7731238021549ed3fc951c3ae5e1fee37667d16754f37ae0f73134"
+
+permissions:
+  contents: read
+
+env:
+  GPU_UNLOCK_REPO: Zagitta/gpu-unlock
+  GPU_UNLOCK_REF: 990a14e9b7dc8eaad8e6925133aa0e8382efe6cf
+
+jobs:
+  compile:
+    name: Compile against candidate kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Free disk space
+        uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v1.1.0
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Compile in the candidate image
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          set -euo pipefail
+          podman run --rm -v "$PWD:/work:z" \
+            -e GPU_UNLOCK_REPO -e GPU_UNLOCK_REF \
+            "$IMAGE" /bin/bash -c '
+              set -euo pipefail
+              KVER=$(rpm -q kernel-core --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" | sort -V | tail -1)
+              echo "kernel: $KVER"
+              if [ ! -d "/lib/modules/$KVER/build" ]; then
+                echo "kernel-devel missing; installing"
+                dnf5 -y install "kernel-devel-$KVER"
+              fi
+              git init -q /tmp/gpu-unlock
+              git -C /tmp/gpu-unlock fetch -q --depth 1 "https://github.com/$GPU_UNLOCK_REPO" "$GPU_UNLOCK_REF"
+              git -C /tmp/gpu-unlock checkout -q FETCH_HEAD
+              make -C /tmp/gpu-unlock/kernel/gpu_unlock KDIR="/lib/modules/$KVER/build"
+              echo "vermagic: $(modinfo -F vermagic /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko)"
+              sha256sum /tmp/gpu-unlock/kernel/gpu_unlock/gpu_unlock.ko
+            ' 2>&1 | tee compile.log
+          echo "=== compiler warnings/errors ==="
+          grep -iE "error|warning" compile.log | tail -20 || true
