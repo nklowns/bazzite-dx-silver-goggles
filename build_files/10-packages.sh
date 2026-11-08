@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs every package the image declares, from the same repos the recipes used.
 # Fedora 45 base images are composefs-native: rpm-ostree install no longer works
-# inside the build container, dnf5 does. See docs/INVESTIGATION-F45-NVIDIA-OPEN.md.
+# inside the build container (composefs-native root), dnf5 does.
 set -euo pipefail
 
 echo "Enabling build-time repositories"

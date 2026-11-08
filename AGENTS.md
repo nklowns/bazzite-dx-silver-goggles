@@ -24,7 +24,7 @@ just clean          # Remove build artifacts
 
 just status         # Image config, local images, tooling versions
 just g15-status     # Dell G15 hardware health check
-just act            # Simulate GitHub Actions locally (requires --privileged for buildah)
+just act            # Simulate GitHub Actions locally (requires --privileged for podman)
 ```
 
 Requirements: `just`, `podman` (or `docker`), `yq`, `actionlint` (or a container engine so `just check` can run it).
@@ -54,12 +54,12 @@ Adding a new always-on DX service: pick the next free port in `61300-61399`, wir
 
 ## 🥾 Boot Impact Policy (this is a gaming + dev box, not a server)
 
-Bazzite serves two conflicting jobs on the same hardware — play and develop — and every service enabled at boot is CPU/RAM/VRAM the game or the build isn't getting, plus slower cold start. The only things this layer's own recipes enable by default are:
+Bazzite serves two conflicting jobs on the same hardware — play and develop — and every service enabled at boot is CPU/RAM/VRAM the game or the build isn't getting, plus slower cold start. The only things this layer's own build enables by default are:
 
 - **`tailscale` + `sunshine`** — the actual remote-access path into the system, and the one thing that stays on. Note the mechanism, because it was described wrongly here before: neither is enabled *by the image*. `tailscaled.service` ships `preset: disabled` and is turned on by upstream's own `ujust tailscale enable` (`80-bazzite.just`); Sunshine likewise. They show up in `ujust boot-audit` as "enabled outside the image" and that is correct and intended — the audit reports facts, it does not label them violations.
 - Socket-activated units already established pre-NOMAD (`cockpit.socket`, `docker.socket`, `podman.socket`, `virtqemud.socket` and siblings in `build_files/20-services.sh`) — near-zero idle cost since the daemon only spawns on first connection. Not something this change revisits.
 
-Everything else — **NOMAD (Command Center, mysql, redis, dozzle, nomad-llama, and any Supply Depot app), code-server, VS Code Remote Tunnels, casting receivers (uxplay/FCast/scrcpy)** — is opt-in: `nomad.yml`/`casting.yml` carry no `systemd` module at all, so their units ship inert until a `ujust ...-up`/`...-setup` call activates them. **Do not add a `systemd: enabled:` block to `nomad.yml` or `casting.yml`** — that would turn an on-demand feature into permanent background load (mysql/redis daemons, a container socket held open, VRAM pressure from nomad-llama) fighting the same RTX 3060 a game session needs. If a future service seems to want boot-enablement, that's a signal to re-check this policy with the user first, not a default to reach for.
+Everything else — **NOMAD (Command Center, mysql, redis, dozzle, nomad-llama, and any Supply Depot app), code-server, VS Code Remote Tunnels, casting receivers (uxplay/FCast/scrcpy)** — is opt-in: those units ship inert and only a `ujust ...-up`/`...-setup` call starts them. **Do not add them to `build_files/20-services.sh`** — that would turn an on-demand feature into permanent background load (mysql/redis daemons, a container socket held open, VRAM pressure from nomad-llama) fighting the same RTX 3060 a game session needs. If a future service seems to want boot-enablement, that's a signal to re-check this policy with the user first, not a default to reach for.
 
 ### Lingering & User Service Policy
 
@@ -148,12 +148,12 @@ ostree performs a three-way merge on `/etc` at deployment time, so a local chang
 
 - `uupd.timer` was **inert** — the machine had stopped auto-updating, with no error, no failed unit, nothing. `ostree admin config-diff` reported it as `D`.
 - `ublue-nvctk-cdi.service` was likewise `D`, and the base image had been enabling it all along: both deployments on disk carry the symlink under `usr/etc/systemd/system/multi-user.target.wants/`, including the one predating the line that "added" it.
-- Adding `systemd: enabled:` to a recipe therefore **repairs nothing on an upgraded host**. It works on a fresh install. On this one, only `systemctl enable` does.
+- Adding a unit to `build_files/20-services.sh` therefore **repairs nothing on an upgraded host**. It works on a fresh install. On this one, only `systemctl enable` does.
 
 **Practical rules:**
 
 1. Prefer `/usr` whenever the mechanism allows it. Rootless Quadlet is the notable case where it does not — see the Key Directories note.
-2. A recipe's `systemd: enabled:` declares intent and documents a dependency. Do not treat it as a guarantee, and do not "fix" a disabled unit by re-declaring it.
+2. A unit listed in `build_files/20-services.sh` declares intent and documents a dependency. Do not treat it as a guarantee, and do not "fix" a disabled unit by re-declaring it.
 3. Runtime provisioning (`bazzite-dx-groups`) is the reliable path for anything that must actually be true on an existing host. It ran successfully on the very boot where the declarative unit enablement did not.
 4. `ujust boot-audit` reports both directions of divergence. The direction that hurts is the quiet one — what the image enables and the host does not.
 
@@ -162,7 +162,7 @@ ostree performs a three-way merge on `/etc` at deployment time, so a local chang
 1. **Static files** go under `files/system/` (the `files` module overlays them onto `/`). Never mutate `/etc` directly.
 2. **Flatpak overrides**: NEVER use `flatpak override` or `sudo cp` in scripts. Use `tmpfiles.d` with the **`L+` (symlink with overwrite)** pattern linking `/usr/share/flatpak/overrides/` → `/var/lib/flatpak/overrides/`.
 3. **Global env vars** go in `files/system/usr/lib/environment.d/*.conf`. Never `export` in profile scripts.
-4. **Service enable/mask** is declared in `build_files/20-services.sh` (`systemctl -f enable` / `mask`) or generated by a build script (e.g., `dx-flavor` presets). Reference: `thermald.service` masked (see the Thermal section for the measured reason — *not* "AWCC compat", which was wrong), `systemd-udev-settle.service` masked (VFIO/IOMMU stability). Do not add preset files manually — and note this rule was being violated by a hand-written `00-silver-goggles.preset` that duplicated `enable awccd.service` / `disable thermald.service` already declared in `silver-goggles.yml`. It was redundant, not merely untidy: the build runs `systemctl -f enable` / `systemctl mask` directly, so it never consulted the preset. Deleted.
+4. **Service enable/mask** is declared in `build_files/20-services.sh` (`systemctl -f enable` / `mask`) or generated by a build script (e.g., `dx-flavor` presets). Reference: `thermald.service` masked (see the Thermal section for the measured reason — *not* "AWCC compat", which was wrong), `systemd-udev-settle.service` masked (VFIO/IOMMU stability). Do not add preset files manually — and note this rule was being violated by a hand-written `00-silver-goggles.preset` that duplicated `enable awccd.service` / `disable thermald.service` already declared by the build. It was redundant, not merely untidy: the build runs `systemctl -f enable` / `systemctl mask` directly, so it never consulted the preset. Deleted.
 5. **Kernel args** go via `build_files/30-kargs.sh` (`/usr/lib/bootc/kargs.d`). Never use imperative boot scripts.
 6. **Image transformation**: build-time scripts (local modules) are the authorized escape hatch for branding, policy enforcement, and config that static overlays can't express.
 7. **User units live in `files/system/usr/lib/systemd/user/`, never copied into `$HOME`.** A `ujust`
@@ -500,8 +500,8 @@ Two things that cost time if unknown:
 
 Conventions this layer follows:
 - The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
-  `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `dx.yml`'s
-  "Host Integration & Peripheral Bridges" section (a pointer comment remains there).
+  `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `packages/dx.txt` into
+  `packages/casting.txt`.
 - `uxplay.service` follows the graphical-session pattern proven by
   `files/system/usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh`:
   `After=graphical-session.target plasma-kwin_wayland.service`, `Requisite=` (never
@@ -512,7 +512,7 @@ Conventions this layer follows:
   `plasma-kwin_wayland.service` reports active 20-30s before the compositor serves
   clients. A socket test is used rather than `busctl get-property`, which would
   resurrect the portal and kwin as a side effect of asking.
-- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; `uxplay.service` ships
+- Nothing is enabled at boot. No casting unit is in `build_files/20-services.sh`; `uxplay.service` ships
   inert in `/usr/lib/systemd/user/` and `airplay-setup` only `enable`s it on request — same pattern
   as `remote-ide-setup`. See Atomic State Policy item 7 for why it is not copied into `$HOME`. FCast
   has no unit at all; see below.
@@ -585,7 +585,7 @@ Conventions this layer follows:
   zone. The default `FedoraWorkstation` zone already opens `1025-65535/tcp+udp` and `tailscale0`
   sits in `trusted`, so `ujust casting-firewall` is a no-op there and says so.
 - `adb` comes from the `android-platform-tools` **cask** in `cli.Brewfile` (Homebrew 6.x installs
-  casks on Linux). The Fedora `android-tools` RPM stays commented out in `dx.yml` on purpose —
+  casks on Linux). The Fedora `android-tools` RPM stays out of `packages/casting.txt` on purpose —
   enabling it would put a second `adb` in `PATH`.
 - **`shairport-sync` was shipped and then removed — do not add it back without reading this.**
   `nqptp` is absent from Fedora, so it is AirPlay **1** only, while UxPlay's audio-only mode
@@ -606,8 +606,7 @@ Conventions this layer follows:
 
 To test a fork of the base image:
 1. Run `just build-fork ghcr.io/nklowns/bazzite-dx-nvidia:latest` (or pass `--build-arg BASE_IMAGE_REF=...` to podman).
-2. `just build`.
-3. Revert after testing.
+2. Test the resulting `localhost/bazzite-dx-silver-goggles:latest`.
 
 ## 🚀 CI/CD & Deployment
 
@@ -631,7 +630,7 @@ just build 2>&1 | tee output/build.log
 ### Local GHA Testing (`act`)
 
 ```bash
-just act   # Simulates GitHub Actions locally (requires --privileged for buildah)
+just act   # Simulates GitHub Actions locally (requires --privileged for podman)
 ```
 
 ### Self-Hosted Runner (Distrobox)
@@ -660,4 +659,4 @@ Keep the host clean — run the runner in a container:
 - `/ublue-os/image-template` — foundation of this repository's structure.
 - `/ublue-os/bazzite-dx` — upstream DX patterns reference.
 
-For grep-level lookups of upstream implementations, prefer the local clones in `../ublue-os/` and `../blue-build/` (see workspace `AGENTS.md`).
+For grep-level lookups of upstream implementations, prefer the local clones in `/var/home/cloud/dev/study/upstream/ublue/{ublue-os,blue-build}/` (see workspace `AGENTS.md`).

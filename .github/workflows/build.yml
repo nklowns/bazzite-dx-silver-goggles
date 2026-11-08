@@ -16,8 +16,9 @@ on:
   merge_group:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel a main publish in flight: it may already have moved tags.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -124,6 +125,18 @@ jobs:
             echo "Ref $REF is not main: build only."
           fi
 
+      - name: Require signing secret on main
+        if: steps.publish.outputs.publish == 'true' && github.ref == 'refs/heads/main'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "::error::SIGNING_SECRET is missing; refusing to push tags that would be unsigned."
+            exit 1
+          fi
+          echo "ok: signing secret present"
+
       - name: Log in to GHCR
         if: steps.publish.outputs.publish == 'true'
         env:
@@ -134,7 +147,7 @@ jobs:
           printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$ACTOR" --password-stdin
           printf '%s' "$GH_TOKEN" | cosign login ghcr.io -u "$ACTOR" --password-stdin
 
-      - name: Push tags
+      - name: Push versioned tags
         id: push
         if: steps.publish.outputs.publish == 'true'
         env:
@@ -148,24 +161,27 @@ jobs:
           timestamp="$(date -u +%Y%m%d)"
           short_sha="$(git rev-parse --short=7 HEAD)"
 
-          # Same tag matrix the BlueBuild action produced, so existing consumers
-          # (latest, latest-45, stable, dated tags, cache keyed by os version)
-          # keep working.
+          # Versioned tags only. The moving pointers (latest/stable) are pushed
+          # after the signature is verified, so a failure anywhere in between
+          # never leaves `latest` pointing at an unsigned image.
           if [ "$EVENT" = "pull_request" ]; then
             tags=(
               "pr-${PR_NUMBER}-latest-${os_version}" "${short_sha}-latest-${os_version}"
               "pr-${PR_NUMBER}-stable-${os_version}" "${short_sha}-stable-${os_version}"
               "pr-${PR_NUMBER}-${BASE_TAG}-${os_version}" "${short_sha}-${BASE_TAG}-${os_version}"
             )
+            pointers=()
           else
             tags=(
-              latest "latest-${os_version}" "${timestamp}-latest-${os_version}" "${short_sha}-latest-${os_version}"
-              stable "stable-${os_version}" "${timestamp}-stable-${os_version}" "${short_sha}-stable-${os_version}"
+              "latest-${os_version}" "${timestamp}-latest-${os_version}" "${short_sha}-latest-${os_version}"
+              "stable-${os_version}" "${timestamp}-stable-${os_version}" "${short_sha}-stable-${os_version}"
               "${BASE_TAG}" "${BASE_TAG}-${os_version}" "${timestamp}-${BASE_TAG}-${os_version}" "${short_sha}-${BASE_TAG}-${os_version}"
+              "latest.${timestamp}" "stable-${os_version}.${timestamp}"
             )
+            pointers=(latest stable)
           fi
 
-          podman manifest create "${registry}:${tags[0]}" local/silver-goggles
+          podman manifest create --amend "${registry}:${tags[0]}" local/silver-goggles
           for tag in "${tags[@]}"; do
             echo "Pushing ${registry}:${tag}"
             podman manifest push --compression-format=gzip \
@@ -182,7 +198,7 @@ jobs:
             fi
           done
           echo "digest=${digest}" >>"$GITHUB_OUTPUT"
-          echo "Pushed $((${#tags[@]})) tags at ${digest}"
+          echo "Pushed $((${#tags[@]})) versioned tags at ${digest}"
 
       - name: Sign and verify
         if: steps.publish.outputs.publish == 'true'
@@ -195,20 +211,53 @@ jobs:
           digest="${{ steps.push.outputs.digest }}"
 
           if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
-            if [ "$REF" = "refs/heads/main" ]; then
-              echo "::error::SIGNING_SECRET is missing on main; refusing to publish an unsigned image."
-              exit 1
-            fi
             echo "::warning::No signing secret; PR image left unsigned."
             exit 0
           fi
 
           # --recursive is load-bearing: containers/image verifies the platform
-          # manifest digest, and without signing the children the host rejects
-          # the image even when the index signature is valid.
+          # manifest digest, so the children need their own signatures.
+          # --new-bundle-format=false keeps the legacy .sig tag that
+          # containers/image reads; referrers-mode is pinned so a cosign bump
+          # cannot switch it silently. tlog is not needed for key-based
+          # verification and would put Rekor on the publish critical path.
           COSIGN_PASSWORD='' COSIGN_YES='true' cosign sign \
             --key env://COSIGN_PRIVATE_KEY \
             --new-bundle-format=false --use-signing-config=false \
+            --registry-referrers-mode=legacy --tlog-upload=false \
             --recursive "${registry}@${digest}"
 
           cosign verify --key cosign.pub "${registry}@${digest}"
+
+          # The index signature above says nothing about the per-architecture
+          # manifests, which is what the host actually verifies.
+          children=$(podman manifest inspect --raw "${registry}@${digest}" \
+            | jq -r '.manifests[]?.digest')
+          if [ -z "$children" ]; then
+            echo "::error::no child manifests found in ${digest}"
+            exit 1
+          fi
+          for child in $children; do
+            echo "Verifying child manifest ${child}"
+            cosign verify --key cosign.pub "${registry}@${child}"
+          done
+
+      - name: Move latest and stable
+        if: steps.publish.outputs.publish == 'true' && github.event_name != 'pull_request'
+        env:
+          BASE_TAG: ${{ steps.base.outputs.tag }}
+        run: |
+          set -euo pipefail
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          os_version="${BASE_TAG%%.*}"
+
+          # Tag moves happen only after the digest is signed and verified.
+          # blobs already exist, so these pushes are metadata-only.
+          source="${registry}:latest-${os_version}"
+          # latest-<os> and stable-<os> were already pushed as versioned tags;
+          # only the unqualified pointers move here.
+          for pointer in latest stable; do
+            echo "Moving ${registry}:${pointer}"
+            podman manifest push --compression-format=gzip \
+              "$source" "docker://${registry}:${pointer}" >/dev/null
+          done

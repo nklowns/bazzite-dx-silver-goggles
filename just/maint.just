@@ -53,7 +53,7 @@ check:
     			ghcr.io/renovatebot/renovate:latest \
     			renovate-config-validator || rc=1
     	elif command -v npx &>/dev/null; then
-    		npx --yes @renovatebot/config-validator "${renovate_configs[@]}" || rc=1
+    		npx --yes --package renovate renovate-config-validator "${renovate_configs[@]}" || rc=1
     	else
     		echo "SKIP: no container engine or npx available; cannot validate Renovate config." >&2
     	fi
@@ -85,7 +85,7 @@ check:
 [group('Just')]
 fix:
     #!/usr/bin/env bash
-    find . -type f -name "*.just" | while read -r file; do
+    find . -type f -name "*.just" -not -path "./.claude/*" | while read -r file; do
     	echo "Fixing syntax: $file"
     	just --unstable --fmt -f "$file"
     done

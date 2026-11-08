@@ -12,18 +12,22 @@ echo "::group::Packages declared in packages/*.txt"
 # renamed package that Provides: the old name (iotop -> iotop-c), and `rpm -q`
 # only matches the package name. The outer `|| true` keeps `set -e` from
 # swallowing the list when the inner check exits non-zero.
-missing_pkgs=$(podman run --rm -v "${repo_root}/packages:/packages:ro,Z" "$img" bash -c '
-	missing=0
+# The inner script always exits 0 and prints only the missing names, so a
+# non-zero exit here means the container itself failed and must not be
+# misreported as a missing package.
+pkg_err="$(mktemp)"
+if ! missing_pkgs=$(podman run --rm -v "${repo_root}/packages:/packages:ro,Z" "$img" bash -c '
 	while IFS= read -r pkg; do
 		[[ -z "$pkg" ]] && continue
 		if ! rpm -q "$pkg" >/dev/null 2>&1 && ! rpm -q --whatprovides "$pkg" >/dev/null 2>&1; then
 			echo "$pkg"
-			missing=1
 		fi
-	done < <(cat /packages/*.txt | grep -vE "^\s*(#|$)" | sort -u)
-	exit "$missing"
-' 2>&1) || true
-if [[ -n "$missing_pkgs" ]]; then
+	done < <(sed -E "s/#.*//" /packages/*.txt | grep -vE "^\s*$" | sort -u)
+' 2>"${pkg_err}"); then
+	echo "FAIL: container run failed while checking packages"
+	cat "${pkg_err}"
+	rc=1
+elif [[ -n "$missing_pkgs" ]]; then
 	echo "MISSING PACKAGES:"
 	echo "$missing_pkgs"
 	rc=1
@@ -31,21 +35,21 @@ fi
 echo "::endgroup::"
 
 echo "::group::Overlay files"
-missing_files=$(podman run --rm -v "${repo_root}:/src:ro,Z" "$img" bash -c '
-	set -euo pipefail
-	missing=0
-	cd /src
+file_err="$(mktemp)"
+if ! missing_files=$(podman run --rm -v "${repo_root}:/src:ro,Z" "$img" bash -c '
+	cd /src || exit 1
+	# /etc/yum.repos.d is excluded on purpose: those repo files are build-time
+	# only and 99-cleanup.sh removes them before the image is published.
 	while IFS= read -r rel; do
 		if [[ ! -e "/$rel" && ! -L "/$rel" ]]; then
 			echo "/$rel"
-			missing=1
 		fi
-	done < <(find files/system \( -type f -o -type l \) -printf "%P\n" | grep -v '^etc/yum.repos.d/' | sort)
-	# /etc/yum.repos.d is excluded on purpose: those repo files are build-time
-	# only and 99-cleanup.sh removes them before the image is published.
-	exit "$missing"
-' 2>&1) || true
-if [[ -n "$missing_files" ]]; then
+	done < <(find files/system \( -type f -o -type l \) -printf "%P\n" | grep -v "^etc/yum.repos.d/" | sort)
+' 2>"${file_err}"); then
+	echo "FAIL: container run failed while checking overlay files"
+	cat "${file_err}"
+	rc=1
+elif [[ -n "$missing_files" ]]; then
 	echo "MISSING FILES:"
 	echo "$missing_files"
 	rc=1
@@ -134,4 +138,5 @@ if [[ -n "$unit_fail" ]]; then
 fi
 echo "::endgroup::"
 
+rm -f "${pkg_err}" "${file_err}"
 exit "$rc"

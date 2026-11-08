@@ -10,7 +10,7 @@ build target_image="bazzite-nvidia" tag=default_tag:
     base_image=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .image" image-versions.yaml)
     base_tag=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .tag" image-versions.yaml)
     base_digest=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .digest" image-versions.yaml)
-    podman build \
+    "${PODMAN}" build \
         --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
         --build-arg "IMAGE_VERSION=${base_tag}.$(date -u +%Y%m%d)" \
         --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
@@ -25,7 +25,7 @@ build-nocache target_image="bazzite-nvidia" tag=default_tag:
     base_image=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .image" image-versions.yaml)
     base_tag=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .tag" image-versions.yaml)
     base_digest=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .digest" image-versions.yaml)
-    podman build --no-cache \
+    "${PODMAN}" build --no-cache \
         --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
         --build-arg "IMAGE_VERSION=${base_tag}.$(date -u +%Y%m%d)" \
         --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
@@ -37,7 +37,7 @@ build-nocache target_image="bazzite-nvidia" tag=default_tag:
 build-fork base_ref tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    podman build \
+    "${PODMAN}" build \
         --build-arg "BASE_IMAGE_REF={{ base_ref }}" \
         --build-arg "IMAGE_VERSION=dev.$(date -u +%Y%m%d)" \
         --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
@@ -49,7 +49,7 @@ build-fork base_ref tag=default_tag:
 act:
     #!/usr/bin/env bash
     act -j publish \
-        -P ubuntu-24.04=catthehacker/ubuntu:full-24.04 \
+        -P ubuntu-latest=catthehacker/ubuntu:full-24.04 \
         --privileged
 
 # ==============================================================================

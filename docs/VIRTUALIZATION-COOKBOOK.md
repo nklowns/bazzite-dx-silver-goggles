@@ -50,7 +50,7 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
 
 ### 🛠️ Configuração Básica da VM
 1.  **Verificar Infraestrutura de Virtualização (IOMMU):**
-    Na imagem `bazzite-dx-silver-goggles`, os kargs `intel_iommu=on`, `iommu=pt` e `kvm.ignore_msrs=1` já vêm **baked no build da imagem** via `silver-goggles.yml`. Nenhum passo manual de habilitação é necessário. Para desabilitá-los, `ujust setup-virtualization virt-off` usa `rpm-ostree kargs --delete-if-present`, que funciona mesmo em kargs baked — o OSTree mantém a remoção através de updates.
+    Na imagem `bazzite-dx-silver-goggles`, os kargs `intel_iommu=on`, `iommu=pt` e `kvm.ignore_msrs=1` já vêm **baked no build da imagem** via `build_files/30-kargs.sh`. Nenhum passo manual de habilitação é necessário. Para desabilitá-los, `ujust setup-virtualization virt-off` usa `rpm-ostree kargs --delete-if-present`, que funciona mesmo em kargs baked — o OSTree mantém a remoção através de updates.
 
     Para confirmar que IOMMU está ativo no sistema atual:
     ```bash
@@ -232,7 +232,7 @@ O ecossistema Fedora Silverblue/Bazzite fornece diferentes ferramentas para inte
         > ```
         > Ao escutar em `127.0.0.1`, o VNC permanece restrito e seguro contra acessos diretos da rede, mas o Cockpit (que roda no Host) consegue se conectar localmente a ele e renderizar a tela como HTML5/WebSockets remotamente.
 *   **Como Garantir que Está Ativo:**
-    O `cockpit.socket` já vem habilitado por padrão nesta imagem (declarado em `dx.yml`). Para verificar:
+    O `cockpit.socket` já vem habilitado por padrão nesta imagem (declarado em `build_files/20-services.sh`). Para verificar:
     ```bash
     systemctl is-active cockpit.socket   # deve retornar "active"
     systemctl is-enabled cockpit.socket  # deve retornar "enabled"
@@ -794,7 +794,7 @@ Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e 
 | **Pasta Virtio-FS (SELinux)** | `ujust setup-virtualization vfs-workspace-on` | `ujust setup-virtualization vfs-workspace-off` |
 | **Isolar GPU NVIDIA (VFIO)** | `ujust setup-virtualization vfio-on` | `ujust setup-virtualization vfio-off` |
 | **KVMFR / Looking Glass** | `ujust setup-virtualization kvmfr-on` | `ujust setup-virtualization kvmfr-off` — totalmente reversível via masking |
-| **Console Web Cockpit** | Já habilitado por padrão (`cockpit.socket` em `dx.yml`) — verificar: `systemctl is-active cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
+| **Console Web Cockpit** | Já habilitado por padrão (`cockpit.socket` em `build_files/20-services.sh`) — verificar: `systemctl is-active cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
 | **Grupo de Usuário Libvirt** | `ujust setup-virtualization group` | `sudo gpasswd -d $USER libvirt` |
 | **RDP Relay no Host (VPN Bypass)** | `sudo firewall-cmd --zone=external --add-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` | `sudo firewall-cmd --zone=external --remove-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` |
 | **Túnel SSH para RDP (Rootless)** | `ssh -L 33890:192.168.100.2:3389 seu-usuario@<IP-Tailscale-do-Host>` | Encerrar a sessão SSH no terminal do cliente local |

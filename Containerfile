@@ -26,6 +26,9 @@ COPY cosign.pub /cosign.pub
 
 FROM ${BASE_IMAGE_REF}
 
+# Re-declared inside the stage: an ARG set before FROM is only usable in the
+# FROM line, so labels and the build script would see an empty value.
+ARG BASE_IMAGE_REF
 ARG IMAGE_NAME=bazzite-dx-silver-goggles
 ARG IMAGE_VENDOR=nklowns
 ARG IMAGE_VERSION=dev
@@ -46,11 +49,11 @@ LABEL org.opencontainers.image.title="bazzite-dx-silver-goggles" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
       org.opencontainers.image.created="${IMAGE_CREATED}" \
-      org.opencontainers.image.base.name="ghcr.io/ublue-os/bazzite-nvidia:45.20261105@sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6136b28cd50c97" \
-      org.opencontainers.image.base.digest="sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6136b28cd50c97" \
+      org.opencontainers.image.base.name="${BASE_IMAGE_REF}" \
       io.artifacthub.package.logo-url="https://avatars.githubusercontent.com/u/187439889?s=200&v=4" \
       io.artifacthub.package.readme-url="https://raw.githubusercontent.com/nklowns/bazzite-dx-silver-goggles/main/README.md" \
       io.artifacthub.package.keywords="bootc,bazzite,dx,silver-goggles,dell-g15,ublue,universal-blue,fedora,gaming,developer" \
+      io.artifacthub.package.maintainers="[{name: nklowns, email: nklowns@users.noreply.github.com}]" \
       io.artifacthub.package.deprecated="false" \
       io.artifacthub.package.prerelease="false"
 
@@ -58,6 +61,6 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
     --mount=type=cache,dst=/var/cache/dnf \
     --mount=type=tmpfs,dst=/tmp \
-    bash /ctx/build_files/build.sh
+    env BASE_IMAGE_REF="${BASE_IMAGE_REF}" bash /ctx/build_files/build.sh
 
 CMD ["/sbin/init"]

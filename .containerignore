@@ -1,8 +1,31 @@
-# Keep the build context small: only the files the Containerfile COPYs are needed.
+# Keep the build context to what the Containerfile actually COPYs:
+# build_files/, packages/, files/, modules/ and cosign.pub.
 .git
 .github
 docs
 output
+just
+scripts
+disk_config
 *.qcow2
 *.raw
 *.iso
+
+# Never ship or upload private material with the build context.
+cosign.key
+*.key
+*.pem
+
+# Agent and local-only directories.
+.claude
+.agents
+.gemini
+.crush
+.harness
+.mcp.json
+
+# Files read by tooling, not by the build.
+*.md
+Justfile
+LICENSE
+image-versions.yaml

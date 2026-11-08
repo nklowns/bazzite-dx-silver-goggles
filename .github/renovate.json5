@@ -14,7 +14,7 @@
       customType: 'regex',
       description: 'Track base-image tag and digest in image-versions.yaml',
       managerFilePatterns: [
-        '//^image-versions\\.yaml$//',
+        '/^image-versions\\.yaml$/',
       ],
       matchStrings: [
         'image:\\s+(?<depName>[^\\n]+)\\n\\s+tag:\\s+(?<currentValue>[^\\n]+)\\n\\s+digest:\\s+(?<currentDigest>sha256:[a-f0-9]+)',
@@ -24,33 +24,9 @@
     },
     {
       customType: 'regex',
-      description: 'Track Quadlet container image digests (Project NOMAD stack, nomad-llama)',
-      managerFilePatterns: [
-        '//^files/system/etc/containers/systemd/users/.+\\.container$//',
-      ],
-      matchStrings: [
-        'Image=(?<depName>[^\\s@:]+)(:(?<currentValue>[^@\\s]+))?@(?<currentDigest>sha256:[a-f0-9]+)',
-      ],
-      datasourceTemplate: 'docker',
-      versioningTemplate: 'docker',
-    },
-    {
-      customType: 'regex',
-      description: 'Track image dependencies in Justfile',
-      managerFilePatterns: [
-        '//^Justfile$//',
-      ],
-      matchStrings: [
-        '["\'](?<depName>fedora):(?<currentValue>[^"\']+)["\']',
-      ],
-      datasourceTemplate: 'docker',
-      versioningTemplate: 'docker',
-    },
-    {
-      customType: 'regex',
       description: 'Track Cockpit Top (ctop) releases in dx-cockpit module',
       managerFilePatterns: [
-        '//^modules/dx-cockpit/dx-cockpit\\.sh$//',
+        '/^modules\\/dx-cockpit\\/dx-cockpit\\.sh$/',
       ],
       matchStrings: [
         'CTOP_VERSION="(?<currentValue>[^"]+)"',
@@ -62,10 +38,22 @@
       customType: 'regex',
       description: 'Track ComfyUI base image in AI Studio visual justfile (COMFY_IMAGE)',
       managerFilePatterns: [
-        '//^files/justfiles/70-aistudio-visual\\.just$//',
+        '/^files\\/justfiles\\/70-aistudio-visual\\.just$/',
       ],
       matchStrings: [
         'COMFY_IMAGE\\s*:=\\s*"(?<depName>docker\\.io/yanwk/comfyui-boot):(?<currentValue>[^@"]+)@(?<currentDigest>sha256:[a-f0-9]+)"',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
+      description: 'Track the Containerfile BASE_IMAGE_REF default; just check asserts it matches image-versions.yaml',
+      managerFilePatterns: [
+        '/^Containerfile$/',
+      ],
+      matchStrings: [
+        'ARG BASE_IMAGE_REF=(?<depName>[^:\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',
       ],
       datasourceTemplate: 'docker',
       versioningTemplate: 'docker',
@@ -302,13 +290,6 @@
         'huggingface-hub',
       ],
       allowedVersions: '<2',
-    },
-    {
-      description: 'Disable pinDigests for Fedora builder stage to avoid registry mismatch',
-      matchPackageNames: [
-        'fedora',
-      ],
-      pinDigests: false,
     },
     {
       description: 'Auto-update Cockpit Top (ctop) release in dx-cockpit module',

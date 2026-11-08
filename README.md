@@ -1,7 +1,7 @@
 # Bazzite-DX-Silver-Goggles
 
 > [!WARNING]
-> I built this image for me. You may use it yourself, of course, but I provide no support. I strongly suggest learning how to customize your own image using the [ublue image template](https://github.com/ublue-os/image-template). Documentation can be found [here.](https://blue-build.org/)
+> I built this image for me. You may use it yourself, of course, but I provide no support. I strongly suggest learning how to customize your own image using the [ublue image template](https://github.com/ublue-os/image-template). Documentation for building your own image can be found in the [ublue image template](https://github.com/ublue-os/image-template).
 
 **My system:** Dell G15 5520 Laptop, 12th Generation Intel Core i7-12700H, NVIDIA GeForce RTX 3060 6GB, 64GB DDR5 RAM
 **Base image:** [Bazzite DX (KDE/NVIDIA)](https://bazzite.gg/) — _Slim edition: built specifically for my Dell G15 setup._
@@ -70,7 +70,7 @@ rpm-ostree rebase ostree-image-signed:docker://ghcr.io/nklowns/bazzite-dx-silver
 
 | Category        | Commands                                                                                         |
 | --------------- | ------------------------------------------------------------------------------------------------ |
-| **Check**       | `just check` (syntax + shellcheck + flatpak validation)                                          |
+| **Check**       | `just check` (Just syntax, actionlint, Renovate, pin consistency, ShellCheck, Quadlets)           |
 | **Build**       | `just build`, `just build-nocache`                                                               |
 | **Apply**       | `just rebase-local` (full image rebase)                                                          |
 | **Safety**      | `just rollback-local`, `just rebase-official`                                                     |
