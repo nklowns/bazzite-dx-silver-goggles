@@ -64,7 +64,7 @@ podman run --rm "$img" bash -c '
 	fail=0
 	check() { if eval "$2"; then echo "ok: $1"; else echo "FAIL: $1"; fail=1; fi; }
 
-	check "kargs.d present" "ls /usr/lib/bootc/kargs.d/*.toml >/dev/null 2>&1 && grep -q 'iommu=pt' /usr/lib/bootc/kargs.d/*.toml"
+	check "kargs.d present" "ls /usr/lib/bootc/kargs.d/*.toml >/dev/null 2>&1 && grep -q 'intel_iommu=on' /usr/lib/bootc/kargs.d/*.toml"
 	check "os-release VARIANT_ID" "grep -q \"^VARIANT_ID=.silver-goggles\" /usr/lib/os-release"
 	check "just imports installed" "grep -q silver-goggles.just /usr/share/ublue-os/just/60-custom.just"
 	check "thermald masked" "test -L /etc/systemd/system/thermald.service"

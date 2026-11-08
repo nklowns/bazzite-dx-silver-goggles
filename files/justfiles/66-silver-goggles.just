@@ -913,7 +913,7 @@ gpu-status:
     set -uo pipefail
     echo "=== GPU & Desktop (KDE Wayland) ==="
     echo "--- Renderer ---"
-    qdbus --literal org.kde.KWin /KWin supportInformation 2>/dev/null | grep -E "OpenGL renderer string|Driver version" || echo "  (KWin via D-Bus indisponível)"
+    qdbus-qt6 --literal org.kde.KWin /KWin supportInformation 2>/dev/null | grep -E "OpenGL renderer string|Driver version" || echo "  (KWin via D-Bus indisponível)"
     echo
     echo "--- VRAM (RTX 3060) ---"
     if command -v nvidia-smi >/dev/null 2>&1; then

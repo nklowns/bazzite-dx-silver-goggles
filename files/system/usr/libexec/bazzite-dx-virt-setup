@@ -151,11 +151,14 @@ elif [[ "$OPTION" =~ "Simultaneous" ]]; then
 	VENDOR_KARG="intel_iommu=on"
 	[[ "${CPU_VENDOR}" == "AuthenticAMD" ]] && VENDOR_KARG="amd_iommu=on"
 
+	# Strict IOMMU (no iommu=pt): EAC Linux v2 rejects passthrough mode in
+	# `ujust check-anticheat`, and VFIO works without it. A host that prefers
+	# the identity-map performance can add it with `rpm-ostree kargs
+	# --append=iommu=pt`, accepting the readiness trade-off.
 	rpm-ostree kargs \
 		--append-if-missing="${VENDOR_KARG}" \
-		--append-if-missing="iommu=pt" \
 		--append-if-missing="kvm.ignore_msrs=1"
-	echo "${green}Success!${n} Reboot to enable IOMMU infrastructure safely."
+	echo "${green}Success!${n} Reboot to enable IOMMU infrastructure safely (strict mode)."
 
 elif [[ "$OPTION" =~ "Exclusive" ]]; then
 	vfio_action=""

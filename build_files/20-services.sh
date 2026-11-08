@@ -10,8 +10,6 @@ enable_units=(
 	swtpm-workaround.service
 	bazzite-dx-groups.service
 	pmcd.service
-	pmlogger.service
-	pmproxy.service
 	cockpit.socket
 	docker.socket
 	podman.socket
@@ -32,3 +30,12 @@ systemctl --global -f enable ublue-user-setup.service
 
 # thermald fights the in-tree alienware-wmi platform profiles; measured, see AGENTS.md.
 systemctl -f mask thermald.service
+
+# PCP's archival trio has no place on a gaming-first box: pmlogger kept ~13 MB
+# resident and wrote 2.9 GB under /var/log/pcp on the G15 (local host plus LAN
+# and tailnet peers discovered by pcp-zeroconf), pmie adds another 8 MB, and
+# pmproxy another 11 MB. Cockpit's PCP channel talks to pmcd directly, so live
+# metrics survive. Re-enable for an archive session with `systemctl start`.
+for unit in pmlogger.service pmie.service pmproxy.service; do
+	systemctl -f disable "$unit"
+done
