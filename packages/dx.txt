@@ -36,7 +36,7 @@ genisoimage
 bcc
 bpftop
 bpftrace
-iotop
+iotop-c
 nicstat
 numactl
 pcp
