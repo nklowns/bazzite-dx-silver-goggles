@@ -38,13 +38,15 @@ echo "::group::Overlay files"
 file_err="$(mktemp)"
 if ! missing_files=$(podman run --rm -v "${repo_root}:/src:ro,Z" "$img" bash -c '
 	cd /src || exit 1
-	# /etc/yum.repos.d is excluded on purpose: those repo files are build-time
-	# only and 99-cleanup.sh removes them before the image is published.
+	# Build-time inputs are not expected to survive into the image:
+	#   etc/yum.repos.d      -> repos removed by 99-cleanup.sh
+	#   usr/share/silver-goggles/kmod-staging -> consumed by 70-gpu-unlock.sh
 	while IFS= read -r rel; do
 		if [[ ! -e "/$rel" && ! -L "/$rel" ]]; then
 			echo "/$rel"
 		fi
-	done < <(find files/system \( -type f -o -type l \) -printf "%P\n" | grep -v "^etc/yum.repos.d/" | sort)
+	done < <(find files/system \( -type f -o -type l \) -printf "%P\n" \
+		| grep -vE "^(etc/yum.repos.d/|usr/share/silver-goggles/kmod-staging/)" | sort)
 ' 2>"${file_err}"); then
 	echo "FAIL: container run failed while checking overlay files"
 	cat "${file_err}"
