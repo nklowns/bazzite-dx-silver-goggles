@@ -205,6 +205,10 @@ ou um pacote de dotfiles aplicado por hook idempotente — nunca `/etc/skel` do 
 
 ## 6. Sequência sugerida
 
+> Contexto externo que sustenta essas escolhas: `docs/TRENDS-2026-2027.md`
+> (bootc/CNCF, sealed images, composição por camadas, encolhimento da base,
+> BlueBuild como ponte, agentes de IA no fluxo de dev).
+
 1. **P0 — nada muda:** este catálogo + um job de CI que roda `bootc container lint`
    e `systemd-analyze verify` nos assets (hoje só `dx-verify` faz, no build).
 2. **P1 — reorganização sem mudança de comportamento:** `overlays/<perfil>/…`,
