@@ -33,6 +33,9 @@ check:
     elif [[ -z "$want" ]]; then
       echo "❌ resolved base pin is empty"
       rc=1
+    elif [ "$(grep -c '^ARG BASE_IMAGE_REF=' Containerfile)" -ne 1 ]; then
+      echo "❌ Containerfile must contain exactly one '^ARG BASE_IMAGE_REF=' line"
+      rc=1
     elif grep -qxF -- "ARG BASE_IMAGE_REF=${want}" Containerfile; then
       echo "ok: Containerfile matches ${want}"
     else

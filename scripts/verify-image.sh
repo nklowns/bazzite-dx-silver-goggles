@@ -93,6 +93,27 @@ podman run --rm "$img" bash -c '
 ' || rc=1
 echo "::endgroup::"
 
+if [[ "${EXPECT_GPU_UNLOCK:-0}" == "1" ]]; then
+	echo "::group::GPU unlock module"
+	if unlock_out=$(podman run --rm "$img" bash -c '
+		set -euo pipefail
+		shopt -s nullglob
+		found=0
+		for f in /usr/lib/modules/*/extra/gpu_unlock.ko; do
+			found=1
+			printf "%s %s\n" "$f" "$(modinfo -F signer "$f")"
+		done
+		[ "$found" -eq 1 ]
+	' 2>/dev/null); then
+		echo "ok: gpu_unlock installed"
+		echo "$unlock_out"
+	else
+		echo "FAIL: gpu_unlock.ko missing or unsigned in the image"
+		rc=1
+	fi
+	echo "::endgroup::"
+fi
+
 echo "::group::Signature policy"
 if podman run --rm "$img" jq -e --arg k 'ghcr.io/nklowns/bazzite-dx-silver-goggles' \
 	'.transports.docker[$k][0].type == "sigstoreSigned"' /etc/containers/policy.json >/dev/null 2>&1; then

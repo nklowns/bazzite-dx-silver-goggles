@@ -1,19 +1,19 @@
 ---
-name: gpu_unlock compile test (throwaway)
+name: gpu_unlock compile check
 # Answers one question without touching the pin or the host: does gpu_unlock
 # compile against the kernel of a candidate base image? No signing, no secrets.
 on:
   workflow_dispatch:
     inputs:
       image:
-        description: "Candidate base image reference"
+        description: "Candidate base image reference (tag@sha256:...)"
         required: true
-        default: "ghcr.io/ublue-os/bazzite-nvidia-open:45.20261105@sha256:9c3c4df94a7731238021549ed3fc951c3ae5e1fee37667d16754f37ae0f73134"
 
 permissions:
   contents: read
 
 env:
+  # Keep in sync with kmod-sign.yml; both must build the same upstream commit.
   GPU_UNLOCK_REPO: Zagitta/gpu-unlock
   GPU_UNLOCK_REF: 990a14e9b7dc8eaad8e6925133aa0e8382efe6cf
 
