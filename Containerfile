@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 #
 # bazzite-dx-silver-goggles — personal DX layer on top of Bazzite.
 #
