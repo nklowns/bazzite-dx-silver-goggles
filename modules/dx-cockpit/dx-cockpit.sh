@@ -21,6 +21,11 @@ InstallCtop() {
 		rm -f "$temp_zip"
 		return 0
 	fi
+	if ! echo "${CTOP_SHA256}  ${temp_zip}" | sha256sum -c --strict --quiet; then
+		echo "ERROR: ctop ${CTOP_VERSION} checksum mismatch; refusing to install it." >&2
+		rm -f "$temp_zip"
+		return 1
+	fi
 
 	local temp_extract
 	temp_extract=$(mktemp -d)

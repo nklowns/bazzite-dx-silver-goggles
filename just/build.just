@@ -14,7 +14,11 @@ build pin="bazzite-nvidia" tag=default_tag:
     fi
     base_tag=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .tag" image-versions.yaml)
     base_digest=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .digest" image-versions.yaml)
-    "${PODMAN}" build \
+    extra=()
+    if "${PODMAN}" build --help 2>&1 | grep -q -- --rewrite-timestamp; then
+        extra=(--source-date-epoch "$(git log -1 --format=%ct)" --rewrite-timestamp)
+    fi
+    "${PODMAN}" build "${extra[@]}" \
         --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
         --build-arg "IMAGE_NAME={{ image_name }}" \
         --build-arg "IMAGE_VENDOR={{ image_vendor }}" \
@@ -35,7 +39,11 @@ build-nocache pin="bazzite-nvidia" tag=default_tag:
     fi
     base_tag=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .tag" image-versions.yaml)
     base_digest=$(yq -e -r ".images[] | select(.name == \"{{ pin }}\") | .digest" image-versions.yaml)
-    "${PODMAN}" build --no-cache \
+    extra=()
+    if "${PODMAN}" build --help 2>&1 | grep -q -- --rewrite-timestamp; then
+        extra=(--source-date-epoch "$(git log -1 --format=%ct)" --rewrite-timestamp)
+    fi
+    "${PODMAN}" build --no-cache "${extra[@]}" \
         --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
         --build-arg "IMAGE_NAME={{ image_name }}" \
         --build-arg "IMAGE_VENDOR={{ image_vendor }}" \
@@ -49,7 +57,11 @@ build-nocache pin="bazzite-nvidia" tag=default_tag:
 build-fork base_ref tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    "${PODMAN}" build \
+    extra=()
+    if "${PODMAN}" build --help 2>&1 | grep -q -- --rewrite-timestamp; then
+        extra=(--source-date-epoch "$(git log -1 --format=%ct)" --rewrite-timestamp)
+    fi
+    "${PODMAN}" build "${extra[@]}" \
         --build-arg "BASE_IMAGE_REF={{ base_ref }}" \
         --build-arg "IMAGE_NAME={{ image_name }}" \
         --build-arg "IMAGE_VENDOR={{ image_vendor }}" \

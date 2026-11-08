@@ -63,4 +63,8 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     env BASE_IMAGE_REF="${BASE_IMAGE_REF}" bash /ctx/build_files/build.sh
 
+# Bootc/ostree contract: kernel layout, kargs syntax, /var and /usr/etc shape.
+# Static analysis only; the image-template and every uBlue image run it.
+RUN --network=none bootc container lint
+
 CMD ["/sbin/init"]
