@@ -120,3 +120,36 @@ Antes de qualquer merge de B:
 - Se o `nvidia-drm.modeset=1` ainda é necessário (regressão documentada na F44).
 - Se a remoção do Sunshine da base (ver `docs/TRENDS-2026-2027.md`, T5) já chegou
   na `45.20261105`.
+
+## 8. Resultado do primeiro build: F45 é composefs-native
+
+O PR #181 falhou no primeiro job de pacotes, com erro explícito:
+
+```
+error: This system was not booted via libostree.
+Currently, most rpm-ostree commands only work on ostree-based host systems.
+```
+
+**Causa:** a mudança Fedora `ComposefsAtomicDesktops` habilita composefs por
+padrão nas imagens **bootc** dos Atomic Desktops. Com raiz composefs, não existe
+sysroot libostree para o `rpm-ostree install` operar — e o módulo `rpm-ostree` do
+BlueBuild chama exatamente esse comando.
+
+**Consequência:** o módulo `rpm-ostree` está morto para F45+. O substituto é o
+módulo `dnf` (dnf5), que funciona em build de container independente do backend —
+o mesmo caminho que `bazzite`, `bazzite-dx` e `bluefin` já usam nos respectivos
+Containerfiles.
+
+**O que foi feito:** os quatro módulos `rpm-ostree` (`dx.yml`, `casting.yml` ×2,
+`silver-goggles.yml`) foram convertidos para `dnf`, com a mesma lista de pacotes e
+o mesmo repo do cloud-hypervisor. `just check` passou.
+
+**O que isso muda na conclusão:** a migração de toolchain deixou de ser preferência
+arquitetural e virou **pré-requisito de update**. O bump F45 não é um diff de 3
+linhas; ele força a primeira metade da migração (dnf5). A segunda metade —
+Containerfile + `build_files` — passa a ser o caminho natural, não uma aposta.
+
+**Fica em aberto:** se o F44 era ostree e o F45 composefs, confirmar pelo
+`ostree admin status` num host F45, e verificar se algum outro módulo BlueBuild
+depende de libostree (`kargs`, `initramfs`, `systemd` são candidatos).
+
