@@ -201,16 +201,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install cosign from the OCI image
-        # The GitHub-release installer took 4m56s of this job, mostly stalled on
-        # 504s from github.com. The signed cosign image on GHCR is pinned by
-        # digest and is a path this workflow already depends on.
-        run: |
-          set -euo pipefail
-          mkdir -p "${HOME}/.local/bin" "${HOME}/.cosign-auth"
-          printf '%s' 'IyEvdXNyL2Jpbi9lbnYgYmFzaApleGVjIHBvZG1hbiBydW4gLS1ybSAtaSBcCiAgLWUgQ09TSUdOX1BBU1NXT1JEIC1lIENPU0lHTl9ZRVMgLWUgQ09TSUdOX1BSSVZBVEVfS0VZIFwKICAtZSBET0NLRVJfQ09ORklHPS9jb3NpZ24tYXV0aCBcCiAgLXYgIiR7SE9NRX0vLmNvc2lnbi1hdXRoOi9jb3NpZ24tYXV0aCIgXAogIC12ICIke1BXRH06L3dvcmsiIC13IC93b3JrIFwKICBnaGNyLmlvL3NpZ3N0b3JlL2Nvc2lnbi9jb3NpZ246djMuMC42QHNoYTI1NjpkZTljNjU2MDllNmJkZTE3ZTZiNDhkZTQ4NWVlNzg4NDA3Yzk1MDJmYTA4YjhmNDQ1OWY1OTViMjFmNTZjZDAwICIkQCIK' | base64 -d >"${HOME}/.local/bin/cosign"
-          chmod +x "${HOME}/.local/bin/cosign"
-          echo "${HOME}/.local/bin" >>"$GITHUB_PATH"
+      - name: Install cosign
+        # Standard installer. The OCI-image wrapper was a reaction to
+        # transient GitHub 504s and cost three integration failures; a 504
+        # here fails the release closed, and the next run retries.
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Log in to GHCR
         env:
