@@ -153,3 +153,25 @@ Containerfile + `build_files` — passa a ser o caminho natural, não uma aposta
 `ostree admin status` num host F45, e verificar se algum outro módulo BlueBuild
 depende de libostree (`kargs`, `initramfs`, `systemd` são candidatos).
 
+
+## 9. Compile test: gpu_unlock against `nvidia-open` F45 (2026-11-08)
+
+Medido no CI (`kmod-compile-test.yml`, run 42475100844), sem assinatura e sem tocar no pin:
+
+| Item | Valor |
+| :--- | :--- |
+| Imagem candidata | `ghcr.io/ublue-os/bazzite-nvidia-open:45.20261105@sha256:9c3c4df9…` |
+| Kernel da imagem | **`7.2.15-ogc1.1.fc45.x86_64`** (não 7.3.3; o `build.py` do upstream já aponta para uma build mais nova) |
+| Compilação | sucesso, `LD [M] gpu_unlock.ko` |
+| `vermagic` | `7.2.15-ogc1.1.fc45.x86_64 SMP preempt mod_unload` |
+| sha256 do módulo | `c99b5e0256131e59a7b3012a4e27c4d52ccc70cea340ec6113c3eea41b407906` |
+| Único warning | `pahole version differs` + `BTF generation skipped (no vmlinux)` — BTF não é necessário para carregar |
+
+Conclusão: **o `gpu_unlock` compila no kernel corrente do `nvidia-open`**. Isso remove o
+bloqueio técnico que impedia considerar a troca, mas não prova runtime: carregar o
+módulo, o `nvidia-open` em si, HDMI, suspend e NVENC continuam exigindo boot.
+
+Próximo passo, se houver interesse: branch com o pin trocado, build pelo CI e rebase
+de teste no host (imagem sem kmod, porque a assinatura só roda em main), com rollback
+para o deployment atual. O ganho esperado numa GA106M é pequeno; o custo é sair do
+kernel LTS 6.18 para o 7.2 corrente.
