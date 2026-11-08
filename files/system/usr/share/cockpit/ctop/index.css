@@ -1,0 +1,406 @@
+:root { --bg:#000; --fg:#ccc; --dim:#606060; }
+html, body { margin:0; height:100%; background:var(--th-bg, var(--bg)); color:var(--th-fg, var(--fg));
+  font-family: "DejaVu Sans Mono", "Liberation Mono", monospace; font-size:13px; }
+#ctop-root { padding:8px; }
+#ctop-status { color:var(--dim); }
+
+.box { border:1px solid var(--box); border-radius:6px; padding:6px 8px; margin:6px 0; position:relative; }
+.box-title { position:absolute; top:-9px; left:10px; background:var(--th-bg, var(--bg)); padding:0 6px; color:var(--th-title, #eee); }
+.cpu-box { --box:var(--th-cpu-box, #556d59); }
+.cpu-header { display:flex; align-items:center; gap:12px; }
+.cpu-total-meter { width:180px; height:14px; }
+.cpu-graph { width:100%; height:90px; display:block; }
+.cpu-cores { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:2px 10px; margin-top:4px; }
+.core { display:flex; align-items:center; gap:6px; }
+.core-label { color:#606060; width:24px; } .core-pct { width:26px; text-align:right; }
+.core-meter { width:60px; height:12px; }
+
+.mem-box { --box:var(--th-mem-box, #6c6c4b); }
+.mem-row { display:flex; align-items:center; gap:8px; margin:2px 0; }
+.mem-label { width:80px; color:#606060; } .mem-meter { flex:0 0 160px; height:12px; } .mem-val { color:#ccc; }
+.mem-disk { display:flex; align-items:center; gap:8px; margin:2px 0; }
+.disk-label { flex:0 0 60px; color:#606060; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.disk-io { display:flex; align-items:center; gap:4px; flex:1; }
+.io-tag { color:#606060; } .disk-r, .disk-w { flex:1; height:16px; }
+.mem-mount { display:flex; align-items:center; gap:8px; margin:2px 0; }
+.mount-label { width:140px; color:#606060; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mount-meter { flex:0 0 120px; height:12px; } .mount-val { color:#ccc; }
+
+.net-box { --box:var(--th-net-box, #5c588d); }
+.net-dir { display:flex; align-items:center; gap:8px; margin:3px 0; }
+.net-tag { width:16px; color:#606060; flex:0 0 auto; } .net-rx, .net-tx { flex:1 1 0; min-width:40px; height:36px; }
+.net-rx-val, .net-tx-val { flex:0 0 auto; min-width:84px; text-align:right; color:#ccc; white-space:nowrap; }
+
+.proc-box { --box:var(--th-proc-box, #805252); }
+.proc-table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+.proc-table th { text-align:left; color:#eee; cursor:pointer; border-bottom:1px solid #303030; padding:2px 6px; user-select:none; }
+.proc-table td { padding:1px 6px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.proc-table tbody tr:hover { background:#6a2f2f; cursor:pointer; }
+.proc-table .prog { max-width:180px; }
+.proc-popup { position:absolute; right:10px; top:24px; width:340px; background:#111; border:1px solid #805252; border-radius:6px; padding:8px; }
+.proc-popup.hidden { display:none; }
+.popup-head { display:flex; justify-content:space-between; color:#eee; margin-bottom:6px; }
+.popup-close { background:none; border:none; color:#b54040; cursor:pointer; }
+.popup-cmd { color:#606060; margin-top:6px; word-break:break-all; }
+.popup-actions { display:flex; gap:6px; margin-top:8px; }
+.popup-actions button { background:#2a2a2a; color:#ccc; border:1px solid #805252; border-radius:4px; cursor:pointer; padding:2px 6px; }
+.popup-msg { color:#0de756; margin-top:6px; min-height:16px; }
+
+#ctop-grid { display:grid; grid-template-columns:45fr 55fr; grid-template-areas:"cpu cpu" "gpu gpu" "left proc" "hist hist"; gap:8px; }
+#slot-cpu { grid-area:cpu; } #slot-gpu { grid-area:gpu; } #slot-left { grid-area:left; } #slot-proc { grid-area:proc; } #slot-history { grid-area:hist; }
+#ctop-banner { background:#3a1414; color:#ffb0b0; border:1px solid #b54040; border-radius:4px; padding:4px 8px; margin-bottom:6px; }
+#ctop-banner.hidden { display:none; }
+@media (max-width: 900px) {
+  #ctop-grid { grid-template-columns:1fr; grid-template-areas:"cpu" "gpu" "left" "proc" "hist"; }
+}
+:root.pf-v6-theme-dark { --bg:#0f1319; }
+.cpu-model { margin-left:auto; color:#606060; }
+
+/* ---- btop-parity feature styles (merged from box fragments) ---- */
+/* cpuBox */
+/* src/boxes/cpuBox.extra.css
+   Extra rules for per-core braille graphs, clock, and uptime added to CpuBox.
+   Merged into the main stylesheet by the integration step; do not import
+   this file directly from cpuBox.js. */
+
+.cpu-cores .core {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cpu-cores .core-graph {
+  width: 90px;
+  height: 14px;
+}
+
+.cpu-cores .core-pct {
+  min-width: 4.5em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cpu-header .cpu-clock {
+  margin-left: 8px;
+}
+
+.cpu-header .cpu-uptime {
+  margin-left: 8px;
+  opacity: 0.8;
+}
+/* netBox */
+/* src/boxes/netBox.extra.css */
+.net-stats {
+  display: flex;
+  gap: 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.net-top,
+.net-total {
+  font-size: 0.85em;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+/* procBox */
+/* src/boxes/procBox.extra.css */
+.proc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.proc-filter {
+  flex: 1 1 auto;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #444;
+  color: #ccc;
+  font: inherit;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.proc-filter:focus {
+  outline: none;
+  border-color: #888;
+}
+
+.proc-tree-toggle {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #444;
+  color: #ccc;
+  font: inherit;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.proc-tree-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.proc-tree-toggle.active {
+  background: #4b6c6c;
+  color: #fff;
+  border-color: #4b6c6c;
+}
+
+.tree-caret {
+  display: inline-block;
+  width: 1.2ch;
+  cursor: pointer;
+  color: #888;
+}
+
+.proc-table td.prog {
+  white-space: pre;
+}
+/* batteryBox */
+/* src/boxes/batteryBox.extra.css */
+.bat-box {
+  --box: #5c8d6c;
+  display: flex;
+  flex-direction: column;
+}
+.bat-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+}
+.bat-meter {
+  width: 120px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+.bat-pct,
+.bat-status,
+.bat-watts {
+  color: var(--ctop-dim-fg, #808080);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+/* gpuBox */
+/* src/boxes/gpuBox.extra.css */
+.gpu-box { --box:#4b6c6c; }
+.gpu-header { display:flex; align-items:center; margin-bottom:2px; }
+.gpu-name { color:#ccc; font-weight:bold; }
+.gpu-row { display:flex; align-items:center; gap:6px; margin:1px 0; }
+.gpu-label { width:40px; color:#606060; }
+.gpu-util-meter, .gpu-mem-meter { flex:0 0 240px; height:12px; }
+.gpu-util-pct, .gpu-mem-val { color:#ccc; }
+.gpu-graph { width:100%; height:24px; display:block; margin:2px 0; }
+.gpu-misc-row { justify-content:space-between; color:#ccc; }
+.gpu-temp, .gpu-power { color:#ccc; }
+
+/* ---- responsive: prevent page-level horizontal scroll on resize ---- */
+/* Grid items default to min-width:auto, so wide content (the process table)
+   refuses to shrink and overflows the viewport. Let tracks shrink, keep the
+   wide table scrolling inside its own box, and let flex headers wrap. */
+html, body { overflow-x: hidden; }
+#slot-cpu, #slot-gpu, #slot-left, #slot-proc { min-width: 0; }
+.proc-scroll { overflow-x: auto; max-width: 100%; }
+.cpu-header, .gpu-misc-row { flex-wrap: wrap; }
+.box { overflow-wrap: anywhere; }
+
+/* ---- process detail popup: deep-link actions + renice ---- */
+.popup-label { color:#606060; font-size:0.85em; margin:6px 0 2px; }
+.popup-unit .popup-unit-val { color:#0de756; }
+.popup-links { display:flex; gap:6px; flex-wrap:wrap; }
+.popup-links button, .popup-renice button {
+  background:#2a2a2a; color:#ccc; border:1px solid #556d59; border-radius:4px; cursor:pointer; padding:2px 8px;
+}
+.popup-links button[disabled] { opacity:0.4; cursor:default; }
+.popup-links button:not([disabled]):hover, .popup-renice button:hover { background:#3a3a3a; }
+.popup-renice { display:flex; gap:6px; align-items:center; }
+.renice-val { width:56px; background:rgba(255,255,255,0.05); border:1px solid #444; color:#ccc; font:inherit; padding:2px 4px; border-radius:3px; }
+
+/* ---- toolbar, alerts, threshold flash ---- */
+#ctop-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:4px 2px 8px; border-bottom:1px solid var(--th-div, #303030); margin-bottom:6px; }
+#ctop-toolbar label { color:#aaa; }
+#ctop-toolbar select, #ctop-toolbar button { background:#1e1e1e; color:#ccc; border:1px solid #444; border-radius:4px; padding:2px 6px; font:inherit; cursor:pointer; }
+#ctop-toolbar button.active { background:#4b6c6c; color:#fff; border-color:#4b6c6c; }
+#tb-spacer { flex:1 1 auto; }
+#tb-hint { color:#555; font-size:0.82em; white-space:nowrap; }
+#tb-boxes-wrap { position:relative; }
+#tb-boxes-menu { position:absolute; top:26px; left:0; z-index:20; background:#111; border:1px solid #444; border-radius:4px; padding:6px; display:flex; flex-direction:column; gap:2px; }
+#tb-boxes-menu.hidden { display:none; }
+#tb-boxes-menu label { display:flex; align-items:center; gap:6px; color:#ccc; cursor:pointer; }
+#ctop-grid .alert { outline:2px solid #dc4c4c; outline-offset:-1px; border-radius:6px; animation:ctop-pulse 1s ease-in-out infinite; }
+@keyframes ctop-pulse { 0%,100%{ outline-color:#dc4c4c; } 50%{ outline-color:#7a2020; } }
+
+/* ---- history box ---- */
+.history-box { --box:#6c5b8d; }
+
+/* ---- tier2/3 feature styles (merged fragments) ---- */
+/* containersBox */
+/* src/boxes/containersBox.extra.css */
+.containers-box { --box: #4b6c6c; }
+
+.containers-box .containers-scroll {
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+.containers-box .containers-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.containers-box .containers-table thead th {
+  text-align: left;
+  color: var(--th-dim, #606060);
+  font-weight: normal;
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--th-dim, #303030);
+  position: sticky;
+  top: 0;
+  background: var(--th-bg, #000000);
+}
+
+.containers-box .containers-table td {
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.containers-box .containers-table td.cname {
+  color: var(--th-fg, #cccccc);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 16ch;
+}
+
+.containers-box .containers-table tr:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Engine column — shown only when podman AND docker both have containers */
+.containers-box .containers-table td.cengine {
+  color: var(--th-dim, #808080);
+  font-size: 0.9em;
+}
+.containers-box .containers-table tr.containers-empty td {
+  color: var(--th-dim, #808080);
+  font-style: italic;
+  text-align: center;
+}
+.containers-box .containers-table tr.containers-empty:hover td { background: transparent; }
+/* sensorsBox */
+/* src/boxes/sensorsBox.extra.css */
+.sensors-box { --box:#8d5c58; }
+.sensors-rows { display:flex; flex-direction:column; gap:2px; }
+.sensors-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+.sensors-name { color:var(--th-title, #ccc); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sensors-val { color:var(--th-fg, #eee); white-space:nowrap; }
+/* historyBox */
+/* src/boxes/historyBox.extra.css */
+.history-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 70px;
+}
+.history-box .history-graph {
+  width: 100%;
+  height: 48px;
+  flex: 0 0 auto;
+}
+.history-box .history-status {
+  font-size: 0.85em;
+  color: var(--th-dim, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* procBox */
+.popup-spark {
+  display: block;
+  width: 300px;
+  max-width: 100%;
+  height: 24px;
+  margin-top: 0.4em;
+}
+
+.popup-sockets {
+  font-size: 0.9em;
+  opacity: 0.9;
+  margin-bottom: 0.5em;
+}
+
+.popup-sockets ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.popup-sockets li {
+  padding: 0.15em 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: monospace;
+}
+.ctop-hidden { display:none !important; }
+
+/* ---- viewport-fit layout: the whole plugin fills the window; the left column
+        and the process list scroll INSIDE their boxes instead of the page. ---- */
+#ctop-root { height:100vh; box-sizing:border-box; padding:8px; overflow:hidden; display:flex; flex-direction:column; }
+#ctop-toolbar, #ctop-banner { flex:0 0 auto; }
+#ctop-grid { flex:1 1 auto; min-height:0; overflow:hidden; grid-template-rows:auto auto minmax(0, 1fr) auto; }
+/* Both middle-column slots share the same top padding, which does double duty:
+   it leaves room for the box titles (positioned at top:-9px, otherwise clipped
+   by the slots' overflow) AND keeps the two columns aligned — their first boxes
+   both start at slot-top + this padding. */
+#slot-left { min-height:0; overflow-y:auto; overflow-x:hidden; padding-top:12px; display:flex; flex-direction:column; gap:6px; }
+#slot-proc { min-height:0; overflow:hidden; padding-top:12px; }
+/* The left column is a flex stack. Flex doesn't collapse margins, so spacing
+   comes from the container `gap` and the boxes drop their own vertical margins
+   (keeping margin:6px would double every gap and overflow the column). */
+#slot-left > div { flex:0 0 auto; }
+#slot-left > div > .box { margin-top:0; margin-bottom:0; }
+/* The last *visible* box (marked by JS) grows to fill leftover space so its
+   bottom border meets the proc box bottom. It never shrinks below its content,
+   so when the stack overflows the column just scrolls as before. */
+#slot-left > div.grow-fill { flex:1 0 auto; display:flex; flex-direction:column; min-height:0; }
+#slot-left > div.grow-fill > .box { flex:1 0 auto; box-sizing:border-box; }
+.proc-box { display:flex; flex-direction:column; max-height:100%; margin:0; box-sizing:border-box; }
+.proc-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; }
+/* Narrow screens: single column, let the page scroll normally (mobile). */
+@media (max-width: 900px) {
+  #ctop-root { height:auto; overflow:visible; }
+  #ctop-grid { overflow:visible; grid-template-rows:none; }
+  #slot-left { overflow:visible; padding-top:0; }
+  #slot-proc { overflow:visible; }
+  .proc-box { max-height:none; }
+}
+
+/* ---- self-update badge + install overlay ---- */
+#tb-update { cursor:pointer; color:#888; font-size:0.85em; padding:2px 6px; border-radius:4px; white-space:nowrap; }
+#tb-update:hover { color:#ccc; }
+#tb-update.upd-has { background:#4b6c6c; color:#fff; font-weight:bold; }
+#ctop-update-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:100; }
+#ctop-update-overlay.hidden { display:none; }
+.upd-panel { width:min(680px, 90vw); max-height:80vh; display:flex; flex-direction:column; background:#111; border:1px solid #4b6c6c; border-radius:8px; overflow:hidden; }
+.upd-head { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid #303030; color:#eee; }
+.upd-close { background:none; border:none; color:#b54040; cursor:pointer; }
+.upd-log { margin:0; padding:10px 12px; overflow:auto; color:#ccc; white-space:pre-wrap; font-size:0.85em; }
+
+/* ---- theme-aware scrollbars ---- */
+.proc-scroll, #slot-left, .upd-log, .containers-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--th-dim, #606060) transparent;
+}
+.proc-scroll::-webkit-scrollbar, #slot-left::-webkit-scrollbar,
+.upd-log::-webkit-scrollbar, .containers-scroll::-webkit-scrollbar { width:10px; height:10px; }
+.proc-scroll::-webkit-scrollbar-track, #slot-left::-webkit-scrollbar-track,
+.upd-log::-webkit-scrollbar-track, .containers-scroll::-webkit-scrollbar-track { background:transparent; }
+.proc-scroll::-webkit-scrollbar-thumb, #slot-left::-webkit-scrollbar-thumb,
+.upd-log::-webkit-scrollbar-thumb, .containers-scroll::-webkit-scrollbar-thumb {
+  background: var(--th-dim, #606060); border-radius:5px; border:2px solid transparent; background-clip:content-box;
+}
+.proc-scroll::-webkit-scrollbar-thumb:hover, #slot-left::-webkit-scrollbar-thumb:hover,
+.upd-log::-webkit-scrollbar-thumb:hover, .containers-scroll::-webkit-scrollbar-thumb:hover { background: var(--th-fg, #ccc); background-clip:content-box; }
