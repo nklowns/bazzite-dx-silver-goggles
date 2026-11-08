@@ -1,46 +1,19 @@
 #!/usr/bin/env bash
 
-# Declarative Cockpit Extension Manager
-# Installs and updates official third-party Cockpit extensions at image build time.
+# Cockpit tweaks applied at image build time.
+#
+# The ctop extension is vendored under files/system/usr/share/cockpit/ctop/ and
+# needs no network: the release asset returned 504 during a publish run and
+# blocked the image. See that directory's VENDORED.md to update it.
 set -euo pipefail
 
-# --- Pinned Extension Releases ---
-readonly CTOP_VERSION="1.1.6"
-
-InstallCtop() {
-	echo "Installing Cockpit Top (ctop v${CTOP_VERSION}) extension..."
-	local target_dir="/usr/share/cockpit/ctop"
-	local temp_zip
-	temp_zip=$(mktemp --suffix=.zip)
-	local download_url="https://github.com/ismetozalp/ctop/releases/download/v${CTOP_VERSION}/ctop-${CTOP_VERSION}.zip"
-
-	# ctop is an optional Cockpit extension downloaded from a GitHub release.
-	# A GitHub asset outage must not block publishing the image: warn and skip.
-	if ! curl --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSL "$download_url" -o "$temp_zip"; then
-		echo "WARNING: could not download ctop ${CTOP_VERSION}; skipping the optional Cockpit extension." >&2
-		rm -f "$temp_zip"
-		return 0
-	fi
-	if ! echo "${CTOP_SHA256}  ${temp_zip}" | sha256sum -c --strict --quiet; then
-		echo "ERROR: ctop ${CTOP_VERSION} checksum mismatch; refusing to install it." >&2
-		rm -f "$temp_zip"
-		return 1
-	fi
-
-	local temp_extract
-	temp_extract=$(mktemp -d)
-	unzip -q "$temp_zip" -d "$temp_extract"
-
-	mkdir -p "$target_dir"
-	cp -r "$temp_extract/ctop/"* "$target_dir/"
-
-	rm -rf "$temp_zip" "$temp_extract"
-
-	if [[ ! -f "$target_dir/manifest.json" ]]; then
-		echo "ERROR: ctop installation failed - manifest.json missing from $target_dir"
+VerifyCtopPresent() {
+	local manifest="/usr/share/cockpit/ctop/manifest.json"
+	if [[ ! -f "$manifest" ]]; then
+		echo "ERROR: vendored ctop extension missing ($manifest not found)." >&2
 		exit 1
 	fi
-	echo "Cockpit Top (ctop v${CTOP_VERSION}) installed successfully."
+	echo "Cockpit Top (ctop) present from the image overlay."
 }
 
 PatchPcpChannel() {
@@ -85,7 +58,7 @@ EOF
 }
 
 # --- Execution ---
-echo "::group::🚀 [dx-cockpit] Provisioning Declarative Cockpit Extensions..."
-InstallCtop
+echo "::group::🚀 [dx-cockpit] Cockpit extensions and channel hardening..."
+VerifyCtopPresent
 PatchPcpChannel
 echo "::endgroup::"
