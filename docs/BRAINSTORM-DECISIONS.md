@@ -7,27 +7,32 @@
 
 ## 1. Decisões em jogo
 
-### D1 — `dx-arbiter` (dono único da GPU/RAM)
+> **Decidido em 2026-11-08:** D1 → não criar daemon; consolidar a política nos
+> ganchos existentes. D3 → persona fica no base, com check de CI contra vazamento.
+> D5 → PR automático e merge manual. Prioridade das cargas → **Jogos > Dev > LLM**.
+> D2 (contrato) e D4 (scoreboard) seguem em aberto para validação com uma
+> capacidade real.
 
-**O que muda:** um serviço pequeno que escuta eventos (gamemoded, processo de jogo,
-pedido de LLM, sessão remota) e aplica uma tabela de estado única.
+### D1 — Política de GPU (sem daemon novo)
+
+**O que muda:** nenhuma unidade systemd nova. Uma constante de prioridade
+compartilhada (`/etc/silver-goggles/priority.conf`, ordem **Jogos > Dev > LLM**)
+lida pelos ganchos que já existem (`gamemode.ini`, `ai-vram-purge`,
+`smart-idle-checker`), mais a remoção de sobreposição entre eles.
 
 | Impacto | Detalhe |
 | :--- | :--- |
-| Positivo | Elimina a dependência de ordem entre `gamemode.ini`, `ai-vram-purge` e `llm-vram-purge`; torna C3 mensurável |
-| Negativo | **Mais um daemon** para observar; se travar com `performance` aplicado, a ventoinha fica no máximo até alguém notar |
-| Manutenção | Baixa em código, alta em **teste**: sem teste de evento vira "funciona na minha máquina" |
-| Alternativa | Não ter árbitro e deixar os hooks atuais (menos código, comportamento indefinido) |
+| Positivo | Comportamento deixa de depender da ordem dos hooks; nenhum passivo novo de daemon |
+| Negativo | Continua acoplado ao gamemode: jogo fora do Steam/Lutris não dispara |
+| Manutenção | Baixa; o risco é a constante divergir do que os hooks fazem |
+| Alternativa | Daemon dedicado (rejeitado: mais um serviço para observar e falhar) |
 
-**Sinal de reversão:** se em duas semanas o árbitro precisar de exceção por jogo
-(porque o sinal de "jogo rodando" não é confiável), o problema é o sinal, não a
-política — e a solução correta é reduzir o escopo para "LLM cede VRAM quando
-qualquer processo com `/dev/nvidia*` aberto aparece".
+**Sinal de reversão:** se a constante não bastar e os hooks precisarem de lógica
+de decisão (não só de valor), o problema é a ausência de um dono da política — e
+aí sim se avalia um serviço. Não antes.
 
 **Custo escondido:** detectar jogo é fácil no Steam/gamemode e difícil fora dele
-(Lutris, Heroic, Wine solto). Se o árbitro prometer demais, vira fonte de bug.
-
----
+(Lutris, Heroic, Wine solto). O documento promete o que o sinal permite.
 
 ### D2 — Contrato de capacidade (`capabilities/<nome>/`)
 
@@ -43,28 +48,27 @@ arquivos, receitas, asserts e perfil; `generate-recipe` compõe a partir do mani
 
 **Sinal de reversão:** se a **segunda** capacidade migrada precisar de caso especial
 no gerador, o contrato está errado. Kill criterion explícito: migrar `casting` e
-`dx-arbiter` pelo contrato; se ambos passarem sem exceção, vale migrar o resto.
+`aistudio` pelo contrato; se ambos passarem sem exceção, vale migrar o resto.
 
 **Custo escondido:** a composição precisa ser determinística. Se a ordem de
 aplicação de arquivos depender de `readdir`, o build fica não reproduzível.
 
 ---
 
-### D3 — Separação da persona (L5)
+### D3 — Separação da persona
 
-Duas implementações possíveis, com custos bem diferentes:
+**Decidido em 2026-11-08: fica no base por enquanto.** O objetivo agora é não
+adicionar pipeline nem camada desnecessária; o risco de vazamento é tratado por
+check de CI, não por separação física.
 
 | Opção | Impacto | Manutenção |
 | :--- | :--- | :--- |
 | **Imagem própria** `FROM silver-goggles` | Isolamento total; base publicável sem preferências | +1 pipeline, +1 pin para atualizar, +1 lugar para quebrar |
-| **Dotfiles via chezmoi/mise** no primeiro login | Zero pipeline; troca sem rebuild | Deriva entre máquinas; precisa de repo separado e idempotência |
+| **Dotfiles via chezmoi/mise** | Zero pipeline; troca sem rebuild | Deriva entre máquinas; precisa de repo separado e idempotência |
+| **No base (escolhido)** | Nenhum custo novo; persona isolada por diretório | Precisa de CI contra caminho de usuário e dotfile em `files/system` |
 
-**Sinal de reversão:** se a persona mudar mais que a imagem (provável: gosto muda
-mais que hardware), imagem própria é a opção errada — rebuild a cada ajuste de
-`starship.toml` é fricção pura.
-
-**Recomendação:** dotfiles primeiro; imagem própria só se houver necessidade de
-*garantir* estado em máquina nova sem passo manual.
+**Sinal de reversão:** se a persona começar a mudar mais rápido que a imagem, sai
+para dotfiles — não para imagem separada.
 
 ---
 
@@ -87,16 +91,16 @@ gravar uma linha por execução (`/var/log/dx-metrics.jsonl`) para virar tendên
 
 ### D5 — Frescor automático
 
-**O que muda:** Renovate já atualiza o pin; hoje o atraso é revisão humana.
+**Decidido em 2026-11-08: PR automático, merge manual.** Renovate já abre o PR do
+pin; o merge continua humano até existir teste de boot em VM.
 
 | Política | Impacto | Risco |
 | :--- | :--- | :--- |
-| Auto-merge em patch | Base nova em ≤2 dias sem trabalho | Um build ruim entra enquanto você está fora |
-| Auto-PR + merge manual | Controle total | Volta ao atraso atual |
-| Auto-merge só se `dx-metrics` do CI passar | Melhor dos dois | Exige o scoreboard no CI, não só local |
+| Auto-merge em patch (rejeitado por ora) | Base nova sem trabalho | Build ruim entra enquanto você está fora |
+| **Auto-PR + merge manual (escolhido)** | Controle total | Atraso depende de disciplina; mitigado por alerta de lag > 14 dias |
+| Auto-merge após bcvk | Melhor dos dois | Exige o boot em VM no CI antes |
 
-**Sinal de reversão:** se um auto-merge quebrar boot uma vez, a política volta para
-manual até existir teste de boot em VM (bcvk) no CI.
+**Sinal de reversão:** quando `bcvk` rodar no CI, reavaliar auto-merge de patch.
 
 ---
 
@@ -129,29 +133,29 @@ ser necessidade — mas então o certo é **propor upstream**, não aprofundar o
 
 1. **Nenhum framework genérico de imagens.** O contrato serve a este repo; se
    outra pessoa quiser usar, ela copia a ideia, não a dependência.
-2. **Nenhum daemon a mais além do árbitro.** Cada serviço novo é um passivo.
+2. **Nenhum daemon novo.** Consolidar política nos ganchos existentes; serviço
+   novo só se a constante não bastar.
 3. **Nenhuma abstração de desktop/DE.** KDE é premissa, não plugin.
 4. **Nenhuma promessa de portabilidade.** O alvo é um G15 5520; o resto é efeito
    colateral bem-vindo, não requisito.
 5. **Nenhum empacotamento de toolchain de projeto.** `mise`/`uv`/`brew` cobrem.
 
-## 4. Alinhamento: premissas que precisam de confirmação
+## 4. Alinhamento: premissas e o estado de cada uma
 
-| # | Premissa | Se estiver errada |
+| # | Premissa | Estado |
 | :-- | :--- | :--- |
-| A1 | Os três pilares são dev, jogos e LLM local — nessa ordem de prioridade | A arbitragem prioriza o pilar errado |
-| A2 | O hardware continua sendo o G15 5520 por ≥12 meses | L1 vira peso morto e o desenho deveria ser mais genérico |
-| A3 | O LLM local continua fazendo sentido rodar no host (6 GB) em vez de remoto | NOMAD/llama perde prioridade e a arbitragem fica só para jogos |
-| A4 | O acesso remoto é sempre Tailscale (nunca LAN aberta, nunca relay) | Muda o desenho de `remote-*` |
-| A5 | A manutenção é feita principalmente por agente, com revisão humana | Docs precisam ser mais executáveis e asserts mais fortes |
-| A6 | Preferência por menos serviços ativos, mesmo com custo de conveniência | O critério C2 (idle) deixa de ser alvo |
-| A7 | A persona deve viver fora da imagem (dotfiles ou imagem separada) | L5 volta para dentro e a imagem deixa de ser publicável |
+| A1 | Prioridade das cargas: **Jogos > Dev > LLM** | **confirmado em 2026-11-08** |
+| A2 | O hardware continua sendo o G15 5520 por ≥12 meses | em vigor; sem data de revisão |
+| A3 | O LLM local continua rodando no host (6 GB) em vez de remoto | em vigor |
+| A4 | O acesso remoto é sempre Tailscale (nunca LAN aberta, nunca relay) | em vigor |
+| A5 | A manutenção é feita principalmente por agente, com revisão humana | em vigor |
+| A6 | Preferência por menos serviços ativos, mesmo com custo de conveniência | **confirmado em 2026-11-08** (levou à rejeição do daemon) |
+| A7 | A persona permanece no base, protegida por CI | **confirmado em 2026-11-08** |
 
-## 5. Perguntas abertas (para decidir junto)
+## 5. Pendências
 
-1. **D3**: persona como dotfiles (menos pipeline, mais disciplina) ou imagem
-   separada (mais garantia, mais CI)?
-2. **D5**: qual política de frescor — auto-merge de patch, ou sempre PR manual?
-3. **D1**: o árbitro deve agir também sobre energia/ventoinha, ou só sobre VRAM/RAM?
-4. **A1**: a ordem dev > jogos > LLM está certa? Isso muda o que é "ceder" na
-   arbitragem.
+1. **D2 (contrato de capacidade)** — decidir depois de migrar `casting` e
+   `aistudio`; o resultado dessas duas define se o formato está certo.
+2. **D4 (scoreboard)** — construir antes das próximas mudanças de camada, para
+   existir baseline medido.
+3. **D6 (forks `84`/`95`)** — sem data; depende de quando o custo do drift doer.

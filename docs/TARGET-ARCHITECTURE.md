@@ -1,166 +1,144 @@
-# Arquitetura-alvo: o que "melhor" significa aqui
+# O que é o dx-silver-goggles
 
-> Este documento existe para impedir que a discussão vire "mais uma atualização".
-> Atualizar a base é **pré-requisito**, não objetivo. O objetivo é uma camada DX
-> pessoal que o upstream não pode entregar porque não conhece o hardware nem as
-> três cargas que rodam nele.
+> Documento definitivo. Substitui as propostas anteriores deste diretório.
+> Evidência medida: `ARCHITECTURE-CATALOG.md`. Log de decisão: `BRAINSTORM-DECISIONS.md`.
 
-## 1. Premissa
+## 1. Definição
 
-`bazzite-dx-silver-goggles` **não é** um fork do Bazzite nem um clone do
-`bazzite-dx`. É uma camada de experiência em cima de uma base que já resolve
-desktop, drivers e jogos.
+**Uma imagem OCI que estende o Bazzite com três responsabilidades e nenhuma a mais:**
 
-O que só esta camada pode fazer:
+1. **Habilitar o hardware** — Dell G15 5520: perfil térmico, RGB, GPU unlock
+   assinado, guarda do disco raiz, sensores.
+2. **Empacotar motores** — o que precisa existir no sistema para desenvolver,
+   jogar e rodar LLM local. Não ferramentas de projeto: motores.
+3. **Ergonomia** — atalhos, receitas `ujust`, integração de desktop.
 
-1. **Saber que a máquina é um G15 5520** — 6 GB de VRAM, 64 GB de DDR5, fans
-   controlados por `alienware-wmi-wmax`, GPU desbloqueada por kmod assinado.
-2. **Arbitrar três cargas concorrentes no mesmo hardware**: desenvolvimento,
-   jogos e LLM local. Nenhuma imagem upstream tenta isso, porque nenhuma sabe
-   onde vai rodar.
-3. **Frescor**: seguir a base em dias, não em trimestres.
-4. **Extensão sem fork**: qualquer capacidade nova entra como camada, não como
-   edição de arquivo compartilhado.
+**Não é**: um fork do Bazzite, uma distro, um framework de imagens, nem uma
+reimplementação do `bazzite-dx` (que hoje só publica variantes deck).
 
-## 2. O que "melhor" significa, medido
+## 2. Regra de decisão: entra ou não entra na imagem
 
-"Melhor" sem número é opinião. Cinco critérios, com baseline atual:
+| Pergunta | Entra | Não entra |
+| :--- | :--- | :--- |
+| Precisa de root/kernel/driver? | sim (kargs, kmod, udev, systemd) | — |
+| Precisa existir antes do login? | sim (serviço, motor, integração de sessão) | — |
+| É ferramenta de projeto (Node, Python, Rust, CLI qualquer)? | — | `mise` / `uv` / `brew` |
+| Tem GUI própria e ciclo de update semanal? | — | Flatpak |
+| É preferência pessoal (tema, shell, fonte, dotfile)? | — | dotfiles, ou `/etc/skel` se precisar de default |
+| Só um projeto usa? | — | container do projeto (distrobox/devcontainer) |
 
-| # | Critério | Como medir | Hoje | Alvo |
-| :-- | :--- | :--- | :--- | :--- |
-| C1 | **Frescor** | dias entre release upstream e rebase nosso | 3 dias (F45 saiu 2026-11-05, PR aberto 2026-11-08); F44 ficou 13 dias parado | ≤ 2 dias, automático |
-| C2 | **Aderência ao hardware** | unidades ativas em idle + RPM/temp em idle | 16 system units + 1 user; fans 0 RPM a ~48 °C em `balanced` | não crescer sem justificativa; manter 0 RPM |
-| C3 | **Arbitragem de GPU** | VRAM livre ao iniciar jogo com LLM carregado | resolvido por hooks dispersos (`gamemode.ini`, `ai-vram-purge`) | uma política única, auditável |
-| C4 | **Extensibilidade** | arquivos tocados para adicionar capacidade | fork de arquivo upstream (`84`, `95`) | 0 arquivos compartilhados |
-| C5 | **Peso** | arquivos próprios + linhas de `ujust` | 223 arquivos, 3.972 linhas, 177 receitas | ≤ 120 arquivos ativos, receitas por capacidade |
+Corolário: **a imagem encolhe por padrão**. Se algo novo não passa nas três
+primeiras linhas, não entra. Isso é o oposto de "adicionar capacidade", e é o que
+mantém a camada simples.
 
-O C3 é o diferencial competitivo real. Os outros quatro são disciplina.
+## 3. Princípios de plataforma (Silverblue/Bazzite, 2026)
 
-## 3. Os três pilares
+Estas são as regras que o sistema impõe, não escolhas de estilo:
 
-### 3.1 Desenvolvimento
-
-Precisa de: containers (podman), VMs quando necessário, IDE remoto, agentes com
-worktree isolada, e **não ser interrompido** por um jogo ou por um modelo carregado.
-
-O que a imagem entrega: `podman`/`docker`, libvirt/incus (opt-in), code-server e
-ide-tunnel, KRunner workspaces, worktrees (Paseo/OpenCode), toolchains via
-`mise`/`uv`/`brew` — **fora** da imagem.
-
-Regra: toolchain de projeto nunca entra na imagem. Entra motor.
-
-### 3.2 Jogos
-
-Precisa de: gamescope/Steam intactos, perfil de energia por jogo, captura/stream,
-e não manter `performance` ligado depois que o jogo fecha.
-
-O que a imagem entrega: `g15-boost` (perfil por jogo com restore), `gamemode-nested`,
-Sunshine + mediamtx, câmera virtual.
-
-Medição que já justifica o desenho: `performance` custa ~1000 RPM e devolve ~0 MHz
-em carga de CPU; em carga de GPU devolve ~+105 MHz. Ou seja: **ligar por jogo, não
-no boot** — que é exatamente o que `g15-boost` faz.
-
-### 3.3 LLM local
-
-Precisa de: modelos servidos localmente (llama-swap/NOMAD), offload para DDR5,
-e **liberar VRAM quando outra carga precisa**.
-
-O que a imagem entrega: NOMAD (Command Center, mysql/redis, llama-swap CUDA),
-Vane, agent-mesh.
-
-O problema real num 3060 de 6 GB: um modelo residente e um jogo não cabem juntos.
-Hoje isso é resolvido por três ganchos separados (`ai-vram-purge`, `gamemode.ini`,
-`ujust llama-unload`). Isso é frágil: depende de o jogo passar pelo gamemode.
-
-## 4. A camada que falta: arbitragem
-
-Proposta: um único ponto de decisão — `dx-arbiter` — que responde "quem é o dono
-da GPU agora" e aplica a política:
-
-| Evento | Ação |
+| Princípio | Consequência prática |
 | :--- | :--- |
-| jogo Steam inicia (`gamemoded` ou processo em `~/Games`) | descarrega modelos do llama, aplica `performance` via `g15-boost`, mantém ventoinha sob controle do `tuned-ppd` |
-| jogo termina | restaura perfil anterior, libera VRAM, não religa modelo sozinho |
-| agente/dev pede LLM | carrega modelo sob demanda, com teto explícito de VRAM |
-| sessão remota (Sunshine) conecta | garante que o perfil de energia não caiu para `power-saver` |
-| nada acontecendo | `balanced`, fans 0 RPM, nenhum modelo residente |
+| `/usr` é declarativo e imutável | tudo que é estado de imagem mora em `/usr`; nunca em `/etc` |
+| `/etc` é semeado uma vez e o merge local vence para sempre | `/etc` só para o que *precisa* ser editável pelo admin; hoje temos 26 arquivos lá, todos candidatos a revisão |
+| `systemctl enable` em build escreve em `/usr/etc` | preferir `preset` ou symlink declarado; o módulo do BlueBuild chama `systemctl` direto e por isso divergiu do preset |
+| Units de usuário vivem em `/usr/lib/systemd/user/` | ativar por symlink de target; nunca copiar para `$HOME` (mascara a imagem) |
+| `rpm-ostree initramfs` desligado | o initramfs é o do build; `gpu_unlock` depende disso |
+| Imagem = OCI; update = rebase | nada de script de "primeiro boot" que instala pacote |
 
-Por que isso é arquitetura e não script: hoje a política está espalhada em
-`gamemode.ini`, `ai-vram-purge`, `llm-vram-purge`, `smart-idle-checker`. Cada novo
-pilar adiciona mais um gancho e o comportamento passa a depender da ordem. Um
-árbitro único é **testável** (evento → estado) e é o que permite dizer "melhor"
-com número.
+## 4. Padrões que copiamos (não inventamos)
 
-## 5. Extensão infinita: contrato de capacidade
+| Padrão | De onde vem | Como aparece aqui |
+| :--- | :--- | :--- |
+| `Containerfile` + `build_files/NN-*.sh` numerados | `bazzite`, `bazzite-dx`, `bluefin`, `image-template` | build inteiro em 5–6 scripts legíveis, sem DSL própria |
+| `system_files/` espelhando `/` | todos os projetos uBlue | overlay idêntico ao do upstream, `cp -a` |
+| Variante por build arg (`IMAGE_FLAVOR=dx`) | `bluefin` | não precisamos: imagem única |
+| Apps saem da imagem e entram por Portal/Brew | Bazzite removendo Sunshine (2026) | nada de app GUI no build |
+| Serviço empacotado inerte + `ujust ...-up` | Bazzite e este repo | sem `systemd: enabled` fora das duas exceções |
+| `bootc container lint` + boot em VM (`bcvk`) | `image-template`, bootc 2026 | substitui asserts estáticos frágeis |
+| Toolchain fora do host | prática 2026 (distrobox/mise) | `mise`, `uv`, `brew`, containers |
 
-Toda capacidade nova (um serviço, um stack de IA, um receptor de mídia) vira uma
-pasta autocontida:
+O BlueBuild continua mantido e agora sabe usar módulos dentro de um Containerfile,
+mas não é o toolchain que a base testa. Migrar é alinhamento, não moda.
 
-```
-capabilities/<nome>/
-  capability.yml      # nome, descrição, pacotes, portas (61300-61399), serviços opt-in
-  files/system/...    # o que vai para a imagem
-  just/<nome>.just    # receitas ujust
-  verify/<nome>.txt   # asserts (file|, bin|, unit|, content|)
-  profile.yml         # qual pilar: dev | play | llm | mesh
-```
-
-Regras do contrato:
-
-1. Capacidade **nunca** edita arquivo de outra capacidade nem arquivo upstream.
-2. Serviço de capacidade é **opt-in** (nada habilitado no boot), exceto as duas
-   exceções já estabelecidas (`tailscale`, `sunshine`).
-3. Portas sempre na faixa `61300-61399`, bind em loopback, publicação via
-   `tailscale serve`.
-4. Nenhum caminho de usuário (`/var/home/<user>`) em script que vai para a imagem.
-   Isso é verificável no CI e é o que impede vazar persona.
-5. Remover a pasta remove a capacidade por completo — sem resíduo em `dx-verify`.
-
-Isso é o "infinito" na prática: o custo de adicionar é proporcional à capacidade,
-não ao tamanho da imagem.
-
-## 6. Camadas alvo
+## 5. Layout alvo
 
 ```
-L0  base          bazzite-nvidia (pin + digest, F45)                    upstream
-L1  hardware      G15: kargs, g15-*, gpu-unlock, udisks guard, sensors   ~30 arquivos
-L2  plataformas   dev | play | llm  (motores, não toolchains)            ~60 arquivos
-L3  arbitragem    dx-arbiter: quem é dono da GPU/RAM agora               1 serviço
-L4  capacidades   casting | mesh | aistudio  (opt-in, por manifest)      móvel
-L5  persona       shell, Brewfiles, IDEs, wallpaper                      imagem separada
+Containerfile                  # FROM base pinada, RUN build.sh, bootc container lint
+image-versions.yaml            # pin + digest (Renovate)
+build_files/
+  build.sh                     # roda os NN-*.sh em ordem
+  00-image-info.sh
+  10-packages.sh               # lê packages/*.txt
+  20-services.sh               # presets/symlinks; sem enable imperativo
+  30-hardware.sh               # g15: kargs (bootc), udev, mask thermald
+  40-branding.sh               # os-release, kdm about, bazaar blocklist
+  50-verify.sh                 # asserts curtos (ver §7)
+  90-cleanup.sh                # repos transitórios, cache, /var/roothome
+packages/
+  hardware.txt                 # 3 pacotes
+  dx-core.txt                  # containers (um só engine), cockpit, bpf, virt
+  llm.txt                      # nada por enquanto: NOMAD é container, não rpm
+system_files/                  # espelha /
+  usr/lib/systemd/user/…       # units inertes
+  usr/libexec/…                # helpers
+  etc/containers/systemd/users/…  # Quadlets rootless (exceção documentada)
+just/
+  66-hardware.just  67-remote.just  68-llm.just  69-audit.just
 ```
 
-`L5` sai do base de vez: é a única camada que pode ser pessoal sem contaminar o
-resto, e é o que permite publicar a imagem sem vazar preferências.
+Regras do layout:
 
-## 7. Scoreboard
+- **Pacote em `.txt`, um por domínio.** Diff de PR mostra o que entrou/saiu sem
+  ler YAML.
+- **Nada de schema próprio.** Arquivo de pacote é lista; overlay é árvore; receita
+  é `just`. Três formatos que qualquer pessoa já sabe ler.
+- **Um `just` por domínio**, não por feature. Se um domínio precisa de mais de
+  ~150 linhas, é sinal de que a feature virou produto e deve sair.
+- **Adicionar capacidade** = 1 linha no `.txt` (se rpm) ou 1 pasta no overlay +
+  1 receita. **Remover** = apagar a pasta. Nada mais.
 
-Para C1–C5 deixarem de ser retórica, um comando tem que imprimir os números:
+## 6. O que não vamos construir
 
-`ujust dx-metrics` deve reportar:
+1. **Schema de capacidade / gerador de recipe.** Foi proposta minha e é
+   overengineering para 6 stacks.
+2. **Daemon de arbitragem.** A política é uma constante lida pelos ganchos que já
+   existem (ordem Jogos > Dev > LLM).
+3. **Matriz de perfis (`dev|play|llm`).** Uma imagem, tudo inerte, ativação por
+   `ujust`. Economia de bytes não paga a complexidade de build.
+4. **Imagem de persona.** Dotfiles resolvem; CI impede caminho de usuário no overlay.
+5. **Fork de `84-bazzite-virt.just` / `95-bazzite-dx.just`.** Adotar upstream e
+   complementar em `96-*.just`.
 
-- versão da base, data da build e dias desde o release upstream;
-- arquivos próprios, linhas e receitas `ujust`;
-- unidades habilitadas (system + user) e quais vieram do base;
-- idle: RPM, temp CPU/GPU, RAM usada, VRAM usada;
-- última execução do árbitro e estado atual (`balanced`, dono da GPU).
+## 7. Verificação proporcional ao risco
 
-Sem isso, qualquer mudança é "parece melhor". Com isso, cada PR pode dizer o que
-melhorou e o que piorou.
+| Camada | Verificação | Custo |
+| :--- | :--- | :--- |
+| Build | `bootc container lint` | grátis |
+| Units | `systemd-analyze verify` (grep na saída) | baixo |
+| Assets | lista curta por domínio (`file|`, `unit|`) | baixo |
+| Comportamento | boot em VM (`bcvk`) no CI, smoke de sessão | médio, 1× por release |
+| Frescor | `ujust dx-metrics`: versão base, dias de lag, units ativas, idle RPM/VRAM | baixo |
 
-## 8. Não-objetivos
+O que morre: o registro de 196 asserts com 74 commits no ano. Fica o que falha de
+verdade e um boot real.
 
-- Ser um fork do Bazzite ou replicar o `bazzite-dx`.
-- Empacotar toolchains de projeto (Node, Python, Rust) na imagem.
-- Substituir o desktop, o instalador ou o sistema de update do Bazzite.
-- "Paridade de features" com outras imagens. A comparação é contra o **alvo
-  medido**, não contra o catálogo do vizinho.
+## 8. Migração em três passos, sem mudança de comportamento
 
-## 9. Ordem de execução
+1. **Containerfile + build_files** reproduzindo exatamente o recipe atual. Prova:
+   mesmo `rpm -qa | sort` e mesmo `find /usr /etc` do build anterior.
+2. **Remover dívida**: forks `84`/`95`, declaração redundante de `nvctk-cdi`,
+   path `/var/home/cloud` em script de runtime, nomes `amyos`, quatro engines de
+   container → uma.
+3. **CI proporcional**: `bootc container lint` + `bcvk` + `dx-metrics` como
+   baseline versionado.
 
-1. **F45** (PR #181) — pré-requisito de C1, não objetivo.
-2. **Contrato de capacidade** — sem ele, o resto continua virando fork.
-3. **`dx-arbiter`** — o diferencial de C3, e o que justifica o nome "DX".
-4. **Separação da persona** (L5) — o que permite a imagem ser agnóstica.
-5. **Scoreboard** — mede tudo acima.
+Cada passo é um PR reversível. Nenhum exige mudar o que o usuário vê.
+
+## 9. Critério de sucesso
+
+A camada é simples se, daqui a um ano:
+
+- adicionar uma capacidade custou **1 pasta** e nenhum arquivo compartilhado;
+- nenhum arquivo nosso é fork de arquivo upstream;
+- o PR de bump de base tem **diff de 3 linhas** e merge em 1 dia;
+- `ujust dx-metrics` responde "quantos dias atrás" e "o que está ligado" sem
+  precisar abrir o repositório.
