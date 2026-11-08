@@ -25,6 +25,8 @@ readonly AUDIT_REGISTRY=(
 	"group|usershares|Security Group: Usershares|Error"
 
 	"file|/usr/lib/udev/rules.d/51-android.rules|Asset: Android Rules|Error"
+	"file|/usr/lib/udev/rules.d/99-udisks-ignore-root.rules|Policy: UDisks Root Device Guard|Error"
+	"file|/usr/libexec/udisks-ignore-root|Asset: UDisks Root Device Helper|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
 	"file|/usr/lib/modules-load.d/v4l2loopback.conf|Asset: V4L2Loopback Proactive Autoload|Error"
 	"file|/etc/modprobe.d/v4l2loopback.conf|Policy: V4L2Loopback Multi-Camera Pool|Error"

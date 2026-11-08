@@ -286,6 +286,25 @@ the build runner, so it would have to pass vacuously. After the `g15-thermal` de
 rule matches on `DRIVER==` at all; if one is added, verify it on the machine, because the build
 cannot.
 
+## 🧱 Storage Safety: never mount the root device through udisks
+
+`udisks`/Dolphin/Filelight can mount the running root btrfs **on top of `/`**
+(`/dev/nvme0n1p6 on /`), hiding the composefs root. Measured on this host: PID 1 can no
+longer `execve` `/usr`, `rpm-ostree`/`colord` fail, Podman cannot resolve `/var`, and
+`unshare(CLONE_NEWUSER)` returns `EPERM` (Flatpak/bwrap/Steam). Upstream issue:
+[ublue-os/bazzite#5145](https://github.com/ublue-os/bazzite/issues/5145).
+
+The image ships `/usr/lib/udev/rules.d/99-udisks-ignore-root.rules` +
+`/usr/libexec/udisks-ignore-root`. The helper reads `root=UUID/PARTUUID/LABEL//dev`
+from `/proc/cmdline` and sets `UDISKS_IGNORE=1` for every member of the root btrfs
+(multi-device members share `ID_FS_UUID`). It is generic: no hardcoded UUID, survives
+reinstalls and UUID changes. Do not replace it with a host `/etc` rule tied to one UUID.
+
+Recovery without reboot if it ever happens: `umount /run/media/cloud/<uuid>*` then
+`umount /`; `/` must be the composefs overlay (`mount | grep 'on / type'`). Measure real
+usage with `btrfs filesystem du -s`, not `du`: reflinks make `du` report logical sizes
+(the old VM rails were 337G logical vs ~105G physical).
+
 ## ⌨️ Hardware Control: OpenRGB & Native In-Tree Thermals
 
 AWCC has been retired from the image layer:

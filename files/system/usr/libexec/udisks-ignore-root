@@ -1,0 +1,49 @@
+#!/bin/sh
+# Mark the running root device as UDISKS_IGNORE=1.
+#
+# Why: udisks/Dolphin/Filelight can mount the root btrfs device on top of "/",
+# hiding the composefs root and breaking /usr exec, mount namespaces and user
+# namespaces (Flatpak/Steam/rpm-ostree/Podman). Upstream: ublue-os/bazzite#5145.
+#
+# Called by udev through IMPORT{program}; it must print KEY=value lines.
+# It must never fail hard: an error here would only skip one device.
+#
+# Test seam (not set by udev): CMDLINE_FILE overrides /proc/cmdline, so the
+# UUID/PARTUUID/LABEL//dev branches can be exercised without rebooting.
+set -u
+
+cmdline_file=${CMDLINE_FILE:-/proc/cmdline}
+[ -r "$cmdline_file" ] || exit 0
+
+root=$(tr ' ' '\n' <"$cmdline_file" | sed -n 's/^root=//p' | head -n 1)
+[ -n "$root" ] || exit 0
+
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+case $root in
+UUID=*)
+	want=$(lower "${root#UUID=}")
+	[ "$(lower "${ID_FS_UUID:-}")" = "$want" ] && printf 'UDISKS_IGNORE=1\n'
+	;;
+PARTUUID=*)
+	want=$(lower "${root#PARTUUID=}")
+	[ "$(lower "${ID_PART_ENTRY_UUID:-}")" = "$want" ] && printf 'UDISKS_IGNORE=1\n'
+	;;
+LABEL=*)
+	want=${root#LABEL=}
+	[ "${ID_FS_LABEL:-}" = "$want" ] || [ "${ID_FS_LABEL_ENC:-}" = "$want" ] &&
+		printf 'UDISKS_IGNORE=1\n'
+	;;
+PARTLABEL=*)
+	[ "${ID_PART_ENTRY_NAME:-}" = "${root#PARTLABEL=}" ] && printf 'UDISKS_IGNORE=1\n'
+	;;
+/dev/*)
+	dev=$root
+	if [ -e "$dev" ]; then
+		dev=$(readlink -f "$dev" 2>/dev/null || printf '%s' "$dev")
+	fi
+	[ "${DEVNAME:-}" = "$dev" ] && printf 'UDISKS_IGNORE=1\n'
+	;;
+esac
+
+exit 0
