@@ -14,7 +14,10 @@ kargs = [
   "kvm.ignore_msrs=1",
   "kvm.report_ignored_msrs=0",
   "intel_iommu=on",
-  "iommu=pt",
+  # "iommu=pt" is deliberately absent: EAC Linux v2 requires IOMMU with
+  # passthrough *disabled* (ujust check-anticheat), and strict mode still
+  # supports VFIO. Add it per host with `rpm-ostree kargs --append=iommu=pt`
+  # if the identity-map performance matters more than the readiness check.
   "nvidia-drm.modeset=1",
 ]
 EOF

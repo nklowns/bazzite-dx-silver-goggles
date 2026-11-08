@@ -395,6 +395,13 @@ The precedence decides the default rather than hiding it: the unlock is **opt-in
 Keeping it buys BF16/compute on GA106M and costs EAC readiness; deleting it (`mokutil --delete`,
 then the MOK manager at reboot) does the reverse. No configuration provides both.
 
+The layer also used to add `iommu=pt`, which the same check rejects ("IOMMU enabled, passthrough
+disabled"). It is gone from `30-kargs.sh`: `intel_iommu=on` alone keeps VFIO working in strict mode,
+and a host that prefers the identity-map performance can put it back with
+`rpm-ostree kargs --append=iommu=pt`. The remaining failures on this machine — the stale `zorin`,
+`grub` and `fedora_*` keys, `lockdown=integrity`, `kexec_load_disabled=1` — are host security
+choices, not this layer's kargs.
+
 #### What max fan actually buys (measured, so stop guessing)
 
 `stress-ng --cpu 20` for 80 s on AC, same load under both profiles:

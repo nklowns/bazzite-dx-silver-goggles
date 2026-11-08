@@ -50,7 +50,7 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
 
 ### 🛠️ Configuração Básica da VM
 1.  **Verificar Infraestrutura de Virtualização (IOMMU):**
-    Na imagem `bazzite-dx-silver-goggles`, os kargs `intel_iommu=on`, `iommu=pt` e `kvm.ignore_msrs=1` já vêm **baked no build da imagem** via `build_files/30-kargs.sh`. Nenhum passo manual de habilitação é necessário. Para desabilitá-los, `ujust setup-virtualization virt-off` usa `rpm-ostree kargs --delete-if-present`, que funciona mesmo em kargs baked — o OSTree mantém a remoção através de updates.
+    Na imagem `bazzite-dx-silver-goggles`, o karg `intel_iommu=on` (IOMMU em modo estrito) e `kvm.ignore_msrs=1` já vêm **baked no build da imagem** via `build_files/30-kargs.sh`. Nenhum passo manual de habilitação é necessário. `iommu=pt` **não** vem de fábrica: ele desliga o mapeamento identitário exigido pelo `ujust check-anticheat` (EAC Linux v2). Se você quiser a otimização de performance para dispositivos fora de passthrough, adicione por host com `rpm-ostree kargs --append=iommu=pt` e aceite o trade-off. Para desabilitá-los, `ujust setup-virtualization virt-off` usa `rpm-ostree kargs --delete-if-present`, que funciona mesmo em kargs baked — o OSTree mantém a remoção através de updates.
 
     Para confirmar que IOMMU está ativo no sistema atual:
     ```bash
