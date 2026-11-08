@@ -91,3 +91,50 @@ jobs:
           build_chunked_oci: false
           # Custom build options (conditional signing)
           build_opts: "${{ secrets.SIGNING_SECRET == '' && '--no-sign' || '' }}"
+
+  # Phase 1 of the rewrite: prove the Containerfile reproduces the image the
+  # BlueBuild recipe produces. Publishing still goes through the job above until
+  # this one is the only build.
+  containerfile:
+    name: Build (Containerfile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Free disk space
+        uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v1.1.0
+
+      - name: Stage signed gpu-unlock kmod
+        # Same fail-soft contract as the BlueBuild job: the sign job only runs on main.
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: gpu-unlock-kmod
+          path: files/system/usr/share/silver-goggles/kmod-staging
+
+      - name: Resolve pinned base
+        id: base
+        run: |
+          set -euo pipefail
+          img=$(yq '.images[] | select(.name == "bazzite-nvidia") | .image' image-versions.yaml)
+          tag=$(yq '.images[] | select(.name == "bazzite-nvidia") | .tag' image-versions.yaml)
+          sha=$(yq '.images[] | select(.name == "bazzite-nvidia") | .digest' image-versions.yaml)
+          {
+            echo "image=$img"
+            echo "tag=$tag"
+            echo "digest=$sha"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Build with podman
+        run: |
+          podman build \
+            --build-arg BASE_IMAGE="${{ steps.base.outputs.image }}:${{ steps.base.outputs.tag }}" \
+            --build-arg BASE_IMAGE_DIGEST="${{ steps.base.outputs.digest }}" \
+            -t local/silver-goggles .
+
+      - name: Verify image contents
+        run: bash scripts/verify-image.sh local/silver-goggles

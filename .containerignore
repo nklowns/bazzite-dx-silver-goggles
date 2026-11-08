@@ -1,0 +1,9 @@
+# Keep the build context small: only the files the Containerfile COPYs are needed.
+.git
+.github
+docs
+output
+recipes
+*.qcow2
+*.raw
+*.iso

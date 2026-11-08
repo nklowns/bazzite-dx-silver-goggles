@@ -1,0 +1,5 @@
+uxplay
+usbmuxd
+libimobiledevice-utils
+ifuse
+ideviceinstaller
