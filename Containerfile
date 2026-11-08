@@ -29,6 +29,6 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
     --mount=type=cache,dst=/var/cache/dnf \
     --mount=type=tmpfs,dst=/tmp \
-    /ctx/build_files/build.sh
+    bash /ctx/build_files/build.sh
 
 CMD ["/sbin/init"]
