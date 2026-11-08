@@ -4,6 +4,7 @@
 # Global Exports & Configuration
 
 export image_name := env("IMAGE_NAME", "bazzite-dx-silver-goggles")
+export image_vendor := env("IMAGE_VENDOR", "nklowns")
 export default_tag := env("DEFAULT_TAG", "latest")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
 export PODMAN := if path_exists("/usr/bin/podman") == "true" { env("PODMAN", "/usr/bin/podman") } else if path_exists("/usr/bin/docker") == "true" { env("PODMAN", "docker") } else { env("PODMAN", "exit 1 ; ") }

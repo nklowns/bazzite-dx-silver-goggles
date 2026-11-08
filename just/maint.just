@@ -2,7 +2,7 @@
 # GROUP 1: Utility (Maintenance & CI)
 # ==============================================================================
 
-# Check Just Syntax and BlueBuild Recipe
+# Check Just syntax, workflows, pins, scripts and Quadlets
 [group('Just')]
 check:
     #!/usr/bin/env bash
@@ -10,7 +10,7 @@ check:
     # version of this reported success for everything except `just lint`. Measured: with
     # `{{{{.Names}}}}` written unescaped in 68-nomad.just, `just --fmt --check` printed
     #     error: unknown start of token '.'
-    # and `just check` still exited 0. Justfile syntax, both bluebuild validations and the
+    # and `just check` still exited 0. Justfile syntax, the workflow/action checks and the
     # zsh/fish parses were all being discarded the same way. Collect into rc and exit on it.
     set -uo pipefail
     rc=0
@@ -19,15 +19,35 @@ check:
     while IFS= read -r -d '' file; do
     	echo "Checking syntax: $file"
     	just --unstable --fmt --check -f "$file" || rc=1
-    done < <(find . -type f -name '*.just' -not -path './.git/*' -print0)
+    done < <(find . -type f -name '*.just' -not -path './.git/*' -not -path './.claude/*' -print0)
     echo "Checking syntax: Justfile"
     just --unstable --fmt --check -f Justfile || rc=1
-    if [ -f recipes/recipe.yml ]; then
-      echo "Validating BlueBuild recipe..."
-      bluebuild validate recipes/recipe.yml || rc=1
-      echo "Validating generated build recipe (what CI actually ships)..."
-      just generate-recipe "bazzite-nvidia" "latest" || rc=1
-      bluebuild validate recipes/build-recipe.yml || rc=1
+    # Pin consistency: image-versions.yaml is the single source of truth; the
+    # Containerfile default exists only so a bare `podman build .` works.
+    echo "Checking base pin consistency..."
+    # yq -e fails when the entry is missing, and the non-empty check below
+    # stops the comparison from passing vacuously against "ARG ...=".
+    if ! want="$(yq -e -r '.images[] | select(.name == "bazzite-nvidia") | .image + ":" + .tag + "@" + .digest' image-versions.yaml 2>/dev/null)"; then
+      echo "❌ image-versions.yaml has no 'bazzite-nvidia' entry"
+      rc=1
+    elif [[ -z "$want" ]]; then
+      echo "❌ resolved base pin is empty"
+      rc=1
+    elif grep -qxF -- "ARG BASE_IMAGE_REF=${want}" Containerfile; then
+      echo "ok: Containerfile matches ${want}"
+    else
+      echo "❌ Containerfile BASE_IMAGE_REF diverges from image-versions.yaml (${want})"
+      rc=1
+    fi
+
+    echo "Linting GitHub Actions workflows..."
+    if command -v actionlint >/dev/null 2>&1; then
+      actionlint || rc=1
+    elif command -v "${PODMAN}" >/dev/null 2>&1; then
+      ${PODMAN} run --rm -v "$PWD:/repo:Z" -w /repo docker.io/rhysd/actionlint:latest || rc=1
+    else
+      echo "❌ actionlint not available (brew install actionlint or a container engine)." >&2
+      rc=1
     fi
     echo "Validating Renovate configuration..."
     renovate_configs=()
@@ -40,7 +60,7 @@ check:
     			ghcr.io/renovatebot/renovate:latest \
     			renovate-config-validator || rc=1
     	elif command -v npx &>/dev/null; then
-    		npx --yes @renovatebot/config-validator "${renovate_configs[@]}" || rc=1
+    		npx --yes --package renovate renovate-config-validator "${renovate_configs[@]}" || rc=1
     	else
     		echo "SKIP: no container engine or npx available; cannot validate Renovate config." >&2
     	fi
@@ -72,7 +92,7 @@ check:
 [group('Just')]
 fix:
     #!/usr/bin/env bash
-    find . -type f -name "*.just" | while read -r file; do
+    find . -type f -name "*.just" -not -path "./.claude/*" | while read -r file; do
     	echo "Fixing syntax: $file"
     	just --unstable --fmt -f "$file"
     done
@@ -81,16 +101,21 @@ fix:
     echo "Formatting Bash scripts..."
     just format
 
+# Verify a built image against the repository contract
+[group('Build')]
+verify img="localhost/{{ image_name }}:{{ default_tag }}":
+    bash scripts/verify-image.sh "{{ img }}"
+
 # Runs shell check on all scripts (ShellCheck for Bash, zsh -n for Zsh, fish -n for Fish)
 [group('Utility')]
 lint:
     #!/usr/bin/env bash
-    set -eoux pipefail
+    set -eou pipefail
     # 1. ShellCheck for Bash/Sh — containerized by default (hermetic build tooling);
     # host binary (dnf/brew) only as fallback. Batched in a single run so the
     # tool's exit code propagates (find -exec ';' silently swallows failures).
     echo "Running ShellCheck on Bash/Sh scripts..."
-    mapfile -d '' bash_scripts < <(/usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print0)
+    mapfile -d '' bash_scripts < <(/usr/bin/find . -type f -not -path "./.git/*" -not -path "./.claude/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print0)
     if [ "${#bash_scripts[@]}" -eq 0 ]; then
         echo "No Bash/Sh scripts found."
     elif command -v "${PODMAN}" &>/dev/null; then
@@ -108,7 +133,7 @@ lint:
     # Missing interpreter is a hard error: find -exec used to swallow it and CI
     # stayed green while never checking anything.
     echo "Running syntax check on Zsh scripts..."
-    mapfile -d '' zsh_files < <(/usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.zsh" -o -exec grep -qE '^#!.*\<zsh\>' {} \; \) -print0)
+    mapfile -d '' zsh_files < <(/usr/bin/find . -type f -not -path "./.git/*" -not -path "./.claude/*" \( -iname "*.zsh" -o -exec grep -qE '^#!.*\<zsh\>' {} \; \) -print0)
     if [ "${#zsh_files[@]}" -eq 0 ]; then
         echo "No Zsh scripts found."
     elif command -v zsh &>/dev/null; then
@@ -123,7 +148,7 @@ lint:
 
     # 3. Fish Syntax Check — same rules as Zsh above.
     echo "Running syntax check on Fish scripts..."
-    mapfile -d '' fish_files < <(/usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.fish" -o -exec grep -qE '^#!.*\<fish\>' {} \; \) -print0)
+    mapfile -d '' fish_files < <(/usr/bin/find . -type f -not -path "./.git/*" -not -path "./.claude/*" \( -iname "*.fish" -o -exec grep -qE '^#!.*\<fish\>' {} \; \) -print0)
     if [ "${#fish_files[@]}" -eq 0 ]; then
         echo "No Fish scripts found."
     elif command -v fish &>/dev/null; then
@@ -145,7 +170,7 @@ format:
     # host binary (dnf/brew) only as fallback. Batched: one container per tool,
     # exit code propagates (find -exec ';' silently swallows failures).
     echo "Formatting Bash/Sh scripts..."
-    mapfile -d '' bash_scripts < <(/usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print0)
+    mapfile -d '' bash_scripts < <(/usr/bin/find . -type f -not -path "./.git/*" -not -path "./.claude/*" \( -iname "*.sh" -o -exec grep -qE '^#!.*(\<bash\>|\<sh\>)' {} \; \) -print0)
     if [ "${#bash_scripts[@]}" -eq 0 ]; then
         echo "No Bash/Sh scripts found."
     elif command -v "${PODMAN}" &>/dev/null; then
@@ -161,7 +186,7 @@ format:
 
     # 2. shfmt for Zsh
     echo "Formatting Zsh scripts..."
-    mapfile -d '' zsh_scripts < <(/usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.zsh" -o -exec grep -qE '^#!.*\<zsh\>' {} \; \) -print0)
+    mapfile -d '' zsh_scripts < <(/usr/bin/find . -type f -not -path "./.git/*" -not -path "./.claude/*" \( -iname "*.zsh" -o -exec grep -qE '^#!.*\<zsh\>' {} \; \) -print0)
     if [ "${#zsh_scripts[@]}" -eq 0 ]; then
         echo "No Zsh scripts found."
     elif command -v "${PODMAN}" &>/dev/null; then
@@ -178,7 +203,7 @@ format:
     # 3. fish_indent for Fish (part of the fish package) — loop so a failure
     # propagates via set -e; missing tool is a hard error, not a silent skip.
     echo "Formatting Fish scripts..."
-    mapfile -d '' fish_files < <(/usr/bin/find . -type f -not -path "./.bluebuild*" -not -path "./.git/*" \( -iname "*.fish" -o -exec grep -qE '^#!.*\<fish\>' {} \; \) -print0)
+    mapfile -d '' fish_files < <(/usr/bin/find . -type f -not -path "./.git/*" -not -path "./.claude/*" \( -iname "*.fish" -o -exec grep -qE '^#!.*\<fish\>' {} \; \) -print0)
     if [ "${#fish_files[@]}" -eq 0 ]; then
         echo "No Fish scripts found."
     elif command -v fish_indent &>/dev/null; then

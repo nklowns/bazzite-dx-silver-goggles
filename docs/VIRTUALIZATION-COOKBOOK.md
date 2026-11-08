@@ -50,7 +50,7 @@ Esta configuração mantém a **GPU NVIDIA ativa no seu host Linux (Bazzite)** o
 
 ### 🛠️ Configuração Básica da VM
 1.  **Verificar Infraestrutura de Virtualização (IOMMU):**
-    Na imagem `bazzite-dx-silver-goggles`, os kargs `intel_iommu=on`, `iommu=pt` e `kvm.ignore_msrs=1` já vêm **baked no build da imagem** via `silver-goggles.yml`. Nenhum passo manual de habilitação é necessário. Para desabilitá-los, `ujust setup-virtualization virt-off` usa `rpm-ostree kargs --delete-if-present`, que funciona mesmo em kargs baked — o OSTree mantém a remoção através de updates.
+    Na imagem `bazzite-dx-silver-goggles`, os kargs `intel_iommu=on`, `iommu=pt` e `kvm.ignore_msrs=1` já vêm **baked no build da imagem** via `build_files/30-kargs.sh`. Nenhum passo manual de habilitação é necessário. Para desabilitá-los, `ujust setup-virtualization virt-off` usa `rpm-ostree kargs --delete-if-present`, que funciona mesmo em kargs baked — o OSTree mantém a remoção através de updates.
 
     Para confirmar que IOMMU está ativo no sistema atual:
     ```bash
@@ -232,7 +232,7 @@ O ecossistema Fedora Silverblue/Bazzite fornece diferentes ferramentas para inte
         > ```
         > Ao escutar em `127.0.0.1`, o VNC permanece restrito e seguro contra acessos diretos da rede, mas o Cockpit (que roda no Host) consegue se conectar localmente a ele e renderizar a tela como HTML5/WebSockets remotamente.
 *   **Como Garantir que Está Ativo:**
-    O `cockpit.socket` já vem habilitado por padrão nesta imagem (declarado em `dx.yml`). Para verificar:
+    O `cockpit.socket` já vem habilitado por padrão nesta imagem (declarado em `build_files/20-services.sh`). Para verificar:
     ```bash
     systemctl is-active cockpit.socket   # deve retornar "active"
     systemctl is-enabled cockpit.socket  # deve retornar "enabled"
@@ -794,7 +794,7 @@ Abaixo, veja a tabela de referência rápida de atalhos e comandos para ligar e 
 | **Pasta Virtio-FS (SELinux)** | `ujust setup-virtualization vfs-workspace-on` | `ujust setup-virtualization vfs-workspace-off` |
 | **Isolar GPU NVIDIA (VFIO)** | `ujust setup-virtualization vfio-on` | `ujust setup-virtualization vfio-off` |
 | **KVMFR / Looking Glass** | `ujust setup-virtualization kvmfr-on` | `ujust setup-virtualization kvmfr-off` — totalmente reversível via masking |
-| **Console Web Cockpit** | Já habilitado por padrão (`cockpit.socket` em `dx.yml`) — verificar: `systemctl is-active cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
+| **Console Web Cockpit** | Já habilitado por padrão (`cockpit.socket` em `build_files/20-services.sh`) — verificar: `systemctl is-active cockpit.socket` | `sudo systemctl disable --now cockpit.socket` |
 | **Grupo de Usuário Libvirt** | `ujust setup-virtualization group` | `sudo gpasswd -d $USER libvirt` |
 | **RDP Relay no Host (VPN Bypass)** | `sudo firewall-cmd --zone=external --add-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` | `sudo firewall-cmd --zone=external --remove-forward-port=port=3389:proto=tcp:toport=3389:toaddr=192.168.100.2 --permanent && sudo firewall-cmd --reload` |
 | **Túnel SSH para RDP (Rootless)** | `ssh -L 33890:192.168.100.2:3389 seu-usuario@<IP-Tailscale-do-Host>` | Encerrar a sessão SSH no terminal do cliente local |
@@ -846,10 +846,10 @@ sudo semodule -r kvmfr 2>/dev/null || true
 > Em vez de apagar o arquivo completamente (o que excluiria todas as opções padrão e outras customizações importantes), edite `/etc/libvirt/qemu.conf` e remova a entrada `"/dev/kvmfr0"` da lista `cgroup_device_acl`. Delete o arquivo com `sudo rm` apenas se tiver certeza de que ele foi criado do zero pelo script e não contém nenhuma outra configuração.
 
 ### C. Desinstalar o Looking Glass Client do Host
-Como o `looking-glass-client` já vem pré-instalado como um pacote base embutido na imagem `bazzite-dx-silver-goggles` (declarado em [recipes/silver-goggles.yml](recipes/silver-goggles.yml#L29)), você não pode desinstalá-lo no host via `rpm-ostree uninstall`.
+Como o `looking-glass-client` já vem pré-instalado como um pacote base embutido na imagem `bazzite-dx-silver-goggles` (declarado em [packages/hardware.txt](packages/hardware.txt)), você não pode desinstalá-lo no host via `rpm-ostree uninstall`.
 
 Para removê-lo de forma declarativa e definitiva da imagem:
-1. Remova a linha `- looking-glass-client` sob a seção de pacotes em [recipes/silver-goggles.yml](recipes/silver-goggles.yml#L29).
+1. Remova a linha `- looking-glass-client` sob a seção de pacotes em [packages/hardware.txt](packages/hardware.txt).
 2. Recompile a imagem localmente e aplique no seu host:
    ```bash
    just build
@@ -880,7 +880,7 @@ Nos sistemas baseados em Fedora Atomic (ostree-like), a imagem é declarativa e 
 1. Durante atualizações ou rebases, o ostree executa um merge de 3 vias (3-way merge) para mesclar as alterações de configuração no `/etc`.
 2. Às vezes, este merge gera inconsistências locais nos bancos de dados de usuários e grupos (especialmente no `/etc/gshadow` e `/etc/group`), por exemplo, adicionando uma referência de grupo sem adicionar o respectivo usuário correspondente.
 3. O `systemd-sysusers` (responsável por instanciar dinamicamente usuários e grupos do sistema no boot a partir de `/usr/lib/sysusers.d/*.conf`) falha de forma fatal ao encontrar qualquer inconsistência, como a existência parcial de um grupo/membro no `/etc/gshadow` que não está no `/etc/group`. Isso interrompe a criação do usuário `qemu` (e de outros como `clevis`, `dhcpcd` etc.), travando os daemons de virtualização que dependem deles.
-4. **Por que não pode ser 100% declarativo?** O sistema de build (BlueBuild) define a configuração da imagem no repositório de forma declarativa (incluindo pacotes e arquivos sob `/usr/lib/sysusers.d`), mas ele não pode sobrescrever de forma arbitrária o estado persistente do `/etc` do cliente para não violar dados de login locais. Portanto, em caso de inconsistência de arquivos de credenciais locais, uma correção manual ou via scripts de runtime é requerida.
+4. **Por que não pode ser 100% declarativo?** O sistema de build (Containerfile + `build_files/`) define a configuração da imagem no repositório de forma declarativa (incluindo pacotes e arquivos sob `/usr/lib/sysusers.d`), mas ele não pode sobrescrever de forma arbitrária o estado persistente do `/etc` do cliente para não violar dados de login locais. Portanto, em caso de inconsistência de arquivos de credenciais locais, uma correção manual ou via scripts de runtime é requerida.
 
 ### 🛠️ Resolução da Inconsistência no Host (Passo a Passo)
 

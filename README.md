@@ -1,7 +1,7 @@
 # Bazzite-DX-Silver-Goggles
 
 > [!WARNING]
-> I built this image for me. You may use it yourself, of course, but I provide no support. I strongly suggest learning how to customize your own image using the [ublue image template](https://github.com/ublue-os/image-template). Documentation can be found [here.](https://blue-build.org/)
+> I built this image for me. You may use it yourself, of course, but I provide no support. I strongly suggest learning how to customize your own image using the [ublue image template](https://github.com/ublue-os/image-template). Documentation for building your own image can be found in the [ublue image template](https://github.com/ublue-os/image-template).
 
 **My system:** Dell G15 5520 Laptop, 12th Generation Intel Core i7-12700H, NVIDIA GeForce RTX 3060 6GB, 64GB DDR5 RAM
 **Base image:** [Bazzite DX (KDE/NVIDIA)](https://bazzite.gg/) — _Slim edition: built specifically for my Dell G15 setup._
@@ -19,33 +19,37 @@
 
 # Architecture & Build Logic
 
-This image follows the **"Developer Experience (DX) Customization Layer"** pattern. It extends `bazzite-dx` with hardware-specific logic using a **modular BlueBuild** architecture. While the build structure is declarative, specific branding and system policies are encapsulated in **local imperative modules** for maximum flexibility.
+This image is a **Developer Experience (DX) customization layer** over Bazzite. It is built by a plain [`Containerfile`](Containerfile) plus numbered scripts in [`build_files/`](build_files), the same pattern used by `bazzite`, `bazzite-dx` and `ublue-os/image-template`.
 
 ```mermaid
 graph TD
-    A[Bazzite-DX Base] --> B[recipes/recipe.yml]
-    B --> C[BlueBuild Modules]
-    C --> C1[kargs: Kernel Tuning]
-    C --> C2[files: Static Overlays]
-    C --> C5[justfiles: Host Recipes]
-    C --> C6[Local Scripts: Encapsulated Logic]
+    A[bazzite-nvidia base] --> B[Containerfile]
+    B --> C[build_files/NN-*.sh]
+    C --> C1[packages/*.txt]
+    C --> C2[files/system overlay]
+    C --> C3[kargs.d]
+    C --> C4[ujust recipes]
+    C --> C5[signing policy]
 ```
 
-## Modular Architecture (BlueBuild)
+## Build Model
 
-The build is orchestrated by [`recipes/recipe.yml`](recipes/recipe.yml), combining declarative state with targeted script execution:
+The build is orchestrated by `Containerfile`, which runs `build_files/build.sh`. Each step is a small script, executed in order:
 
-- **Declarative Modules**: `kargs`, `justfiles`, and `files` manage the static state of the image.
-- **Encapsulated Logic Modules**: Local modules (`dx-flavor`, `dx-hardening`, etc.) perform dynamic transformations (like branding and DM policy) during the build process, ensuring the final image is pre-configured for the Dell G15.
-- **Justfiles**: Local G15 recipes in `files/justfiles/66-silver-goggles.just` are injected into the image as modular `ujust` commands.
-- **Boot-time Tuning**: Kernel arguments are injected via `bootc` — the [official bootc pattern](https://containers.github.io/bootc/building/kernel-arguments.html).
+- **Packages** live in `packages/{dx,hardware,casting}.txt`, one list per domain, including the reasons some packages are deliberately **not** installed.
+- **Static state** lives in `files/system/`, which mirrors `/` and is copied verbatim.
+- **Kernel arguments** go to `/usr/lib/bootc/kargs.d`, the official bootc pattern.
+- **ujust recipes** are installed by `build_files/50-justfiles.sh`.
+- **Signing** ships the public key and the container policy, so the host can verify its own updates.
+
+There is no recipe generator and no custom schema: adding a package is one line, adding a file is one file.
 
 ## Enterprise Declarative Patterns
 
 1. **Atomic Symlinks (`tmpfiles.d`)**: Managed via `L+` symlinks in `files/system/usr/lib/tmpfiles.d/`. The root filesystem is the single source of truth — no `flatpak override` commands.
 2. **Global Environment (`environment.d`)**: Variables like `CHROME_EXTRA_FLAGS` are set in `files/system/usr/lib/environment.d/`, ensuring consistency between Wayland, X11, and terminal sessions.
 3. **Service Orchestration**:
-   - Services are enabled via **Systemd Presets** (`files/system/usr/lib/systemd/system-preset/`).
+   - Services are enabled or masked in `build_files/20-services.sh` (`systemctl -f enable` / `systemctl -f mask`), so the image state is explicit. Presets are only used when a package ships one.
    - Conflicting services are **masked in-image** (symlinked to `/dev/null`) for absolute determinism:
      - `thermald.service`: Prevents aggressive userspace RAPL throttling, allowing native EC/PROCHOT and platform-profile thermal management.
      - `systemd-udev-settle.service`: Fixes boot hangs with VFIO/IOMMU kargs.
@@ -66,17 +70,10 @@ rpm-ostree rebase ostree-image-signed:docker://ghcr.io/nklowns/bazzite-dx-silver
 
 | Category        | Commands                                                                                         |
 | --------------- | ------------------------------------------------------------------------------------------------ |
-| **Check**       | `just check` (syntax + shellcheck + flatpak validation)                                          |
+| **Check**       | `just check` (Just syntax, actionlint, Renovate, pin consistency, ShellCheck, Quadlets)           |
 | **Build**       | `just build`, `just build-nocache`                                                               |
 | **Apply**       | `just rebase-local` (full image rebase)                                                          |
 | **Safety**      | `just rollback-local`, `just rebase-official`                                                     |
-
-### `bluebuild` CLI (required for `just build`)
-
-```bash
-podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
-# Installs to /usr/local/bin/bluebuild
-```
 
 ---
 

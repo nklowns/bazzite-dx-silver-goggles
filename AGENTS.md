@@ -2,17 +2,17 @@
 
 Single source of truth for AI agents in this repository (`CLAUDE.md` and `GEMINI.md` are symlinks to this file).
 
-Developer Experience (DX) customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 45. Builds a declarative, immutable OCI container image with the [BlueBuild](https://blue-build.org) framework.
+Developer Experience (DX) customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 45. Builds an immutable OCI image with a plain `Containerfile` plus numbered build scripts, following the uBlue image pattern.
 
-- **Base image**: `ghcr.io/ublue-os/bazzite-nvidia` — DX tooling is applied by this repo's own `recipes/dx.yml`, following `bazzite-dx` patterns.
-- **Entry point**: `recipes/recipe.yml`. Everything flows from there.
+- **Base image**: `ghcr.io/ublue-os/bazzite-nvidia`, pinned in `image-versions.yaml`. DX tooling is applied by `build_files/` and `files/system/`.
+- **Entry point**: `Containerfile`. Everything flows from there.
 - Use the `[Silver Goggles]` prefix for agent-created issues or messages.
 
 ## 🛠️ Commands
 
 ```bash
-just check          # Validate: Just syntax + bluebuild validate + ShellCheck
-just build          # Compile image via BlueBuild (requires podman/docker)
+just check          # Validate: Just syntax, actionlint, pin consistency, ShellCheck
+just build          # Build the image locally with podman
 just rebase-local   # Apply built image to running system (reboot required)
 just rollback-local # Undo last rebase (reboot required)
 just rebase-official # Return to upstream Bazzite image (reboot required)
@@ -24,13 +24,10 @@ just clean          # Remove build artifacts
 
 just status         # Image config, local images, tooling versions
 just g15-status     # Dell G15 hardware health check
-just act            # Simulate GitHub Actions locally (requires --privileged for buildah)
+just act            # Simulate GitHub Actions locally (requires --privileged for podman)
 ```
 
-Requirements: `just`, `podman` (or `docker`), `bluebuild` CLI. Install the CLI if missing:
-```bash
-podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
-```
+Requirements: `just`, `podman` (or `docker`), `yq`, `actionlint` (or a container engine so `just check` can run it).
 
 ## 🔌 Reserved Port Range (DX Services)
 
@@ -57,12 +54,12 @@ Adding a new always-on DX service: pick the next free port in `61300-61399`, wir
 
 ## 🥾 Boot Impact Policy (this is a gaming + dev box, not a server)
 
-Bazzite serves two conflicting jobs on the same hardware — play and develop — and every service enabled at boot is CPU/RAM/VRAM the game or the build isn't getting, plus slower cold start. The only things this layer's own recipes enable by default are:
+Bazzite serves two conflicting jobs on the same hardware — play and develop — and every service enabled at boot is CPU/RAM/VRAM the game or the build isn't getting, plus slower cold start. The only things this layer's own build enables by default are:
 
 - **`tailscale` + `sunshine`** — the actual remote-access path into the system, and the one thing that stays on. Note the mechanism, because it was described wrongly here before: neither is enabled *by the image*. `tailscaled.service` ships `preset: disabled` and is turned on by upstream's own `ujust tailscale enable` (`80-bazzite.just`); Sunshine likewise. They show up in `ujust boot-audit` as "enabled outside the image" and that is correct and intended — the audit reports facts, it does not label them violations.
-- Socket-activated units already established pre-NOMAD (`cockpit.socket`, `docker.socket`, `podman.socket`, `virtqemud.socket` and siblings in `recipes/dx.yml`) — near-zero idle cost since the daemon only spawns on first connection. Not something this change revisits.
+- Socket-activated units already established pre-NOMAD (`cockpit.socket`, `docker.socket`, `podman.socket`, `virtqemud.socket` and siblings in `build_files/20-services.sh`) — near-zero idle cost since the daemon only spawns on first connection. Not something this change revisits.
 
-Everything else — **NOMAD (Command Center, mysql, redis, dozzle, nomad-llama, and any Supply Depot app), code-server, VS Code Remote Tunnels, casting receivers (uxplay/FCast/scrcpy)** — is opt-in: `nomad.yml`/`casting.yml` carry no `systemd` module at all, so their units ship inert until a `ujust ...-up`/`...-setup` call activates them. **Do not add a `systemd: enabled:` block to `nomad.yml` or `casting.yml`** — that would turn an on-demand feature into permanent background load (mysql/redis daemons, a container socket held open, VRAM pressure from nomad-llama) fighting the same RTX 3060 a game session needs. If a future service seems to want boot-enablement, that's a signal to re-check this policy with the user first, not a default to reach for.
+Everything else — **NOMAD (Command Center, mysql, redis, dozzle, nomad-llama, and any Supply Depot app), code-server, VS Code Remote Tunnels, casting receivers (uxplay/FCast/scrcpy)** — is opt-in: those units ship inert and only a `ujust ...-up`/`...-setup` call starts them. **Do not add them to `build_files/20-services.sh`** — that would turn an on-demand feature into permanent background load (mysql/redis daemons, a container socket held open, VRAM pressure from nomad-llama) fighting the same RTX 3060 a game session needs. If a future service seems to want boot-enablement, that's a signal to re-check this policy with the user first, not a default to reach for.
 
 ### Lingering & User Service Policy
 
@@ -74,51 +71,59 @@ User lingering is enabled on this host (`Linger=yes`). Consequently, an enabled 
 
 ## 🏗️ Architecture
 
-### Modular Hybrid Build Model
+### Build Model
 
 ```
-recipe.yml              ← Entry point (declarative orchestration)
-├── files module        ← Overlays files/system/ onto /
-├── dx.yml              ← EXTENSIONS: Cockpit, Docker, Libvirt, eBPF tools, fonts
-│   └── local modules   ← Encapsulated logic: dx-flavor (branding/policy), dx-udev
-├── silver-goggles.yml  ← HARDWARE: Dell G15 kargs, in-tree services, thermald mask
-├── casting.yml         ← CASTING: AirPlay/FCast/scrcpy receivers + iOS bridges (opt-in via ujust)
-├── nomad.yml           ← OFFLINE KNOWLEDGE & AI: Project NOMAD (Quadlet units + ujust; nothing enabled)
-├── initramfs module
-├── dx-verify           ← System integrity auditor (custom module in modules/)
-├── os-release          ← OCI metadata
-└── signing             ← cosign
+Containerfile           ← Entry point: FROM pinned base, RUN build.sh
+└── build_files/        ← numbered steps, executed in order
+    ├── 00-files.sh     ← overlays files/system/ onto /
+    ├── 10-packages.sh  ← packages/*.txt + build-time repos
+    ├── 20-services.sh  ← unit enable/mask (systemctl at build time)
+    ├── 30-kargs.sh     ← /usr/lib/bootc/kargs.d
+    ├── 31-udev.sh      ← hardware groups
+    ├── 40-branding.sh  ← identity, display-manager policy, os-release
+    ├── 50-justfiles.sh ← ujust surface + imports
+    ├── 55-cockpit.sh   ← Cockpit extensions
+    ├── 70-gpu-unlock.sh← signed kmod, before initramfs
+    ├── 80-initramfs.sh ← dracut
+    ├── 85-signing.sh   ← container policy + public key
+    ├── 90-verify.sh    ← image contract
+    └── 99-cleanup.sh   ← transient repos, caches
 ```
 
-`recipes/build-recipe.yml` is **generated** by `scripts/generate-recipe.sh` at CI time — never edit it manually.
+Package lists live in `packages/{dx,hardware,casting}.txt`, one per domain, and
+carry the "deliberately not installed" reasons. There is no recipe generator and
+no schema: adding a package is one line, adding a file is one file.
 
-### Expert Monolith Layers
+### Layers
 
-1. **CORE** — Fedora/uBlue base modules (`bazzite-nvidia` upstream).
-2. **EXTENSIONS** — extra packages and repos (`dx.yml`).
-3. **TUNING** — kernel and performance optimization (native `kargs` module).
-4. **HARDWARE** — Dell G15 customization (in-tree thermals, dGPU, services).
-5. **IDENTITY** — visual identity and branding.
-6. **OFFLINE KNOWLEDGE & AI** — Project NOMAD offline stack (`nomad.yml`).
+1. **CORE** — Fedora/uBlue base (`bazzite-nvidia` upstream).
+2. **HARDWARE** — Dell G15 kargs, thermals, GPU unlock, guard rails.
+3. **DX** — engines (containers, virt, remote, observability) and Cockpit.
+4. **CAPABILITIES** — NOMAD, Agent Mesh, AI Studio, casting: Quadlets and ujust,
+   nothing enabled at boot.
+5. **IDENTITY** — branding and os-release.
 
 ### Key Directories
 
 | Path | Purpose |
 |------|---------|
-| `recipes/` | Build declarations (`recipe.yml`, `dx.yml`, `silver-goggles.yml`, `casting.yml`, `nomad.yml`, generated `build-recipe.yml`) |
+| `Containerfile` | Entry point: base pin, OCI labels, build invocation |
+| `build_files/` | Numbered build steps, executed in order by `build.sh` |
+| `packages/` | Package lists per domain, with the reasons things are **not** installed |
 | `files/system/` | Static files overlaid onto `/` at build time via the `files` module |
 | `files/system/usr/lib/tmpfiles.d/` | Atomic symlinks (L+ pattern) — Flatpak overrides and symlinks |
 | `files/system/usr/lib/environment.d/` | System-wide environment variables (CHROME_EXTRA_FLAGS, etc.) |
 | `files/system/etc/modules-load.d/` | Kernel module **opt-outs**: an empty `/etc/modules-load.d/<x>.conf` masks the same-named file under `/usr/lib/modules-load.d/`. `kvmfr.conf` is 0 bytes on purpose (dx-verify registers it as "Mask: KVMFR Autoload"), so do not "fix" it. Modules this layer actually wants loaded are declared under `/usr/lib/modules-load.d/` — e.g. `br_netfilter` in `ip_tables.conf`. |
 | `files/system/usr/lib/systemd/user/` | **User units, image-resident and read-only.** `ujust` only activates them — never copies them into `$HOME`, which would shadow the image copy and freeze the host on it. Note `start` vs `enable`: see the lingering subsection under Boot Impact Policy |
 | `files/system/etc/containers/systemd/users/` | **Rootless Quadlet units** (`.container`/`.network`) for the NOMAD stack, turned into `.service` by a systemd generator. Under `/etc` and not `/usr` because rootless Quadlet has **no `/usr` search path** — `man podman-systemd.unit` lists only `$XDG_RUNTIME_DIR/containers/systemd/`, `~/.config/containers/systemd/`, `/etc/containers/systemd/users/$(UID)` and `/etc/containers/systemd/users/`. The rootful list *does* include `/usr/share/containers/systemd/`, so going rootful would restore the `/usr` placement — at the cost of the security property that made podman the right engine (see the socket note in README). This is not a breach of Atomic State Policy item 1, which forbids mutating `/etc` imperatively at runtime, not shipping into it via the `files` module |
-| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 68-nomad.just, 95-bazzite-dx.just), injected via the `justfiles` module |
+| `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 68-nomad.just, 95-bazzite-dx.just), installed by `build_files/50-justfiles.sh` |
 | `files/system/usr/share/ublue-os/casting/` | Staged casting **config template** (`uxplayrc.tmpl`) copied into `$HOME` by `ujust` on request. The units themselves live in `usr/lib/systemd/user/` |
-| `modules/` | Custom BlueBuild modules (dx-flavor, dx-udev, dx-verify) |
+| `modules/` | Scripts invoked by `build_files/` (dx-flavor, dx-udev, dx-cockpit, dx-verify, dx-hardening, gpu-unlock). Kept as modules only because `build_files` calls them; their `module.yml` files are legacy metadata |
 | `just/` | Modular Just recipe files (build, dev, maint, status) |
-| `scripts/` | Utility/generation scripts (`generate-recipe.sh`) |
+| `scripts/` | Utility scripts (`verify-image.sh`, `sign-kmod.sh`, `load-image.sh`, `dev-shell.sh`) |
 | `disk_config/` | Bootc Image Builder (BIB) configs for QCOW2/ISO output |
-| `image-versions.yaml` | Pins the base image digest (updated by Renovate PRs; consumed by `generate-recipe.sh`) |
+| `image-versions.yaml` | Pins the base image tag and digest (updated by Renovate; consumed by CI, `just build` and `kmod-sign.yml`) |
 
 **Justfile split**: root `Justfile` = development tasks (build, rebase, lint); `files/justfiles/66-silver-goggles.just` = modular host-side `ujust` recipes.
 
@@ -143,12 +148,12 @@ ostree performs a three-way merge on `/etc` at deployment time, so a local chang
 
 - `uupd.timer` was **inert** — the machine had stopped auto-updating, with no error, no failed unit, nothing. `ostree admin config-diff` reported it as `D`.
 - `ublue-nvctk-cdi.service` was likewise `D`, and the base image had been enabling it all along: both deployments on disk carry the symlink under `usr/etc/systemd/system/multi-user.target.wants/`, including the one predating the line that "added" it.
-- Adding `systemd: enabled:` to a recipe therefore **repairs nothing on an upgraded host**. It works on a fresh install. On this one, only `systemctl enable` does.
+- Adding a unit to `build_files/20-services.sh` therefore **repairs nothing on an upgraded host**. It works on a fresh install. On this one, only `systemctl enable` does.
 
 **Practical rules:**
 
 1. Prefer `/usr` whenever the mechanism allows it. Rootless Quadlet is the notable case where it does not — see the Key Directories note.
-2. A recipe's `systemd: enabled:` declares intent and documents a dependency. Do not treat it as a guarantee, and do not "fix" a disabled unit by re-declaring it.
+2. A unit listed in `build_files/20-services.sh` declares intent and documents a dependency. Do not treat it as a guarantee, and do not "fix" a disabled unit by re-declaring it.
 3. Runtime provisioning (`bazzite-dx-groups`) is the reliable path for anything that must actually be true on an existing host. It ran successfully on the very boot where the declarative unit enablement did not.
 4. `ujust boot-audit` reports both directions of divergence. The direction that hurts is the quiet one — what the image enables and the host does not.
 
@@ -157,8 +162,8 @@ ostree performs a three-way merge on `/etc` at deployment time, so a local chang
 1. **Static files** go under `files/system/` (the `files` module overlays them onto `/`). Never mutate `/etc` directly.
 2. **Flatpak overrides**: NEVER use `flatpak override` or `sudo cp` in scripts. Use `tmpfiles.d` with the **`L+` (symlink with overwrite)** pattern linking `/usr/share/flatpak/overrides/` → `/var/lib/flatpak/overrides/`.
 3. **Global env vars** go in `files/system/usr/lib/environment.d/*.conf`. Never `export` in profile scripts.
-4. **Service enable/mask** is declared via the `systemd` module in `recipe.yml` OR generated by local modules at build time (e.g., `dx-flavor` presets). Reference: `thermald.service` masked (see the Thermal section for the measured reason — *not* "AWCC compat", which was wrong), `systemd-udev-settle.service` masked (VFIO/IOMMU stability). Do not add preset files manually — and note this rule was being violated by a hand-written `00-silver-goggles.preset` that duplicated `enable awccd.service` / `disable thermald.service` already declared in `silver-goggles.yml`. It was redundant, not merely untidy: BlueBuild's `systemd` module runs `systemctl -f enable` / `systemctl mask` directly (`blue-build/modules/modules/systemd/systemd.sh:38,56`), so it never consulted the preset. Deleted.
-5. **Kernel args** go via the `kargs` module (plus local-module tuning if needed). Never use imperative boot scripts.
+4. **Service enable/mask** is declared in `build_files/20-services.sh` (`systemctl -f enable` / `mask`) or generated by a build script (e.g., `dx-flavor` presets). Reference: `thermald.service` masked (see the Thermal section for the measured reason — *not* "AWCC compat", which was wrong), `systemd-udev-settle.service` masked (VFIO/IOMMU stability). Do not add preset files manually — and note this rule was being violated by a hand-written `00-silver-goggles.preset` that duplicated `enable awccd.service` / `disable thermald.service` already declared by the build. It was redundant, not merely untidy: the build runs `systemctl -f enable` / `systemctl mask` directly, so it never consulted the preset. Deleted.
+5. **Kernel args** go via `build_files/30-kargs.sh` (`/usr/lib/bootc/kargs.d`). Never use imperative boot scripts.
 6. **Image transformation**: build-time scripts (local modules) are the authorized escape hatch for branding, policy enforcement, and config that static overlays can't express.
 7. **User units live in `files/system/usr/lib/systemd/user/`, never copied into `$HOME`.** A `ujust`
    recipe's job is `systemctl --user enable`, which writes only a symlink under
@@ -259,7 +264,7 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
 ### Scripting Conventions
 
 - Shell scripts must pass `shellcheck` (`just lint`); format with `shfmt` (`just format`).
-- Custom BlueBuild modules follow the pattern in `modules/` and should include an integrity check where possible (see `dx-verify`).
+- Build steps live in `build_files/`; scripts they call live in `modules/` for now and should contain their own integrity check (see `dx-verify`).
 
 ### dx-verify: presence is not behaviour
 
@@ -341,7 +346,7 @@ racing the daemon.
 
 - **Lighting**: Handled exclusively by upstream OpenRGB (merged into `master` via MR !3577 for AW-ELC `187c:0550`). Operates directly over USB hidraw in userspace with hardware EEPROM persistence.
 - **Thermals & Fans**: Handled via in-tree `alienware-wmi-wmax` platform profiles (`/sys/class/platform-profile`) and `tuned-ppd`.
-- **GPU Unlock (RTX 3060 Laptop GA106M BF16)**: Handled declaratively via CI-signed `gpu_unlock.ko` (built with runner Podman against pinned base kernel, signed with MOK key via `kmod-signing` environment, installed by `modules/gpu-unlock` into `/usr/lib/modules/<kver>/extra/`). Proprietary firmware generated locally and delivered via `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`. Requires client initramfs regeneration disabled (`rpm-ostree initramfs --disable`), preserving the pre-baked BlueBuild initramfs. See [`docs/third-party-artifacts.md`](./docs/third-party-artifacts.md).
+- **GPU Unlock (RTX 3060 Laptop GA106M BF16)**: Handled declaratively via CI-signed `gpu_unlock.ko` (built with runner Podman against pinned base kernel, signed with MOK key via `kmod-signing` environment, installed by `modules/gpu-unlock` into `/usr/lib/modules/<kver>/extra/`). Proprietary firmware generated locally and delivered via `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`. Requires client initramfs regeneration disabled (`rpm-ostree initramfs --disable`), preserving the pre-baked image initramfs. See [`docs/third-party-artifacts.md`](./docs/third-party-artifacts.md).
 - **Legacy Tools**: AWCC, `acpi_call`, and `alienfx-linux` are obsolete and must not be reintroduced.
 
 #### What max fan actually buys (measured, so stop guessing)
@@ -438,7 +443,7 @@ matched `SUBSYSTEM=="platform", DRIVER=="alienware-wmi"` while the real device i
 `DRIVER=alienware-wmi-wmax`, and `BindTo=dev-platform-dell\x2dwmi.device` named a nonexistent
 device unit, so systemd stopped the oneshot in the same second it finished.
 
-## 📱 Casting & Mobile Bridge (`recipes/casting.yml`)
+## 📱 Casting & Mobile Bridge (`packages/casting.txt`)
 
 Receives screen/media from iOS and Android. Split by discovery mechanism, and the split is
 architectural — **not** a configuration gap:
@@ -495,8 +500,8 @@ Two things that cost time if unknown:
 
 Conventions this layer follows:
 - The whole mobile surface is consolidated here, not split across recipes: `usbmuxd`,
-  `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `dx.yml`'s
-  "Host Integration & Peripheral Bridges" section (a pointer comment remains there).
+  `libimobiledevice-utils`, `ifuse` and `ideviceinstaller` were moved out of `packages/dx.txt` into
+  `packages/casting.txt`.
 - `uxplay.service` follows the graphical-session pattern proven by
   `files/system/usr/share/ublue-os/user-setup.hooks.d/45-sunshine-graphical-session-fix.sh`:
   `After=graphical-session.target plasma-kwin_wayland.service`, `Requisite=` (never
@@ -507,7 +512,7 @@ Conventions this layer follows:
   `plasma-kwin_wayland.service` reports active 20-30s before the compositor serves
   clients. A socket test is used rather than `busctl get-property`, which would
   resurrect the portal and kwin as a side effect of asking.
-- Nothing is enabled at boot. `casting.yml` declares no `systemd` module; `uxplay.service` ships
+- Nothing is enabled at boot. No casting unit is in `build_files/20-services.sh`; `uxplay.service` ships
   inert in `/usr/lib/systemd/user/` and `airplay-setup` only `enable`s it on request — same pattern
   as `remote-ide-setup`. See Atomic State Policy item 7 for why it is not copied into `$HOME`. FCast
   has no unit at all; see below.
@@ -580,7 +585,7 @@ Conventions this layer follows:
   zone. The default `FedoraWorkstation` zone already opens `1025-65535/tcp+udp` and `tailscale0`
   sits in `trusted`, so `ujust casting-firewall` is a no-op there and says so.
 - `adb` comes from the `android-platform-tools` **cask** in `cli.Brewfile` (Homebrew 6.x installs
-  casks on Linux). The Fedora `android-tools` RPM stays commented out in `dx.yml` on purpose —
+  casks on Linux). The Fedora `android-tools` RPM stays out of `packages/casting.txt` on purpose —
   enabling it would put a second `adb` in `PATH`.
 - **`shairport-sync` was shipped and then removed — do not add it back without reading this.**
   `nqptp` is absent from Fedora, so it is AirPlay **1** only, while UxPlay's audio-only mode
@@ -600,15 +605,14 @@ Conventions this layer follows:
 ## 🔀 Testing Forks & Branch Overrides
 
 To test a fork of the base image:
-1. Edit `base-image` in `recipes/recipe.yml` (e.g., `ghcr.io/nklowns/bazzite-dx-nvidia:latest`).
-2. `just build`.
-3. Revert after testing.
+1. Run `just build-fork ghcr.io/nklowns/bazzite-dx-nvidia:latest` (or pass `--build-arg BASE_IMAGE_REF=...` to podman).
+2. Test the resulting `localhost/bazzite-dx-silver-goggles:latest`.
 
 ## 🚀 CI/CD & Deployment
 
 `.github/workflows/build.yml` on push to main:
 1. **check** job — `just check` (lint + validate).
-2. **bluebuild** job — builds, signs (cosign), and pushes to `ghcr.io/nklowns/bazzite-dx-silver-goggles`.
+2. **publish** job — builds with podman, verifies the image, pushes the tag matrix, signs recursively with cosign and verifies the signature.
 
 `.github/workflows/build-disk.yml` — manual workflow for QCOW2/ISO disk images via BIB.
 
@@ -626,7 +630,7 @@ just build 2>&1 | tee output/build.log
 ### Local GHA Testing (`act`)
 
 ```bash
-just act   # Simulates GitHub Actions locally (requires --privileged for buildah)
+just act   # Simulates GitHub Actions locally (requires --privileged for podman)
 ```
 
 ### Self-Hosted Runner (Distrobox)
@@ -649,13 +653,10 @@ Keep the host clean — run the runner in a container:
 - **● Unverified** — local testing state (rebased from `localhost/`).
 - **LocalPackages** — active hot-swap on top of the base image.
 
-## 📚 BlueBuild Reference (Context7 MCP)
+## 📚 Build Reference (Context7 MCP)
 
-- `blue-build.org/reference` — technical reference for build logic.
-- `blue-build.org/learn` — tutorials and educational material.
-- `blue-build.org/how-to` — practical guides for specific build tasks.
-- `/blue-build/modules` — reusable module catalog.
+- `docs.fedoraproject.org/en-US/bootc/` — image-mode base images, kargs.d and bootc semantics.
 - `/ublue-os/image-template` — foundation of this repository's structure.
 - `/ublue-os/bazzite-dx` — upstream DX patterns reference.
 
-For grep-level lookups of upstream implementations, prefer the local clones in `../ublue-os/` and `../blue-build/` (see workspace `AGENTS.md`).
+For grep-level lookups of upstream implementations, prefer the local clones in `/var/home/cloud/dev/study/upstream/ublue/{ublue-os,blue-build}/` (see workspace `AGENTS.md`).

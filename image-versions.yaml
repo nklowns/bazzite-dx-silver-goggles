@@ -1,4 +1,6 @@
-# Base image pin, consumed by scripts/generate-recipe.sh and updated by Renovate.
+# Base image pin: the single source of truth, consumed by the CI build, `just build`
+# and the kmod-sign workflow. Updated by Renovate; `just check` asserts the Containerfile
+# default matches this file.
 #
 # The Project NOMAD stack images are deliberately NOT listed here. They are pinned inline in
 # the Quadlet units under files/system/etc/containers/systemd/users/, which is the artifact

@@ -43,7 +43,7 @@ ApplyKdeBranding() {
 
 	sed -i "s|^Website=.*|Website=https://dev.bazzite.gg|" "$KDE_BRANDING_PATH"
 	# IMAGE_NAME (bazzite-dx-silver-goggles) carries no flavor hint; the base image does.
-	if [[ "$IMAGE_NAME" =~ "nvidia" ]] || [[ "${BASE_IMAGE:-}" =~ "nvidia" ]]; then
+	if [[ "$IMAGE_NAME" =~ "nvidia" ]] || [[ "${BASE_IMAGE:-}" =~ "nvidia" ]] || [[ "${BASE_IMAGE_REF:-}" =~ "nvidia" ]]; then
 		sed -i "s/^Variant=.*/Variant=DX (NVIDIA)/" "$KDE_BRANDING_PATH"
 	else
 		sed -i "s/^Variant=.*/Variant=DX/" "$KDE_BRANDING_PATH"

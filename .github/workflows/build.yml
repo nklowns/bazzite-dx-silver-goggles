@@ -16,8 +16,9 @@ on:
   merge_group:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel a main publish in flight: it may already have moved tags.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -34,11 +35,6 @@ jobs:
       - name: Install shell interpreters for syntax checks
         run: sudo apt-get update -q && sudo apt-get install -qy zsh fish
 
-      - name: Install blue-build CLI
-        run: |
-          bash <(curl -fsSL https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
       - name: Validation
         run: just check
 
@@ -47,13 +43,14 @@ jobs:
     uses: ./.github/workflows/kmod-sign.yml
     secrets: inherit
 
-  bluebuild:
-    name: Build Custom Image
+  publish:
+    name: Build, verify and publish
     needs: [check, kmod]
-    # Fail-soft: a failed/skipped kmod job yields an image without the unlock, never a broken build.
+    # Fail-soft: a failed/skipped kmod job yields an image without the unlock,
+    # never a broken build.
     if: ${{ !cancelled() && needs.check.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
@@ -62,54 +59,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
-
-      - name: Stage signed gpu-unlock kmod
-        # kmod reports success even when its inner sign job was skipped (PR, merge queue):
-        # a missing artifact must not fail the build; modules/gpu-unlock then skips with a warning.
-        continue-on-error: true
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: gpu-unlock-kmod
-          path: files/system/usr/share/silver-goggles/kmod-staging
-
-      - name: Generate Recipe
-        run: just generate-recipe "bazzite-nvidia" "latest"
-
-      - name: Build Custom Image
-        uses: blue-build/github-action@c295af864f2802fc6aea227507af43d35823db81 # v1.13.0
-        with:
-          recipe: build-recipe.yml
-          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
-          registry_token: ${{ github.token }}
-          pr_event_number: ${{ github.event.number }}
-          skip_checkout: true
-          maximize_build_space: true
-          use_cache: true
-          rechunk: false
-          build_chunked_oci: false
-          # Custom build options (conditional signing)
-          build_opts: "${{ secrets.SIGNING_SECRET == '' && '--no-sign' || '' }}"
-
-  # Phase 1 of the rewrite: prove the Containerfile reproduces the image the
-  # BlueBuild recipe produces. Publishing still goes through the job above until
-  # this one is the only build.
-  containerfile:
-    name: Build (Containerfile)
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
       - name: Free disk space
         uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v1.1.0
 
       - name: Stage signed gpu-unlock kmod
-        # Same fail-soft contract as the BlueBuild job: the sign job only runs on main.
+        # The sign job only runs on main. A missing artifact must not fail the
+        # build: modules/gpu-unlock skips with a warning.
         continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -129,15 +84,18 @@ jobs:
             echo "digest=$sha"
           } >>"$GITHUB_OUTPUT"
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
       - name: Build with podman
+        timeout-minutes: 25
         env:
           BASE_TAG: ${{ steps.base.outputs.tag }}
         run: |
           set -euo pipefail
           version="${BASE_TAG}.$(date -u +%Y%m%d)"
           podman build \
-            --build-arg BASE_IMAGE="${{ steps.base.outputs.image }}:${BASE_TAG}" \
-            --build-arg BASE_IMAGE_DIGEST="${{ steps.base.outputs.digest }}" \
+            --build-arg BASE_IMAGE_REF="${{ steps.base.outputs.image }}:${BASE_TAG}@${{ steps.base.outputs.digest }}" \
             --build-arg IMAGE_VERSION="${version}" \
             --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
             --build-arg IMAGE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -145,3 +103,163 @@ jobs:
 
       - name: Verify image contents
         run: bash scripts/verify-image.sh local/silver-goggles
+
+      - name: Decide whether to publish
+        id: publish
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            if [ "$PR_HEAD" != "$GITHUB_REPOSITORY" ]; then
+              echo "publish=false" >>"$GITHUB_OUTPUT"
+              echo "Fork PR: build only, no push and no signing."
+              exit 0
+            fi
+            echo "publish=true" >>"$GITHUB_OUTPUT"
+          elif [ "$REF" = "refs/heads/main" ]; then
+            echo "publish=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >>"$GITHUB_OUTPUT"
+            echo "Ref $REF is not main: build only."
+          fi
+
+      - name: Require signing secret on main
+        if: steps.publish.outputs.publish == 'true' && github.ref == 'refs/heads/main'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "::error::SIGNING_SECRET is missing; refusing to push tags that would be unsigned."
+            exit 1
+          fi
+          echo "ok: signing secret present"
+
+      - name: Log in to GHCR
+        if: steps.publish.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$ACTOR" --password-stdin
+          printf '%s' "$GH_TOKEN" | cosign login ghcr.io -u "$ACTOR" --password-stdin
+
+      - name: Push versioned tags
+        id: push
+        if: steps.publish.outputs.publish == 'true'
+        timeout-minutes: 15
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.number }}
+          BASE_TAG: ${{ steps.base.outputs.tag }}
+        run: |
+          set -euo pipefail
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          os_version="${BASE_TAG%%.*}"
+          timestamp="$(date -u +%Y%m%d)"
+          short_sha="$(git rev-parse --short=7 HEAD)"
+
+          # Versioned tags only. The moving pointers (latest/stable) are pushed
+          # after the signature is verified, so a failure anywhere in between
+          # never leaves `latest` pointing at an unsigned image.
+          if [ "$EVENT" = "pull_request" ]; then
+            tags=(
+              "pr-${PR_NUMBER}-latest-${os_version}" "${short_sha}-latest-${os_version}"
+              "pr-${PR_NUMBER}-stable-${os_version}" "${short_sha}-stable-${os_version}"
+              "pr-${PR_NUMBER}-${BASE_TAG}-${os_version}" "${short_sha}-${BASE_TAG}-${os_version}"
+            )
+          else
+            tags=(
+              "latest-${os_version}" "${timestamp}-latest-${os_version}" "${short_sha}-latest-${os_version}"
+              "stable-${os_version}" "${timestamp}-stable-${os_version}" "${short_sha}-stable-${os_version}"
+              "${BASE_TAG}" "${BASE_TAG}-${os_version}" "${timestamp}-${BASE_TAG}-${os_version}" "${short_sha}-${BASE_TAG}-${os_version}"
+              "latest.${timestamp}" "stable-${os_version}.${timestamp}"
+            )
+          fi
+
+          podman manifest create --amend "${registry}:${tags[0]}" local/silver-goggles
+          for tag in "${tags[@]}"; do
+            echo "Pushing ${registry}:${tag}"
+            podman manifest push --compression-format=zstd \
+              --digestfile="/tmp/digest.${tag}" \
+              "${registry}:${tags[0]}" "docker://${registry}:${tag}"
+          done
+
+          digest="$(cat "/tmp/digest.${tags[0]}")"
+          for tag in "${tags[@]}"; do
+            pushed="$(cat "/tmp/digest.${tag}")"
+            if [ "$pushed" != "$digest" ]; then
+              echo "::error::digest mismatch for ${tag}: ${pushed} != ${digest}"
+              exit 1
+            fi
+          done
+          echo "digest=${digest}" >>"$GITHUB_OUTPUT"
+          echo "Pushed $((${#tags[@]})) versioned tags at ${digest}"
+
+      - name: Sign and verify
+        if: steps.publish.outputs.publish == 'true'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          digest="${{ steps.push.outputs.digest }}"
+
+          if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "::warning::No signing secret; PR image left unsigned."
+            exit 0
+          fi
+
+          # --recursive is load-bearing: containers/image verifies the platform
+          # manifest digest, so the children need their own signatures.
+          # --new-bundle-format=false keeps the legacy .sig tag that
+          # containers/image reads; referrers-mode is pinned so a cosign bump
+          # cannot switch it silently. tlog is not needed for key-based
+          # verification and would put Rekor on the publish critical path.
+          COSIGN_PASSWORD='' COSIGN_YES='true' cosign sign \
+            --key env://COSIGN_PRIVATE_KEY \
+            --new-bundle-format=false --use-signing-config=false \
+            --registry-referrers-mode=legacy --tlog-upload=false \
+            --recursive "${registry}@${digest}"
+
+          # The trust anchor is the pinned key, not the transparency log, and
+          # the signature was created with tlog disabled on purpose.
+          cosign verify --key cosign.pub --insecure-ignore-tlog=true "${registry}@${digest}"
+
+          # The index signature above says nothing about the per-architecture
+          # manifests, which is what the host actually verifies.
+          children=$(skopeo inspect --raw "docker://${registry}@${digest}" \
+            | jq -r '.manifests[]?.digest')
+          if [ -z "$children" ]; then
+            echo "::error::no child manifests found in ${digest}"
+            exit 1
+          fi
+          for child in $children; do
+            echo "Verifying child manifest ${child}"
+            cosign verify --key cosign.pub --insecure-ignore-tlog=true "${registry}@${child}"
+          done
+
+      - name: Move latest and stable
+        if: steps.publish.outputs.publish == 'true' && github.event_name != 'pull_request'
+        env:
+          BASE_TAG: ${{ steps.base.outputs.tag }}
+        run: |
+          set -euo pipefail
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          os_version="${BASE_TAG%%.*}"
+
+          # Tag moves happen only after the digest is signed and verified.
+          # blobs already exist, so these pushes are metadata-only.
+          source="${registry}:latest-${os_version}"
+          # latest-<os> and stable-<os> were already pushed as versioned tags;
+          # only the unqualified pointers move here.
+          for pointer in latest stable; do
+            echo "Moving ${registry}:${pointer}"
+            podman manifest push --compression-format=zstd \
+              "$source" "docker://${registry}:${pointer}" >/dev/null
+          done
