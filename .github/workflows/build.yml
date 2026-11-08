@@ -207,8 +207,8 @@ jobs:
         # digest and is a path this workflow already depends on.
         run: |
           set -euo pipefail
-          mkdir -p "${HOME}/.local/bin"
-          printf '%s' 'IyEvdXNyL2Jpbi9lbnYgYmFzaApleGVjIHBvZG1hbiBydW4gLS1ybSAtaSBcCiAgLWUgQ09TSUdOX1BBU1NXT1JEIC1lIENPU0lHTl9ZRVMgLWUgQ09TSUdOX1BSSVZBVEVfS0VZIFwKICAtdiAiJHtIT01FfS8uZG9ja2VyOi9yb290Ly5kb2NrZXIiIFwKICAtdiAiJHtQV0R9Oi93b3JrIiAtdyAvd29yayBcCiAgZ2hjci5pby9zaWdzdG9yZS9jb3NpZ24vY29zaWduOnYzLjAuNkBzaGEyNTY6ZGU5YzY1NjA5ZTZiZGUxN2U2YjQ4ZGU0ODVlZTc4ODQwN2M5NTAyZmEwOGI4ZjQ0NTlmNTk1YjIxZjU2Y2QwMCAiJEAiCg==' | base64 -d >"${HOME}/.local/bin/cosign"
+          mkdir -p "${HOME}/.local/bin" "${HOME}/.cosign-auth"
+          printf '%s' 'IyEvdXNyL2Jpbi9lbnYgYmFzaApleGVjIHBvZG1hbiBydW4gLS1ybSAtaSBcCiAgLWUgQ09TSUdOX1BBU1NXT1JEIC1lIENPU0lHTl9ZRVMgLWUgQ09TSUdOX1BSSVZBVEVfS0VZIFwKICAtZSBET0NLRVJfQ09ORklHPS9jb3NpZ24tYXV0aCBcCiAgLXYgIiR7SE9NRX0vLmNvc2lnbi1hdXRoOi9jb3NpZ24tYXV0aCIgXAogIC12ICIke1BXRH06L3dvcmsiIC13IC93b3JrIFwKICBnaGNyLmlvL3NpZ3N0b3JlL2Nvc2lnbi9jb3NpZ246djMuMC42QHNoYTI1NjpkZTljNjU2MDllNmJkZTE3ZTZiNDhkZTQ4NWVlNzg4NDA3Yzk1MDJmYTA4YjhmNDQ1OWY1OTViMjFmNTZjZDAwICIkQCIK' | base64 -d >"${HOME}/.local/bin/cosign"
           chmod +x "${HOME}/.local/bin/cosign"
           echo "${HOME}/.local/bin" >>"$GITHUB_PATH"
 
@@ -233,14 +233,29 @@ jobs:
           registry="ghcr.io/${GITHUB_REPOSITORY,,}"
           digest="${{ needs.publish.outputs.digest }}"
 
-          # --recursive is load-bearing: containers/image verifies the platform
-          # manifest digest, so the children need their own signatures.
-          COSIGN_PASSWORD='' COSIGN_YES='true' cosign sign \
-            --key env://COSIGN_PRIVATE_KEY \
-            --new-bundle-format=false --use-signing-config=false \
-            --registry-referrers-mode=legacy --tlog-upload=false \
-            --recursive "${registry}@${digest}"
+          # containers/image verifies the platform manifest digest, so the
+          # children need their own signatures. Sign them explicitly:
+          # the recursive path reused one registry token for two uploads and
+          # GHCR returned UNAUTHORIZED on the second.
+          sign_digest() {
+            local target="$1"
+            local attempt
+            for attempt in 1 2 3; do
+              if COSIGN_PASSWORD='' COSIGN_YES='true' cosign sign \
+                --key env://COSIGN_PRIVATE_KEY \
+                --new-bundle-format=false --use-signing-config=false \
+                --registry-referrers-mode=legacy --tlog-upload=false \
+                "${registry}@${target}"; then
+                return 0
+              fi
+              echo "sign ${target} attempt ${attempt} failed; retrying in 5s"
+              sleep 5
+            done
+            echo "::error::cosign sign failed for ${target}"
+            return 1
+          }
 
+          sign_digest "$digest"
           cosign verify --key cosign.pub --insecure-ignore-tlog=true "${registry}@${digest}"
 
           children=$(skopeo inspect --raw "docker://${registry}@${digest}" \
@@ -250,7 +265,8 @@ jobs:
             exit 1
           fi
           for child in $children; do
-            echo "Verifying child manifest ${child}"
+            echo "Signing child manifest ${child}"
+            sign_digest "$child"
             cosign verify --key cosign.pub --insecure-ignore-tlog=true "${registry}@${child}"
           done
 
