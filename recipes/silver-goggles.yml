@@ -22,11 +22,12 @@ modules:
   # ==========================================
   # LAYER 2: SYSTEM TOOLS & VIRTUALIZATION
   # ==========================================
-  - type: rpm-ostree
+  - type: dnf
     install:
-      - smbios-utils-python # Dell SMBIOS/BIOS management utilities
-      - policycoreutils # Required for managing SELinux policies
-      - looking-glass-client # High-performance Looking Glass client for KVMFR
+      packages:
+        - smbios-utils-python # Dell SMBIOS/BIOS management utilities
+        - policycoreutils # Required for managing SELinux policies
+        - looking-glass-client # High-performance Looking Glass client for KVMFR
 
   # ==========================================
   # LAYER 3: HARDWARE & SERVICES (DELL G15)
