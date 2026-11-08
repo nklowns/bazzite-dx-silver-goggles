@@ -65,6 +65,13 @@ podman run --rm "$img" bash -c '
 	check "no build repos left" "! ls /etc/yum.repos.d/ | grep -qE \"_copr|vscode|docker|cloud-hypervisor\""
 	check "ujust present" "test -x /usr/bin/ujust"
 
+	# The image must be able to verify its own updates: key, transport entry and
+	# policy all ship inside it, otherwise the signed ostree ref is unusable.
+	check "signing key shipped" "test -f /etc/pki/containers/bazzite-dx-silver-goggles.pub"
+	check "sigstore transport enabled" "grep -q use-sigstore-attachments /etc/containers/registries.d/nklowns-bazzite-dx-silver-goggles.yaml"
+	# shellcheck disable=SC2102 # jq index inside the eval string, not a shell range
+	check "policy entry present" "jq -e '.transports.docker[\"ghcr.io/nklowns/bazzite-dx-silver-goggles\"][0].type == \"sigstoreSigned\"' /etc/containers/policy.json >/dev/null"
+
 	# Alternatives are a feature, not debt: every engine must be present and
 	# reachable, and none may shadow another (no podman-docker shim, so `docker`
 	# is unambiguously the moby CLI and `podman` stays podman).
@@ -80,6 +87,17 @@ podman run --rm "$img" bash -c '
 	check "looking-glass client present" "command -v looking-glass-client >/dev/null"
 	exit "$fail"
 ' || rc=1
+echo "::endgroup::"
+
+echo "::group::Image labels"
+labels=$(podman inspect "$img" --format '{{json .Labels}}')
+if jq -e 'has("org.opencontainers.image.version") and has("org.opencontainers.image.revision")' >/dev/null <<<"$labels"; then
+	echo "ok: OCI labels present ($(jq -r '."org.opencontainers.image.version"' <<<"$labels"))"
+else
+	echo "FAIL: OCI labels missing"
+	echo "$labels"
+	rc=1
+fi
 echo "::endgroup::"
 
 echo "::group::Unit syntax"

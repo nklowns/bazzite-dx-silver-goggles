@@ -130,10 +130,17 @@ jobs:
           } >>"$GITHUB_OUTPUT"
 
       - name: Build with podman
+        env:
+          BASE_TAG: ${{ steps.base.outputs.tag }}
         run: |
+          set -euo pipefail
+          version="${BASE_TAG}.$(date -u +%Y%m%d)"
           podman build \
-            --build-arg BASE_IMAGE="${{ steps.base.outputs.image }}:${{ steps.base.outputs.tag }}" \
+            --build-arg BASE_IMAGE="${{ steps.base.outputs.image }}:${BASE_TAG}" \
             --build-arg BASE_IMAGE_DIGEST="${{ steps.base.outputs.digest }}" \
+            --build-arg IMAGE_VERSION="${version}" \
+            --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
+            --build-arg IMAGE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -t local/silver-goggles .
 
       - name: Verify image contents
