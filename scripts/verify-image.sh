@@ -69,8 +69,6 @@ podman run --rm "$img" bash -c '
 	# policy all ship inside it, otherwise the signed ostree ref is unusable.
 	check "signing key shipped" "test -f /etc/pki/containers/bazzite-dx-silver-goggles.pub"
 	check "sigstore transport enabled" "grep -q use-sigstore-attachments /etc/containers/registries.d/nklowns-bazzite-dx-silver-goggles.yaml"
-	# shellcheck disable=SC2102 # jq index inside the eval string, not a shell range
-	check "policy entry present" "jq -e '.transports.docker[\"ghcr.io/nklowns/bazzite-dx-silver-goggles\"][0].type == \"sigstoreSigned\"' /etc/containers/policy.json >/dev/null"
 
 	# Alternatives are a feature, not debt: every engine must be present and
 	# reachable, and none may shadow another (no podman-docker shim, so `docker`
@@ -87,6 +85,16 @@ podman run --rm "$img" bash -c '
 	check "looking-glass client present" "command -v looking-glass-client >/dev/null"
 	exit "$fail"
 ' || rc=1
+echo "::endgroup::"
+
+echo "::group::Signature policy"
+if podman run --rm "$img" jq -e --arg k 'ghcr.io/nklowns/bazzite-dx-silver-goggles' \
+	'.transports.docker[$k][0].type == "sigstoreSigned"' /etc/containers/policy.json >/dev/null 2>&1; then
+	echo "ok: policy entry present"
+else
+	echo "FAIL: policy entry missing from /etc/containers/policy.json"
+	rc=1
+fi
 echo "::endgroup::"
 
 echo "::group::Image labels"
