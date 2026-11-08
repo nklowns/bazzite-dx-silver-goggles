@@ -59,6 +59,20 @@ podman run --rm "$img" bash -c '
 	check "thermald masked" "test -L /etc/systemd/system/thermald.service"
 	check "no build repos left" "! ls /etc/yum.repos.d/ | grep -qE \"_copr|vscode|docker|cloud-hypervisor\""
 	check "ujust present" "test -x /usr/bin/ujust"
+
+	# Alternatives are a feature, not debt: every engine must be present and
+	# reachable, and none may shadow another (no podman-docker shim, so `docker`
+	# is unambiguously the moby CLI and `podman` stays podman).
+	check "docker CLI is moby, not a shim" "rpm -q docker-cli >/dev/null && ! rpm -q podman-docker >/dev/null"
+	check "docker.socket enabled" "test -L /etc/systemd/system/sockets.target.wants/docker.socket"
+	check "podman.socket enabled" "test -L /etc/systemd/system/sockets.target.wants/podman.socket"
+	check "podman CLI present" "command -v podman >/dev/null"
+	check "podman compose wrapper present" "command -v podman-compose >/dev/null"
+	check "libvirt present" "command -v virsh >/dev/null"
+	check "incus present" "command -v incus >/dev/null"
+	check "lxc present" "command -v lxc-create >/dev/null"
+	check "cloud-hypervisor present" "command -v cloud-hypervisor >/dev/null"
+	check "looking-glass client present" "command -v looking-glass-client >/dev/null"
 	exit "$fail"
 ' || rc=1
 echo "::endgroup::"
