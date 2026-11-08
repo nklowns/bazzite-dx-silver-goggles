@@ -24,18 +24,6 @@
     },
     {
       customType: 'regex',
-      description: 'Track Cockpit Top (ctop) releases in dx-cockpit module',
-      managerFilePatterns: [
-        '/^modules\\/dx-cockpit\\/dx-cockpit\\.sh$/',
-      ],
-      matchStrings: [
-        'CTOP_VERSION="(?<currentValue>[^"]+)"',
-      ],
-      depNameTemplate: 'ismetozalp/ctop',
-      datasourceTemplate: 'github-releases',
-    },
-    {
-      customType: 'regex',
       description: 'Track ComfyUI base image in AI Studio visual justfile (COMFY_IMAGE)',
       managerFilePatterns: [
         '/^files\\/justfiles\\/70-aistudio-visual\\.just$/',
@@ -70,22 +58,6 @@
       ignoreTests: true,
     },
     {
-      description: 'Disable automated container updates within GitHub workflows for security/drift prevention',
-      enabled: false,
-      matchUpdateTypes: [
-        'digest',
-        'pinDigest',
-        'pin',
-      ],
-      matchDepTypes: [
-        'container',
-      ],
-      matchFileNames: [
-        '.github/workflows/**.yaml',
-        '.github/workflows/**.yml',
-      ],
-    },
-    {
       description: 'Automerge GitHub Actions digest updates in workflows for security parity',
       matchDatasources: [
         'github-tags',
@@ -115,6 +87,7 @@
         'ghcr.io/ublue-os/bazzite-nvidia',
       ],
       pinDigests: true,
+      automerge: false,
       commitMessagePrefix: 'chore(deps): ',
     },
     {
@@ -290,14 +263,6 @@
         'huggingface-hub',
       ],
       allowedVersions: '<2',
-    },
-    {
-      description: 'Auto-update Cockpit Top (ctop) release in dx-cockpit module',
-      matchPackageNames: [
-        'ismetozalp/ctop',
-      ],
-      automerge: true,
-      commitMessagePrefix: 'chore(deps-cockpit): ',
     },
   ],
 }

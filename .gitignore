@@ -9,3 +9,8 @@ output/
 *.iso
 # Old build system artifacts (clean up)
 .claude/
+
+# CI stages the signed kmod here; it is consumed by the build and must not be
+# committed by a local `git add -A` after a CI-like run.
+files/system/usr/share/silver-goggles/kmod-staging/
+*.ko

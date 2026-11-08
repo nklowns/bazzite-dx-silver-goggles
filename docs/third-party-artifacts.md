@@ -20,7 +20,8 @@ and not done here.
 ## Signing key custody
 
 - CI secret `KMOD_SIGNING_KEY` lives in the GitHub environment `kmod-signing`
-  (required reviewer, `main` only). Only `kmod-sign.yml` reads it.
+  (deployment branch policy `main` only; no required reviewers, so automated buys run
+  unattended). Only `kmod-sign.yml` reads it.
 - `scripts/sign-kmod.sh` fails closed: empty secret, key not matching
   `kmod.der`, unsigned output, or an already-signed input are all errors. There is no
   unsigned fallback.
