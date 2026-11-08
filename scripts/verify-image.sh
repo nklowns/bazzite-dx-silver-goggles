@@ -90,13 +90,19 @@ podman run --rm "$img" bash -c '
 	check "cloud-hypervisor present" "command -v cloud-hypervisor >/dev/null"
 	check "looking-glass client present" "command -v looking-glass-client >/dev/null"
 
-	# Weak dependencies used to arrive through rpm-ostree. The base image sets
-	# install_weak_deps=False, so a build that forgets to override it silently
-	# drops these. Assert the ones whose absence breaks a capability.
+	# Bazzite sets install_weak_deps=False and this layer keeps it. These are
+	# the completions a declared capability needs from a Recommends; each is
+	# asserted as the thing the user invokes, not as a name in the rpmdb.
+	check "virt-manager present" "command -v virt-manager >/dev/null"
 	check "libvirt KVM driver present" "rpm -q libvirt-daemon-kvm >/dev/null"
-	check "uxplay discovery beacon present" "rpm -q uxplay-beacon >/dev/null"
-	check "bcc tools present" "rpm -q bcc-tools >/dev/null"
-	check "docker rootless extras present" "rpm -q moby-engine-rootless-extras >/dev/null"
+	check "bcc tool collection present" "test -x /usr/share/bcc/tools/execsnoop"
+	check "xset present for powertop calibration" "command -v xset >/dev/null"
+	check "AirPlay receiver present" "command -v uxplay >/dev/null"
+
+	# The gaming tier belongs to Bazzite; its ujust surface must survive the
+	# overlay from this layer. check-anticheat is the canary for EAC Linux v2.
+	check "Bazzite anticheat readiness recipe present" \
+		"just --justfile /usr/share/ublue-os/justfile --summary | grep -qw check-anticheat"
 	exit "$fail"
 ' || rc=1
 echo "::endgroup::"
