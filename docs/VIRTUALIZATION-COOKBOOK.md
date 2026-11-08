@@ -846,10 +846,10 @@ sudo semodule -r kvmfr 2>/dev/null || true
 > Em vez de apagar o arquivo completamente (o que excluiria todas as opções padrão e outras customizações importantes), edite `/etc/libvirt/qemu.conf` e remova a entrada `"/dev/kvmfr0"` da lista `cgroup_device_acl`. Delete o arquivo com `sudo rm` apenas se tiver certeza de que ele foi criado do zero pelo script e não contém nenhuma outra configuração.
 
 ### C. Desinstalar o Looking Glass Client do Host
-Como o `looking-glass-client` já vem pré-instalado como um pacote base embutido na imagem `bazzite-dx-silver-goggles` (declarado em [recipes/silver-goggles.yml](recipes/silver-goggles.yml#L29)), você não pode desinstalá-lo no host via `rpm-ostree uninstall`.
+Como o `looking-glass-client` já vem pré-instalado como um pacote base embutido na imagem `bazzite-dx-silver-goggles` (declarado em [packages/hardware.txt](packages/hardware.txt)), você não pode desinstalá-lo no host via `rpm-ostree uninstall`.
 
 Para removê-lo de forma declarativa e definitiva da imagem:
-1. Remova a linha `- looking-glass-client` sob a seção de pacotes em [recipes/silver-goggles.yml](recipes/silver-goggles.yml#L29).
+1. Remova a linha `- looking-glass-client` sob a seção de pacotes em [packages/hardware.txt](packages/hardware.txt).
 2. Recompile a imagem localmente e aplique no seu host:
    ```bash
    just build
@@ -880,7 +880,7 @@ Nos sistemas baseados em Fedora Atomic (ostree-like), a imagem é declarativa e 
 1. Durante atualizações ou rebases, o ostree executa um merge de 3 vias (3-way merge) para mesclar as alterações de configuração no `/etc`.
 2. Às vezes, este merge gera inconsistências locais nos bancos de dados de usuários e grupos (especialmente no `/etc/gshadow` e `/etc/group`), por exemplo, adicionando uma referência de grupo sem adicionar o respectivo usuário correspondente.
 3. O `systemd-sysusers` (responsável por instanciar dinamicamente usuários e grupos do sistema no boot a partir de `/usr/lib/sysusers.d/*.conf`) falha de forma fatal ao encontrar qualquer inconsistência, como a existência parcial de um grupo/membro no `/etc/gshadow` que não está no `/etc/group`. Isso interrompe a criação do usuário `qemu` (e de outros como `clevis`, `dhcpcd` etc.), travando os daemons de virtualização que dependem deles.
-4. **Por que não pode ser 100% declarativo?** O sistema de build (BlueBuild) define a configuração da imagem no repositório de forma declarativa (incluindo pacotes e arquivos sob `/usr/lib/sysusers.d`), mas ele não pode sobrescrever de forma arbitrária o estado persistente do `/etc` do cliente para não violar dados de login locais. Portanto, em caso de inconsistência de arquivos de credenciais locais, uma correção manual ou via scripts de runtime é requerida.
+4. **Por que não pode ser 100% declarativo?** O sistema de build (Containerfile + `build_files/`) define a configuração da imagem no repositório de forma declarativa (incluindo pacotes e arquivos sob `/usr/lib/sysusers.d`), mas ele não pode sobrescrever de forma arbitrária o estado persistente do `/etc` do cliente para não violar dados de login locais. Portanto, em caso de inconsistência de arquivos de credenciais locais, uma correção manual ou via scripts de runtime é requerida.
 
 ### 🛠️ Resolução da Inconsistência no Host (Passo a Passo)
 

@@ -18,7 +18,7 @@ install_list() {
 	local file="$1"
 	echo "Installing packages from $(basename "$file")"
 	# shellcheck disable=SC2046
-	dnf5 -y install $(grep -vE '^\s*(#|$)' "$file")
+	dnf5 -y install $(sed -E 's/#.*//' "$file" | grep -vE '^\s*$')
 }
 
 install_list "${CONTEXT_PATH}/packages/dx.txt"

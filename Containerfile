@@ -9,8 +9,9 @@
 # Build:  podman build -t bazzite-dx-silver-goggles .
 # Test:   bcvk ephemeral run-ssh localhost/bazzite-dx-silver-goggles
 
-ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite-nvidia:45.20261105
-ARG BASE_IMAGE_DIGEST=sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6136b28cd50c97
+# Single source of truth for the pin is image-versions.yaml; this default keeps
+# `podman build .` working and `just check` asserts the two agree.
+ARG BASE_IMAGE_REF=ghcr.io/ublue-os/bazzite-nvidia:45.20261105@sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6136b28cd50c97
 
 # Build context, kept out of the final image.
 FROM scratch AS ctx
@@ -23,7 +24,7 @@ COPY modules /modules
 # refuses an image that is not signed with this key.
 COPY cosign.pub /cosign.pub
 
-FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
+FROM ${BASE_IMAGE_REF}
 
 ARG IMAGE_NAME=bazzite-dx-silver-goggles
 ARG IMAGE_VENDOR=nklowns

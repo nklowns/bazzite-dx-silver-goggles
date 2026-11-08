@@ -1,40 +1,54 @@
 # ==============================================================================
-# GROUP 2: Image Builds (BlueBuild)
+# GROUP 2: Image Builds (Containerfile)
 # ==============================================================================
 
-# Build image using BlueBuild CLI (Surface Recipe)
+# Build the image locally, pinned to the base in image-versions.yaml
 [group('Build')]
-build target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_image tag)
+build target_image="bazzite-nvidia" tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    bluebuild build recipes/build-recipe.yml
+    base_image=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .image" image-versions.yaml)
+    base_tag=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .tag" image-versions.yaml)
+    base_digest=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .digest" image-versions.yaml)
+    podman build \
+        --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
+        --build-arg "IMAGE_VERSION=${base_tag}.$(date -u +%Y%m%d)" \
+        --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
+        --build-arg "IMAGE_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        -t "localhost/{{ image_name }}:{{ tag }}" .
 
-# Build image without using cache (prunes all build artifacts first)
+# Build the image without any layer cache
 [group('Build')]
-build-nocache target_image="bazzite-nvidia" tag=default_tag: (generate-recipe target_image tag)
+build-nocache target_image="bazzite-nvidia" tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Pruning all build artifacts and cache..."
-    bluebuild prune --all --force
-    echo "Starting clean build..."
-    bluebuild build recipes/build-recipe.yml
+    base_image=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .image" image-versions.yaml)
+    base_tag=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .tag" image-versions.yaml)
+    base_digest=$(yq -r ".images[] | select(.name == \"{{ target_image }}\") | .digest" image-versions.yaml)
+    podman build --no-cache \
+        --build-arg "BASE_IMAGE_REF=${base_image}:${base_tag}@${base_digest}" \
+        --build-arg "IMAGE_VERSION=${base_tag}.$(date -u +%Y%m%d)" \
+        --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
+        --build-arg "IMAGE_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        -t "localhost/{{ image_name }}:{{ tag }}" .
 
-# Generate build recipe with complete OCI metadata (Unified Logic)
-generate-recipe target_image tag:
-    ./scripts/generate-recipe.sh "{{ target_image }}" "{{ tag }}"
-
-# Build image pointing to a custom Bazzite-DX fork/branch (overrides base-image)
+# Build against a custom base image ref (fork or branch), digest pinned or not
 [group('Build')]
-build-fork user branch:
+build-fork base_ref tag=default_tag:
     #!/usr/bin/env bash
-    echo "Override base-image in recipes/recipe.yml to ghcr.io/{{ user }}/bazzite-nvidia:{{ branch }}"
-    echo "Then run: just build"
+    set -euo pipefail
+    podman build \
+        --build-arg "BASE_IMAGE_REF={{ base_ref }}" \
+        --build-arg "IMAGE_VERSION=dev.$(date -u +%Y%m%d)" \
+        --build-arg "IMAGE_REVISION=$(git rev-parse HEAD)" \
+        --build-arg "IMAGE_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        -t "localhost/{{ image_name }}:{{ tag }}" .
 
-# Run GitHub Actions locally using act (uses BlueBuild job)
+# Run GitHub Actions locally using act (publish job)
 [group('Build')]
 act:
     #!/usr/bin/env bash
-    act -j bluebuild \
+    act -j publish \
         -P ubuntu-24.04=catthehacker/ubuntu:full-24.04 \
         --privileged
 

@@ -34,11 +34,6 @@ jobs:
       - name: Install shell interpreters for syntax checks
         run: sudo apt-get update -q && sudo apt-get install -qy zsh fish
 
-      - name: Install blue-build CLI
-        run: |
-          bash <(curl -fsSL https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
       - name: Validation
         run: just check
 
@@ -98,8 +93,7 @@ jobs:
           set -euo pipefail
           version="${BASE_TAG}.$(date -u +%Y%m%d)"
           podman build \
-            --build-arg BASE_IMAGE="${{ steps.base.outputs.image }}:${BASE_TAG}" \
-            --build-arg BASE_IMAGE_DIGEST="${{ steps.base.outputs.digest }}" \
+            --build-arg BASE_IMAGE_REF="${{ steps.base.outputs.image }}:${BASE_TAG}@${{ steps.base.outputs.digest }}" \
             --build-arg IMAGE_VERSION="${version}" \
             --build-arg IMAGE_REVISION="${GITHUB_SHA}" \
             --build-arg IMAGE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

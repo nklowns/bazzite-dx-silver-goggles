@@ -1,3 +1,30 @@
+# DX packages installed into the image.
+#
+# Deliberately NOT installed, with the reason (ported from the recipes that
+# were removed in the Containerfile rewrite; do not "fix" these by adding them):
+#
+#   cockpit-packagekit, cockpit-networkmanager, cockpit-podman, cockpit-selinux,
+#   cockpit-system, cockpit-files, cockpit-storaged
+#       Bazzite pre-installs these; listing them only pins versions early.
+#   cockpit-ostree
+#       Incompatible with OCI container-native images: fails with
+#       "Remote ostree-image-signed:... not found".
+#   edk2-ovmf
+#       Pre-installed by Bazzite.
+#   osbuild-selinux
+#       Build fails: transient python3-librepo version conflict with the base.
+#   udica, ydotool, dbus-x11
+#       Pre-installed by Bazzite.
+#   android-tools
+#       `adb` comes from the android-platform-tools cask in cli.Brewfile; a
+#       second adb in PATH is a debugging trap, not redundancy.
+#   zeroboot, profile-bee, intentrace, kubearmor, libvfio, usecomputer,
+#   otel-ebpf-instrumentation, opentelemetry-collector
+#       Explored and not adopted. They add agent/policy surface without a
+#       current use; revisit only with a concrete need.
+#
+# Inline comments are allowed: build_files/10-packages.sh strips them.
+
 kcli
 ublue-setup-services
 ublue-os-libvirt-workarounds

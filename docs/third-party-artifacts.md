@@ -64,6 +64,6 @@ The complete build, signing, staging, and host integration pipeline has been pro
 
 3. **Host Firmware Delivery & `initramfs-etc`**:
    - `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` injects the SHA-256 verified firmware directory into the pre-baked initramfs as an overlay.
-   - **Crucial ostree finding**: `initramfs-etc` is incompatible with client-side initramfs regeneration (`Initramfs: regenerate`). Client regeneration must be disabled (`rpm-ostree initramfs --disable`), which returns the host to the pre-baked BlueBuild image initramfs and enables `/etc/gpu-unlock` overlay tracking.
+   - **Crucial ostree finding**: `initramfs-etc` is incompatible with client-side initramfs regeneration (`Initramfs: regenerate`). Client regeneration must be disabled (`rpm-ostree initramfs --disable`), which returns the host to the pre-baked image initramfs and enables `/etc/gpu-unlock` overlay tracking.
    - Combined with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`.
    - Managed via `ujust gpu-unlock-setup`, `ujust gpu-unlock-status`, and `ujust gpu-unlock-remove`.
