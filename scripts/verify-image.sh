@@ -22,7 +22,7 @@ if ! missing_pkgs=$(podman run --rm -v "${repo_root}/packages:/packages:ro,Z" "$
 		if ! rpm -q "$pkg" >/dev/null 2>&1 && ! rpm -q --whatprovides "$pkg" >/dev/null 2>&1; then
 			echo "$pkg"
 		fi
-	done < <(sed -E "s/#.*//" /packages/*.txt | grep -vE "^\s*$" | sort -u)
+	done < <(sed -E "s/#.*//; s/[[:space:]]+$//" /packages/*.txt | grep -vE "^\s*$" | sort -u)
 ' 2>"${pkg_err}"); then
 	echo "FAIL: container run failed while checking packages"
 	cat "${pkg_err}"
