@@ -170,7 +170,6 @@ jobs:
               "pr-${PR_NUMBER}-stable-${os_version}" "${short_sha}-stable-${os_version}"
               "pr-${PR_NUMBER}-${BASE_TAG}-${os_version}" "${short_sha}-${BASE_TAG}-${os_version}"
             )
-            pointers=()
           else
             tags=(
               "latest-${os_version}" "${timestamp}-latest-${os_version}" "${short_sha}-latest-${os_version}"
@@ -178,7 +177,6 @@ jobs:
               "${BASE_TAG}" "${BASE_TAG}-${os_version}" "${timestamp}-${BASE_TAG}-${os_version}" "${short_sha}-${BASE_TAG}-${os_version}"
               "latest.${timestamp}" "stable-${os_version}.${timestamp}"
             )
-            pointers=(latest stable)
           fi
 
           podman manifest create --amend "${registry}:${tags[0]}" local/silver-goggles
