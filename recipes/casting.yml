@@ -22,23 +22,25 @@ modules:
   # ==========================================
   # LAYER 1: WIRELESS RECEIVERS
   # ==========================================
-  - type: rpm-ostree
+  - type: dnf
     install:
-      - uxplay # AirPlay 2 mirror + audio receiver (LAN-only; needs a graphical session)
+      packages:
+        - uxplay # AirPlay 2 mirror + audio receiver (LAN-only; needs a graphical session)
 
   # ==========================================
   # LAYER 2: WIRED DEVICE BRIDGES (iOS / Android)
   # ==========================================
   # Consolidated here from dx.yml so the whole mobile surface lives in one layer.
-  - type: rpm-ostree
+  - type: dnf
     install:
-      - usbmuxd # iOS: USB multiplexing daemon — every libimobiledevice tool talks through it
-      - libimobiledevice-utils # iOS: idevicescreenshot, idevicesyslog, idevicebackup2, idevice_id…
-      - ifuse # iOS: mount the device filesystem (DCIM, app sandboxes) over FUSE
-      - ideviceinstaller # iOS: list/install/remove .ipa packages over usbmuxd
-      # - android-tools # Android: ADB & Fastboot. Deliberately NOT installed — `adb` already
-      #                 # comes from the android-platform-tools cask in cli.Brewfile, and a
-      #                 # second adb in PATH is a debugging trap, not redundancy.
+      packages:
+        - usbmuxd # iOS: USB multiplexing daemon — every libimobiledevice tool talks through it
+        - libimobiledevice-utils # iOS: idevicescreenshot, idevicesyslog, idevicebackup2, idevice_id…
+        - ifuse # iOS: mount the device filesystem (DCIM, app sandboxes) over FUSE
+        - ideviceinstaller # iOS: list/install/remove .ipa packages over usbmuxd
+        # - android-tools # Android: ADB & Fastboot. Deliberately NOT installed — `adb` already
+        #                 # comes from the android-platform-tools cask in cli.Brewfile, and a
+        #                 # second adb in PATH is a debugging trap, not redundancy.
 
   # ==========================================
   # LAYER 3: CUSTOMIZATIONS (ujust surface)
