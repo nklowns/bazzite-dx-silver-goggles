@@ -30,7 +30,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Just
+        id: just
+        continue-on-error: true
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Install Just from crates.io (fallback)
+        # The action downloads from the GitHub API, which returned 504 twice
+        # and blocked publishing. crates.io is an independent path.
+        if: steps.just.outcome != 'success'
+        run: |
+          set -euo pipefail
+          command -v just >/dev/null && exit 0
+          cargo install just --locked
 
       - name: Install shell interpreters for syntax checks
         run: sudo apt-get update -q && sudo apt-get install -qy zsh fish
