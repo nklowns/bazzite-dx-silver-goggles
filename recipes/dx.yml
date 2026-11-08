@@ -73,7 +73,7 @@ modules:
         - bpftrace # eBPF: High-level tracing language
         # - otel-ebpf-instrumentation # eBPF: OBI 1.0
         # - opentelemetry-collector # Collector: OBI 1.0
-        - iotop # System: I/O monitor
+        - iotop-c # System: I/O monitor
         - nicstat # Network: Interface statistics
         - numactl # System: NUMA policy control
         - pcp # System: Performance Co-Pilot

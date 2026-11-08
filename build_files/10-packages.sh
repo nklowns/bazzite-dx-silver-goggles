@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Installs every package the image declares, from the same repos the recipes used.
+# Fedora 45 base images are composefs-native: rpm-ostree install no longer works
+# inside the build container, dnf5 does. See docs/INVESTIGATION-F45-NVIDIA-OPEN.md.
+set -euo pipefail
+
+echo "Enabling build-time repositories"
+dnf5 -y copr enable karmab/kcli
+dnf5 -y copr enable ublue-os/packages
+
+# cloud-hypervisor ships in an openSUSE OBS repository. The file is removed again in
+# 90-cleanup.sh, so the atomic host never sees a foreign repo.
+curl -fsSL --retry 5 --retry-all-errors \
+	"https://download.opensuse.org/repositories/home:/cloud-hypervisor/Fedora_Rawhide/home:cloud-hypervisor.repo" \
+	-o /etc/yum.repos.d/home:cloud-hypervisor.repo
+
+install_list() {
+	local file="$1"
+	echo "Installing packages from $(basename "$file")"
+	# shellcheck disable=SC2046
+	dnf5 -y install $(grep -vE '^\s*(#|$)' "$file")
+}
+
+install_list "${CONTEXT_PATH}/packages/dx.txt"
+install_list "${CONTEXT_PATH}/packages/hardware.txt"
+install_list "${CONTEXT_PATH}/packages/casting.txt"
