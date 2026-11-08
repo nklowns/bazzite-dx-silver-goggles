@@ -16,8 +16,7 @@ ARG BASE_IMAGE_DIGEST=sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6
 FROM scratch AS ctx
 COPY build_files /build_files
 COPY packages /packages
-COPY files/justfiles /just
-COPY files/system /system_files
+COPY files /files
 COPY modules /modules
 
 FROM ${BASE_IMAGE}@${BASE_IMAGE_DIGEST}
