@@ -58,5 +58,8 @@ O `gpu_unlock` é o exemplo vivo: EAC Linux v2 e unlock são mutuamente exclusiv
 - Publicar em `0.0.0.0`: `tailscale0` está na zona `trusted`, então tudo vaza para a tailnet.
 - Parser próprio quando existe formato nativo (`brew bundle` com stanza `flatpak`, `flatpak
   preinstall` com `.preinstall`, `kargs.d`, `tmpfiles.d`).
+- Re-adicionar um pacote que a base deixou de shipar. A base evolui; a camada declara o que as
+  **suas** capacidades precisam, não o conjunto que o upstream tinha antes. (Exemplo real: a base
+  open não shipa `switcheroo-control`; re-declará-lo seria congelar uma decisão do Bazzite.)
 - Guard que compara a imagem nova com o release anterior: o histórico não é o contrato.
 - Copiar unit para `$HOME`: sombreia o `/usr` e congela a versão.
