@@ -1,3 +1,9 @@
 smbios-utils-python
 policycoreutils
 looking-glass-client
+# The open-kernel base (bazzite-nvidia-open) does not ship switcheroo-control,
+# but the desktop uses net.hadess.SwitcherooControl for the "run on the dGPU"
+# integration and the service is active on the G15. Declare it so a base
+# flavour cannot silently drop the capability. (supergfxctl, the ASUS tool,
+# also disappears; it is inert on this Dell, so it stays out.)
+switcheroo-control
