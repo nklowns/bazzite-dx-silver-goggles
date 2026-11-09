@@ -15,6 +15,23 @@ amontoado.
   Se Flatpak, Brew ou container resolvem, não entra em `packages/*.txt`;
 - LLM/agentes são sempre opt-in: zero custo em idle até `ujust ...-up`.
 
+## Onde a mudança mora
+
+Antes de escrever, decida quem é o dono:
+
+- **Upstream** — se a mudança altera o comportamento de uma ferramenta para *qualquer* usuário
+  (Waydroid, Bazzite, Terra), o destino é issue/PR do projeto. A camada não carrega o workaround.
+- **Contribua, não assevere** — se codifica um fix que o upstream deveria ter (spec quebrado, unit
+  que não fixa o ICD, doc que omite um gate), o destino é o PR upstream; a camada não declara a
+  correção como se fosse dela.
+- **Camada** — se só existe por causa *deste* stack/estado (harness, sudo global, serviços DX,
+  `gpu_unlock` opt-in, PCP, política de boot), entra em `packages/`, `files/`/`build_files/`.
+
+Exemplo real: o bug do `device[0]` do Venus (`vkr` expõe a iGPU no índice 0 e o HWUI usa
+`device[0]`) afeta qualquer host híbrido → issue `Shiro836/waydroid-nvidia#43`; o drop-in com
+`VK_ICD_FILENAMES` é workaround **de host**, não da imagem. Já o `switcheroo-control` que a base
+deixou de shipar é churn do upstream, e a camada não re-adiciona.
+
 ## Anatomia
 
 Toda capacidade declara as mesmas peças, no mesmo lugar:
