@@ -9,6 +9,17 @@ dx-doctor:
     echo "1. Core Kernel Matrix:"
     cat /proc/cmdline | grep -iE --color "iommu|kvm|vfio" || echo "Warning: Specialized kargs not detected!"
 
+    if [[ -r /usr/lib/bootc/kargs.d/10-silver-goggles.toml ]]; then
+        echo "   Declared kargs.d (applied by bootc installs; rpm-ostree hosts converge with 'ujust dx-kargs'):"
+        while IFS= read -r karg; do
+            if tr ' ' '\n' < /proc/cmdline | grep -qxF "$karg"; then
+                echo "   [ OK ] $karg"
+            else
+                echo "   [FAIL] $karg (run: ujust dx-kargs)"
+            fi
+        done < <(grep -vE '^[[:space:]]*#' /usr/lib/bootc/kargs.d/10-silver-goggles.toml | grep -oE '"[^"]+"' | tr -d '"')
+    fi
+
     echo -e "\n2. Architecture & Image:"
     [[ -f /usr/share/ublue-os/image-info.json ]] && jq -C . /usr/share/ublue-os/image-info.json
 
@@ -40,6 +51,56 @@ dx-doctor:
     else
         echo "[WARN] Bbrew not found. Some uBlue workflows might be slower."
     fi
+
+# Converge /proc/cmdline onto the image's declared kargs.d (idempotent). bootc reads that file on
+# install/upgrade; an rpm-ostree host only inherits the previous deployment's args, so a rebase or
+# an image that added a karg needs this once. Reboot after staging.
+[group('System')]
+dx-kargs:
+    #!/usr/bin/bash
+    set -euo pipefail
+    readonly toml=/usr/lib/bootc/kargs.d/10-silver-goggles.toml
+
+    if [[ ! -r $toml ]]; then
+        echo "error: $toml absent (image too old?)" >&2
+        exit 1
+    fi
+
+    mapfile -t declared < <(grep -vE '^[[:space:]]*#' "$toml" | grep -oE '"[^"]+"' | tr -d '"')
+    mapfile -t applied < <(tr ' ' '\n' < /proc/cmdline)
+    keys=$(printf '%s\n' "${applied[@]}" | cut -d= -f1)
+
+    missing=()
+    divergent=()
+    for karg in "${declared[@]}"; do
+        printf '%s\n' "${applied[@]}" | grep -qxF "$karg" && continue
+        if printf '%s\n' "$keys" | grep -qxF "${karg%%=*}"; then
+            divergent+=("$karg")
+        else
+            missing+=("$karg")
+        fi
+    done
+
+    if [[ ${#missing[@]} -eq 0 && ${#divergent[@]} -eq 0 ]]; then
+        echo "all ${#declared[@]} declared kargs are applied"
+        exit 0
+    fi
+
+    if ((${#missing[@]})); then
+        printf 'missing (%d):\n' "${#missing[@]}"
+        printf '  %s\n' "${missing[@]}"
+    fi
+    if ((${#divergent[@]})); then
+        printf 'declared with a different value than the host (%d):\n' "${#divergent[@]}"
+        printf '  %s\n' "${divergent[@]}"
+        echo "fix those with: sudo rpm-ostree kargs --replace=<key>=<current>=<declared>"
+    fi
+    ((${#missing[@]})) || exit 0
+
+    args=()
+    for karg in "${missing[@]}"; do args+=("--append-if-missing=$karg"); done
+    sudo rpm-ostree kargs "${args[@]}"
+    echo "staged; reboot to apply (revert with: rpm-ostree kargs --delete=<arg>)"
 
 # Provision the current user for DX groups (Idempotent)
 [group('System')]
