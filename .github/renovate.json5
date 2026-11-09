@@ -84,7 +84,7 @@
         'patch',
       ],
       matchPackageNames: [
-        'ghcr.io/ublue-os/bazzite-nvidia',
+        'ghcr.io/ublue-os/bazzite-nvidia-open',
       ],
       pinDigests: true,
       automerge: false,
