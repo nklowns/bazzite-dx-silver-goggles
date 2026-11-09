@@ -40,6 +40,7 @@ Consequences that are easy to get wrong:
 
 ```bash
 just check          # Validate: Just syntax, actionlint, pin consistency, ShellCheck
+SKIP_NETWORK=1 just check  # Same, minus actionlint image, Renovate and Quadlet registry checks (offline)
 just build          # Build the image locally with podman
 just rebase-local   # Apply built image to running system (reboot required)
 just rollback-local # Undo last rebase (reboot required)
@@ -152,7 +153,7 @@ no schema: adding a package is one line, adding a file is one file.
 | `files/system/etc/containers/systemd/users/` | **Rootless Quadlet units** (`.container`/`.network`) for the NOMAD stack, turned into `.service` by a systemd generator. Under `/etc` and not `/usr` because rootless Quadlet has **no `/usr` search path** — `man podman-systemd.unit` lists only `$XDG_RUNTIME_DIR/containers/systemd/`, `~/.config/containers/systemd/`, `/etc/containers/systemd/users/$(UID)` and `/etc/containers/systemd/users/`. The rootful list *does* include `/usr/share/containers/systemd/`, so going rootful would restore the `/usr` placement — at the cost of the security property that made podman the right engine (see the socket note in README). This is not a breach of Atomic State Policy item 1, which forbids mutating `/etc` imperatively at runtime, not shipping into it via the image overlay |
 | `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 68-nomad.just, 95-bazzite-dx.just), installed by `build_files/50-justfiles.sh` |
 | `files/system/usr/share/ublue-os/casting/` | Staged casting **config template** (`uxplayrc.tmpl`) copied into `$HOME` by `ujust` on request. The units themselves live in `usr/lib/systemd/user/` |
-| `modules/` | Scripts invoked by `build_files/` (dx-flavor, dx-udev, dx-cockpit, dx-verify, dx-hardening, gpu-unlock). Kept as modules only because `build_files` calls them; their `module.yml` files are legacy metadata |
+| `modules/` | Scripts invoked by `build_files/` (dx-flavor, dx-udev, dx-cockpit, dx-verify, dx-hardening, gpu-unlock). The directory name is historical; `build_files` calls the scripts directly, with no module metadata |
 | `just/` | Modular Just recipe files (build, dev, maint, status) |
 | `scripts/` | Utility scripts (`verify-image.sh`, `sign-kmod.sh`, `load-image.sh`, `dev-shell.sh`) |
 | `disk_config/` | Bootc Image Builder (BIB) configs for QCOW2/ISO output |

@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=https://schema.blue-build.org/module-v1.json
-name: dx-flavor
-shortdesc: Bazzite-DX metadata orchestration, KDE branding, and workstation experience adjustments.
-example: |
-  type: dx-flavor
-  source: local
