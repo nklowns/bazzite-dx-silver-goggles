@@ -46,6 +46,8 @@ check:
     echo "Linting GitHub Actions workflows..."
     if command -v actionlint >/dev/null 2>&1; then
       actionlint || rc=1
+    elif [[ "${SKIP_NETWORK:-0}" == "1" ]]; then
+      echo "SKIP: actionlint not installed and SKIP_NETWORK=1 (offline)."
     elif command -v "${PODMAN}" >/dev/null 2>&1; then
       ${PODMAN} run --rm -v "$PWD:/repo:Z" -w /repo docker.io/rhysd/actionlint:latest || rc=1
     else
@@ -58,7 +60,9 @@ check:
     	renovate_configs+=("$f")
     done < <(find .github -maxdepth 1 -type f \( -name 'renovate.json' -o -name 'renovate.json5' \) -print0 2>/dev/null || true)
     if [ "${#renovate_configs[@]}" -gt 0 ]; then
-    	if command -v "${PODMAN}" &>/dev/null; then
+    	if [[ "${SKIP_NETWORK:-0}" == "1" ]]; then
+    		echo "SKIP: Renovate validation needs the network (SKIP_NETWORK=1)."
+    	elif command -v "${PODMAN}" &>/dev/null; then
     		${PODMAN} run --rm -v "$PWD:/repo:ro,Z" -w /repo \
     			ghcr.io/renovatebot/renovate:latest \
     			renovate-config-validator || rc=1
@@ -72,7 +76,9 @@ check:
     fi
     echo "Running ShellCheck on Bash scripts..."
     just lint || rc=1
-    if command -v skopeo >/dev/null 2>&1; then
+    if [[ "${SKIP_NETWORK:-0}" == "1" ]]; then
+        echo "SKIP: Quadlet image accessibility needs the network (SKIP_NETWORK=1)."
+    elif command -v skopeo >/dev/null 2>&1; then
         echo "Validating Quadlet container image accessibility..."
         while IFS= read -r -d '' cfile; do
             while IFS= read -r img; do
