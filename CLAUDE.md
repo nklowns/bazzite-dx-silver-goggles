@@ -1,7 +1,7 @@
 # Bazzite-DX-Silver-Goggles — Core Agent Contract
 
 **Repository Context**: Developer Experience (DX) image layer targeting Dell G15 5520 (i7-12700H, RTX 3060, KDE/NVIDIA) on Fedora 45, built with a Containerfile.
-**Upstream Base**: `ghcr.io/ublue-os/bazzite-nvidia` | **Entry Point**: `Containerfile`
+**Upstream Base**: `ghcr.io/ublue-os/bazzite-nvidia-open` | **Entry Point**: `Containerfile`
 **Detailed Architecture & Hardware Reference**: See [`AGENTS.md`](./AGENTS.md) for deep specs, port mappings, and thermal controls.
 
 ## 🛠️ Essential Commands

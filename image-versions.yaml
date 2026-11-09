@@ -6,8 +6,11 @@
 # the Quadlet units under files/system/etc/containers/systemd/users/, which is the artifact
 # that actually ships — keeping a second copy here only created a way for the two to
 # disagree. Renovate tracks those files directly via a customManager.
+# The internal key stays `bazzite-nvidia` on purpose: maint.just, both workflows and
+# Renovate select the pin by this name. The image it resolves to is the open-kernel
+# flavour (kernel 7.2.x, driver 615), not the proprietary LTS one.
 images:
   - name: bazzite-nvidia
-    image: ghcr.io/ublue-os/bazzite-nvidia
+    image: ghcr.io/ublue-os/bazzite-nvidia-open
     tag: 45.20261105
-    digest: sha256:1d86fe5e788d651827757cbcdb01b17b1b5727995c0691419d6136b28cd50c97
+    digest: sha256:9c3c4df94a7731238021549ed3fc951c3ae5e1fee37667d16754f37ae0f73134

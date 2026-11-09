@@ -23,7 +23,7 @@ This image is a **Developer Experience (DX) customization layer** over Bazzite. 
 
 ```mermaid
 graph TD
-    A[bazzite-nvidia base] --> B[Containerfile]
+    A[bazzite-nvidia-open base] --> B[Containerfile]
     B --> C[build_files/NN-*.sh]
     C --> C1[packages/*.txt]
     C --> C2[files/system overlay]

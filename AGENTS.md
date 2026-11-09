@@ -4,7 +4,7 @@ Single source of truth for AI agents in this repository (`CLAUDE.md` and `GEMINI
 
 Developer Experience (DX) customization layer targeting **Dell G15 5520** (Intel i7-12700H, NVIDIA RTX 3060), KDE/NVIDIA, Fedora 45. Builds an immutable OCI image with a plain `Containerfile` plus numbered build scripts, following the uBlue image pattern.
 
-- **Base image**: `ghcr.io/ublue-os/bazzite-nvidia`, pinned in `image-versions.yaml`. DX tooling is applied by `build_files/` and `files/system/`.
+- **Base image**: `ghcr.io/ublue-os/bazzite-nvidia-open`, pinned in `image-versions.yaml`. DX tooling is applied by `build_files/` and `files/system/`.
 - **Entry point**: `Containerfile`. Everything flows from there.
 - Use the `[Silver Goggles]` prefix for agent-created issues or messages.
 
@@ -131,7 +131,7 @@ no schema: adding a package is one line, adding a file is one file.
 
 ### Layers
 
-1. **CORE** — Fedora/uBlue base (`bazzite-nvidia` upstream).
+1. **CORE** — Fedora/uBlue base (`bazzite-nvidia-open` upstream, kernel 7.2.x / driver 615).
 2. **HARDWARE** — Dell G15 kargs, thermals, GPU unlock, guard rails.
 3. **DX** — engines (containers, virt, remote, observability) and Cockpit.
 4. **CAPABILITIES** — NOMAD, Agent Mesh, AI Studio, casting: Quadlets and ujust,
