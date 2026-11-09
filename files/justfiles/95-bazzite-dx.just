@@ -67,7 +67,12 @@ dx-kargs:
     fi
 
     mapfile -t declared < <(grep -vE '^[[:space:]]*#' "$toml" | grep -oE '"[^"]+"' | tr -d '"')
-    mapfile -t applied < <(tr ' ' '\n' < /proc/cmdline)
+    # Compare against the pending deployment (`rpm-ostree kargs`), not /proc/cmdline: after staging,
+    # the running boot still lacks the kargs and the recipe would stage them a second time.
+    if ! pending=$(rpm-ostree kargs 2>/dev/null); then
+        pending=$(cat /proc/cmdline)
+    fi
+    mapfile -t applied < <(tr ' ' '\n' <<<"$pending")
     keys=$(printf '%s\n' "${applied[@]}" | cut -d= -f1)
 
     missing=()
@@ -82,7 +87,7 @@ dx-kargs:
     done
 
     if [[ ${#missing[@]} -eq 0 && ${#divergent[@]} -eq 0 ]]; then
-        echo "all ${#declared[@]} declared kargs are applied"
+        echo "all ${#declared[@]} declared kargs are in the pending boot"
         exit 0
     fi
 
