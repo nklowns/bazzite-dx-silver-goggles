@@ -1,16 +1,53 @@
 # ==============================================================================
-# SearXNG Metasearch Engine Configuration — 7 Search Spheres
+# SearXNG Metasearch Engine Configuration — 9 Search Spheres
 # ==============================================================================
 # Managed declaratively by Bazzite silver-goggles image & agent-mesh-bootstrap-env.
 # 
-# SPHERES:
-# 1. Clearnet General: brave, google cse, mojeek, qwant, wikipedia, wikidata, duckduckgo
-# 2. Dev & IT (:!it): github, gitlab, stackoverflow, arch linux wiki, pypi, npm, crates.io, docker hub, repology, nvd, huggingface
+# SPHERES (as declared in categories_as_tabs below):
+# 1. Clearnet General: brave (api), google, mojeek, wikipedia, wikidata, duckduckgo,
+#    + native-index: yandex, naver, bing
+# 2. Dev & IT (:!it): github, gitlab, stackoverflow, arch linux wiki, pypi, npm, crates.io, docker hub, repology, nvd, huggingface, baidu kaifa
 # 3. Science (:!science): arxiv, semantic scholar, annas archive
 # 4. Indie & Small Web (:!indie): marginalia, neocities, mwmbl
 # 5. P2P (:!p2p): mwmbl, yacy (remote public pool https://yacy.searchlab.eu)
 # 6. Onions (:!onions): ahmia via internal Tor proxy (socks5h://tor:9050)
-# 7. Web Histórica & Arquivos (:!archive): openlibrary, loc, annas archive
+# 7. I2P (:!i2p): i2p search engines via the internal i2pd router proxies
+# 8. Web Histórica & Arquivos (:!archive): openlibrary, loc, annas archive
+# 9. Local (:!local): recoll Xapian index of the registered workspaces
+#
+# MULTILINGUAL SEARCH — measured 2026-11-10 on the G15 (JSON API, host exit).
+# Scope is a fixed list of 10 target languages: pt-BR, en, ru, zh, ja, de, fr, es, ar, ko.
+#
+# `brave` (engine: braveapi) has no language-aware index: `language=ja|de|ru` and
+# the `:ja` prefix returned the SAME results as the plain English query. The
+# `language` filter is therefore not the lever; native queries are, and general
+# fallbacks are what keep the 6 languages without a dedicated engine alive if
+# brave is suspended.
+#
+# Coverage map (measured):
+#   ru  yandex      'погода'         10 (gismeteo.ru)  · en 'weather' 10 · lang=pt-BR 10
+#   ko  naver       '뉴스'            9 (news.naver.com) · en 'weather'  3 · lang=pt-BR  9
+#   zh  baidu kaifa 'python asyncio' 10 (blog.csdn.net) — categoria it
+#   zh  bing        '天气'           10  · 360search responde (6) mas custa +1.7 s (pt) / +4.7 s (zh)
+#   ja/de/fr/es/ar/pt-BR/en via bing (fallback geral), 10 resultados cada, ~0.3 s:
+#       '東京 天気' · 'Wetter Berlin' · 'météo Paris' · 'clima Madrid' ·
+#       'أخبار اليوم' · 'previsão do tempo' · 'weather London'
+#   baidu (general) devolve CAPTCHA / "HTTP connection error" do exit atual.
+#   seznam (cs) timeout em 2 de 2 tentativas — cs está fora da lista de 10.
+#   startpage nao e registrado por este build (ausente de searx.engines, 264 carregadas).
+#
+# TRAWL (anti-bot) — A/B medido no mesmo exit, `network: trawl` nestes motores:
+#   baidu -> CAPTCHA · seznam -> CAPTCHA · 360search -> CAPTCHA (direto devolvia 6).
+#   Ou seja, o trawl nao destrava esses índices; ele já é o caminho de
+#   google/mojeek/wikipedia/wikidata/duckduckgo (declarado em cada stanza), e
+#   `google` continua "access denied" mesmo por ele. Por isso os motores de
+#   índice nativo acima ficam **diretos** de propósito — é medicao, nao descuido.
+#
+# CONTRATO DE IDIOMA: consultar no idioma que indexa o conteudo (query nativa) e
+# responder no idioma pedido pelo chamador. O SearXNG nao traduz resultado; a
+# obrigacao dele é nao descartar — por isso `languages` fica sem lista e
+# `default_lang` herda `auto`. Medido: `language=pt-BR` + query nativa nao muda
+# a contagem (yandex 10, naver 9, bing 10).
 # ==============================================================================
 
 use_default_settings: true
@@ -33,6 +70,11 @@ search:
   formats:
     - html
     - json
+  # `default_lang` fica no herdado do use_default_settings (auto) e `languages`
+  # continua sem lista, de proposito: chamada de API sem `language` nao pode ser
+  # estreitada. Medido: motores de indice nativo mantem o resultado nativo mesmo
+  # com `language=pt-BR`, entao curar a lista nao acrescentaria cobertura e
+  # filtraria quem passa o proprio idioma.
 
 valkey:
   url: redis://redis:6379/1
@@ -75,6 +117,9 @@ engines:
   # ==========================================
   # ESFERA 1: CLEARNET GERAL
   # ==========================================
+  # startpage: NAO registrado por este build do SearXNG (ausente de searx.engines,
+  # com 264 engines carregadas) — a stanza seria inerte, não apenas desligada.
+  # Reavaliar a cada bump do SearXNG.
   - name: startpage
     disabled: true
 
@@ -86,6 +131,9 @@ engines:
     network: trawl
     disabled: false
 
+  # brave (API): índice sem suporte a idioma — `language=xx` e o prefixo `:xx`
+  # devolvem os mesmos resultados da query em inglês. Cobertura multilíngue vem
+  # dos motores de índice nativo abaixo (yandex, naver, bing), não do parâmetro.
   - name: brave
     engine: braveapi
     api_key: "@BRAVE_API_KEY@"
@@ -131,12 +179,48 @@ engines:
     disabled: false
     weight: 1.5
 
+  # --- Índices nativos (medidos 2026-11-10, saída deste host, sem trawl) ---
+  # Respondem a query nativa e ignoram `language=pt-BR` sem perder resultado.
+  # São o caminho para multilíngue; o parâmetro `language` não é.
+  - name: yandex
+    categories: [general]
+    disabled: false
+    timeout: 4.0
+
+  - name: naver
+    categories: [general, it]
+    disabled: false
+    weight: 1.2
+    # 5.0: cold start mediu 2.3 s; 4.0 derrubou a primeira chamada por timeout.
+    timeout: 5.0
+
+  - name: bing
+    categories: [general, it]
+    disabled: false
+    weight: 1.5
+    timeout: 3.0
+
+  # --- Rejeitados na medição: ficam desligados com o motivo, não por esquecimento ---
+  - name: baidu
+    disabled: true
+    # CAPTCHA / "HTTP connection error" em chamadas consecutivas do exit atual.
+  - name: seznam
+    disabled: true
+    # timeout em 2 de 2 tentativas (~30 s cada).
+  - name: 360search
+    disabled: true
+    # Responde (6 resultados), mas custa +1.7 s numa agregação pt-BR e +4.7 s
+    # numa zh, sem ganho de resultado. Habilitar sob demanda se precisar de zh.
+
   # Motores ruidosos desativados da categoria IT herdada
   - name: mdn
     disabled: true
 
   - name: baidu kaifa
-    disabled: true
+    categories: [it]
+    disabled: false
+    # Índice nativo chinês, categoria it: 'python asyncio' -> 10 (blog.csdn.net).
+    # Diferente de `baidu` (general), que devolve CAPTCHA do exit atual.
 
   - name: habrahabr
     disabled: true
