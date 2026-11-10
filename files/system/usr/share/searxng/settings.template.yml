@@ -37,11 +37,12 @@
 #   startpage nao e registrado por este build (ausente de searx.engines, 264 carregadas).
 #
 # TRAWL (anti-bot) — A/B medido no mesmo exit, `network: trawl` nestes motores:
-#   baidu -> CAPTCHA · seznam -> CAPTCHA · 360search -> CAPTCHA (direto devolvia 6).
-#   Ou seja, o trawl nao destrava esses índices; ele já é o caminho de
-#   google/mojeek/wikipedia/wikidata/duckduckgo (declarado em cada stanza), e
-#   `google` continua "access denied" mesmo por ele. Por isso os motores de
-#   índice nativo acima ficam **diretos** de propósito — é medicao, nao descuido.
+#   baidu -> CAPTCHA · seznam -> CAPTCHA · 360search -> CAPTCHA (direto devolvia 6),
+#   as tres em ~3 ms: o trawl respondeu "Suspended: CAPTCHA", ou seja, estava
+#   recusando request, nao resolvendo. Ele já é o caminho declarado de
+#   google/mojeek/wikipedia/wikidata/duckduckgo, e `google` continua "access
+#   denied" mesmo por ele. Por isso os motores de índice nativo acima ficam
+#   **diretos** de propósito — é medicao, nao descuido.
 #
 # CONTRATO DE IDIOMA: consultar no idioma que indexa o conteudo (query nativa) e
 # responder no idioma pedido pelo chamador. O SearXNG nao traduz resultado; a
