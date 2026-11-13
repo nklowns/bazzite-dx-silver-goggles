@@ -414,3 +414,123 @@ dx-sync-ide-keybindings:
         echo "❌ Script de sincronização de atalhos não encontrado: $SCRIPT"
         exit 1
     fi
+
+# Poda escopada: só containers parados e imagens órfãs dos Quadlets DESTA imagem
+[group('System')]
+dx-services-prune mode="dry-run":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    UNIT_DIR="/etc/containers/systemd/users"
+    APPLY=false
+    case "{{ mode }}" in
+        --apply | apply) APPLY=true ;;
+        dry-run | --dry-run | "") ;;
+        *)
+            echo "uso: ujust dx-services-prune [dry-run|--apply]" >&2
+            exit 2
+            ;;
+    esac
+
+    if [[ ! -d "$UNIT_DIR" ]]; then
+        echo "❌ Sem Quadlets em $UNIT_DIR — nada a podar."
+        exit 0
+    fi
+
+    # Allowlist = repositórios (sem tag/digest) declarados pelos Quadlets da imagem.
+    # Tudo fora dela é intocável por construção: projetos e harness não entram.
+    mapfile -t ALLOW < <(
+        grep -h '^Image=' "$UNIT_DIR"/*.container 2>/dev/null |
+            sed -E 's/^Image=//; s/@sha256:[a-f0-9]+$//; s/:[^/:]+$//' |
+            sort -u
+    )
+    if [[ ${#ALLOW[@]} -eq 0 ]]; then
+        echo "❌ Nenhum Image= declarado — recusando podar."
+        exit 1
+    fi
+
+    repo_of() {
+        local ref="$1"
+        ref="${ref%%@*}"
+        [[ "$ref" == *:* ]] && ref="${ref%:*}"
+        printf '%s' "$ref"
+    }
+
+    allowed() {
+        local repo="$1" r
+        for r in "${ALLOW[@]}"; do
+            [[ "$repo" == "$r" ]] && return 0
+        done
+        return 1
+    }
+
+    echo "Escopo (${#ALLOW[@]} repositórios declarados em $UNIT_DIR):"
+    printf '  %s\n' "${ALLOW[@]}"
+
+    mapfile -t STALE_CTRS < <(
+        podman ps -a --filter status=exited --filter status=created \
+            --format '{{{{.Id}}}}|{{{{.Image}}}}|{{{{.Names}}}}' 2>/dev/null |
+            while IFS='|' read -r cid image name; do
+                [[ -n "${cid:-}" ]] || continue
+                allowed "$(repo_of "$image")" && printf '%s|%s|%s\n' "$cid" "$image" "$name"
+            done
+    )
+
+    if [[ ${#STALE_CTRS[@]} -gt 0 ]]; then
+        echo
+        echo "Containers parados da imagem:"
+        for c in "${STALE_CTRS[@]}"; do
+            IFS='|' read -r _ image name <<<"$c"
+            echo "  $name ($image)"
+        done
+        if [[ "$APPLY" == true ]]; then
+            for c in "${STALE_CTRS[@]}"; do
+                IFS='|' read -r cid _ name <<<"$c"
+                podman rm -f "$cid" >/dev/null && echo "  ✔ removido: $name"
+            done
+        fi
+    fi
+
+    # Recalcula o uso DEPOIS de remover containers, para não poupar imagem órfã.
+    mapfile -t USED < <(podman ps -a --format '{{{{.ImageID}}}}' 2>/dev/null | sort -u)
+    image_used() {
+        local id="$1" u
+        for u in "${USED[@]}"; do
+            [[ "$u" == "$id" ]] && return 0
+        done
+        return 1
+    }
+
+    STALE_IMAGES=()
+    while IFS='|' read -r id repo tag size; do
+        [[ -n "${id:-}" ]] || continue
+        allowed "$(repo_of "$repo:$tag")" || continue
+        image_used "$id" && continue
+        STALE_IMAGES+=("$id|$repo:$tag|$size")
+    done < <(podman images --format '{{{{.Id}}}}|{{{{.Repository}}}}|{{{{.Tag}}}}|{{{{.Size}}}}' 2>/dev/null)
+
+    if [[ ${#STALE_IMAGES[@]} -eq 0 ]]; then
+        echo
+        echo "✅ Nenhuma imagem órfã no escopo."
+    else
+        echo
+        echo "Imagens órfãs da imagem:"
+        for i in "${STALE_IMAGES[@]}"; do
+            IFS='|' read -r _ ref size <<<"$i"
+            echo "  $ref ($size)"
+        done
+        if [[ "$APPLY" == true ]]; then
+            for i in "${STALE_IMAGES[@]}"; do
+                IFS='|' read -r id ref size <<<"$i"
+                podman rmi "$id" >/dev/null && echo "  ✔ removida: $ref ($size)"
+            done
+        fi
+    fi
+
+    if [[ "$APPLY" != true ]]; then
+        echo
+        echo "Dry-run. Aplique com: ujust dx-services-prune --apply"
+        exit 0
+    fi
+    echo
+    podman system df
