@@ -22,7 +22,7 @@
 # ==============================================================================
 
 # 🐳 ComfyUI base image — single source of truth; update here and all recipes follow.
-COMFY_IMAGE := "docker.io/yanwk/comfyui-boot:cu126-slim@sha256:b6d611541e84ab76d496feed1d7a8da02081291fa3079fd6dce9ebb5c25721cb"
+COMFY_IMAGE := "docker.io/yanwk/comfyui-boot:cu126-slim@sha256:2860c103583fbbd03f2e324116395a47e68ad0ef84fc3689f03b42a63fba41a6"
 
 # 🚀 Iniciar a suíte completa do AI Studio (Visual + Audio)
 [group('AI Studio')]
