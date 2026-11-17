@@ -26,7 +26,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/yanwk/comfyui-boot:cu126-slim@sha256:edf80d5501c88efc02184944b8057f4224388b060000fa8db843ba5f1470a76c
+Image=docker.io/yanwk/comfyui-boot:cu126-slim@sha256:fcaeb26d7e6a6a25554fd935a5e10e48c1d2fbf0e314e7e203cb0cd1154bc2ba
 ContainerName=aistudio_visual
 Network=project-nomad_default.network
 NetworkAlias=aistudio-visual
