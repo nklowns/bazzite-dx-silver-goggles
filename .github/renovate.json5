@@ -4,7 +4,9 @@
     'config:best-practices',
   ],
   forkProcessing: 'enabled',
-  dependencyDashboard: true,
+  dependencyDashboard: {
+    enabled: true,
+  },
   rebaseWhen: 'behind-base-branch',
   'git-submodules': {
     enabled: true,
