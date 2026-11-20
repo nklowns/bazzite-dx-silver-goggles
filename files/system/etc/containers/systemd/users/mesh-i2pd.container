@@ -5,7 +5,7 @@
 # Publishes to loopback (127.0.0.1:4444, 127.0.0.1:4447, 127.0.0.1:7070); internal alias `i2pd`.
 #
 # [Install] is omitted on purpose: preserves Boot Impact Policy under user lingering.
-# Started on demand via `ujust i2p-up` or transparently by mesh_fetch.
+# Started on demand via `ujust mesh up i2p` or transparently by mesh_fetch.
 
 [Unit]
 Description=I2P Daemon Client & Eepsite Proxy (Agent Mesh)

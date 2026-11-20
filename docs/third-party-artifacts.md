@@ -37,7 +37,7 @@ and not done here.
 | Secret missing or empty | `sign-kmod.sh` exits 1; set it with `gh secret set KMOD_SIGNING_KEY -R <repo> --env kmod-signing < key.pem` |
 | Key does not match `kmod.der` | exits 1 with both fingerprints; fix the secret, not the cert |
 | `kernel-devel` for the base kernel unavailable | workflow fails at "Resolve kernel"; wait for the base to publish or pin an older base |
-| Base kernel bumped | `kmod-sign.yml` builds against the pinned base digest on every image build, so the module follows the kernel. If the build or sign job fails, `modules/gpu-unlock` skips with a warning and the image ships **without** the unlock (`ujust gpu-unlock-setup` then refuses) |
+| Base kernel bumped | `kmod-sign.yml` builds against the pinned base digest on every image build, so the module follows the kernel. If the build or sign job fails, `modules/gpu-unlock` skips with a warning and the image ships **without** the unlock (`ujust gpu-unlock setup` then refuses) |
 | Job runs on a PR / merge queue | the sign job is skipped (`github.ref` is not main); image builds without the unlock |
 | Key leaked or lost | generate a new pair, commit the new `kmod.der`, `ujust enroll-silver-goggles-key` on each host, `mokutil --delete` the old one, rotate the secret |
 | Annual hygiene | rotate the key and re-enrol |

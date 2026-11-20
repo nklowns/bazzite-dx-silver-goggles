@@ -3,10 +3,10 @@
 # Part of the Agent Mesh. Operates autonomously on the shared OCI network.
 # Connects to SearXNG (http://searxng:8080) for web queries and to nomad-llama (http://llama:8080/v1,
 # OpenAI provider) for chat and embeddings. Neither LLM backend is a hard unit dependency.
-# Loopback publication on 127.0.0.1:61385; remote exposure via `ujust remote-vane-setup`.
+# Loopback publication on 127.0.0.1:61385; remote exposure via `ujust mesh remote on vane`.
 #
 # [Install] is omitted on purpose: preserves Boot Impact Policy under user lingering.
-# Started on demand via `ujust vane-up`.
+# Started on demand via `ujust mesh up vane`.
 
 [Unit]
 Description=Vane AI Answering & Deep Research Engine (Agent Mesh)

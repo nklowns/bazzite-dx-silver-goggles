@@ -6,7 +6,7 @@
 #
 # [Install] is omitted on purpose: podman-user-generator links any unit with [Install] into
 # default.target.wants/, which under user lingering starts at boot and violates the Boot Impact Policy.
-# Started on demand via `ujust tor-up` or transparently by mesh-search.
+# Started on demand via `ujust mesh up tor` or transparently by mesh-search.
 
 [Unit]
 Description=Tor SOCKS5 Proxy (Agent Mesh)

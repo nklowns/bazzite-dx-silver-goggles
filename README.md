@@ -135,7 +135,7 @@ All ports sit in this layer's reserved DX range **`61300-61399`** so nothing her
 
 ## nomad-llama — optional llama.cpp CUDA endpoint (bring your own models)
 
-Ollama's `/v1` endpoint does not return structured `tool_calls`, which coding agents and MCP clients need. `nomad-llama` runs [llama-swap](https://github.com/mostlygeek/llama-swap) in front of llama.cpp's server, **CUDA build, in one container** (`ghcr.io/mostlygeek/llama-swap:cuda`, pinned by digest), so any OpenAI-compatible tool can point at it and models are loaded on demand. It is opt-in like the rest of the stack: `ujust llama-up`.
+Ollama's `/v1` endpoint does not return structured `tool_calls`, which coding agents and MCP clients need. `nomad-llama` runs [llama-swap](https://github.com/mostlygeek/llama-swap) in front of llama.cpp's server, **CUDA build, in one container** (`ghcr.io/mostlygeek/llama-swap:cuda`, pinned by digest), so any OpenAI-compatible tool can point at it and models are loaded on demand. It is opt-in like the rest of the stack: `ujust llama up`.
 
 Why not the distro's llama.cpp: the Homebrew build is Vulkan. Measured on the RTX 3060 Laptop, CUDA is +15% decode with the KV cache on the GPU, +40-50% with the KV cache in system RAM, and on MoE models with experts offloaded to the CPU Vulkan was 23 vs 31 tok/s and ran out of VRAM at 32k context.
 
@@ -174,10 +174,10 @@ So GPU inference runs as its own unit with a real CDI device, and NOMAD is point
 | Chat | always the OpenAI client at `<url>/v1` | works |
 | Model list | `/api/tags`, falls back to `/v1/models` | works (fallback) |
 | RAG embeddings | `/api/embed`, falls back to `/v1/embeddings`, model name fixed to `nomic-embed-text:v1.5` | works — the default `nomad-llama` config serves that name, vectors identical to Ollama's (cosine ≥ 0.99999), so an existing index stays valid |
-| "Download model" | `/api/pull` | disabled by NOMAD itself with a notice; weights come from `ujust llama-models-fetch` |
+| "Download model" | `/api/pull` | disabled by NOMAD itself with a notice; weights come from `ujust llama models-fetch` |
 | GPU/thinking probes | `/api/ps`, `/api/show` | degrade to "no" without errors |
 
-**Wiring it up, once:** `ujust llama-up` (and `ujust llama-models-fetch` for the weights), then in the Command Center go to **Settings → AI** and set the remote base URL to:
+**Wiring it up, once:** `ujust llama up` (and `ujust llama models-fetch` for the weights), then in the Command Center go to **Settings → AI** and set the remote base URL to:
 
 ```
 http://llama:8080
@@ -240,7 +240,7 @@ A tighter alternative exists and was not taken: a custom SELinux module permitti
 
 Lingering is enabled for the desktop user on this image (`loginctl show-user $USER -p Linger` → `yes`). That changes what enabling a *user* unit means: without lingering an enabled unit starts at login, **with** lingering it starts at **boot**, with no login at all, and survives logout.
 
-So `ujust nomad-up` uses `systemctl --user start`, never `enable`. The stack runs until you stop it or reboot. This is a gaming machine as well as a workstation, and a permanently-resident MySQL, Redis, Node server and 6 GB inference engine is exactly the background cost that policy exists to prevent.
+So `ujust nomad up` uses `systemctl --user start`, never `enable`. The stack runs until you stop it or reboot. This is a gaming machine as well as a workstation, and a permanently-resident MySQL, Redis, Node server and 6 GB inference engine is exactly the background cost that policy exists to prevent.
 
 If you genuinely want NOMAD always-on, `systemctl --user enable nomad-admin.service` is yours to run deliberately.
 
@@ -248,7 +248,7 @@ If you genuinely want NOMAD always-on, `systemctl --user enable nomad-admin.serv
 
 `APP_KEY`, `MYSQL_ROOT_PASSWORD` and the database password are generated on first `nomad-up` into `/var/srv/nomad/.env` (mode `0600`) and **never overwritten**, so they survive image rebases. That matters more than it looks: MySQL only reads its credentials when initialising an empty data directory, so regenerating them later would leave the database on the old ones with *"Access denied"* as the only symptom.
 
-`URL` starts at `http://localhost:61380` and is rewritten automatically by `ujust remote-nomad-setup` — AdonisJS builds absolute links and CORS from it, and a stale value produces localhost URLs in a browser that arrived over the tailnet, which looks like an application bug.
+`URL` starts at `http://localhost:61380` and is rewritten automatically by `ujust nomad remote on` — AdonisJS builds absolute links and CORS from it, and a stale value produces localhost URLs in a browser that arrived over the tailnet, which looks like an application bug.
 
 ## Image pinning
 
@@ -276,7 +276,7 @@ curl http://<host>:61381/            -> HTTP 200      (Dozzle: logs of every con
 curl http://<host>:61382/api/tags    -> {"models":[]} (the former Ollama backend: no auth, no rate limit)
 ```
 
-So the containers publish on `127.0.0.1` instead, and `ujust remote-nomad-setup` is the one deliberate way out — which also gets you real TLS rather than plain HTTP. It is the same shape code-server and Cockpit already use. Nothing internal is affected: the Command Center talks to its apps over the container network, not through host ports.
+So the containers publish on `127.0.0.1` instead, and `ujust nomad remote on` is the one deliberate way out — which also gets you real TLS rather than plain HTTP. It is the same shape code-server and Cockpit already use. Nothing internal is affected: the Command Center talks to its apps over the container network, not through host ports.
 
 **Supply Depot apps too.** The containers the Command Center spawns are not quadlets: they come from its seeder, which declares a host port with no `HostIp` for every app (`6333` for Qdrant, `8480` for Vaultwarden, `8410` for Filebrowser, …) — i.e. `0.0.0.0`. Measured: Qdrant, installed on demand by the knowledge base, answered unauthenticated on the tailscale IP. NOMAD itself never needs those host ports (it reaches its apps as `http://<service_name>:<port>` on the stack network), so `nomad-admin` runs `/usr/libexec/project-nomad-loopback-apps` after every start: the seeder rewrites the configs on each boot, and the hook re-applies `HostIp=127.0.0.1` before any install can happen, without marking the apps user-modified (upstream config changes still land). Containers created before that keep their old bind until `ujust nomad-loopback-apps` recreates them through NOMAD's own force-reinstall (data in `/var/srv/nomad/storage` is kept).
 

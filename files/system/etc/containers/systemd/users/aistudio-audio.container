@@ -13,7 +13,7 @@
 # -------------------------
 # - Internal network alias: http://aistudio-audio:3900, http://audio:3900, http://voicestudio:3900
 # - Published on host loopback: 127.0.0.1:61386
-# - Exposed securely over the tailnet via `ujust remote-audio-setup`
+# - Exposed securely over the tailnet via `ujust audio remote on`
 
 [Unit]
 Description=AI Studio — Audio Studio (VoiceStudio v0.5.2 & OpenAI API, Port 61386)

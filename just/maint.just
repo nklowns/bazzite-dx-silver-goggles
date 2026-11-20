@@ -95,6 +95,7 @@ check:
         echo "❌ Unfiltered 'ss -tln | grep :<port>' found (false-positives on tailscale serve; use ss -tlnH 'src 127.0.0.1 sport = :<port>')"
         rc=1
     fi
+    bash scripts/test-dx-svc.sh || rc=1
     if [[ "${SKIP_NETWORK:-0}" == "1" ]]; then
         echo "SKIP: Quadlet image accessibility needs the network (SKIP_NETWORK=1)."
     elif command -v skopeo >/dev/null 2>&1; then

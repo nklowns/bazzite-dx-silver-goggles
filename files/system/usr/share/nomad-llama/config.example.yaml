@@ -1,12 +1,12 @@
 # nomad-llama — example llama-swap config (optional DX layer).
 #
-# `ujust llama-up` copies this to ~/.config/llama-swap/config.yaml when that file does not exist.
+# `ujust llama up` copies this to ~/.config/llama-swap/config.yaml when that file does not exist.
 # Edit it there (or replace it with your own/generated one); nomad-llama mounts it read-only at
 # /app/config.yaml and llama-swap reloads it on in-place edits (-watch-config).
 #
 # Paths inside the container (see nomad-llama.container):
 #   /app/llama-server      llama.cpp server, CUDA build
-#   /models/gguf/<repo>/<file>   weights fetched by `ujust llama-models-fetch`
+#   /models/gguf/<repo>/<file>   weights fetched by `ujust llama models-fetch`
 # Reference: https://github.com/mostlygeek/llama-swap/blob/main/docs/config.example.yaml
 #
 # The default below mirrors the curated set for a 6 GB GPU (RTX 3060 Laptop): one model in VRAM at

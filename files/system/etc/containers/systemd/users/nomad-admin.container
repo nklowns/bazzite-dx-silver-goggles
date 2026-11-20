@@ -69,7 +69,7 @@ Network=project-nomad_default.network
 #     curl http://<tailscale-fqdn>:61380/   -> HTTP 302
 #
 # The Command Center has no authentication in front of it at that point. Binding loopback
-# makes `ujust remote-nomad-setup` the single deliberate entrance, which also gets it real
+# makes `ujust nomad remote on` the single deliberate entrance, which also gets it real
 # TLS instead of plain HTTP — the same shape code-server (bind-addr 127.0.0.1:61337) and
 # Cockpit (ListenStream=127.0.0.1:61390) already use.
 #
@@ -127,4 +127,4 @@ ExecStartPost=-/usr/libexec/project-nomad-loopback-apps
 # [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
 # containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,
 # auto-starting the stack at boot under user lingering and violating the Boot Impact Policy.
-# The stack is strictly opt-in and started on demand via `ujust nomad-up`.
+# The stack is strictly opt-in and started on demand via `ujust nomad up`.

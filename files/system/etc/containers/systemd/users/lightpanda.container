@@ -5,7 +5,7 @@
 # Publishes CDP WebSocket directly to 127.0.0.1:9225.
 #
 # [Install] is omitted on purpose: preserves Boot Impact Policy under user lingering.
-# Started on demand via `ujust lightpanda-up` or `lightpanda up`.
+# Started on demand via `ujust mesh up lightpanda` or `lightpanda up`.
 
 [Unit]
 Description=Lightpanda Headless Browser (CDP Port 9225)

@@ -6,7 +6,7 @@
 # Publishes strictly to loopback (127.0.0.1:8191 and 127.0.0.1:8192); internal alias `trawl`.
 #
 # [Install] is omitted on purpose per Boot Impact Policy.
-# Started on demand via `ujust trawl-up` or transparently by mesh-search.
+# Started on demand via `ujust mesh up trawl` or transparently by mesh-search.
 
 [Unit]
 Description=Trawl Anti-Captcha & Scraper Engine (Agent Mesh)

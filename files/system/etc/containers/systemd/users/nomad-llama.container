@@ -23,7 +23,7 @@
 # THE PLUG INTERFACE (everything a user or a personal dotfiles layer needs to know)
 # ----------------------------------------------------------------------------------
 #   ~/.config/llama-swap/config.yaml   llama-swap config, mounted read-only at /app/config.yaml.
-#                                      `ujust llama-up` seeds it from /usr/share/nomad-llama/ if
+#                                      `ujust llama up` seeds it from /usr/share/nomad-llama/ if
 #                                      missing. Reloaded automatically (-watch-config) when edited
 #                                      in place; after replacing the file, `ujust llama-restart`.
 #   ~/.config/llama-swap/catalog.json  GGUF catalog for `llama-models-fetch` (host side only).
@@ -53,7 +53,7 @@ Network=project-nomad_default.network
 NetworkAlias=llama
 
 # Native CDI. Three image-side gates must hold (nvidia-persistenced running, CDI spec regenerated
-# with it up, SELinux container_use_devices on); `ujust llama-up` checks them.
+# with it up, SELinux container_use_devices on); `ujust llama up` checks them.
 AddDevice=nvidia.com/gpu=all
 
 # The config is a single file, not a directory: a dotfiles manager typically makes it a symlink

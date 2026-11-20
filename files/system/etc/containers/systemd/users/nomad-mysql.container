@@ -48,4 +48,4 @@ TimeoutStartSec=300
 # [Install] is omitted on purpose: podman-user-generator automatically links any Quadlet unit
 # containing [Install] WantedBy=default.target into /run/user/1000/systemd/generator/default.target.wants/,
 # auto-starting the stack at boot under user lingering and violating the Boot Impact Policy.
-# The stack is strictly opt-in and started on demand via `ujust nomad-up`.
+# The stack is strictly opt-in and started on demand via `ujust nomad up`.
