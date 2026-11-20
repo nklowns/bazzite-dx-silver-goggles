@@ -5,6 +5,11 @@
 # ==============================================================================
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source /usr/lib/ublue/setup-services/libsetup.sh
+
+version-script chrome-pip-kwin-rule user 1 || exit 0
+
 if [ -f /run/.containerenv ] || [ -f /.dockerenv ]; then
 	exit 0
 fi

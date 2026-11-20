@@ -350,312 +350,113 @@ ConfigureCockpitPortLabel() {
 		semanage port -m -t websm_port_t -p tcp 61390 2>/dev/null || true
 }
 
-ConfigureNomadStorage() {
-	local root="/var/srv/nomad"
-	# tmpfiles.d owns creation (see /usr/lib/tmpfiles.d/project-nomad.conf). If the tree is
-	# not there yet, do nothing — tmpfiles runs in sysinit.target and will have made it by
-	# the next boot. Never create it here: two creators means two opinions about ownership.
-	[ -d "$root" ] || return 0
-
-	# --- btrfs: disable copy-on-write for the database directories ---------------------
-	# MySQL and Redis do random writes inside large files, which is the pathological case
-	# for CoW: every write forks a new extent, fragmenting the file and amplifying writes
-	# on the NVMe. Measured on this host: /var is btrfs, rw,relatime,ssd,discard=async,
-	# space_cache=v2, no compression, and no nodatacow anywhere.
-	#
-	# The catch that makes this urgent rather than nice-to-have: +C is inherited by files
-	# created afterwards and does NOTHING to files that already exist. There is exactly one
-	# moment to set it — while the directory is still empty. Once mysqld has initialised its
-	# datadir the only fix is recreating the database, so a directory with contents is
-	# reported and skipped rather than given a reassuring no-op.
-	local dir
-	for dir in "$root/mysql" "$root/redis" "$root/gguf"; do
-		[ -d "$dir" ] || continue
-		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
-			continue
-		fi
-		if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
-			echo "WARNING: $dir already has contents; cannot enable btrfs nodatacow (+C only" \
-				"affects files created after it is set). Existing data stays copy-on-write."
-			continue
-		fi
-		echo "Enabling btrfs nodatacow on empty $dir..."
-		chattr +C "$dir" || true
-	done
-
-	# --- Exclude the bulk data from any future backup ----------------------------------
-	# CACHEDIR.TAG is a cross-tool convention honoured by restic (installed here), borg, tar,
-	# duplicity and rsync --exclude-caches. Written now, before any backup exists, precisely
-	# so that whichever tool shows up later inherits the right answer without an exclude list
-	# to maintain. The claim is honest: ZIM archives and model weights are re-downloadable.
-	# The signature line is a fixed magic string — it must be byte-exact and come first.
-	local tag="$root/storage/CACHEDIR.TAG"
-	if [ -d "$root/storage" ] && [ ! -f "$tag" ]; then
-		echo "Marking $root/storage as a cache directory for backup tools..."
-		{
-			echo "Signature: 8a477f597d28d172789f06886806bc55"
-			echo "# Project NOMAD offline content (ZIM archives, model weights, maps)."
-			echo "# Re-downloadable through the Command Center; excluded from backups by"
-			echo "# tools honouring the CACHEDIR.TAG convention."
-		} >"$tag" || true
-	fi
-	# This function runs as root, so anything it creates is owned by uid 0 — and uid 0 is
-	# unreachable from inside a rootless container's user namespace, which maps only
-	# {1000} plus the subuid range. A stray root-owned file in a volume a rootless container
-	# manages is not cosmetic: redis died in a restart loop over exactly this shape, with
-	# `chown: ./dump.rdb: Operation not permitted` as the only clue, and took the whole stack
-	# down with it through Requires=. Hand the tag to the owner of the tree.
-	[ ! -f "$tag" ] || chown 1000:1000 "$tag" || true
-
-	# --- SELinux: label the tree so containers can actually use it ---------------------
-	# Measured: a bind mount of an unlabelled directory is denied outright to a container
-	# (touch -> Permission denied), and the same bind works once the directory is
-	# container_file_t. This cannot be solved with :z on our own volumes alone, because the
-	# Command Center generates binds for every Supply Depot app it spawns and those carry no
-	# :z and cannot be given one — labelling the root covers all of them at once.
-	command -v semanage >/dev/null 2>&1 || return 0
-	local spec="${root}(/.*)?" listing
-	# Capture the listing rather than piping it, so "no entry" is distinguishable from
-	# "could not ask". Piping conflated them: `semanage fcontext -l` fails without root, the
-	# empty output failed the grep, and the negation then reported the rule as missing on
-	# every single run. Match with -F — the spec contains (, ), ? and *, none of which mean
-	# themselves in a basic regex.
-	if ! listing=$(semanage fcontext -l 2>/dev/null); then
-		echo "WARNING: cannot query SELinux fcontext (needs root); skipping label registration." \
-			"Containers will be denied access to ${root} until this runs privileged."
+_EnsureNodatacow() {
+	local dir="$1"
+	local allow_nonempty="${2:-0}"
+	[ -d "$dir" ] || return 0
+	if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
 		return 0
 	fi
-	if ! grep -qF "$spec" <<<"$listing"; then
-		echo "Registering SELinux fcontext container_file_t for ${root}..."
-		semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-		restorecon -R "$root" || true
+	if [ "$allow_nonempty" -eq 0 ] && [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+		echo "WARNING: $dir already has contents; cannot enable btrfs nodatacow (+C only" \
+			"affects files created after it is set). Existing data stays copy-on-write."
+		return 0
 	fi
+	echo "Enabling btrfs nodatacow (+C) on $dir..."
+	chattr +C "$dir" 2>/dev/null || true
 }
 
-ConfigureVisualStorage() {
-	local root="/var/srv/visual"
-	[ -d "$root" ] || return 0
-
-	# --- btrfs: disable copy-on-write for model weights and cache directories ----------
-	local dir
-	for dir in "$root/models" "$root/output"; do
-		[ -d "$dir" ] || continue
-		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
-			continue
-		fi
-		if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
-			echo "WARNING: $dir already has contents; cannot enable btrfs nodatacow (+C only" \
-				"affects files created after it is set). Existing data stays copy-on-write."
-			continue
-		fi
-		echo "Enabling btrfs nodatacow on empty $dir..."
-		chattr +C "$dir" || true
-	done
-
-	local tag="$root/CACHEDIR.TAG"
-	if [ -d "$root" ] && [ ! -f "$tag" ]; then
-		echo "Marking $root as a cache directory for backup tools..."
+_EnsureCacheDirTag() {
+	local dir="$1"
+	local desc="$2"
+	local tag="$dir/CACHEDIR.TAG"
+	[ -d "$dir" ] || return 0
+	if [ ! -f "$tag" ]; then
+		echo "Marking $dir as a cache directory for backup tools..."
 		{
 			echo "Signature: 8a477f597d28d172789f06886806bc55"
-			echo "# AI Studio Visual offline content (model weights, checkpoints, LoRAs)."
+			echo "# ${desc}"
 			echo "# Re-downloadable; excluded from backups by tools honouring CACHEDIR.TAG."
 		} >"$tag" || true
 	fi
+	# Runs as root; hand ownership to uid 1000 so rootless containers can manage the tree.
 	[ ! -f "$tag" ] || chown 1000:1000 "$tag" || true
+}
 
-	command -v semanage >/dev/null 2>&1 || return 0
-	local spec="${root}(/.*)?" listing
-	if ! listing=$(semanage fcontext -l 2>/dev/null); then
-		return 0
-	fi
+_EnsureSelinuxFcontext() {
+	local spec="$1"
+	local target_dir="${2:-}"
+	local listing="$3"
 	if ! grep -qF "$spec" <<<"$listing"; then
-		echo "Registering SELinux fcontext container_file_t for ${root}..."
+		echo "Registering SELinux fcontext container_file_t for ${spec}..."
 		semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
 			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-		restorecon -R "$root" || true
-	fi
-
-	# Ensure user deliverables under ~/Pictures/AI_Studio inherit container_file_t declaratively
-	local deliverable_spec="/var/home/[^/]+/Pictures/AI_Studio(/.*)?"
-	if ! grep -qF "$deliverable_spec" <<<"$listing"; then
-		echo "Registering SELinux fcontext container_file_t for user Pictures/AI_Studio deliverables..."
-		semanage fcontext -a -t container_file_t "$deliverable_spec" 2>/dev/null ||
-			semanage fcontext -m -t container_file_t "$deliverable_spec" 2>/dev/null || true
+		if [ -n "$target_dir" ] && [ -d "$target_dir" ]; then
+			restorecon -R "$target_dir" || true
+		fi
 	fi
 }
 
-ConfigureAudioStorage() {
-	local root="/var/srv/audio"
-	[ -d "$root" ] || return 0
+ConfigureSrvStorage() {
+	# Declarative /var/srv/* convergence driven by /usr/lib/tmpfiles.d/*.conf.
+	# tmpfiles.d owns directory creation (d) and declares btrfs nodatacow targets (h ... +C);
+	# this function converges +C on existing dirs, writes CACHEDIR.TAG markers, enforces
+	# RustDesk private key permissions, and registers SELinux container_file_t labels in one pass.
+	local tmpfiles_dir="${DX_TMPFILES_DIR:-/usr/lib/tmpfiles.d}"
+	[ -d "$tmpfiles_dir" ] || return 0
 
-	# --- btrfs: disable copy-on-write for audio models and cache directories -----------
-	local dir
-	for dir in "$root/tts/models" "$root/stt/models" "$root/music/models" "$root/output" "$root/cache" "$root/data"; do
-		[ -d "$dir" ] || continue
-		if lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
-			continue
-		fi
-		if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
-			echo "WARNING: $dir already has contents; cannot enable btrfs nodatacow (+C only" \
-				"affects files created after it is set). Existing data stays copy-on-write."
-			continue
-		fi
-		echo "Enabling btrfs nodatacow on empty $dir..."
-		chattr +C "$dir" || true
-	done
-
-	local tag="$root/CACHEDIR.TAG"
-	if [ -d "$root" ] && [ ! -f "$tag" ]; then
-		echo "Marking $root as a cache directory for backup tools..."
-		{
-			echo "Signature: 8a477f597d28d172789f06886806bc55"
-			echo "# AI Audio Studio offline content (TTS/STT ONNX models, MusicGen, voices)."
-			echo "# Re-downloadable; excluded from backups by tools honouring CACHEDIR.TAG."
-		} >"$tag" || true
+	# 1. RustDesk private permissions (directory + ed25519 private key)
+	if [ -d /var/srv/rustdesk ]; then
+		chmod 0700 /var/srv/rustdesk 2>/dev/null || true
+		[ ! -f /var/srv/rustdesk/id_ed25519 ] || chmod 0600 /var/srv/rustdesk/id_ed25519 2>/dev/null || true
 	fi
-	[ ! -f "$tag" ] || chown 1000:1000 "$tag" || true
 
+	# 2. Btrfs nodatacow (+C) for every /var/srv/* directory declared in tmpfiles.d
+	local dir tf
+	while IFS= read -r dir; do
+		[ -n "$dir" ] || continue
+		if [ "$dir" = "/var/srv/rustdesk" ]; then
+			_EnsureNodatacow "$dir" 1
+		else
+			_EnsureNodatacow "$dir" 0
+		fi
+	done < <(
+		for tf in "$tmpfiles_dir"/*.conf; do
+			[ -r "$tf" ] || continue
+			awk '$1 == "h" && $2 ~ /^\/var\/srv\// && $NF ~ /\+C/ {print $2}' "$tf"
+		done | sort -u
+	)
+
+	# 3. Backup exclusions (CACHEDIR.TAG) for bulk re-downloadable content
+	_EnsureCacheDirTag "/var/srv/nomad/storage" "Project NOMAD offline content (ZIM archives, model weights, maps)."
+	_EnsureCacheDirTag "/var/srv/visual" "AI Studio Visual offline content (model weights, checkpoints, LoRAs)."
+	_EnsureCacheDirTag "/var/srv/audio" "AI Audio Studio offline content (TTS/STT ONNX models, MusicGen, voices)."
+
+	# 4. SELinux container_file_t labeling — single `semanage fcontext -l` query for all roots
 	command -v semanage >/dev/null 2>&1 || return 0
-	local spec="${root}(/.*)?" listing
+	local listing
 	if ! listing=$(semanage fcontext -l 2>/dev/null); then
+		echo "WARNING: cannot query SELinux fcontext (needs root); skipping /var/srv label registration."
 		return 0
 	fi
-	if ! grep -qF "$spec" <<<"$listing"; then
-		echo "Registering SELinux fcontext container_file_t for ${root}..."
-		semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-		restorecon -R "$root" || true
-	fi
 
-	# Ensure user deliverables under ~/Music/AI_Studio inherit container_file_t declaratively
-	local deliverable_spec="/var/home/[^/]+/Music/AI_Studio(/.*)?"
-	if ! grep -qF "$deliverable_spec" <<<"$listing"; then
-		echo "Registering SELinux fcontext container_file_t for user Music/AI_Studio deliverables..."
-		semanage fcontext -a -t container_file_t "$deliverable_spec" 2>/dev/null ||
-			semanage fcontext -m -t container_file_t "$deliverable_spec" 2>/dev/null || true
-	fi
-}
+	local root
+	while IFS= read -r root; do
+		[ -d "$root" ] || continue
+		_EnsureSelinuxFcontext "${root}(/.*)?" "$root" "$listing"
+	done < <(
+		for tf in "$tmpfiles_dir"/*.conf; do
+			[ -r "$tf" ] || continue
+			awk '$1 == "d" && $2 ~ /^\/var\/srv\/[^\/]+$/ {print $2}' "$tf"
+		done | sort -u
+	)
 
-ConfigureRustDeskStorage() {
-	local root="/var/srv/rustdesk"
-	[ -d "$root" ] || return 0
-
-	# 1. Enforce private permissions on RustDesk directory and private keys
-	chmod 0700 "$root" 2>/dev/null || true
-	if [ -f "$root/id_ed25519" ]; then
-		chmod 0600 "$root/id_ed25519" 2>/dev/null || true
+	# User deliverables under ~/Pictures/AI_Studio and ~/Music/AI_Studio
+	if [ -d /var/srv/visual ]; then
+		_EnsureSelinuxFcontext "/var/home/[^/]+/Pictures/AI_Studio(/.*)?" "" "$listing"
 	fi
-
-	# 2. Disable Copy-on-Write for SQLite database (db_v2.sqlite3) on NVMe Btrfs
-	if ! lsattr -d "$root" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
-		echo "Enabling btrfs nodatacow (+C) on ${root}..."
-		chattr +C "$root" 2>/dev/null || true
-	fi
-
-	# 3. SELinux container labeling
-	command -v semanage >/dev/null 2>&1 || return 0
-	local spec="${root}(/.*)?" listing
-	if ! listing=$(semanage fcontext -l 2>/dev/null); then
-		return 0
-	fi
-	if ! grep -qF "$spec" <<<"$listing"; then
-		echo "Registering SELinux fcontext container_file_t for ${root}..."
-		semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-			semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-		restorecon -R "$root" || true
-	fi
-}
-
-ConfigureAiSearchStorage() {
-	local root="/var/srv/searxng"
-	if [ -d "$root" ]; then
-		command -v semanage >/dev/null 2>&1 || return 0
-		local spec="${root}(/.*)?" listing
-		if listing=$(semanage fcontext -l 2>/dev/null); then
-			if ! grep -qF "$spec" <<<"$listing"; then
-				echo "Registering SELinux fcontext container_file_t for ${root}..."
-				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-				restorecon -R "$root" || true
-			fi
-		fi
-	fi
-
-	local vane_root="/var/srv/vane"
-	if [ -d "$vane_root" ]; then
-		local dir="$vane_root/data"
-		if [ -d "$dir" ] && ! lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
-			if [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
-				echo "Enabling btrfs nodatacow on empty $dir..."
-				chattr +C "$dir" || true
-			fi
-		fi
-		command -v semanage >/dev/null 2>&1 || return 0
-		local spec="${vane_root}(/.*)?" listing
-		if listing=$(semanage fcontext -l 2>/dev/null); then
-			if ! grep -qF "$spec" <<<"$listing"; then
-				echo "Registering SELinux fcontext container_file_t for ${vane_root}..."
-				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-				restorecon -R "$vane_root" || true
-			fi
-		fi
-	fi
-	local trawl_root="/var/srv/trawl"
-	if [ -d "$trawl_root" ]; then
-		command -v semanage >/dev/null 2>&1 || return 0
-		local spec="${trawl_root}(/.*)?" listing
-		if listing=$(semanage fcontext -l 2>/dev/null); then
-			if ! grep -qF "$spec" <<<"$listing"; then
-				echo "Registering SELinux fcontext container_file_t for ${trawl_root}..."
-				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-				restorecon -R "$trawl_root" || true
-			fi
-		fi
-	fi
-
-	local i2pd_root="/var/srv/i2pd"
-	if [ -d "$i2pd_root" ]; then
-		local dir="$i2pd_root/data"
-		if [ -d "$dir" ] && ! lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
-			if [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
-				echo "Enabling btrfs nodatacow on empty $dir..."
-				chattr +C "$dir" || true
-			fi
-		fi
-		command -v semanage >/dev/null 2>&1 || return 0
-		local spec="${i2pd_root}(/.*)?" listing
-		if listing=$(semanage fcontext -l 2>/dev/null); then
-			if ! grep -qF "$spec" <<<"$listing"; then
-				echo "Registering SELinux fcontext container_file_t for ${i2pd_root}..."
-				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-				restorecon -R "$i2pd_root" || true
-			fi
-		fi
-	fi
-
-	local recoll_root="/var/srv/recoll"
-	if [ -d "$recoll_root" ]; then
-		local dir="$recoll_root/xapiandb"
-		if [ -d "$dir" ] && ! lsattr -d "$dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
-			if [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
-				echo "Enabling btrfs nodatacow on empty $dir..."
-				chattr +C "$dir" || true
-			fi
-		fi
-		command -v semanage >/dev/null 2>&1 || return 0
-		local spec="${recoll_root}(/.*)?" listing
-		if listing=$(semanage fcontext -l 2>/dev/null); then
-			if ! grep -qF "$spec" <<<"$listing"; then
-				echo "Registering SELinux fcontext container_file_t for ${recoll_root}..."
-				semanage fcontext -a -t container_file_t "$spec" 2>/dev/null ||
-					semanage fcontext -m -t container_file_t "$spec" 2>/dev/null || true
-				restorecon -R "$recoll_root" || true
-			fi
-		fi
+	if [ -d /var/srv/audio ]; then
+		_EnsureSelinuxFcontext "/var/home/[^/]+/Music/AI_Studio(/.*)?" "" "$listing"
 	fi
 }
 
@@ -738,11 +539,7 @@ ConfigureContainerSelinux
 ConfigureClusterSelinux
 ClearAutologinObstacles
 ConfigureCockpitPortLabel
-ConfigureNomadStorage
-ConfigureVisualStorage
-ConfigureAudioStorage
-ConfigureRustDeskStorage
-ConfigureAiSearchStorage
+ConfigureSrvStorage
 ConfigureFirewall
 ConfigurePcpServices
 SanitizeUserMediaContexts

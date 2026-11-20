@@ -53,11 +53,26 @@ if [[ -f "$WS_FILE" ]]; then
 	done <"$WS_FILE"
 fi
 
-# 4. Run indexer in isolated container
+# 4. Resolve pinned image from mesh-recoll.container (single source of truth)
+UNIT_DIR="${DX_SVC_UNIT_DIR:-/etc/containers/systemd/users}"
+RECOLL_UNIT="${UNIT_DIR}/mesh-recoll.container"
+if [[ ! -f "$RECOLL_UNIT" ]]; then
+	SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+	if [[ -f "$SCRIPT_DIR/../../etc/containers/systemd/users/mesh-recoll.container" ]]; then
+		RECOLL_UNIT="$SCRIPT_DIR/../../etc/containers/systemd/users/mesh-recoll.container"
+	fi
+fi
+RECOLL_IMAGE="$(awk -F= '/^Image=/{sub(/^Image=/,""); print; exit}' "$RECOLL_UNIT" 2>/dev/null || true)"
+if [[ -z "$RECOLL_IMAGE" ]]; then
+	echo "❌ Não foi possível resolver Image= de ${RECOLL_UNIT}" >&2
+	exit 1
+fi
+
+# 5. Run indexer in isolated container
 exec podman run --rm --name "${CONTAINER_NAME}" \
 	--security-opt label=disable --cap-drop=all \
 	"${VOLUMES[@]}" \
 	-v "$RECOLL_CONF:/root/.recoll/recoll.conf:ro" \
 	-v /var/srv/recoll/xapiandb:/var/recoll/db:Z,U \
-	docker.io/ageos/recoll-webui:latest@sha256:045b0a39cfddace3336426ca87d8aa1bf59814559585439eb5684cfbf62d9b95 \
+	"$RECOLL_IMAGE" \
 	recollindex "$@"

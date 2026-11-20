@@ -96,6 +96,54 @@ check:
         rc=1
     fi
     bash scripts/test-dx-svc.sh || rc=1
+    bash scripts/test-dx-helpers.sh || rc=1
+    python3 -c '
+    import glob, os, re, sys
+    from collections import defaultdict
+    rc = 0
+    rpms = defaultdict(list)
+    for p in sorted(glob.glob("packages/*.txt")):
+        seen = set()
+        for i, line in enumerate(open(p), 1):
+            s = line.split("#")[0].strip()
+            if not s: continue
+            if s in seen:
+                print(f"❌ Duplicate RPM in {p}:{i}: {s}")
+                rc = 1
+            seen.add(s)
+            rpms[s].append(os.path.basename(p))
+    for pkg, files in sorted(rpms.items()):
+        if len(set(files)) > 1:
+            print(f"❌ Duplicate RPM across package lists: {pkg} ({files})")
+            rc = 1
+    disjoint = defaultdict(list)
+    all_brew_names = set()
+    for p in sorted(glob.glob("files/system/usr/share/ublue-os/homebrew/*.Brewfile")):
+        name = os.path.basename(p)
+        seen = set()
+        for i, line in enumerate(open(p), 1):
+            m = re.match(r"^\s*(brew|cask|flatpak)\s+\"([^\"]+)\"", line)
+            if not m: continue
+            kind, pkg = m.groups()
+            short = pkg.split("/")[-1]
+            if (kind, short) in seen:
+                print(f"❌ Duplicate entry in {name}:{i}: {kind} {short}")
+                rc = 1
+            seen.add((kind, short))
+            if kind in ("brew", "cask"):
+                all_brew_names.add(short)
+            # silver-goggles.Brewfile is intentionally a self-contained personal meta-suite.
+            if name != "silver-goggles.Brewfile":
+                disjoint[(kind, short)].append(name)
+    for (kind, short), files in sorted(disjoint.items()):
+        if len(files) > 1:
+            print(f"❌ Duplicate entry across disjoint Brewfiles: {kind} {short} ({files})")
+            rc = 1
+    for pkg in sorted(set(rpms) & all_brew_names):
+        print(f"❌ Package overlaps between packages/*.txt and Brewfiles: {pkg}")
+        rc = 1
+    sys.exit(rc)
+    ' || rc=1
     if [[ "${SKIP_NETWORK:-0}" == "1" ]]; then
         echo "SKIP: Quadlet image accessibility needs the network (SKIP_NETWORK=1)."
     elif command -v skopeo >/dev/null 2>&1; then

@@ -193,15 +193,21 @@ audit ACTION="":
 
         echo
         echo "=== 6. Btrfs nodatacow (+C) em /var/srv ==="
-        local srv_dir
-        for srv_dir in /var/srv/nomad/mysql /var/srv/nomad/redis /var/srv/nomad/gguf /var/srv/i2pd/data /var/srv/recoll/xapiandb /var/srv/vane/data /var/srv/rustdesk; do
+        local tmpfiles_dir="/usr/lib/tmpfiles.d" srv_dir tf
+        [[ -d "$tmpfiles_dir" ]] || tmpfiles_dir="{{ justfile_directory() }}/../system/usr/lib/tmpfiles.d"
+        while IFS= read -r srv_dir; do
             [[ -d "$srv_dir" ]] || continue
             if lsattr -d "$srv_dir" 2>/dev/null | awk '{print $1}' | grep -q 'C'; then
                 echo "  ✅ $srv_dir (+C)"
             else
                 echo "  ⚠️  $srv_dir sem +C (sudo chattr +C $srv_dir)"
             fi
-        done
+        done < <(
+            for tf in "$tmpfiles_dir"/*.conf; do
+                [[ -r "$tf" ]] || continue
+                awk '$1 == "h" && $2 ~ /^\/var\/srv\// && $NF ~ /\+C/ {print $2}' "$tf"
+            done | sort -u
+        )
     }
 
     run_disk() {

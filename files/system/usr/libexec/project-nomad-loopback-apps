@@ -26,7 +26,7 @@
 # no window in which an install could pick up the 0.0.0.0 config.
 #
 # Containers created before this existed keep their old binding until recreated: they are
-# reported, and `--recreate` (ujust nomad-loopback-apps) recreates them through NOMAD's own
+# reported, and `--recreate` (ujust nomad loopback-apps) recreates them through NOMAD's own
 # force-reinstall API. Apps keep their data in bind mounts under /var/srv/nomad/storage; the
 # reinstall only removes Docker named volumes belonging to the app.
 set -uo pipefail
@@ -100,7 +100,7 @@ for name in $exposed; do
 			-H 'Content-Type: application/json' -d "{\"service_name\":\"$name\"}" >&2
 		echo >&2
 	else
-		log "WARNING: $name is still published on all interfaces — run 'ujust nomad-loopback-apps'"
+		log "WARNING: $name is still published on all interfaces — run 'ujust nomad loopback-apps'"
 	fi
 done
 exit 0

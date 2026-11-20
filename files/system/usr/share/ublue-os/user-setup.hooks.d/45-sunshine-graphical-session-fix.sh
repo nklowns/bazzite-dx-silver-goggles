@@ -4,7 +4,7 @@ set -ouex pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script sunshine-graphical-session-fix user 12 || exit 0
+version-script sunshine-graphical-session-fix user 13 || exit 0
 
 # Sunshine runs as the flatpak dev.lizardbyte.app.Sunshine under the canonical
 # /usr/lib/systemd/user/sunshine.service (Homebrew build retired: it cannot load the host's Intel VAAPI
@@ -119,8 +119,8 @@ if [ -x /usr/libexec/bazzite-dx-sunshine-apps ]; then
 fi
 
 systemctl --user daemon-reload || true
-systemctl --user enable sunshine.service || true
-
-if systemctl --user is-active --quiet graphical-session.target 2>/dev/null; then
-	systemctl --user restart sunshine.service || true
+# Opt-in policy (Linger=yes): never force-enable sunshine.service on boot.
+# Only reload/restart if the user already has Sunshine running in this session.
+if systemctl --user is-active --quiet sunshine.service 2>/dev/null; then
+	systemctl --user try-restart sunshine.service || true
 fi
