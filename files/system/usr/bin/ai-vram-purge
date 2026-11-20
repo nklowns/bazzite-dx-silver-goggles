@@ -1,24 +1,19 @@
 #!/usr/bin/env bash
-# /usr/bin/ai-vram-purge — Free 100% of GPU VRAM by unloading AI workloads (ComfyUI / nomad-llama).
-# Called by GameMode hooks or manual gaming launchers before booting heavy 3D titles.
+# /usr/bin/ai-vram-purge — Free 100% of GPU VRAM by stopping all GPU Quadlets.
+# Delegates to /usr/libexec/dx-svc (single source of truth for AddDevice=nvidia.com/gpu).
 set -uo pipefail
 
-PURGED=0
-
-# 1. Stop AI Studio Visual (ComfyUI) if active
-if systemctl --user is-active --quiet aistudio-visual.service 2>/dev/null; then
-	echo "🎮 GameMode: Descarregando AI Studio Visual (ComfyUI) da VRAM..." >&2
-	systemctl --user stop aistudio-visual.service 2>/dev/null || true
-	PURGED=1
+DX_SVC="/usr/libexec/dx-svc"
+if [[ ! -x "$DX_SVC" && -x "$(dirname "$0")/../libexec/dx-svc" ]]; then
+	DX_SVC="$(dirname "$0")/../libexec/dx-svc"
 fi
 
-# 2. Stop nomad-llama (llama-swap + llama.cpp CUDA) if active — a loaded MoE model holds several GB
-if systemctl --user is-active --quiet nomad-llama.service 2>/dev/null; then
-	echo "🎮 GameMode: Descarregando nomad-llama (llama.cpp) da VRAM..." >&2
-	systemctl --user stop nomad-llama.service 2>/dev/null || true
-	PURGED=1
+if [[ -x "$DX_SVC" ]]; then
+	exec "$DX_SVC" down gpu
 fi
 
-if [[ "$PURGED" -eq 1 ]]; then
-	echo "✅ VRAM 100% liberada para a sessão de jogos." >&2
-fi
+# Fallback if invoked outside an image carrying dx-svc
+for u in aistudio-visual aistudio-audio nomad-llama; do
+	systemctl --user stop "${u}.service" 2>/dev/null || true
+done
+echo "✅ VRAM liberada." >&2

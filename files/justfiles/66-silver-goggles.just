@@ -526,41 +526,6 @@ code ACTION="" *ARGS:
     *) echo "Uso: ujust code <status|up|down|password|boot-on|boot-off|setup|tunnel>" >&2; exit 2 ;;
     esac
 
-# Configure Silver-Goggles Personal Suite (Flatpaks & Brew)
-[group('setup')]
-setup-personal-suite action="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ACTION="{{ action }}"
-    if [[ -z "$ACTION" ]]; then
-        ACTION="$(ugum choose --header "Silver-Goggles Personal Suite:" "install" "check" "cleanup")" || exit 0
-    fi
-    case "$ACTION" in
-    install)
-        flatpak remote-add --user --if-not-exists elyprismlauncher https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref || true
-        if command -v brew >/dev/null; then
-            while read -r tap; do
-                [[ -n "$tap" ]] && brew trust "$tap" || true
-            done < <(grep -E '^tap "' "/usr/share/ublue-os/homebrew/silver-goggles.Brewfile" | sed -E 's/tap "([^"]+)".*/\1/')
-        fi
-        brew bundle --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile
-        ;;
-    check) brew bundle check --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile ;;
-    cleanup) brew bundle cleanup --file=/usr/share/ublue-os/homebrew/silver-goggles.Brewfile ;;
-    *) echo "Uso: ujust setup-personal-suite <install|check|cleanup>" >&2; exit 2 ;;
-    esac
-
-# Trust all third-party Homebrew taps
-[group('setup')]
-brew-trust-taps:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    command -v brew >/dev/null || { echo "Homebrew not found." >&2; exit 1; }
-    brew tap | grep -vE '^(homebrew/)' | while read -r tap; do
-        [[ -n "$tap" ]] && brew trust "$tap" || true
-    done
-    echo "✅ Homebrew taps confiados."
-
 # Show or switch Dell G15 chassis power profile (no root needed)
 [group('hardware')]
 g15-profile profile="":

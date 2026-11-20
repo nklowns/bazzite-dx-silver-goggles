@@ -1,31 +1,18 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# lightpanda: Host overlay wrapper for Lightpanda Headless Browser
-# Runtime contract: fixed port 9225 (see 72-agent-mesh.just CDP matrix)
+# lightpanda: Host overlay wrapper for Lightpanda Headless Browser (:9225)
+# Lifecycle (up/down/status) delegates to /usr/libexec/dx-svc.
 # ==============================================================================
 set -euo pipefail
+
+DX_SVC="/usr/libexec/dx-svc"
+[[ -x "$DX_SVC" ]] || DX_SVC="$(dirname "$0")/../libexec/dx-svc"
 
 cmd="${1:-}"
 
 case "$cmd" in
-up)
-	systemctl --user daemon-reload
-	systemctl --user start lightpanda.service
-	echo "✅ Lightpanda CDP server ativo em ws://127.0.0.1:9225"
-	echo "   Endpoint HTTP: http://127.0.0.1:9225/json/version"
-	;;
-down)
-	systemctl --user stop lightpanda.service
-	echo "🛑 Lightpanda CDP server parado."
-	;;
-status)
-	STATE=$(systemctl --user is-active lightpanda.service 2>/dev/null || true)
-	printf "%-16s %s\n" "lightpanda:" "${STATE:-inactive}"
-	if ss -tln 2>/dev/null | grep -q ':9225 '; then
-		echo "  Porta 9225: ABERTA (ws://127.0.0.1:9225)"
-	else
-		echo "  Porta 9225: fechada"
-	fi
+up | down | status | restart | logs)
+	exec "$DX_SVC" "$cmd" lightpanda
 	;;
 serve)
 	shift
@@ -37,7 +24,7 @@ serve)
 	;;
 *)
 	if [[ $# -eq 0 ]]; then
-		echo "Uso: lightpanda [up|down|status|serve|fetch|dump] [opções]"
+		echo "Uso: lightpanda [up|down|status|restart|logs|serve|fetch|dump] [opções]"
 		echo "Exemplo: lightpanda fetch --dump markdown https://example.com"
 		exit 0
 	fi

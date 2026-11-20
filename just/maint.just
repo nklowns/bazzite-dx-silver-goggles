@@ -76,6 +76,25 @@ check:
     fi
     echo "Running ShellCheck on Bash scripts..."
     just lint || rc=1
+    echo "Checking Silver Goggles Quadlet & ujust guardrails..."
+    if [[ ! -x files/system/usr/libexec/dx-svc ]]; then
+        echo "❌ files/system/usr/libexec/dx-svc must exist and be executable"
+        rc=1
+    fi
+    while IFS= read -r -d '' cfile; do
+        if ! grep -qE '^Image=.*@sha256:[a-f0-9]{64}$' "$cfile"; then
+            echo "❌ Quadlet image not pinned by @sha256 digest: $cfile"
+            rc=1
+        fi
+        if grep -qE '^PublishPort=0\.0\.0\.0:' "$cfile"; then
+            echo "❌ Quadlet publishes on 0.0.0.0 (must bind 127.0.0.1): $cfile"
+            rc=1
+        fi
+    done < <(find files/system/etc/containers/systemd/users/ -type f -name '*.container' -print0 2>/dev/null || true)
+    if grep -rnE 'ss -tln[p]? .*grep -q .*:[0-9]+' files/justfiles/ files/system/usr/bin/ 2>/dev/null; then
+        echo "❌ Unfiltered 'ss -tln | grep :<port>' found (false-positives on tailscale serve; use ss -tlnH 'src 127.0.0.1 sport = :<port>')"
+        rc=1
+    fi
     if [[ "${SKIP_NETWORK:-0}" == "1" ]]; then
         echo "SKIP: Quadlet image accessibility needs the network (SKIP_NETWORK=1)."
     elif command -v skopeo >/dev/null 2>&1; then

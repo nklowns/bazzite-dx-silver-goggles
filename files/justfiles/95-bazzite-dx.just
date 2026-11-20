@@ -1,416 +1,314 @@
 # vim: set ft=make :
-# --- Bazzite-DX: The Transformation Interface ---
+# ==============================================================================
+# GROUP: system / setup — Bazzite-DX Core, Post-Upgrade & Brew Bundles
+# ==============================================================================
 
-# Audit the current Bazzite-DX workstation state
-[group('System')]
-dx-doctor:
-    #!/usr/bin/bash
-    echo "=== Bazzite-DX: Medical Report ==="
-    echo "1. Core Kernel Matrix:"
-    cat /proc/cmdline | grep -iE --color "iommu|kvm|vfio" || echo "Warning: Specialized kargs not detected!"
-
-    if [[ -r /usr/lib/bootc/kargs.d/10-silver-goggles.toml ]]; then
-        echo "   Declared kargs.d (applied by bootc installs; rpm-ostree hosts converge with 'ujust dx-kargs'):"
-        while IFS= read -r karg; do
-            if tr ' ' '\n' < /proc/cmdline | grep -qxF "$karg"; then
-                echo "   [ OK ] $karg"
-            else
-                echo "   [FAIL] $karg (run: ujust dx-kargs)"
-            fi
-        done < <(grep -vE '^[[:space:]]*#' /usr/lib/bootc/kargs.d/10-silver-goggles.toml | grep -oE '"[^"]+"' | tr -d '"')
-    fi
-
-    echo -e "\n2. Architecture & Image:"
-    [[ -f /usr/share/ublue-os/image-info.json ]] && jq -C . /usr/share/ublue-os/image-info.json
-
-    echo -e "\n3. Developer Group Sync:"
-    DX_GROUPS_SYS=("dialout" "video" "render" "plugdev")
-    DX_GROUPS_DEV=("docker" "libvirt" "incus-admin" "adbusers")
-
-    echo "--- System & Hardware ---"
-    for grp in "${DX_GROUPS_SYS[@]}"; do
-        if groups "$USER" | grep -q "\b$grp\b"; then
-            echo "[ OK ] $grp"
-        else
-            [[ $(getent group "$grp") ]] && echo "[FAIL] $grp (Run: ujust dx-group sync)" || echo "[SKIP] $grp (Not in system)"
-        fi
-    done
-
-    echo "--- Developer Tools ---"
-    for grp in "${DX_GROUPS_DEV[@]}"; do
-        if groups "$USER" | grep -q "\b$grp\b"; then
-            echo "[ OK ] $grp"
-        else
-            [[ $(getent group "$grp") ]] && echo "[FAIL] $grp (Run: ujust dx-group sync)" || echo "[SKIP] $grp (Not in system)"
-        fi
-    done
-
-    echo -e "\n4. Experience Layer (Bbrew Check):"
-    if command -v bbrew >/dev/null; then
-        echo "[ OK ] Bbrew is present."
-    else
-        echo "[WARN] Bbrew not found. Some uBlue workflows might be slower."
-    fi
-
-# Converge /proc/cmdline onto the image's declared kargs.d (idempotent). bootc reads that file on
-# install/upgrade; an rpm-ostree host only inherits the previous deployment's args, so a rebase or
-# an image that added a karg needs this once. Reboot after staging.
-[group('System')]
-dx-kargs:
-    #!/usr/bin/bash
+# Gerenciar camada Bazzite-DX. Opções: doctor | kargs | post-upgrade | group [sync|list-all|list-active] | workspace [list|add|remove] | keybindings | ebpf
+[group('system')]
+dx ACTION="" *ARGS:
+    #!/usr/bin/env bash
     set -euo pipefail
-    readonly toml=/usr/lib/bootc/kargs.d/10-silver-goggles.toml
-
-    if [[ ! -r $toml ]]; then
-        echo "error: $toml absent (image too old?)" >&2
-        exit 1
-    fi
-
-    mapfile -t declared < <(grep -vE '^[[:space:]]*#' "$toml" | grep -oE '"[^"]+"' | tr -d '"')
-    # Compare against the pending deployment (`rpm-ostree kargs`), not /proc/cmdline: after staging,
-    # the running boot still lacks the kargs and the recipe would stage them a second time.
-    if ! pending=$(rpm-ostree kargs 2>/dev/null); then
-        pending=$(cat /proc/cmdline)
-    fi
-    mapfile -t applied < <(tr ' ' '\n' <<<"$pending")
-    keys=$(printf '%s\n' "${applied[@]}" | cut -d= -f1)
-
-    missing=()
-    divergent=()
-    for karg in "${declared[@]}"; do
-        printf '%s\n' "${applied[@]}" | grep -qxF "$karg" && continue
-        if printf '%s\n' "$keys" | grep -qxF "${karg%%=*}"; then
-            divergent+=("$karg")
+    DX_SVC="/usr/libexec/dx-svc"
+    [[ -x "$DX_SVC" ]] || DX_SVC="{{ justfile_directory() }}/../system/usr/libexec/dx-svc"
+    OPT="{{ ACTION }}"
+    if [[ -z "$OPT" ]]; then
+        if [[ -t 0 && -t 1 ]] && command -v ugum >/dev/null 2>&1; then
+            OPT="$(ugum choose --header "Bazzite-DX:" \
+                "doctor" "post-upgrade" "kargs" "group" "workspace" "keybindings" "ebpf")" || exit 0
         else
-            missing+=("$karg")
+            OPT="doctor"
         fi
-    done
+    fi
+    # shellcheck disable=SC2086
+    set -- {{ ARGS }}
 
-    if [[ ${#missing[@]} -eq 0 && ${#divergent[@]} -eq 0 ]]; then
-        echo "all ${#declared[@]} declared kargs are in the pending boot"
+    case "$OPT" in
+    doctor)
+        echo "=== Bazzite-DX: Medical Report ==="
+        echo "1. Core Kernel Matrix:"
+        grep -iE --color "iommu|kvm|vfio" /proc/cmdline || echo "Warning: Specialized kargs not detected!"
+        if [[ -r /usr/lib/bootc/kargs.d/10-silver-goggles.toml ]]; then
+            echo "   Declared kargs.d (converge com 'ujust dx kargs'):"
+            while IFS= read -r karg; do
+                if tr ' ' '\n' </proc/cmdline | grep -qxF "$karg"; then
+                    echo "   [ OK ] $karg"
+                else
+                    echo "   [FAIL] $karg (run: ujust dx kargs)"
+                fi
+            done < <(grep -vE '^[[:space:]]*#' /usr/lib/bootc/kargs.d/10-silver-goggles.toml | grep -oE '"[^"]+"' | tr -d '"')
+        fi
+        echo -e "\n2. Architecture & Image:"
+        [[ -f /usr/share/ublue-os/image-info.json ]] && jq -C . /usr/share/ublue-os/image-info.json
+        echo -e "\n3. Developer Group Sync:"
+        for grp in dialout video render plugdev docker libvirt incus-admin adbusers; do
+            if groups "$USER" | grep -qw "$grp"; then
+                echo "  [ OK ] $grp"
+            elif getent group "$grp" >/dev/null 2>&1; then
+                echo "  [FAIL] $grp (run: ujust dx group sync)"
+            else
+                echo "  [SKIP] $grp (not in system)"
+            fi
+        done
+        echo -e "\n4. Experience Layer:"
+        command -v bbrew >/dev/null && echo "  [ OK ] bbrew" || echo "  [WARN] bbrew absent"
+        ;;
+    kargs)
+        readonly toml=/usr/lib/bootc/kargs.d/10-silver-goggles.toml
+        [[ -r "$toml" ]] || { echo "error: $toml absent" >&2; exit 1; }
+        mapfile -t declared < <(grep -vE '^[[:space:]]*#' "$toml" | grep -oE '"[^"]+"' | tr -d '"')
+        pending="$(rpm-ostree kargs 2>/dev/null || cat /proc/cmdline)"
+        mapfile -t applied < <(tr ' ' '\n' <<<"$pending")
+        keys="$(printf '%s\n' "${applied[@]}" | cut -d= -f1)"
+        missing=(); divergent=()
+        for karg in "${declared[@]}"; do
+            printf '%s\n' "${applied[@]}" | grep -qxF "$karg" && continue
+            if printf '%s\n' "$keys" | grep -qxF "${karg%%=*}"; then
+                divergent+=("$karg")
+            else
+                missing+=("$karg")
+            fi
+        done
+        if [[ ${#missing[@]} -eq 0 && ${#divergent[@]} -eq 0 ]]; then
+            echo "✅ Todos os ${#declared[@]} kargs declarados estão presentes."
+            exit 0
+        fi
+        ((${#missing[@]})) && { printf 'missing (%d):\n' "${#missing[@]}"; printf '  %s\n' "${missing[@]}"; }
+        ((${#divergent[@]})) && { printf 'divergent (%d):\n' "${#divergent[@]}"; printf '  %s\n' "${divergent[@]}"; }
+        ((${#missing[@]})) || exit 0
+        args=()
+        for karg in "${missing[@]}"; do args+=("--append-if-missing=$karg"); done
+        sudo rpm-ostree kargs "${args[@]}"
+        echo "✅ Staged; reinicie para aplicar."
+        ;;
+    post-upgrade)
+        auto_prefetch=false
+        [[ "${1:-}" == "--prefetch" ]] && auto_prefetch=true
+        echo "=== 1. Kernel Args (kargs.d) ==="
+        if [[ -r /usr/lib/bootc/kargs.d/10-silver-goggles.toml ]]; then
+            pending="$(rpm-ostree kargs 2>/dev/null || cat /proc/cmdline)"
+            miss=0
+            while IFS= read -r karg; do
+                tr ' ' '\n' <<<"$pending" | grep -qxF "$karg" || { echo "  ⚠️  faltando: $karg"; miss=$((miss + 1)); }
+            done < <(grep -vE '^[[:space:]]*#' /usr/lib/bootc/kargs.d/10-silver-goggles.toml | grep -oE '"[^"]+"' | tr -d '"')
+            [[ "$miss" -eq 0 ]] && echo "  ✅ kargs em dia." || echo "  → Convergir com: ujust dx kargs"
+        fi
+
+        echo
+        echo "=== 2. Cache Offline dos Quadlets (@sha256 pós-upgrade) ==="
+        "$DX_SVC" status
+        missing_svcs="$("$DX_SVC" status | awk '$5 == "missing" {print $1}')"
+        if [[ -n "$missing_svcs" ]]; then
+            echo
+            echo "⚠️  Serviços sem imagem em cache local:"
+            sed 's/^/  - /' <<<"$missing_svcs"
+            if [[ "$auto_prefetch" == true ]]; then
+                "$DX_SVC" prefetch all
+            elif [[ -t 0 && -t 1 ]] && command -v ugum >/dev/null 2>&1; then
+                if ugum confirm "Executar prefetch das imagens faltantes agora?"; then
+                    "$DX_SVC" prefetch all
+                fi
+            else
+                echo "  → Baixar para uso offline: ujust svc prefetch all"
+            fi
+        fi
+
+        echo
+        echo "=== 3. Driver NVIDIA, Waydroid & gpu-unlock ==="
+        nv_ver="$(cat /sys/module/nvidia/version 2>/dev/null || nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo 'ausente')"
+        echo "  NVIDIA driver ativo: $nv_ver"
+        if systemctl list-unit-files waydroid-container.service >/dev/null 2>&1; then
+            wd_st="$(systemctl is-active waydroid-container.service 2>/dev/null || true)"
+            echo "  waydroid-container:  ${wd_st:-inactive}"
+            if [[ "$wd_st" != "active" ]] && command -v waydroid-nvidia-setup >/dev/null 2>&1; then
+                echo "  ℹ️  Se o driver mudou (ex.: $nv_ver), re-valide com: sudo waydroid-nvidia-setup"
+            fi
+        fi
+        if [[ -f "/usr/lib/modules/$(uname -r)/extra/gpu_unlock.ko" ]]; then
+            echo "  gpu_unlock.ko:       presente para $(uname -r)"
+        else
+            echo "  gpu_unlock.ko:       ausente para $(uname -r)"
+        fi
+
+        echo
+        echo "=== 4. Armazenamento órfão (dry-run) ==="
+        "$DX_SVC" prune | grep -E '^(Imagens órfãs|Encontrados |✅|Dry-run)' || true
+        ;;
+    group)
+        CMD="${1:-}"
+        if [[ -z "$CMD" ]]; then
+            if [[ -t 0 && -t 1 ]] && command -v ugum >/dev/null 2>&1; then
+                CMD="$(ugum choose --header "DX Groups:" "sync" "list-active" "list-all")" || exit 0
+            else
+                CMD="list-active"
+            fi
+        fi
+        case "$CMD" in
+        sync)
+            if groups "$USER" | grep -qw "input"; then
+                sudo gpasswd -d "$USER" input 2>/dev/null || true
+            fi
+            for grp in docker libvirt incus-admin dialout video render plugdev adbusers; do
+                if getent group "$grp" >/dev/null; then
+                    grep -q "^$grp:" /etc/group || grep "^$grp:" /usr/lib/group | sudo tee -a /etc/group >/dev/null
+                    groups "$USER" | grep -qw "$grp" || sudo usermod -a -G "$grp" "$USER"
+                fi
+            done
+            echo "✅ Grupos DX sincronizados (reabra a sessão para aplicar)."
+            ;;
+        list-all) getent group | cut -d: -f1 | sort ;;
+        list-active) id -Gn | tr ' ' '\n' | sort ;;
+        *) echo "Uso: ujust dx group <sync|list-active|list-all>" >&2; exit 2 ;;
+        esac
+        ;;
+    workspace)
+        sub="${1:-list}"
+        target="${2:-}"
+        CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
+        sync_recoll() {
+            local dropin_dir="$HOME/.config/containers/systemd/mesh-recoll.container.d"
+            local dropin_file="$dropin_dir/10-workspaces.conf"
+            local topdirs="/export/Documents" line d bn
+            if [[ -s "$CFG_FILE" ]]; then
+                mkdir -p "$dropin_dir"
+                { echo "# Generated from $CFG_FILE"; echo "[Container]"; } >"$dropin_file"
+                while IFS= read -r line || [[ -n "$line" ]]; do
+                    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+                    d="${line/#\~/$HOME}"
+                    if [[ -d "$d" ]]; then
+                        bn="$(basename "$d")"
+                        echo "Volume=$d:/export/$bn:ro" >>"$dropin_file"
+                        topdirs="$topdirs /export/$bn"
+                    fi
+                done <"$CFG_FILE"
+            else
+                rm -f "$dropin_file"
+            fi
+            [[ -f "$HOME/.config/recoll/recoll.conf" ]] && sed -i "s|^topdirs = .*|topdirs = $topdirs|" "$HOME/.config/recoll/recoll.conf"
+            systemctl --user daemon-reload 2>/dev/null || true
+        }
+        case "$sub" in
+        list)
+            if [[ -f "$CFG_FILE" ]]; then
+                grep -v '^[[:space:]]*#' "$CFG_FILE" | grep -v '^[[:space:]]*$' || echo "(nenhum workspace registrado)"
+            else
+                echo "(nenhum workspace registrado — use: ujust dx workspace add ~/dev)"
+            fi
+            ;;
+        add)
+            [[ -n "$target" ]] || { [[ -t 0 ]] && target="$(ugum input --placeholder "Caminho (ex.: ~/dev)")" || { echo "Uso: ujust dx workspace add <dir>" >&2; exit 2; }; }
+            target="$(realpath -m "${target/#\~/$HOME}")"
+            mkdir -p "$HOME/.config/bazzite-dx" && chmod 700 "$HOME/.config/bazzite-dx"
+            touch "$CFG_FILE" && chmod 600 "$CFG_FILE"
+            grep -Fxq "$target" "$CFG_FILE" || echo "$target" >>"$CFG_FILE"
+            sync_recoll
+            echo "✅ Workspace registrado: $target"
+            ;;
+        remove)
+            [[ -f "$CFG_FILE" ]] || { echo "Nenhum workspace registrado."; exit 0; }
+            if [[ -z "$target" && -t 0 ]] && command -v ugum >/dev/null 2>&1; then
+                # shellcheck disable=SC2046
+                target="$(ugum choose $(grep -v '^[[:space:]]*#' "$CFG_FILE" | grep -v '^[[:space:]]*$'))" || exit 0
+            fi
+            [[ -n "$target" ]] || exit 0
+            target="$(realpath -m "${target/#\~/$HOME}")"
+            sed -i "\|^$target\$|d" "$CFG_FILE"
+            sync_recoll
+            echo "🗑️ Workspace removido: $target"
+            ;;
+        *) echo "Uso: ujust dx workspace <list|add <dir>|remove [dir]>" >&2; exit 2 ;;
+        esac
+        ;;
+    keybindings)
+        SCRIPT="/usr/libexec/bazzite-dx-ide-keybindings"
+        [[ -x "$SCRIPT" ]] || SCRIPT="{{ justfile_directory() }}/../system/usr/libexec/bazzite-dx-ide-keybindings"
+        "$SCRIPT"
+        echo "✅ Atalhos de IDE sincronizados."
+        ;;
+    ebpf)
+        sudo bpftop
+        ;;
+    help | -h | --help)
+        echo "Uso: ujust dx <doctor|post-upgrade [--prefetch]|kargs|group <...>|workspace <...>|keybindings|ebpf>"
+        ;;
+    *)
+        echo "❌ Ação desconhecida para dx: '$OPT'" >&2
+        exit 2
+        ;;
+    esac
+
+# Gerenciar Brewfiles (cli | ai | cncf | personal | all). Opções: install | check | cleanup | trust
+[group('setup')]
+brew ACTION="" FLAVOR="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    OFFLINE_ENV="${XDG_CONFIG_HOME:-$HOME/.config}/dx-svc/offline.env"
+    if [[ -f "$OFFLINE_ENV" ]]; then
+        export HOMEBREW_NO_AUTO_UPDATE=1
+    fi
+
+    OPT="{{ ACTION }}"
+    FLV="{{ FLAVOR }}"
+    if [[ -z "$OPT" ]]; then
+        if [[ -t 0 && -t 1 ]] && command -v ugum >/dev/null 2>&1; then
+            OPT="$(ugum choose --header "Homebrew Bundles:" "check" "install" "cleanup" "trust")" || exit 0
+        else
+            OPT="check"
+        fi
+    fi
+
+    if [[ "$OPT" == "trust" ]]; then
+        command -v brew >/dev/null || { echo "❌ Homebrew não encontrado." >&2; exit 1; }
+        brew tap | grep -vE '^(homebrew/)' | while read -r tap; do
+            [[ -n "$tap" ]] && brew trust "$tap" || true
+        done
+        echo "✅ Taps confiados."
         exit 0
     fi
 
-    if ((${#missing[@]})); then
-        printf 'missing (%d):\n' "${#missing[@]}"
-        printf '  %s\n' "${missing[@]}"
-    fi
-    if ((${#divergent[@]})); then
-        printf 'declared with a different value than the host (%d):\n' "${#divergent[@]}"
-        printf '  %s\n' "${divergent[@]}"
-        echo "fix those with: sudo rpm-ostree kargs --replace=<key>=<current>=<declared>"
-    fi
-    ((${#missing[@]})) || exit 0
-
-    args=()
-    for karg in "${missing[@]}"; do args+=("--append-if-missing=$karg"); done
-    sudo rpm-ostree kargs "${args[@]}"
-    echo "staged; reboot to apply (revert with: rpm-ostree kargs --delete=<arg>)"
-
-# Provision the current user for DX groups (Idempotent)
-[group('System')]
-dx-group cmd="":
-    #!/usr/bin/bash
-    set -euo pipefail
-    DX_GROUPS=("docker" "libvirt" "incus-admin" "dialout" "video" "render" "plugdev" "adbusers")
-    CMD="{{ cmd }}"
-    if [[ -z "$CMD" ]]; then
-        CMD=$(gum choose "sync" "list-all" "list-active")
-    fi
-
-    case "$CMD" in
-        sync)
-            echo "Syncing $USER with Developer Experience groups..."
-            if groups "$USER" | grep -qw "input"; then
-                echo "Security: removing $USER from dangerous 'input' group (protects Wayland evdev isolation)..."
-                sudo gpasswd -d "$USER" input 2>/dev/null || true
-            fi
-            for grp in "${DX_GROUPS[@]}"; do
-                if getent group "$grp" >/dev/null; then
-                    if ! grep -q "^$grp:" /etc/group; then
-                        echo "Activating group: $grp (from system defaults)"
-                        grep "^$grp:" /usr/lib/group | sudo tee -a /etc/group > /dev/null
-                    fi
-                    if groups "$USER" | grep -q "\b$grp\b"; then
-                        echo "Already sync'd: $grp"
-                    else
-                        sudo usermod -a -G "$grp" "$USER"
-                        echo "Sync'd: $grp"
-                    fi
-                fi
-            done
-            echo "Done! Changes require a new session to take effect."
-            ;;
-        list-all)
-            echo "=== System Groups ==="
-            getent group | cut -d: -f1 | sort
-            ;;
-        list-active)
-            echo "=== $USER's Active Groups ==="
-            id -Gn | tr ' ' '\n' | sort
-            ;;
-        *)
-            echo "Unknown command: $CMD"
-            exit 1
-            ;;
-    esac
-
-# Configure Bazzite-DX Curated Workstation Flavors
-[group('Setup')]
-setup-default-brew flavor="" action="":
-    #!/usr/bin/env bash
-    set -e
-    FLAVOR="{{ flavor }}"
-    ACTION="{{ action }}"
-
-    # Step 1: Choose Flavor
-    if [[ -z "$FLAVOR" ]]; then
-        echo "Choose a Bazzite-DX Workstation Flavor (High-Fidelity):"
-        if [[ -t 0 ]] 2>/dev/null; then
-            FLAVOR=$(gum choose "cli" "ai" "cncf" "all") || FLAVOR="all"
+    if [[ -z "$FLV" ]]; then
+        if [[ -t 0 && -t 1 ]] && command -v ugum >/dev/null 2>&1; then
+            FLV="$(ugum choose --header "Flavor:" "personal" "cli" "ai" "cncf" "all")" || exit 0
         else
-            FLAVOR="all"
+            FLV="all"
         fi
     fi
 
-    # Step 2: Choose Action
-    if [[ -z "$ACTION" ]]; then
-        echo "Choose action for $FLAVOR bundle:"
-        if [[ -t 0 ]] 2>/dev/null; then
-            ACTION=$(gum choose "install" "check" "cleanup") || ACTION="install"
-        else
-            ACTION="install"
-        fi
-    fi
-
+    BREW_DIR="/usr/share/ublue-os/homebrew"
     FILES=()
-    case $FLAVOR in
-        cli)   FILES=("/usr/share/ublue-os/homebrew/cli.Brewfile") ;;
-        ai)    FILES=("/usr/share/ublue-os/homebrew/ai-tools.Brewfile") ;;
-        cncf)  FILES=("/usr/share/ublue-os/homebrew/cncf.Brewfile") ;;
-        all)   FILES=("/usr/share/ublue-os/homebrew/cli.Brewfile" "/usr/share/ublue-os/homebrew/ai-tools.Brewfile" "/usr/share/ublue-os/homebrew/cncf.Brewfile" "/usr/share/ublue-os/homebrew/dx-build.Brewfile" "/usr/share/ublue-os/homebrew/dx-fonts.Brewfile") ;;
-        *)     echo "Unknown flavor: $FLAVOR"; exit 1 ;;
+    case "$FLV" in
+    cli) FILES=("$BREW_DIR/cli.Brewfile") ;;
+    ai) FILES=("$BREW_DIR/ai-tools.Brewfile") ;;
+    cncf) FILES=("$BREW_DIR/cncf.Brewfile") ;;
+    personal) FILES=("$BREW_DIR/silver-goggles.Brewfile") ;;
+    all) FILES=("$BREW_DIR/cli.Brewfile" "$BREW_DIR/ai-tools.Brewfile" "$BREW_DIR/cncf.Brewfile" "$BREW_DIR/dx-build.Brewfile" "$BREW_DIR/dx-fonts.Brewfile" "$BREW_DIR/silver-goggles.Brewfile") ;;
+    *) echo "❌ Flavor desconhecido: '$FLV' (use cli|ai|cncf|personal|all)" >&2; exit 2 ;;
     esac
 
     OVERALL_RC=0
     for FILE in "${FILES[@]}"; do
-        case $ACTION in
-            install)
-                echo "🚀 Activating bundle: $(basename $FILE)..."
-                # Trust taps declared in the Brewfile before bundle installation
-                if command -v brew >/dev/null && [[ -f "$FILE" ]]; then
-                    echo "🛡️ Trusting taps declared in $(basename $FILE)..."
-                    while read -r tap; do
-                        if [ -n "$tap" ]; then
-                            brew trust "$tap" || true
-                        fi
-                    done < <(grep -E '^tap "' "$FILE" | sed -E 's/tap "([^"]+)".*/\1/')
-                fi
-                # brew bundle aborts the whole bundle if a single fetch fails
-                # (e.g. upstream re-uploaded a cask artifact → checksum drift).
-                # Fall back to per-entry installs so one broken package cannot
-                # block the rest; report the casualties at the end.
-                if ! brew bundle --file="$FILE"; then
-                    echo "⚠️ Bundle aborted — retrying entries individually to isolate the breakage..."
-                    FAILED=()
-                    while read -r kind name; do
-                        case $kind in
-                            brew)
-                                brew list --formula "${name##*/}" &>/dev/null ||
-                                    brew install --formula "$name" ||
-                                    FAILED+=("formula: $name")
-                                ;;
-                            cask)
-                                brew list --cask "${name##*/}" &>/dev/null ||
-                                    brew install --cask "$name" ||
-                                    FAILED+=("cask: $name (may be macOS-only or upstream checksum drift)")
-                                ;;
-                            flatpak)
-                                # No hardcoded remote: entries may live outside flathub
-                                # (e.g. flatpakref-based remotes); let flatpak resolve.
-                                flatpak info "$name" &>/dev/null ||
-                                    flatpak install -y "$name" ||
-                                    FAILED+=("flatpak: $name (remote may need setup — check Brewfile remote: option)")
-                                ;;
-                        esac
-                    done < <(grep -E '^(brew|cask|flatpak) "' "$FILE" | sed -E 's/^(brew|cask|flatpak) "([^"]+)".*/\1 \2/')
-                    if [ "${#FAILED[@]}" -gt 0 ]; then
-                        echo "❌ Entries still failing in $(basename $FILE):"
-                        printf '   %s\n' "${FAILED[@]}"
-                        OVERALL_RC=1
-                    else
-                        echo "✅ All entries recovered individually."
-                    fi
-                fi
-                ;;
-            check)
-                echo "🔍 Checking status: $(basename $FILE)..."
-                brew bundle check --file="$FILE"
-                ;;
-            cleanup)
-                echo "🧹 Cleaning up unused: $(basename $FILE)..."
-                brew bundle cleanup --file="$FILE"
-                ;;
+        [[ -f "$FILE" ]] || continue
+        case "$OPT" in
+        install)
+            if [[ "$(basename "$FILE")" == "silver-goggles.Brewfile" ]]; then
+                flatpak remote-add --user --if-not-exists elyprismlauncher https://elyprismlauncher.github.io/flatpak/elyprismlauncher.flatpakref || true
+            fi
+            while read -r tap; do
+                [[ -n "$tap" ]] && brew trust "$tap" || true
+            done < <(grep -E '^tap "' "$FILE" | sed -E 's/tap "([^"]+)".*/\1/' || true)
+            if ! brew bundle --file="$FILE"; then
+                echo "⚠️  Falha no bundle $(basename "$FILE") — tentando entradas individualmente..."
+                while read -r kind name; do
+                    case "$kind" in
+                    brew) brew list --formula "${name##*/}" &>/dev/null || brew install --formula "$name" || OVERALL_RC=1 ;;
+                    cask) brew list --cask "${name##*/}" &>/dev/null || brew install --cask "$name" || OVERALL_RC=1 ;;
+                    flatpak) flatpak info "$name" &>/dev/null || flatpak install -y "$name" || OVERALL_RC=1 ;;
+                    esac
+                done < <(grep -E '^(brew|cask|flatpak) "' "$FILE" | sed -E 's/^(brew|cask|flatpak) "([^"]+)".*/\1 \2/')
+            fi
+            ;;
+        check) brew bundle check --file="$FILE" || OVERALL_RC=1 ;;
+        cleanup) brew bundle cleanup --file="$FILE" ;;
+        *) echo "Uso: ujust brew <install|check|cleanup|trust> [cli|ai|cncf|personal|all]" >&2; exit 2 ;;
         esac
     done
-
-    if [ "$OVERALL_RC" -ne 0 ]; then
-        echo "Done with failures — the $FLAVOR experience (action: $ACTION) is partially ready. See ❌ above."
-        exit "$OVERALL_RC"
-    fi
-    echo "Done! The $FLAVOR experience (action: $ACTION) is ready."
-
-# Monitor eBPF Performance (Requires sudo)
-monitor-ebpf:
-    #!/usr/bin/bash
-    sudo bpftop
-
-# Manage personal developer workspace roots for KRunner and Shell (Unopinionated)
-[group('Developer Experience')]
-dx-workspace-add target_dir="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    TARGET="{{ target_dir }}"
-    if [[ -z "$TARGET" ]]; then
-        if command -v gum >/dev/null; then
-            TARGET=$(gum input --placeholder "Path to developer workspace (e.g. ~/dev, ~/Projects)")
-        else
-            read -rp "Enter path to developer workspace (e.g. ~/dev): " TARGET
-        fi
-    fi
-    [[ -z "$TARGET" ]] && { echo "Aborted: empty path."; exit 1; }
-    TARGET="${TARGET/#\~/$HOME}"
-    TARGET=$(realpath -m "$TARGET")
-
-    mkdir -p "$HOME/.config/bazzite-dx"
-    chmod 700 "$HOME/.config/bazzite-dx" 2>/dev/null || true
-    CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
-    touch "$CFG_FILE"
-    chmod 600 "$CFG_FILE" 2>/dev/null || true
-
-    if grep -Fxq "$TARGET" "$CFG_FILE" 2>/dev/null; then
-        echo "ℹ️ Path already registered in $CFG_FILE: $TARGET"
-    else
-        echo "$TARGET" >> "$CFG_FILE"
-        echo "✅ Registered workspace root: $TARGET"
-    fi
-
-    BASENAME=$(basename "$TARGET")
-    ALIAS_SH="$HOME/.config/bazzite-dx/aliases.sh"
-    ALIAS_FISH="$HOME/.config/bazzite-dx/aliases.fish"
-    if [[ "$BASENAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        ALIAS_CMD="alias $BASENAME='cd \"$TARGET\"'"
-        if ! grep -Fq "$ALIAS_CMD" "$ALIAS_SH" 2>/dev/null; then
-            echo "$ALIAS_CMD" >> "$ALIAS_SH"
-            echo "test -d \"$TARGET\"; and alias $BASENAME=\"cd \\\"$TARGET\\\"\"" >> "$ALIAS_FISH"
-            chmod 600 "$ALIAS_SH" "$ALIAS_FISH" 2>/dev/null || true
-            echo "✨ Added personal shell alias: $BASENAME -> cd $TARGET"
-        fi
-    fi
-
-    # Sync Quadlet drop-in for mesh-recoll so WebUI container mounts registered workspaces
-    DROPIN_DIR="$HOME/.config/containers/systemd/mesh-recoll.container.d"
-    DROPIN_FILE="$DROPIN_DIR/10-workspaces.conf"
-    mkdir -p "$DROPIN_DIR"
-    echo "# Declarative workspace mounts generated from ~/.config/bazzite-dx/workspaces.dirs" > "$DROPIN_FILE"
-    echo "[Container]" >> "$DROPIN_FILE"
-    RECOLL_TOPDIRS="/export/Documents"
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        d="${line/#\~/$HOME}"
-        if [[ -d "$d" ]]; then
-            bn=$(basename "$d")
-            echo "Volume=$d:/export/$bn:ro" >> "$DROPIN_FILE"
-            RECOLL_TOPDIRS="$RECOLL_TOPDIRS /export/$bn"
-        fi
-    done < "$CFG_FILE"
-
-    # Sync topdirs in ~/.config/recoll/recoll.conf if present
-    RECOLL_CONF="$HOME/.config/recoll/recoll.conf"
-    if [[ -f "$RECOLL_CONF" ]]; then
-        sed -i "s|^topdirs = .*|topdirs = $RECOLL_TOPDIRS|" "$RECOLL_CONF"
-    fi
-    systemctl --user daemon-reload 2>/dev/null || true
-    echo "KRunner, Recoll, and shell will now index and navigate this folder seamlessly."
-
-# List registered personal developer workspaces
-[group('Developer Experience')]
-dx-workspace-list:
-    #!/usr/bin/env bash
-    CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
-    echo "=== Registered Personal Developer Workspaces ==="
-    if [[ -f "$CFG_FILE" ]]; then
-        grep -v '^[[:space:]]*#' "$CFG_FILE" | grep -v '^[[:space:]]*$' || echo "(No workspaces registered yet)"
-    else
-        echo "(Config file $CFG_FILE not found. Run: ujust dx-workspace-add ~/dev)"
-    fi
-
-# Remove a registered personal developer workspace
-[group('Developer Experience')]
-dx-workspace-remove target_dir="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    CFG_FILE="$HOME/.config/bazzite-dx/workspaces.dirs"
-    [[ ! -f "$CFG_FILE" ]] && { echo "No workspaces registered."; exit 0; }
-    TARGET="{{ target_dir }}"
-    if [[ -z "$TARGET" ]]; then
-        if command -v gum >/dev/null; then
-            TARGET=$(gum choose $(grep -v '^[[:space:]]*#' "$CFG_FILE" | grep -v '^[[:space:]]*$'))
-        else
-            echo "Registered workspaces:"
-            cat "$CFG_FILE"
-            read -rp "Enter path to remove: " TARGET
-        fi
-    fi
-    [[ -z "$TARGET" ]] && exit 0
-    TARGET="${TARGET/#\~/$HOME}"
-    TARGET=$(realpath -m "$TARGET")
-
-    sed -i "\|^$TARGET\$|d" "$CFG_FILE"
-    echo "🗑️ Removed $TARGET from $CFG_FILE"
-
-    # Sync Quadlet drop-in for mesh-recoll
-    DROPIN_DIR="$HOME/.config/containers/systemd/mesh-recoll.container.d"
-    DROPIN_FILE="$DROPIN_DIR/10-workspaces.conf"
-    RECOLL_TOPDIRS="/export/Documents"
-    if [[ -s "$CFG_FILE" ]]; then
-        mkdir -p "$DROPIN_DIR"
-        echo "# Declarative workspace mounts generated from ~/.config/bazzite-dx/workspaces.dirs" > "$DROPIN_FILE"
-        echo "[Container]" >> "$DROPIN_FILE"
-        while IFS= read -r line || [[ -n "$line" ]]; do
-            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-            d="${line/#\~/$HOME}"
-            if [[ -d "$d" ]]; then
-                bn=$(basename "$d")
-                echo "Volume=$d:/export/$bn:ro" >> "$DROPIN_FILE"
-                RECOLL_TOPDIRS="$RECOLL_TOPDIRS /export/$bn"
-            fi
-        done < "$CFG_FILE"
-    else
-        rm -f "$DROPIN_FILE"
-    fi
-
-    # Sync topdirs in ~/.config/recoll/recoll.conf if present
-    RECOLL_CONF="$HOME/.config/recoll/recoll.conf"
-    if [[ -f "$RECOLL_CONF" ]]; then
-        sed -i "s|^topdirs = .*|topdirs = $RECOLL_TOPDIRS|" "$RECOLL_CONF"
-    fi
-    systemctl --user daemon-reload 2>/dev/null || true
-
-# Force sync / merge declarative IDE terminal keybindings and settings across Code, Insiders, Cursor, and Antigravity
-[group('Developer Experience')]
-dx-sync-ide-keybindings:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    SCRIPT="/usr/libexec/bazzite-dx-ide-keybindings"
-    if [[ ! -x "$SCRIPT" ]]; then
-        SCRIPT="{{ justfile_directory() }}/../system/usr/libexec/bazzite-dx-ide-keybindings"
-    fi
-    if [[ -x "$SCRIPT" ]]; then
-        echo "🔄 Sincronizando atalhos de terminal e configurações de IDEs..."
-        "$SCRIPT"
-        echo "✅ Atalhos e configurações de IDE sincronizados com sucesso."
-    else
-        echo "❌ Script de sincronização de atalhos não encontrado: $SCRIPT"
-        exit 1
-    fi
+    exit "$OVERALL_RC"

@@ -16,21 +16,21 @@ status)
 	if systemctl --user is-active --quiet sunshine.service 2>/dev/null || systemctl --user is-active --quiet homebrew.sunshine.service 2>/dev/null; then
 		echo "   Status: ✅ ACTIVE (Port 47989 / Web UI 61395)"
 	else
-		echo "   Status: ❌ INACTIVE (Start with: ujust sunshine-up)"
+		echo "   Status: ❌ INACTIVE (Start with: ujust sunshine up)"
 	fi
 	echo ""
-	echo "2. 🌐 Apache Guacamole + KRDP (HTML5 Client - Note: KRDP unstable on Wayland/NVIDIA bazzite#2173)"
-	if ss -tln 2>/dev/null | grep -q ':61392 '; then
-		echo "   Status: ✅ ACTIVE (Port 61392)"
+	echo "2. 🌐 Apache Guacamole (:61392)"
+	if ss -tlnH 'src 127.0.0.1 sport = :61392' 2>/dev/null | grep -q .; then
+		echo "   Status: ✅ ACTIVE (127.0.0.1:61392)"
 	else
-		echo "   Status: ⚪ INACTIVE (Start with: ujust guacamole-up)"
+		echo "   Status: ⚪ INACTIVE (Start with: ujust guacamole up)"
 	fi
 	echo ""
 	echo "3. 🎥 Webcam Bridge (Windows RTSP -> /dev/video10)"
 	if [ -c /dev/video10 ]; then
 		echo "   Status: ✅ /dev/video10 ACTIVE (Ready for Google Meet / Teams)"
 	else
-		echo "   Status: ⚪ INACTIVE (Start receiver: ujust remote-webcam-setup)"
+		echo "   Status: ⚪ INACTIVE (Start receiver: ujust webcam setup)"
 	fi
 	echo ""
 	echo "4. 🎙️ PipeWire Microphone Receiver"
@@ -42,17 +42,17 @@ status)
 	echo ""
 	echo "5. 🎯 Additional Tools (Client & Input Utilities)"
 	if flatpak info com.parsec.app >/dev/null 2>&1; then
-		echo "   Parsec:   ✅ INSTALLED (Client-only: Use to access Windows hosts from Bazzite)"
+		echo "   Parsec:   ✅ INSTALLED"
 	else
-		echo "   Parsec:   ⚪ ABSENT (Setup with: ujust remote-parsec-setup)"
+		echo "   Parsec:   ⚪ ABSENT"
 	fi
 	if flatpak info com.rustdesk.RustDesk >/dev/null 2>&1; then
-		echo "   RustDesk: ✅ INSTALLED (Direct IP via Tailnet - Start with: ujust rustdesk-up)"
+		echo "   RustDesk: ✅ INSTALLED (Start with: ujust rustdesk up)"
 	else
-		echo "   RustDesk: ⚪ ABSENT (Install & start with: ujust rustdesk-up)"
+		echo "   RustDesk: ⚪ ABSENT (Install & start with: ujust rustdesk up)"
 	fi
 	if flatpak info com.deskflow.deskflow >/dev/null 2>&1; then
-		echo "   Deskflow: ✅ INSTALLED (Software KVM input sharing via Tailscale :24800)"
+		echo "   Deskflow: ✅ INSTALLED (Software KVM over Tailscale :24800)"
 	else
 		echo "   Deskflow: ⚪ ABSENT (Setup with: ujust remote-deskflow-setup)"
 	fi
