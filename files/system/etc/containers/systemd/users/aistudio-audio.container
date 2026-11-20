@@ -51,11 +51,11 @@ Environment=PYTHONUNBUFFERED=1
 
 Volume=/var/srv/audio/data:/app/omnivoice_data:Z
 Volume=%h/Music/AI_Studio:/app/omnivoice_data/output:z
-UserNS=keep-id
 
 [Service]
 Restart=on-failure
-TimeoutStartSec=300
+# Large CUDA image (~11 GB) can exceed 300s on cold pull
+TimeoutStartSec=900
 LimitMEMLOCK=infinity
 LimitNOFILE=65535
 
