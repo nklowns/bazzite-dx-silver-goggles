@@ -164,17 +164,17 @@ llama ACTION="" *ARGS:
         ;;
     advisor)
         cat <<'EOF'
-        ================================================================================
-        🧠 DIRETRIZES DE LLM: DELL G15 5520 (RTX 3060 6GB + 64GB DDR5 + i7-12700H)
-        Backend: nomad-llama (llama-swap + llama.cpp CUDA) — ujust llama up
-        ================================================================================
-        • 4B híbrido denso (Qwen3.5-4B Q4_K_M): tudo na VRAM, ~80-114 tok/s, 48k ctx.
-        • 35B MoE experts na CPU (Qwen3.6-35B-A3B Q4_K): --n-cpu-moe 40, KV q8_0 na GPU,
-          128k ctx (~114k efetivo), ~5.1 GiB VRAM.
-        • Regras: CUDA (não Vulkan), KV q8_0 + -fa on, -t 6 -C 0x555, -np 1 explícito.
-        • Ferramentas: ujust llama fit | ujust llama which | ujust llama models-fetch
-        ================================================================================
-        EOF
+    ================================================================================
+    🧠 DIRETRIZES DE LLM: DELL G15 5520 (RTX 3060 6GB + 64GB DDR5 + i7-12700H)
+    Backend: nomad-llama (llama-swap + llama.cpp CUDA) — ujust llama up
+    ================================================================================
+    • 4B híbrido denso (Qwen3.5-4B Q4_K_M): tudo na VRAM, ~80-114 tok/s, 48k ctx.
+    • 35B MoE experts na CPU (Qwen3.6-35B-A3B Q4_K): --n-cpu-moe 40, KV q8_0 na GPU,
+      128k ctx (~114k efetivo), ~5.1 GiB VRAM.
+    • Regras: CUDA (não Vulkan), KV q8_0 + -fa on, -t 6 -C 0x555, -np 1 explícito.
+    • Ferramentas: ujust llama fit | ujust llama which | ujust llama models-fetch
+    ================================================================================
+    EOF
         ;;
     help | -h | --help)
         echo "Uso: ujust llama <status|up|down|restart|logs|boot <on|off|status>|prefetch|unload|models-fetch|fit|which|advisor>"
