@@ -22,7 +22,7 @@ intencionais — aquele id existe, do outro lado.
 
 **Verificação automática.** F-001 e F-002 não dependem de alguém lembrar: o
 `dx-verify` afirma no build que `templates/macos.xml` carrega a topologia
-correta e **não** carrega a que quebra. Ver `modules/dx-verify/dx-verify.sh`.
+correta e **não** carrega a que quebra. Ver `build_files/90-verify.sh`.
 
 ---
 

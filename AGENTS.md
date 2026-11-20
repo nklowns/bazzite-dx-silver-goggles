@@ -153,7 +153,6 @@ no schema: adding a package is one line, adding a file is one file.
 | `files/system/etc/containers/systemd/users/` | **Rootless Quadlet units** (`.container`/`.network`) for the NOMAD stack, turned into `.service` by a systemd generator. Under `/etc` and not `/usr` because rootless Quadlet has **no `/usr` search path** — `man podman-systemd.unit` lists only `$XDG_RUNTIME_DIR/containers/systemd/`, `~/.config/containers/systemd/`, `/etc/containers/systemd/users/$(UID)` and `/etc/containers/systemd/users/`. The rootful list *does* include `/usr/share/containers/systemd/`, so going rootful would restore the `/usr` placement — at the cost of the security property that made podman the right engine (see the socket note in README). This is not a breach of Atomic State Policy item 1, which forbids mutating `/etc` imperatively at runtime, not shipping into it via the image overlay |
 | `files/justfiles/` | Host-side `ujust` recipes (66-silver-goggles.just, 67-casting.just, 68-nomad.just, 95-bazzite-dx.just), installed by `build_files/50-justfiles.sh` |
 | `files/system/usr/share/ublue-os/casting/` | Staged casting **config template** (`uxplayrc.tmpl`) copied into `$HOME` by `ujust` on request. The units themselves live in `usr/lib/systemd/user/` |
-| `modules/` | Scripts invoked by `build_files/` (dx-flavor, dx-udev, dx-cockpit, dx-verify, dx-hardening, gpu-unlock). The directory name is historical; `build_files` calls the scripts directly, with no module metadata |
 | `just/` | Modular Just recipe files (build, dev, maint, status) |
 | `scripts/` | Utility scripts (`verify-image.sh`, `sign-kmod.sh`, `load-image.sh`, `dev-shell.sh`) |
 | `disk_config/` | Bootc Image Builder (BIB) configs for QCOW2/ISO output |
@@ -298,7 +297,7 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
 ### Scripting Conventions
 
 - Shell scripts must pass `shellcheck` (`just lint`); format with `shfmt` (`just format`).
-- Build steps live in `build_files/`; scripts they call live in `modules/` for now and should contain their own integrity check (see `dx-verify`).
+- Build steps live directly in `build_files/` and carry their own integrity checks (see `build_files/90-verify.sh`).
 
 ### dx-verify: presence is not behaviour
 
@@ -380,7 +379,7 @@ racing the daemon.
 
 - **Lighting**: Handled exclusively by upstream OpenRGB (merged into `master` via MR !3577 for AW-ELC `187c:0550`). Operates directly over USB hidraw in userspace with hardware EEPROM persistence.
 - **Thermals & Fans**: Handled via in-tree `alienware-wmi-wmax` platform profiles (`/sys/class/platform-profile`) and `tuned-ppd`.
-- **GPU Unlock (RTX 3060 Laptop GA106M BF16)**: Handled declaratively via CI-signed `gpu_unlock.ko` (built with runner Podman against pinned base kernel, signed with MOK key via `kmod-signing` environment, installed by `modules/gpu-unlock` into `/usr/lib/modules/<kver>/extra/`). Proprietary firmware generated locally and delivered via `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`. Requires client initramfs regeneration disabled (`rpm-ostree initramfs --disable`), preserving the pre-baked image initramfs. See [`docs/third-party-artifacts.md`](./docs/third-party-artifacts.md).
+- **GPU Unlock (RTX 3060 Laptop GA106M BF16)**: Handled declaratively via CI-signed `gpu_unlock.ko` (built with runner Podman against pinned base kernel, signed with MOK key via `kmod-signing` environment, installed by `build_files/70-gpu-unlock.sh` into `/usr/lib/modules/<kver>/extra/`). Proprietary firmware generated locally and delivered via `rpm-ostree initramfs-etc --track=/etc/gpu-unlock` with kargs `firmware_class.path=/etc/gpu-unlock/fw` and `gpu_unlock.targets=0000:01:00.0`. Requires client initramfs regeneration disabled (`rpm-ostree initramfs --disable`), preserving the pre-baked image initramfs. See [`docs/third-party-artifacts.md`](./docs/third-party-artifacts.md).
 - **Legacy Tools**: AWCC, `acpi_call`, and `alienfx-linux` are obsolete and must not be reintroduced.
 
 #### GPU unlock vs EAC Linux v2 — the layer cannot have both

@@ -1,13 +1,29 @@
 #!/usr/bin/env bash
-# Hardware provisioning: udev manifest integrity, adbusers group, and the Dell
-# specific bits are all static files; this only guarantees they arrived.
+
+# Manages hardware provisioning and declarative group requirements.
 set -euo pipefail
 
 readonly RULES_MANIFEST="/usr/lib/udev/rules.d/51-android.rules"
+readonly SYSUSERS_DIR="/usr/lib/sysusers.d"
 
-if [[ ! -f "$RULES_MANIFEST" ]]; then
-	echo "CRITICAL: udev manifest '$RULES_MANIFEST' missing from the overlay."
-	exit 1
-fi
+VerifyUdevRuleIntegrity() {
+	if [[ ! -f "$RULES_MANIFEST" ]]; then
+		echo "CRITICAL: Hardware manifest '$RULES_MANIFEST' missing."
+		exit 1
+	fi
+}
 
-bash "${CONTEXT_PATH}/modules/dx-udev/dx-udev.sh"
+ProvisionHardwareGroups() {
+	local config="$SYSUSERS_DIR/android-udev.conf"
+	mkdir -p "$SYSUSERS_DIR"
+
+	cat <<EOF >"$config"
+g adbusers - -
+EOF
+}
+
+# --- Execution ---
+echo "::group::🔌 [dx-udev] Provisioning Hardware & Groups..."
+VerifyUdevRuleIntegrity
+ProvisionHardwareGroups
+echo "::endgroup::"

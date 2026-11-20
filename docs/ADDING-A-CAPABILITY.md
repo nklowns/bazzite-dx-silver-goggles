@@ -13,7 +13,7 @@ amontoado.
   superfície `ujust` de gaming para servir dev/LLM;
 - dev segue a doutrina de software do Bazzite (`ujust` → Flatpak → Homebrew → containers → imagem).
   Se Flatpak, Brew ou container resolvem, não entra em `packages/*.txt`;
-- LLM/agentes são sempre opt-in: zero custo em idle até `ujust ...-up`.
+- LLM/agentes são sempre opt-in: zero custo em idle até `ujust svc up <alvo>` (ou `ujust <domínio> up`).
 
 ## Onde a mudança mora
 
@@ -41,9 +41,10 @@ Toda capacidade declara as mesmas peças, no mesmo lugar:
 | Motivo | uma frase no README ou no AGENTS | se não cabe em uma frase, são duas capacidades |
 | Pacotes | `packages/<dominio>.txt` | só o que o user space não resolve; comentário com o porquê; weak deps **off** |
 | Units | `files/system/usr/lib/systemd/…` | nasce inerte; `enable` no boot é exceção com custo medido |
-| Portas | `61300–61399`, bind em `127.0.0.1` | `tailscale serve` só via `ujust remote-*-setup`; nunca 80/443 |
-| Segredos | environment do GitHub ou `EnvironmentFile` | nunca no repo, nunca no layer |
-| Assert | `scripts/verify-image.sh` ou `dx-verify` | nomeia a ferramenta que o usuário invoca, não o pacote |
+| Portas | `61300–61399`, bind em `127.0.0.1` | `tailscale serve` só via `ujust svc remote on <alvo>` (ou `ujust <domínio> remote on`); nunca 80/443 |
+| Storage `/var/srv` | `files/system/usr/lib/tmpfiles.d/*.conf` | `d` + `h ... +C`; `bazzite-dx-groups` e `ujust audit security` leem direto daqui |
+| Segredos | environment do GitHub ou drop-in local em `~/.config/containers/systemd/<unit>.container.d/` | nunca no repo, nunca no layer |
+| Assert | `scripts/verify-image.sh`, `build_files/90-verify.sh` ou `scripts/test-dx-*.sh` | nomeia a ferramenta que o usuário invoca, não o pacote |
 | Remoção | um commit | apagar as linhas acima não pode deixar daemon, karg ou symlink |
 | Doc | README/AGENTS | o que é, como sobe, como desce, o que custa |
 
@@ -51,16 +52,14 @@ Toda capacidade declara as mesmas peças, no mesmo lugar:
 
 - [ ] Cabe em user space? Se sim, é Flatpak/Brew/container — não é imagem.
 - [ ] Qual o custo em idle/boot? Medido, não estimado. Se não mediu, não habilite no boot.
-- [ ] Porta na faixa reservada, bind em loopback, e o `ujust remote-*-setup` publica com TLS via tailnet.
+- [ ] Porta na faixa reservada, bind em loopback, e exposição tailnet via `ujust svc remote on <alvo>` (`bazzite-dx-serve`).
 - [ ] O assert falha quando a ferramenta some? (teste injetando a remoção)
 - [ ] A remoção é um commit, sem resíduo em `/etc`, `/var` ou kargs?
 - [ ] `just check` e o CI passam; offline, `SKIP_NETWORK=1 just check`.
 
 ## Exemplos
 
-**Serviço web** — Quadlet em `files/system/etc/containers/systemd/users/`, `ujust <nome>-up/down/status`,
-`ujust remote-<nome>-setup` (tailscale serve), porta `613xx` em loopback, assert do endpoint local.
-No upgrade do host, o container aparece no `Removed:` esperado.
+**Serviço web** — Quadlet em `files/system/etc/containers/systemd/users/` (com `Image=...@sha256:...` e `PublishPort=127.0.0.1:613xx:...`) + `tmpfiles.d/*.conf` se usar `/var/srv/<nome>`. O controlador `/usr/libexec/dx-svc` descobre automaticamente o serviço (`ujust svc up/down/status/remote/prefetch/prune`); só crie wrapper `ujust <domínio>` quando houver ações específicas de domínio.
 
 **Ferramenta CLI** — vai para `*.Brewfile`, não para `packages/*.txt`. A exceção é o que precisa
 existir antes do primeiro login ou fora do user space: kmod, udev, PAM, chave, serviço de sistema.

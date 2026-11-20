@@ -18,7 +18,6 @@ FROM scratch AS ctx
 COPY build_files /build_files
 COPY packages /packages
 COPY files /files
-COPY modules /modules
 # The public key is baked into the image and referenced by the container policy,
 # so the host can verify its own updates. `ostree-image-signed:docker://...`
 # refuses an image that is not signed with this key.
