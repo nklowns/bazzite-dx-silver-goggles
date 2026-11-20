@@ -42,6 +42,7 @@ warn() { echo "[preflight] ⚠  $*" >&2; }
 fast_check() {
 	local out
 	out=$(podman run --rm \
+		--device nvidia.com/gpu=all \
 		--env PYTHONPATH=/root/.local/lib/python3.12/site-packages \
 		--env PYTHONUSERBASE=/root/.local \
 		--volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
