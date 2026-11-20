@@ -252,27 +252,18 @@ If you genuinely want NOMAD always-on, `systemctl --user enable nomad-admin.serv
 
 ## Image pinning
 
-Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There is no template and no render step: the file that ships is the file that is pinned. `ujust nomad-update` pulls what the current image pins — a version bump arrives through a rebase, not through that command.
+Digests are pinned **inline in the Quadlet units** and bumped by Renovate. There is no template and no render step: the file that ships is the file that is pinned. `ujust svc prefetch` pulls missing pinned images for offline use, and `ujust nomad update` pulls and restarts NOMAD — a version bump arrives through a rebase, not through that command.
 
 ## `ujust` commands
 
 | Command | Action |
 | :--- | :--- |
-| `ujust nomad-up` | Start the stack (Command Center, database, queue, log viewer) |
-| `ujust nomad-down` | Stop the stack; data is preserved |
-| `ujust nomad-status` | Unit states, containers, GPU/VRAM, disk usage, nodatacow check |
-| `ujust nomad-update` | Re-pull the pinned images and restart |
-| `ujust nomad-shell` | `podman unshare` shell for managing NOMAD's files |
-| `ujust llama-up` / `llama-down` / `llama-status` | Start / stop / inspect the optional `nomad-llama` service (seeds `~/.config/llama-swap/config.yaml` on first start) |
-| `ujust llama-models-fetch [ids…]` | Download GGUF weights from the model catalog to `/var/srv/nomad/gguf`, resumable, sha256-verified |
-| `ujust vram-purge` | Unload the resident nomad-llama model from VRAM (the service keeps running) |
-| `ujust llm-fit` | Evaluate hardware fit and tokens/sec for local LLMs (`llmfit`) |
-| `ujust which-llm` | Recommend best models based on actual community benchmarks (`whichllm`) |
-| `ujust llm-advisor` | Architecture & sizing guidelines for Dell G15 (6GB VRAM + 64GB DDR5) |
-| `ujust remote-nomad-setup` | Publish the Command Center on the tailnet (`https://…:61380`) |
-| `ujust remote-nomad-teardown` | Unpublish it and restore the local `URL` |
-| `ujust nomad-firewall-on` | Open `61380`/`61381` on the local network |
-| `ujust nomad-firewall-off` | Close them again |
+| `ujust svc [status\|up\|down\|restart\|logs\|remote\|boot\|prefetch\|offline\|prune]` | Unified data-driven controller for all Quadlets (interactive `ugum` menu when called with no args; `ujust svc down gpu` frees 100% of VRAM) |
+| `ujust nomad [status\|up\|down\|update\|shell\|remote\|loopback-apps\|firewall-on\|firewall-off]` | Manage the Project NOMAD stack |
+| `ujust llama [status\|up\|down\|restart\|unload\|models-fetch\|fit\|which\|advisor]` | Manage `nomad-llama` (CUDA OpenAI API `:61383`) and GGUF weights |
+| `ujust visual [status\|up\|down\|remote\|sync\|update\|pull-models\|animate\|purge]` | Manage AI Studio Visual (ComfyUI `:61384`) |
+| `ujust audio [status\|up\|down\|remote\|portal\|purge\|pull-models]` | Manage AI Studio Audio (VoiceStudio `:61386`) |
+| `ujust mesh [status\|up\|down\|remote\|canary\|recoll-index\|vane-llama-sync\|cdp-matrix]` | Manage Agent Mesh (SearXNG, Vane, Recoll, Tor, I2P, Trawl, Lightpanda) |
 
 ## What the firewall does and does not do here
 

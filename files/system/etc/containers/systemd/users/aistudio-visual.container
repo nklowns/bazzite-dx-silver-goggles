@@ -58,4 +58,4 @@ TimeoutStartSec=600
 ExecStartPre=/usr/libexec/aistudio-visual-preflight
 
 # [Install] is omitted on purpose: respect Boot Impact Policy for gaming sessions.
-# Start on-demand via `ujust comfyui-up` or `ujust aistudio-visual-up`.
+# Start on-demand via `ujust visual up` or `ujust svc up visual`.

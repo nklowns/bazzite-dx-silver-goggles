@@ -132,7 +132,7 @@ cockpit-disable-boot:
 remote-sunshine-setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! ss -tln 2>/dev/null | grep -q ':47990 '; then
+    if ! systemctl --user is-active --quiet sunshine.service || ! ss -tlnH 'sport = :47990' 2>/dev/null | grep -q .; then
         echo "❌ Nada escutando em 47990. O Sunshine Web UI está ativo?"
         echo "   Se necessário, inicie o serviço com: ujust sunshine-up"
         exit 1
@@ -289,7 +289,7 @@ sunshine-status:
     STATE=$(systemctl --user is-active sunshine.service 2>/dev/null || true)
     ENABLED=$(systemctl --user is-enabled sunshine.service 2>/dev/null || true)
     printf "%-12s %s (boot: %s)\n" "sunshine:" "${STATE:-inactive}" "${ENABLED:-disabled}"
-    if ss -tln 2>/dev/null | grep -q ':47990 '; then
+    if [[ "${STATE:-inactive}" == "active" ]] && ss -tlnH 'sport = :47990' 2>/dev/null | grep -q .; then
         echo "   Web UI: http://localhost:47990"
     fi
     LOG="$HOME/.var/app/dev.lizardbyte.app.Sunshine/config/sunshine/sunshine.log"
@@ -402,7 +402,7 @@ rustdesk-disable-boot:
 guacamole-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! ss -tln 2>/dev/null | grep -q ':61392 '; then
+    if ! ss -tlnH 'src 127.0.0.1 sport = :61392' 2>/dev/null | grep -q .; then
         podman run -d --name guacamole-desktop \
             --restart=unless-stopped \
             -p 127.0.0.1:61392:8080 \

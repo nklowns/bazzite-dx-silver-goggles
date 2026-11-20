@@ -65,13 +65,13 @@ This is a developer workstation — arbitrary projects spin up arbitrary dev ser
 | Service | Local port | Tailnet |
 | :--- | :--- | :--- |
 | code-server | `61337` | `https://<tailscale-fqdn>:61337` (`ujust code-up`) |
-| NOMAD Command Center | `61380` | `https://<tailscale-fqdn>:61380` (`ujust remote-nomad-setup` / `ujust nomad-up`) |
+| NOMAD Command Center | `61380` | `https://<tailscale-fqdn>:61380` (`ujust nomad remote on` / `ujust nomad up`) |
 | NOMAD dozzle (log viewer) | `61381` | not exposed over tailnet by default |
-| nomad-llama (llama-swap + llama.cpp CUDA) | `61383` | never — no authentication. The Command Center and Vane reach it over the container network (`http://llama:8080`), not this port (`ujust llama-up`) |
-| AI Studio Visual (ComfyUI) | `61384` | `https://<tailscale-fqdn>:61384` (`ujust visual-up` / `ujust remote-visual-setup`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
-| Vane (Perplexica AI Search) | `61385` | `https://<tailscale-fqdn>:61385` (`ujust vane-up` / `ujust remote-vane-setup`) — AI-powered answering engine with local LLM & SearXNG integration |
-| VoiceStudio DAW & API | `61386` | `https://<tailscale-fqdn>:61386` (`ujust audio-up` / `ujust remote-audio-setup`) — VoiceStudio v0.5.2 (16 TTS, 11 ASR Whisper, Demucs stems, dubbing, audiobooks, OpenAI `/v1/audio/*` endpoints, RTX 3060 CUDA + 64GB DDR5 offload) |
-| SearXNG Metasearch | `61387` | `https://<tailscale-fqdn>:61387` (`ujust searxng-up` / `ujust remote-searxng-setup`) — privacy-respecting metasearch provider with JSON API |
+| nomad-llama (llama-swap + llama.cpp CUDA) | `61383` | never — no authentication. The Command Center and Vane reach it over the container network (`http://llama:8080`), not this port (`ujust llama up`) |
+| AI Studio Visual (ComfyUI) | `61384` | `https://<tailscale-fqdn>:61384` (`ujust visual up` / `ujust visual remote on`) — ComfyUI, CyberRealistic V9, SD 1.5, LTX-Video & LivePortrait Neural Facial Animation |
+| Vane (Perplexica AI Search) | `61385` | `https://<tailscale-fqdn>:61385` (`ujust mesh up vane` / `ujust mesh remote on vane`) — AI-powered answering engine with local LLM & SearXNG integration |
+| VoiceStudio DAW & API | `61386` | `https://<tailscale-fqdn>:61386` (`ujust audio up` / `ujust audio remote on`) — VoiceStudio v0.5.2 (16 TTS, 11 ASR Whisper, Demucs stems, dubbing, audiobooks, OpenAI `/v1/audio/*` endpoints, RTX 3060 CUDA + 64GB DDR5 offload) |
+| SearXNG Metasearch | `61387` | `https://<tailscale-fqdn>:61387` (`ujust mesh up searxng` / `ujust mesh remote on searxng`) — privacy-respecting metasearch provider with JSON API |
 | cockpit | `61390` | `https://<tailscale-fqdn>:61390` (`ujust cockpit-up`) — moved off `9090`, which is Prometheus' default and which `cockpit.socket` binds on every boot whether Cockpit is used or not (`LISTEN *:9090` measured on an idle host). Socket-activated, so the move costs nothing at boot |
 | KasmVNC WebRTC Desktop | `61391` | `https://<tailscale-fqdn>:61391` (`ujust remote-kasmvnc-setup`) — Browser-native HTML5 desktop with bidirectional browser clipboard sync |
 | Apache Guacamole | `61392` | `https://<tailscale-fqdn>:61392` (`ujust guacamole-up`) — HTML5 client for RDP/VNC backends. *Note: KDE Plasma 6 Wayland RDP (KRDP) / VNC (KRFB) require active screen session portals; Sunshine (`61395`) is preferred for remote host streaming.* |
@@ -227,13 +227,13 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
   - Backed by ComfyUI, CyberRealistic V9, SD 1.5, and LivePortrait Neural Facial Animation.
   - Accelerated via NVIDIA CUDA on RTX 3060 Laptop GPU.
   - **Zero Boot-Time Pip Installs**: All Python packages live permanently on SSD in `/var/srv/visual/site-packages` and mount into `PYTHONPATH`. Starts in **< 2 seconds**.
-  - Recipes: `70-aistudio-visual.just` (`ujust visual-up`, `ujust visual-down`, `ujust visual-status`, `ujust visual-animate`, `ujust visual-enable-boot`).
+  - Recipes: `70-aistudio-visual.just` (`ujust visual [status|up|down|restart|logs|remote|boot|prefetch|sync|update|pull-models|animate|purge]`) and `65-dx-services.just` (`ujust svc ...`).
 
 - **AI Studio Audio (`aistudio-audio.container`, Port :61386)**:
   - Backed by VoiceStudio v0.5.2 (16 TTS, 11 ASR Whisper, Demucs stems, dubbing, audiobooks & OpenAI `/v1/audio/*` endpoints).
   - Accelerated via NVIDIA CUDA on RTX 3060 Laptop GPU with smart offload to 64GB DDR5.
   - User deliverables mount directly to `${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio/`.
-  - Recipes: `71-aistudio-audio.just` (`ujust audio-up`, `ujust audio-down`, `ujust audio-purge`, `ujust audio-status`, `ujust remote-audio-setup`, `ujust remote-audio-teardown`).
+  - Recipes: `71-aistudio-audio.just` (`ujust audio [status|up|down|restart|logs|remote|boot|prefetch|purge|portal|pull-models]`) and `65-dx-services.just` (`ujust svc ...`).
 
 - **Deliverables Policy (Strict XDG Standards)**:
   - All visual outputs (8K Portraits & MP4 Videos): `${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio/`
@@ -247,20 +247,20 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
   - Aggregates 9 unpolluted spheres: `general`, `it`, `science` (arXiv, Semantic Scholar, Z-Library, Anna's Archive), `indie` (Marginalia, Neocities), `p2p` (Mwmbl), `onions` (Ahmia via Tor), `i2p` (I2P Search, Legwork via i2pd), `archive` (OpenLibrary, Z-Library, Library of Congress), `local` (Recoll Xapian index of user workspaces and `~/Documents`).
   - JSON API enabled for programmatic agent queries (`format=json`).
   - Native Wayback Machine integration: `ui.cache_url: https://web.archive.org/web/` for all cached links.
-  - Tailscale-first: `ujust remote-searxng-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
-  - Recipes: `72-agent-mesh.just` (`ujust searxng-up`, `ujust searxng-down`, `ujust searxng-status`, `ujust remote-searxng-setup`, `ujust remote-searxng-teardown`).
+  - Tailscale-first: `ujust mesh remote on searxng` publishes TLS endpoint at `https://<tailscale-fqdn>:61387`.
+  - Recipes: `72-agent-mesh.just` (`ujust mesh [up|down|status|remote] searxng`, `ujust mesh canary`).
 
 - **Vane AI Search & Research (`mesh-vane.container`, Port :61385)**:
   - Perplexica fork powered by nomad-llama (OpenAI provider `http://llama:8080/v1`, chat + embeddings) and SearXNG metasearch.
-  - Bounds: `Memory=1.5G` ceiling enforced. `ujust vane-up` starts nomad-llama when a llama-swap config exists; `ujust vane-llama-sync` registers its models in Vane.
-  - Tailscale-first: `ujust remote-vane-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61385`.
-  - Recipes: `72-agent-mesh.just` (`ujust vane-up`, `ujust vane-down`, `ujust vane-status`, `ujust vane-llama-sync`, `ujust remote-vane-setup`, `ujust remote-vane-teardown`).
+  - Bounds: `Memory=1.5G` ceiling enforced. `ujust mesh up vane` starts nomad-llama when a llama-swap config exists; `ujust mesh vane-llama-sync` registers its models in Vane.
+  - Tailscale-first: `ujust mesh remote on vane` publishes TLS endpoint at `https://<tailscale-fqdn>:61385`.
+  - Recipes: `72-agent-mesh.just` (`ujust mesh [up|down|status|remote] vane`, `ujust mesh vane-llama-sync`).
 
 - **Trawl Anti-Bot Solver (`mesh-trawl.container`, Port :8191 / :8192)**:
   - Cloudflare Turnstile, DDoS-Guard & WAF bypass engine powered by Camoufox Firefox + Whisper STT audio solver.
-  - Standby by default (0 MB cold-boot). Auto-started transparently or via `ujust trawl-up`.
+  - Standby by default (0 MB cold-boot). Auto-started transparently or via `ujust mesh up trawl`.
   - Session and clearance cookie persistence via Redis DB 2 (`nomad-redis:6379/2`).
-  - Recipes: `72-agent-mesh.just` (`ujust trawl-up`, `ujust trawl-down`, `ujust trawl-status`, `ujust trawl-logs`).
+  - Recipes: `72-agent-mesh.just` (`ujust mesh [up|down|status|logs] trawl`).
 
 - **Tor SOCKS5 Proxy (`mesh-tor.container`, Port :9050 / :9080)**:
   - Ultra-lightweight Alpine Tor daemon (~25 MB RAM).
@@ -271,7 +271,7 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
   - Ultra-lightweight i2pd router (~8-15 MB RAM, low-bandwidth client profile with transit relay disabled `--notransit`).
   - Loopback HTTP proxy on `127.0.0.1:4444`, SOCKS on `127.0.0.1:4447`, and web console on `127.0.0.1:7070`.
   - Provides isolation for `.i2p` darknet queries in SearXNG (`:i2p` sphere) and anonymous scraping.
-  - Recipes: `72-agent-mesh.just` (`ujust i2p-up`, `ujust i2p-down`, `ujust i2p-status`, `ujust i2p-logs`).
+  - Recipes: `72-agent-mesh.just` (`ujust mesh [up|down|status|logs] i2p`).
 
 - **Recoll Local Workspace Search (`mesh-recoll.container`, Port :61389)**:
   - Headless Recoll WebUI JSON API powered by Xapian full-text indexing engine.
@@ -279,20 +279,20 @@ The Agent Mesh integrates privacy-respecting search, web intelligence, and headl
     - The OS image layer (`files/system/...`) is strictly generic and unopinionated: it mounts only canonical XDG paths (`~/Documents`) read-only (`:ro`). Never hardcode personal paths into image Quadlets or system units.
     - Developer workspaces are registered dynamically via `ujust dx-workspace-add <path>` / `ujust dx-workspace-remove <path>` (persisted in `~/.config/bazzite-dx/workspaces.dirs`).
     - `ujust dx-workspace-add` maintains a declarative user Quadlet drop-in at `~/.config/containers/systemd/mesh-recoll.container.d/10-workspaces.conf` (`Volume=<path>:/export/<name>:ro`), reloads the systemd daemon, and updates `topdirs` in `~/.config/recoll/recoll.conf`.
-    - Dynamic indexer (`ujust recoll-index`) dynamically mounts all registered paths for incremental indexing alongside `~/Documents`.
+    - Dynamic indexer (`ujust mesh recoll-index`) dynamically mounts all registered paths for incremental indexing alongside `~/Documents`.
   - Exclusion & Noise Control: `skippedNames` in `recoll.conf` filters noise directories (`vendor`, `fuzz`, `corpora`, `roms`, `node_modules`, `build`, caches) and credentials (`.env*`, `*.key`, `*.pem`, secrets).
-  - Standby by default (0 MB cold-boot). Auto-started transparently on `:local` search or via `ujust recoll-up`.
+  - Standby by default (0 MB cold-boot). Auto-started transparently on `:local` search or via `ujust mesh up recoll`.
   - Nightly indexer scheduled at 04:00 AM (`mesh-recoll-index.timer`, `Nice=19`, `IOSchedulingClass=idle`, `CPUQuota=40%`).
-  - Tailscale-first: `ujust remote-recoll-setup` publishes TLS endpoint at `https://<tailscale-fqdn>:61389`.
-  - Recipes: `72-agent-mesh.just` (`ujust recoll-up`, `ujust recoll-down`, `ujust recoll-index`, `ujust recoll-status`, `ujust remote-recoll-setup`, `ujust remote-recoll-teardown`).
+  - Tailscale-first: `ujust mesh remote on recoll` publishes TLS endpoint at `https://<tailscale-fqdn>:61389`.
+  - Recipes: `72-agent-mesh.just` (`ujust mesh [up|down|status|remote] recoll`, `ujust mesh recoll-index`).
 
 - **Lightpanda Headless Browser CDP (`lightpanda.container`, Port :9225)**:
   - Ultra-lightweight Zig/C++ headless browser (< 20 MB RAM vs 500 MB+ for Chrome/Chromium).
   - Listens on `127.0.0.1:9225` (CDP WebSocket `ws://127.0.0.1:9225`).
-  - Recipes: `72-agent-mesh.just` (`ujust lightpanda-up`, `ujust lightpanda-down`, `ujust lightpanda-status`).
+  - Recipes: `72-agent-mesh.just` (`ujust mesh [up|down|status] lightpanda`).
 
 - **Agent Mesh lifecycle**:
-  - Unified lifecycle across the mesh services above: `ujust agent-mesh-up`, `ujust agent-mesh-down`, `ujust agent-mesh-status`, `ujust mesh-status`, `ujust remote-agent-mesh-setup`, `ujust remote-agent-mesh-teardown`, `ujust cdp-matrix-status`.
+  - Unified lifecycle across the mesh services above: `ujust mesh [up|down|status|remote|prefetch|cdp-matrix]` and `ujust svc [status|up|down|prefetch|offline|prune]`.
   - Client tooling on top of these services (`agent-browser`, `ia`, non-Lightpanda CDP browser profiles) is not shipped by this image — bring your own via user-space install (Homebrew, dotfiles, or your own agent config layer).
 
 ### Scripting Conventions

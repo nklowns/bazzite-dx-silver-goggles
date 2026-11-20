@@ -1,523 +1,195 @@
 # vim: set ft=make :
 # ==============================================================================
-# GROUP: Visual Studio (ComfyUI Diffusion Studio, Video DiT, LoRAs & LivePortrait)
+# GROUP: services — AI Studio Visual (ComfyUI :61384, LivePortrait)
 #
-# The stack runs as a ROOTLESS PODMAN QUADLET unit, not docker compose. The unit lives in
-# /etc/containers/systemd/users/aistudio-visual.container (and ~/.config/containers/systemd/) and the
-# systemd generator turns it into aistudio-visual.service (listening on 127.0.0.1:61384).
-#
-# START, NOT ENABLE — respecting the Boot Impact Policy:
-# Lingering is on, which means an enabled user unit starts at boot without login and keeps
-# occupying VRAM. Every recipe below therefore starts and stops on demand.
-#
-# MEMORY & HARDWARE ARCHITECTURE (DELL G15 RTX 3060 6GB + 64GB DDR5):
-# - `--cache-classic`: Pins diffusion weights & text encoders in the 64GB DDR5 system RAM,
-#   eliminating repetitive NVMe disk reloads on every generation (2x speedup).
-# - `--reserve-vram 1.0`: Balanced headroom protecting against HDMI/desktop scanout overhead.
-# - PERSISTENT PYTHON STORAGE: All packages live in /var/srv/visual/site-packages on SSD.
-#   Sub-second startup with ZERO runtime pip installs.
-# - User deliverables strictly follow XDG specifications:
-#   - Visual (Imagens & Vídeos): $XDG_PICTURES_DIR/AI_Studio/
-#   - Audio (Vozes & Músicas): $XDG_MUSIC_DIR/AI_Studio/
+# Common lifecycle delegates to /usr/libexec/dx-svc. Domain-specific actions
+# (Python site-packages sync, ComfyUI core update, models, LivePortrait) live here.
 # ==============================================================================
 
-# 🐳 ComfyUI base image — single source of truth; update here and all recipes follow.
-COMFY_IMAGE := "docker.io/yanwk/comfyui-boot:cu126-slim@sha256:fcaeb26d7e6a6a25554fd935a5e10e48c1d2fbf0e314e7e203cb0cd1154bc2ba"
-
-# 🚀 Iniciar a suíte completa do AI Studio (Visual + Audio)
-[group('AI Studio')]
-aistudio-up:
+# Gerenciar AI Studio Visual (ComfyUI :61384). Opções: status | up | down | restart | logs | remote | boot | prefetch | sync | pkg-sync | update | install | versions | pull-models | animate | purge | fix-perms | shell | container-shell | audio-nodes
+[group('services')]
+visual ACTION="" *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "🎨 Iniciando AI Studio Visual..."
-    just visual-up
-    echo "🎙️ Iniciando AI Studio Audio..."
-    just audio-up
-    echo "✅ Suíte AI Studio (Visual + Audio) ativa."
+    DX_SVC="/usr/libexec/dx-svc"
+    [[ -x "$DX_SVC" ]] || DX_SVC="{{ justfile_directory() }}/../system/usr/libexec/dx-svc"
+    QUADLET="/etc/containers/systemd/users/aistudio-visual.container"
+    [[ -f "$QUADLET" ]] || QUADLET="{{ justfile_directory() }}/../system/etc/containers/systemd/users/aistudio-visual.container"
+    COMFY_IMAGE="$(grep -m1 '^Image=' "$QUADLET" | cut -d= -f2-)"
 
-# 🛑 Parar a suíte completa do AI Studio (Visual + Audio)
-[group('AI Studio')]
-aistudio-down:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    just visual-down
-    just audio-down
-    echo "🛑 Suíte AI Studio desativada. Recursos 100% liberados."
-
-# 📊 Diagnóstico consolidado da suíte AI Studio (Visual + Audio + GPU)
-[group('AI Studio')]
-aistudio-status:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    echo "=== 🎨 AI STUDIO VISUAL ==="
-    just visual-status
-    echo ""
-    echo "=== 🎙️ AI STUDIO AUDIO ==="
-    just audio-status
-
-# 📥 Baixar modelos para a suíte completa do AI Studio
-[group('AI Studio')]
-aistudio-pull-models:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just visual-pull-models
-    just audio-pull-models
-    echo "✅ Todos os modelos da suíte AI Studio sincronizados."
-
-# 🎨 Iniciar o AI Studio Visual (ComfyUI :61384) sob demanda
-[group('AI Studio Visual')]
-visual-up:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Verify declarative storage existence
-    if [[ ! -d /var/srv/visual ]]; then
-        echo "❌ /var/srv/visual não existe — o provisionamento declarativo não rodou."
-        echo "   Verifique: systemctl status bazzite-dx-groups.service"
-        exit 1
-    fi
-    # Ensure user deliverables directory exists
-    PICTURES_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio"
-    mkdir -p "$PICTURES_DIR"
-
-    # Check GPU gates
-    if ! systemctl is-active --quiet nvidia-persistenced.service; then
-        echo "⚠️  nvidia-persistenced parado — a injeção CDI vai falhar."
-    fi
-    if [[ "$(getsebool container_use_devices 2>/dev/null || echo '--> off')" == *off ]]; then
-        echo "⚠️  container_use_devices=off — o container vai receber os devices e levar Permission denied."
-    fi
-    systemctl --user daemon-reload
-    systemctl --user start aistudio-visual.service
-    echo "✅ AI Studio Visual ativo em http://localhost:61384"
-    echo "   Para acessar remotamente via Tailscale com TLS: ujust remote-visual-setup"
-    echo "   Não sobe sozinho no próximo boot — rode 'ujust visual-up' de novo."
-
-alias comfyui-up := visual-up
-
-# 🛑 Parar o AI Studio Visual e liberar 100% da VRAM da GPU
-[group('AI Studio Visual')]
-visual-down:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    systemctl --user stop aistudio-visual.service
-    echo "🛑 AI Studio Visual desativado. VRAM liberada para jogos e desktop."
-
-alias comfyui-down := visual-down
-
-# ⚡ Habilitar o AI Studio Visual para iniciar automaticamente no boot (Ative e esqueça)
-[group('AI Studio Visual')]
-visual-enable-boot:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    DROPIN_DIR="$HOME/.config/containers/systemd/aistudio-visual.container.d"
-    mkdir -p "$DROPIN_DIR"
-    printf "[Install]\nWantedBy=default.target\n" > "$DROPIN_DIR/10-autostart.conf"
-    systemctl --user daemon-reload
-    systemctl --user restart aistudio-visual.service
-    echo "⚡ AI Studio Visual configurado para iniciar automaticamente com a sessão do usuário."
-
-alias comfyui-enable-boot := visual-enable-boot
-
-# 🔌 Desabilitar o AI Studio Visual do boot
-[group('AI Studio Visual')]
-visual-disable-boot:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    rm -f "$HOME/.config/containers/systemd/aistudio-visual.container.d/10-autostart.conf"
-    rmdir "$HOME/.config/containers/systemd/aistudio-visual.container.d" 2>/dev/null || true
-    systemctl --user daemon-reload
-    echo "🔌 AI Studio Visual removido da inicialização automática."
-
-alias comfyui-disable-boot := visual-disable-boot
-
-# 📊 Diagnóstico das units e portas do AI Studio Visual
-[group('AI Studio Visual')]
-visual-status:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    echo "=== AI Studio Visual ==="
-    STATE=$(systemctl --user is-active aistudio-visual.service 2>/dev/null || true)
-    if [[ -f "$HOME/.config/containers/systemd/aistudio-visual.container.d/10-autostart.conf" ]]; then
-        BOOT="enabled"
-    else
-        BOOT="disabled"
-    fi
-    printf '%-16s %s (boot: %s)\n' "aistudio-visual" "${STATE:-inactive}" "$BOOT"
-    echo
-    echo "--- Portas locais ---"
-    for port in 61384; do
-        if ss -tlnp 2>/dev/null | grep -q ":${port} "; then
-            printf '  :%-5d ABERTA\n' "$port"
+    OPT="{{ ACTION }}"
+    if [[ -z "$OPT" ]]; then
+        if [[ -t 0 && -t 1 ]] && command -v ugum >/dev/null 2>&1; then
+            "$DX_SVC" status visual
+            echo
+            OPT="$(ugum choose --header "AI Studio Visual (ComfyUI :61384):" \
+                "status" "up" "down" "restart" "logs" "remote" "boot" "prefetch" \
+                "sync" "pkg-sync" "update" "versions" "pull-models" "purge" \
+                "fix-perms" "shell" "container-shell" "audio-nodes")" || exit 0
         else
-            printf '  :%-5d fechada\n' "$port"
-        fi
-    done
-    echo
-    echo "--- Disco /var/srv/visual ---"
-    du -sh /var/srv/visual/* 2>/dev/null || true
-    echo
-    echo "--- Deliverables XDG (${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio) ---"
-    du -sh "${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio" 2>/dev/null || true
-    echo
-    echo "--- Permissões ---"
-    if [[ -d /var/srv/visual ]]; then
-        BAD=$(find /var/srv/visual -printf '%U %p\n' 2>/dev/null |
-            awk -v uid="$UID" '$1 != uid && $1 != 0 { count++ } END { print count+0 }')
-        if (( BAD > 0 )); then
-            echo "  ⚠️  ${BAD} arquivo(s) em /var/srv/visual não pertencem ao seu UID ou ao container."
-            echo "     Isso pode quebrar o ComfyUI. Corrija com: ujust visual-fix-perms"
-        else
-            echo "  ✔ UID ownership íntegra em /var/srv/visual."
+            OPT="status"
         fi
     fi
-    echo
-    echo "--- Tailscale Serve (Visual) ---"
-    if command -v tailscale >/dev/null 2>&1; then
-        tailscale serve status 2>&1 | grep -E "61384|comfyui|visual" || echo "  (nenhum endpoint ativo)"
-    else
-        echo "  tailscale não encontrado no host"
-    fi
 
-alias comfyui-status := visual-status
-alias aistudio-visual-status := visual-status
-
-# 🔍 Comparar o digest do COMFY_IMAGE (justfile) vs container Quadlet vs runtime
-[group('AI Studio Visual')]
-visual-digest:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "=== ComfyUI Image Drift Check ==="
-
-    # Source of truth: COMFY_IMAGE in justfile
-    COMFY_REF=$(grep '^COMFY_IMAGE' files/justfiles/70-aistudio-visual.just | head -1 | sed 's/^COMFY_IMAGE[ :=]*//; s/^"//; s/"$//')
-    COMFY_DIGEST=$(echo "$COMFY_REF" | grep -o 'sha256:[a-f0-9]*' || true)
-    echo "📄 justfile (COMFY_IMAGE): ${COMFY_IMAGE}"
-    echo "   digest:    ${COMFY_DIGEST}"
-
-    # Quadlet source of truth: Image= in .container
-    QUADLET_REF=$(grep '^Image=' files/system/etc/containers/systemd/users/aistudio-visual.container | head -1)
-    QUADLET_DIGEST=$(echo "$QUADLET_REF" | grep -o 'sha256:[a-f0-9]*' || true)
-    echo "🐳 quadlet (Image=):     ${QUADLET_REF}"
-    echo "   digest:    ${QUADLET_DIGEST}"
-
-    # Runtime: podman inspect the actual running/last image
-    if podman inspect aistudio_visual >/dev/null 2>&1; then
-        RUNTIME_DIGEST=$(podman inspect aistudio_visual 2>/dev/null | grep '"Image"' | head -1 | sed 's/.*"Image": "\(.*\)".*/\1/')
-        echo "🔄 runtime (podman):     ${RUNTIME_DIGEST}"
-    elif podman ps -a 2>/dev/null | grep -q aistudio; then
-        RUNTIME_DIGEST=$(podman inspect aistudio_visual 2>/dev/null | grep '"Image"' | head -1 | sed 's/.*"Image": "\(.*\)".*/\1/')
-        echo "🔄 runtime (podman):     ${RUNTIME_DIGEST}"
-    else
-        RUNTIME_DIGEST="(no container found)"
-        echo "🔄 runtime (podman):     ${RUNTIME_DIGEST}"
-    fi
-
-    # Drift detection
-    if [[ "${COMFY_DIGEST}" == "${QUADLET_DIGEST}" ]]; then
-        echo
-        echo "✅ sem drift — COMFY_IMAGE (justfile) e Image= (quadlet) estão sincronizados"
-    else
-        echo
-        echo "⚠️  drift detectado:"
-        echo "   justfile digest:  ${COMFY_DIGEST}"
-        echo "   quadlet digest:   ${QUADLET_DIGEST}"
-        echo "   O Renovate atualiza o quadlet; atualize COMFY_IMAGE em 70-aistudio-visual.just"
-    fi
-
-alias comfyui-digest := visual-digest
-
-# 📜 Acompanhar os logs do AI Studio Visual em tempo real
-[group('AI Studio Visual')]
-visual-logs:
-    journalctl --user -u aistudio-visual.service -f --no-hostname -o cat
-
-alias comfyui-logs := visual-logs
-
-# 🔧 Reparar permissões de arquivos em /var/srv/visual
-[group('AI Studio Visual')]
-visual-fix-perms:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    sudo chown -R 1000:1000 /var/srv/visual
-    echo "✔ Permissões restauradas para UID 1000 em /var/srv/visual."
-
-alias comfyui-fix-perms := visual-fix-perms
-
-# 🔄 Sincronizar o ambiente Python persistente com os toolkits declarativos
-[group('AI Studio Visual')]
-visual-sync:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Fonte única: requirements empacotado na imagem (nunca /var/srv/visual/requirements.txt, que fica obsoleto).
-    REQ=/usr/share/bazzite-dx/aistudio-visual/requirements.txt
-    [[ -f "$REQ" ]] || REQ=./files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt
-    [[ -f "$REQ" ]] || { echo "✖ requirements.txt do AI Studio Visual não encontrado." >&2; exit 1; }
-    ARGS=(-r /requirements.txt)
-    MOUNT=()
-    # Os requirements do próprio checkout do ComfyUI são autoritativos para comfy-*/frontend/templates.
-    if [[ -f /var/srv/visual/ComfyUI/requirements.txt ]]; then
-        MOUNT=(-v /var/srv/visual/ComfyUI/requirements.txt:/comfyui-requirements.txt:ro,Z)
-        ARGS+=(-r /comfyui-requirements.txt)
-    fi
-    echo "📦 Sincronizando pacotes do Visual Studio para /var/srv/visual/site-packages..."
-    mkdir -p /var/srv/visual/site-packages
-    podman run --rm \
-        -v /var/srv/visual/site-packages:/target:Z \
-        -v "$REQ":/requirements.txt:ro,Z \
-        "${MOUNT[@]}" \
-        {{ COMFY_IMAGE }} \
-        pip install --upgrade -q --no-warn-script-location --target /target "${ARGS[@]}"
-    # Mantém torch/CUDA da imagem base
-    rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
-    # Remove metadados .dist-info obsoletos gerados por pip install --target
-    python3 -c "import os, glob, re, shutil; from collections import defaultdict; d=defaultdict(list); [d[m.group(1)].append((tuple(int(x) if x.isdigit() else x for x in re.split(r'[\.-]', m.group(2))), p)) for p in glob.glob('/var/srv/visual/site-packages/*.dist-info') if (m := re.match(r'^(.+)-([0-9a-zA-Z._+]+)\.dist-info$', os.path.basename(p)))]; [shutil.rmtree(p, ignore_errors=True) for v in d.values() if len(v)>1 for _, p in sorted(v, key=lambda x: x[0])[:-1]]" 2>/dev/null || true
-    if systemctl --user is-active --quiet aistudio-visual.service; then
-        echo "🔄 Reiniciando aistudio-visual.service..."
-        systemctl --user restart aistudio-visual.service
-    fi
-    echo "✅ Sincronização concluída com sucesso."
-
-# 📋 Versões instaladas vs. upstream (ComfyUI, kitchen, imagem base) + link de changelog
-[group('AI Studio Visual')]
-visual-versions:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    echo "Imagem base: {{ COMFY_IMAGE }}"
-    if [[ -d /var/srv/visual/ComfyUI/.git ]]; then
-        echo "ComfyUI instalado: $(git -C /var/srv/visual/ComfyUI describe --tags --always)"
-    fi
-    if command -v gh >/dev/null; then
-        echo "ComfyUI upstream:  $(gh release view -R comfyanonymous/ComfyUI --json tagName -q .tagName 2>/dev/null || echo '?')"
-        echo "  changelog: gh release view -R comfyanonymous/ComfyUI"
-        echo "comfy-kitchen upstream: $(gh release view -R Comfy-Org/comfy-kitchen --json tagName -q .tagName 2>/dev/null || echo '?')"
-    fi
-    for p in comfy_kitchen comfy_aimdo comfyui_frontend_package huggingface_hub; do
-        v=$(ls -d /var/srv/visual/site-packages/${p}-*.dist-info 2>/dev/null | sed -E 's|.*/[^/]+-([^-/]+)\.dist-info|\1|' | tail -1)
-        echo "$p instalado: ${v:-?}"
-    done
-
-# ➕ Instalar ou atualizar um pacote Python no ambiente persistente do ComfyUI sem reboot
-[group('AI Studio Visual')]
-visual-install package:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "📦 Instalando {{ package }} em /var/srv/visual/site-packages..."
-    mkdir -p /var/srv/visual/site-packages
-    podman run --rm \
-        -v /var/srv/visual/site-packages:/target:Z \
-        {{ COMFY_IMAGE }} \
-        pip install -q --no-warn-script-location --target /target "{{ package }}"
-    rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
-    python3 -c "import os, glob, re, shutil; from collections import defaultdict; d=defaultdict(list); [d[m.group(1)].append((tuple(int(x) if x.isdigit() else x for x in re.split(r'[\.-]', m.group(2))), p)) for p in glob.glob('/var/srv/visual/site-packages/*.dist-info') if (m := re.match(r'^(.+)-([0-9a-zA-Z._+]+)\.dist-info$', os.path.basename(p)))]; [shutil.rmtree(p, ignore_errors=True) for v in d.values() if len(v)>1 for _, p in sorted(v, key=lambda x: x[0])[:-1]]" 2>/dev/null || true
-    if systemctl --user is-active --quiet aistudio-visual.service; then
-        systemctl --user restart aistudio-visual.service
-    fi
-    echo "✅ Pacote {{ package }} instalado com sucesso."
-
-# 💻 Abrir terminal interativo diretamente no container do AI Studio Visual
-[group('AI Studio Visual')]
-visual-container-shell:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! systemctl --user is-active --quiet aistudio-visual.service; then
-        echo "Iniciando AI Studio Visual..."
-        systemctl --user start aistudio-visual.service
-    fi
-    podman exec -it aistudio_visual bash
-
-# 🎬 Animar retrato/avatar em 8K com expressões e fala neural (LivePortrait na RTX 3060)
-[group('AI Studio Visual')]
-visual-animate image audio="" driving_video="" output="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    VISUAL_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio"
-    mkdir -p "$VISUAL_DIR"
-    OUT_FILE="${output:-$VISUAL_DIR/Avatar_Animado_$(date +%s).mp4}"
-
-    if ! systemctl --user is-active --quiet aistudio-visual.service; then
-        systemctl --user start aistudio-visual.service
-    fi
-
-    echo "🎬 Executando LivePortrait 8K na RTX 3060..."
-    podman exec aistudio_visual python3 /root/user-scripts/animate_avatar.py \
-        "{{ image }}" \
-        "/root/ComfyUI/output/temp_animated_export.mp4" \
-        "{{ audio }}" \
-        "{{ driving_video }}"
-
-    if [[ -f "$VISUAL_DIR/temp_animated_export.mp4" ]]; then
-        if [[ "$OUT_FILE" != "$VISUAL_DIR/temp_animated_export.mp4" ]]; then
+    case "$OPT" in
+    status) "$DX_SVC" status visual ;;
+    up) "$DX_SVC" up visual {{ ARGS }} ;;
+    down) "$DX_SVC" down visual ;;
+    restart) "$DX_SVC" restart visual ;;
+    logs) exec "$DX_SVC" logs visual ;;
+    prefetch) "$DX_SVC" prefetch visual ;;
+    remote)
+        sub="${1:-status}"
+        "$DX_SVC" remote "$sub" visual
+        ;;
+    boot)
+        sub="${1:-status}"
+        "$DX_SVC" boot "$sub" visual
+        ;;
+    purge)
+        if systemctl --user is-active --quiet aistudio-visual.service; then
+            systemctl --user restart aistudio-visual.service
+            echo "🧹 VRAM purgada com sucesso."
+        else
+            echo "AI Studio Visual já está inativo."
+        fi
+        ;;
+    fix-perms)
+        sudo chown -R 1000:1000 /var/srv/visual
+        echo "✔ Permissões restauradas para UID 1000 em /var/srv/visual."
+        ;;
+    sync)
+        REQ=/usr/share/bazzite-dx/aistudio-visual/requirements.txt
+        [[ -f "$REQ" ]] || REQ="{{ justfile_directory() }}/../system/usr/share/bazzite-dx/aistudio-visual/requirements.txt"
+        [[ -f "$REQ" ]] || { echo "✖ requirements.txt do AI Studio Visual não encontrado." >&2; exit 1; }
+        PIP_ARGS=(-r /requirements.txt)
+        MOUNT=()
+        if [[ -f /var/srv/visual/ComfyUI/requirements.txt ]]; then
+            MOUNT=(-v /var/srv/visual/ComfyUI/requirements.txt:/comfyui-requirements.txt:ro,Z)
+            PIP_ARGS+=(-r /comfyui-requirements.txt)
+        fi
+        mkdir -p /var/srv/visual/site-packages
+        podman run --rm \
+            -v /var/srv/visual/site-packages:/target:Z \
+            -v "$REQ":/requirements.txt:ro,Z \
+            "${MOUNT[@]}" \
+            "$COMFY_IMAGE" \
+            pip install --upgrade -q --no-warn-script-location --target /target "${PIP_ARGS[@]}"
+        rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
+        if systemctl --user is-active --quiet aistudio-visual.service; then
+            systemctl --user restart aistudio-visual.service
+        fi
+        echo "✅ Sincronização concluída."
+        ;;
+    pkg-sync)
+        SITE_PKG="/var/srv/visual/site-packages"
+        mapfile -t PKGS < <(find "${SITE_PKG}" -maxdepth 1 -name "comfy_*-*.dist-info" -printf "%f\n" | sed 's/-[0-9].*//' | sort -u)
+        if (( ${#PKGS[@]} == 0 )); then
+            echo "⚠  Nenhum pacote comfy_* encontrado em ${SITE_PKG}."
+            exit 0
+        fi
+        podman run --rm \
+            --env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
+            --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
+            "$COMFY_IMAGE" \
+            pip install --upgrade --quiet --no-warn-script-location \
+                --target /root/.local/lib/python3.12/site-packages \
+                "${PKGS[@]}"
+        echo "✅ pkg-sync concluído: ${PKGS[*]}"
+        ;;
+    update)
+        podman run --rm -v /var/srv/visual/ComfyUI:/root/ComfyUI:Z "$COMFY_IMAGE" \
+            bash -c "cd /root/ComfyUI && git pull --ff-only"
+        ujust visual pkg-sync
+        if systemctl --user is-active --quiet aistudio-visual.service; then
+            systemctl --user restart aistudio-visual.service
+        fi
+        echo "✅ ComfyUI Core atualizado."
+        ;;
+    install)
+        pkg="{{ ARGS }}"
+        [[ -n "$pkg" ]] || { echo "Uso: ujust visual install <pacote>" >&2; exit 2; }
+        mkdir -p /var/srv/visual/site-packages
+        # shellcheck disable=SC2086
+        podman run --rm -v /var/srv/visual/site-packages:/target:Z "$COMFY_IMAGE" \
+            pip install -q --no-warn-script-location --target /target $pkg
+        rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
+        if systemctl --user is-active --quiet aistudio-visual.service; then
+            systemctl --user restart aistudio-visual.service
+        fi
+        echo "✅ Pacote(s) instalado(s): $pkg"
+        ;;
+    versions)
+        echo "Imagem base: $COMFY_IMAGE"
+        if [[ -d /var/srv/visual/ComfyUI/.git ]]; then
+            echo "ComfyUI instalado: $(git -C /var/srv/visual/ComfyUI describe --tags --always)"
+        fi
+        if command -v gh >/dev/null 2>&1; then
+            echo "ComfyUI upstream:  $(gh release view -R comfyanonymous/ComfyUI --json tagName -q .tagName 2>/dev/null || echo '?')"
+        fi
+        for p in comfy_kitchen comfy_aimdo comfyui_frontend_package huggingface_hub; do
+            v="$(find /var/srv/visual/site-packages -maxdepth 1 -name "${p}-*.dist-info" -printf '%f\n' 2>/dev/null | sed -E 's|^[^-]+-([^/]+)\.dist-info|\1|' | sort -V | tail -1)"
+            echo "$p instalado: ${v:-?}"
+        done
+        ;;
+    pull-models)
+        MODELS_DIR="/var/srv/visual/ComfyUI/models"
+        mkdir -p "$MODELS_DIR"/{checkpoints,unet,clip,vae,loras,upscale_models}
+        download_file() {
+            local url="$1" dest="$2"
+            if [[ -s "$dest" ]]; then echo "✔ Já presente: $(basename "$dest")"; return 0; fi
+            if command -v aria2c >/dev/null 2>&1; then
+                aria2c -c -x 8 -s 8 -d "$(dirname "$dest")" -o "$(basename "$dest")" "$url"
+            else
+                curl -C - -L -o "$dest" "$url"
+            fi
+        }
+        download_file "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth" "$MODELS_DIR/upscale_models/4x-UltraSharp.pth"
+        download_file "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_4step.safetensors" "$MODELS_DIR/checkpoints/sdxl_lightning_4step.safetensors"
+        echo "✅ Modelos sincronizados em $MODELS_DIR."
+        ;;
+    animate)
+        set -- {{ ARGS }}
+        img="${1:-}"; aud="${2:-}"; drv="${3:-}"; out="${4:-}"
+        [[ -n "$img" ]] || { echo "Uso: ujust visual animate <image> [audio] [driving_video] [output]" >&2; exit 2; }
+        VISUAL_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio"
+        mkdir -p "$VISUAL_DIR"
+        OUT_FILE="${out:-$VISUAL_DIR/Avatar_Animado_$(date +%s).mp4}"
+        systemctl --user is-active --quiet aistudio-visual.service || "$DX_SVC" up visual
+        podman exec aistudio_visual python3 /root/user-scripts/animate_avatar.py \
+            "$img" "/root/ComfyUI/output/temp_animated_export.mp4" "$aud" "$drv"
+        if [[ -f "$VISUAL_DIR/temp_animated_export.mp4" && "$OUT_FILE" != "$VISUAL_DIR/temp_animated_export.mp4" ]]; then
             mv "$VISUAL_DIR/temp_animated_export.mp4" "$OUT_FILE"
+        elif [[ -f /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 ]]; then
+            cp /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
         fi
-    elif [[ -f /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 ]]; then
-        cp /var/srv/visual/ComfyUI/output/temp_animated_export.mp4 "$OUT_FILE"
-    fi
-    echo "✅ Vídeo animado em alta fidelidade salvo em: $OUT_FILE"
-
-alias comfyui-animate-avatar := visual-animate
-alias animate-avatar := visual-animate
-
-# 🔄 Atualizar o ComfyUI Core para o lançamento mais recente do Comfy-Org
-[group('AI Studio Visual')]
-visual-update:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "🔄 Atualizando ComfyUI Core..."
-    podman run --rm \
-        -v /var/srv/visual/ComfyUI:/root/ComfyUI:Z \
-        {{ COMFY_IMAGE }} \
-        bash -c "cd /root/ComfyUI && git pull --ff-only"
-    echo "📦 Sincronizando pacotes comfy_* após atualização do core..."
-    just visual-pkg-sync
-    if systemctl --user is-active --quiet aistudio-visual.service; then
-        systemctl --user restart aistudio-visual.service
-    fi
-    echo "✅ ComfyUI Core atualizado com sucesso."
-
-# 🩹 Sincronizar pacotes comfy_* no volume SSD após atualização do ComfyUI Manager
-# Detecta e faz upgrade de comfy_aimdo, comfy_kitchen, comfy_angle e afins que o ComfyUI
-# Manager pode ter desatualizado ao atualizar o core. Não toca em torch/nvidia/cuda.
-# Chamado automaticamente por visual-update; use manualmente se o boot falhar com
-# ModuleNotFoundError em qualquer pacote comfy_*.
-[group('AI Studio Visual')]
-visual-pkg-sync:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    SITE_PKG="/var/srv/visual/site-packages"
-    # Discover installed comfy_* package names from dist-info metadata in the volume.
-    mapfile -t PKGS < <(
-        find "${SITE_PKG}" -maxdepth 1 -name "comfy_*-*.dist-info" -printf "%f\n" \
-            | sed 's/-[0-9].*//' \
-            | sort -u
-    )
-    if (( ${#PKGS[@]} == 0 )); then
-        echo "⚠  Nenhum pacote comfy_* encontrado em ${SITE_PKG}. Nada a sincronizar."
-        exit 0
-    fi
-    echo "📦 Pacotes comfy_* detectados: ${PKGS[*]}"
-    echo "🔄 Fazendo upgrade no volume persistente (torch/nvidia/cuda nunca são tocados)..."
-    podman run --rm \
-        --env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
-        --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
-        {{ COMFY_IMAGE }} \
-        pip install --upgrade --quiet --no-warn-script-location \
-            --target /root/.local/lib/python3.12/site-packages \
-            "${PKGS[@]}"
-    echo "✅ visual-pkg-sync concluído. Versões atualizadas:"
-    find "${SITE_PKG}" -maxdepth 1 -name "comfy_*-*.dist-info" -printf "  %f\n" | sed 's/\.dist-info//' | sort
-
-# 📥 Baixar modelos dimensionados para os 6 GB de VRAM da RTX 3060
-[group('AI Studio Visual')]
-visual-pull-models:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    MODELS_DIR="/var/srv/visual/ComfyUI/models"
-    mkdir -p "$MODELS_DIR/checkpoints" "$MODELS_DIR/unet" "$MODELS_DIR/clip" "$MODELS_DIR/vae" "$MODELS_DIR/loras" "$MODELS_DIR/upscale_models"
-    echo "📥 Verificando e baixando modelos do AI Studio Visual (RTX 3060 6GB)..."
-
-    download_file() {
-        local url="$1"
-        local dest="$2"
-        if [[ -s "$dest" ]]; then
-            echo "✔ Já presente: $(basename "$dest")"
-            return 0
-        fi
-        echo "→ Baixando: $(basename "$dest")..."
-        if command -v aria2c >/dev/null 2>&1; then
-            aria2c -c -x 8 -s 8 -d "$(dirname "$dest")" -o "$(basename "$dest")" "$url"
-        else
-            curl -C - -L -o "$dest" "$url"
-        fi
-    }
-
-    echo "1. Upscaler 4K UltraSharp (65 MB)..."
-    download_file "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth" "$MODELS_DIR/upscale_models/4x-UltraSharp.pth"
-
-    echo "2. Checkpoint SDXL Lightning 4-Step (6.5 GB)..."
-    download_file "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_4step.safetensors" "$MODELS_DIR/checkpoints/sdxl_lightning_4step.safetensors"
-
-    echo "✅ Modelos do AI Studio Visual sincronizados em $MODELS_DIR."
-
-alias comfyui-pull-models := visual-pull-models
-
-# 🧹 Purgar modelos da GPU e liberar 100% da VRAM sem desligar o serviço
-[group('AI Studio Visual')]
-visual-purge:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if systemctl --user is-active --quiet aistudio-visual.service; then
-        systemctl --user restart aistudio-visual.service
-        echo "🧹 VRAM purgada com sucesso. Nenhum modelo residente na GPU."
-    else
-        echo "AI Studio Visual já está inativo."
-    fi
-
-alias comfyui-vram-purge := visual-purge
-
-# 🗂️ Shell no namespace rootless para manipular arquivos do AI Studio
-[group('AI Studio Visual')]
-visual-shell:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "Namespace de usuário do podman para manipular /var/srv/visual. Saia com 'exit'."
-    podman unshare bash
-
-# 🔒 Expor o ComfyUI de forma privada e segura no tailnet via Tailscale Serve (:61384)
-[group('AI Studio Visual')]
-remote-visual-setup:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! systemctl --user is-active --quiet aistudio-visual.service; then
-        echo "❌ AI Studio Visual não está rodando. Rode 'ujust visual-up' primeiro."
-        exit 1
-    fi
-    /usr/libexec/bazzite-dx-serve ensure 61384
-    DNS_NAME=$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)
-    echo "AI Studio Visual pronto em: https://${DNS_NAME:-localhost}:61384"
-
-alias remote-ai-setup := remote-visual-setup
-
-# 🔓 Remover o ComfyUI do Tailscale Serve
-[group('AI Studio Visual')]
-remote-visual-teardown:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    /usr/libexec/bazzite-dx-serve off 61384 || true
-    echo "🔓 AI Studio Visual removido do Tailscale Serve."
-
-# 🎵 Instalar suíte convergida de nós de áudio e música no ComfyUI (TTS-Audio-Suite, ACE-Step, Demucs)
-[group('AI Studio Visual')]
-visual-audio-nodes-install:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    NODES_DIR="/var/srv/visual/ComfyUI/custom_nodes"
-    mkdir -p "$NODES_DIR"
-
-    sync_repo() {
-        local repo_url="$1"
-        local target_name="$2"
-        local target_path="$NODES_DIR/$target_name"
-        if [[ -d "$target_path/.git" ]]; then
-            echo "→ Atualizando $target_name..."
-            git -C "$target_path" pull --quiet || true
-        else
-            echo "→ Clonando $target_name..."
-            git clone --quiet --depth 1 "$repo_url" "$target_path"
-        fi
-    }
-
-    echo "📦 Sincronizando nós de áudio de alta performance para ComfyUI..."
-    sync_repo "https://github.com/diodiogod/TTS-Audio-Suite.git" "TTS-Audio-Suite"
-    sync_repo "https://github.com/billwuhao/ComfyUI_ACE-Step.git" "ComfyUI_ACE-Step"
-    sync_repo "https://github.com/christian-byrne/audio-separation-nodes-comfyui.git" "audio-separation-nodes"
-
-    echo "⚙️ Sincronizando dependências de áudio no ambiente persistente..."
-    just visual-install "soundfile librosa pydub conformer vocos"
-
-    if systemctl --user is-active --quiet aistudio-visual.service; then
-        echo "🔄 Reiniciando aistudio-visual.service..."
-        systemctl --user restart aistudio-visual.service
-    fi
-    echo "✅ Nós de áudio do ComfyUI prontos para uso em http://localhost:61384."
-
-alias comfyui-audio-nodes := visual-audio-nodes-install
+        echo "✅ Vídeo salvo em: $OUT_FILE"
+        ;;
+    shell)
+        echo "Namespace rootless do podman (/var/srv/visual). Saia com 'exit'."
+        podman unshare bash
+        ;;
+    container-shell)
+        systemctl --user is-active --quiet aistudio-visual.service || "$DX_SVC" up visual
+        podman exec -it aistudio_visual bash
+        ;;
+    audio-nodes)
+        NODES_DIR="/var/srv/visual/ComfyUI/custom_nodes"
+        mkdir -p "$NODES_DIR"
+        sync_repo() {
+            local url="$1" target="$NODES_DIR/$2"
+            if [[ -d "$target/.git" ]]; then git -C "$target" pull --quiet || true; else git clone --quiet --depth 1 "$url" "$target"; fi
+        }
+        sync_repo "https://github.com/diodiogod/TTS-Audio-Suite.git" "TTS-Audio-Suite"
+        sync_repo "https://github.com/billwuhao/ComfyUI_ACE-Step.git" "ComfyUI_ACE-Step"
+        sync_repo "https://github.com/christian-byrne/audio-separation-nodes-comfyui.git" "audio-separation-nodes"
+        ujust visual install "soundfile librosa pydub conformer vocos"
+        ;;
+    help | -h | --help)
+        echo "Uso: ujust visual <status|up|down|restart|logs|remote <on|off|status>|boot <on|off|status>|prefetch|sync|pkg-sync|update|install <pkg>|versions|pull-models|animate|purge|fix-perms|shell|container-shell|audio-nodes>"
+        ;;
+    *)
+        echo "❌ Ação desconhecida para visual: '$OPT'" >&2
+        exit 2
+        ;;
+    esac

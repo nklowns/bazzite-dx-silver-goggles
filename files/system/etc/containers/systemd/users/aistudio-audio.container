@@ -60,4 +60,4 @@ LimitMEMLOCK=infinity
 LimitNOFILE=65535
 
 # [Install] is omitted on purpose: respect Boot Impact Policy.
-# Start on-demand via `ujust audio-up` or `ujust tts-up`.
+# Start on-demand via `ujust audio up` or `ujust svc up audio`.

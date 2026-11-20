@@ -1,0 +1,985 @@
+#!/usr/bin/env bash
+# Unified, data-driven lifecycle controller for Silver Goggles rootless Podman Quadlets.
+#
+# Reads metadata directly from /etc/containers/systemd/users/*.container:
+#   - Image=           (pinned @sha256 ref for cache check, prefetch and scoped prune)
+#   - PublishPort=     (127.0.0.1:<port> loopback listener check — never false-positives on tailscale serve)
+#   - AddDevice=       (nvidia.com/gpu -> VRAM consumer tracking)
+#
+# Policy:
+#   - START, NOT ENABLE by default (lingering is enabled on this host).
+#   - Never exposes nomad-llama (:61383) over Tailscale.
+#   - Never runs `podman system prune -a`; prune is strictly allowlisted to Quadlet repos.
+set -euo pipefail
+
+UNIT_DIR="${DX_SVC_UNIT_DIR:-/etc/containers/systemd/users}"
+SERVE_BIN="${DX_SVC_SERVE_BIN:-/usr/libexec/bazzite-dx-serve}"
+OFFLINE_ENV="${XDG_CONFIG_HOME:-$HOME/.config}/dx-svc/offline.env"
+GGUF_DIR="${DX_SVC_GGUF_DIR:-/var/srv/nomad/gguf}"
+LLAMA_CFG="${DX_SVC_LLAMA_CFG:-$HOME/.config/llama-swap/config.yaml}"
+
+if [[ ! -x "$SERVE_BIN" ]] && [[ -x "$(dirname "$0")/bazzite-dx-serve" ]]; then
+	SERVE_BIN="$(dirname "$0")/bazzite-dx-serve"
+fi
+
+usage() {
+	cat <<-EOF
+		Uso: dx-svc <ação> [alvo] [opções]
+
+		Ações:
+		  status [alvo]                  Status real (systemd + 127.0.0.1 + tailnet + cache offline)
+		  up [alvo] [--swap] [--offline] Iniciar serviço (checa VRAM e cache de imagem)
+		  down [alvo|gpu|all]            Parar serviço(s) ('down gpu' libera 100% da VRAM)
+		  restart [alvo]                 Reiniciar serviço
+		  logs [alvo]                    Seguir logs (journalctl --user)
+		  remote <on|off|status> [alvo]  Expor/remover serviço no tailnet via Tailscale Serve
+		  boot <on|off|status> [alvo]    Habilitar/remover autostart no boot (drop-in Quadlet)
+		  prefetch [alvo|gpu|mesh|all]   Baixar imagens @sha256 faltantes para uso offline
+		  offline [on|off|status]        Ativar/desativar modo offline (HF_HUB_OFFLINE=1)
+		  prune [--apply] [--gguf]       Podar containers/imagens órfãs da allowlist + GGUFs retired
+
+		Grupos aceitos como alvo: all, gpu, mesh, aistudio
+		Apelidos: visual, audio, llama, nomad, searxng, vane, recoll, tor, i2p, trawl, lightpanda
+	EOF
+	exit 2
+}
+
+is_tty() {
+	[[ -t 0 && -t 1 ]]
+}
+
+has_ugum() {
+	command -v ugum >/dev/null 2>&1
+}
+
+all_units() {
+	local f
+	shopt -s nullglob
+	for f in "$UNIT_DIR"/*.container; do
+		basename "$f" .container
+	done | sort
+}
+
+short_name() {
+	case "$1" in
+	aistudio-visual) echo "visual" ;;
+	aistudio-audio) echo "audio" ;;
+	nomad-llama) echo "llama" ;;
+	nomad-admin) echo "nomad" ;;
+	nomad-mysql) echo "mysql" ;;
+	nomad-redis) echo "redis" ;;
+	mesh-searxng) echo "searxng" ;;
+	mesh-vane) echo "vane" ;;
+	mesh-recoll) echo "recoll" ;;
+	mesh-tor) echo "tor" ;;
+	mesh-i2pd) echo "i2p" ;;
+	mesh-trawl) echo "trawl" ;;
+	*) echo "$1" ;;
+	esac
+}
+
+resolve_unit() {
+	local raw="$1"
+	local mapped
+	case "$raw" in
+	visual | comfyui | aistudio-visual) mapped="aistudio-visual" ;;
+	audio | tts | voicestudio | aistudio-audio) mapped="aistudio-audio" ;;
+	llama | llm | nomad-llama) mapped="nomad-llama" ;;
+	nomad | nomad-admin) mapped="nomad-admin" ;;
+	mysql | nomad-mysql) mapped="nomad-mysql" ;;
+	redis | nomad-redis) mapped="nomad-redis" ;;
+	searxng | mesh-searxng) mapped="mesh-searxng" ;;
+	vane | perplexica | mesh-vane) mapped="mesh-vane" ;;
+	recoll | mesh-recoll) mapped="mesh-recoll" ;;
+	tor | mesh-tor) mapped="mesh-tor" ;;
+	i2p | i2pd | mesh-i2pd) mapped="mesh-i2pd" ;;
+	trawl | mesh-trawl) mapped="mesh-trawl" ;;
+	hbbr | rustdesk-hbbr) mapped="rustdesk-hbbr" ;;
+	hbbs | rustdesk-hbbs) mapped="rustdesk-hbbs" ;;
+	*) mapped="$raw" ;;
+	esac
+	if [[ -f "$UNIT_DIR/${mapped}.container" ]]; then
+		echo "$mapped"
+		return 0
+	fi
+	echo "❌ Serviço desconhecido: '${raw}' (não encontrado em ${UNIT_DIR})." >&2
+	return 1
+}
+
+expand_group() {
+	case "$1" in
+	mesh | agent-mesh)
+		printf '%s\n' mesh-tor mesh-i2pd mesh-trawl mesh-searxng mesh-recoll mesh-vane lightpanda
+		;;
+	aistudio)
+		printf '%s\n' aistudio-visual aistudio-audio
+		;;
+	gpu)
+		local u
+		for u in $(all_units); do
+			unit_is_gpu "$u" && printf '%s\n' "$u"
+		done
+		;;
+	all)
+		all_units
+		;;
+	*)
+		resolve_unit "$1"
+		;;
+	esac
+}
+
+unit_file() {
+	echo "$UNIT_DIR/${1}.container"
+}
+
+unit_image() {
+	grep -m1 '^Image=' "$(unit_file "$1")" 2>/dev/null | cut -d= -f2- || true
+}
+
+unit_ports() {
+	grep '^PublishPort=' "$(unit_file "$1")" 2>/dev/null |
+		sed -nE 's/^PublishPort=127\.0\.0\.1:([0-9]+):.*/\1/p' || true
+}
+
+unit_primary_port() {
+	unit_ports "$1" | head -n1 || true
+}
+
+unit_is_gpu() {
+	grep -q '^AddDevice=nvidia\.com/gpu' "$(unit_file "$1")" 2>/dev/null
+}
+
+unit_state() {
+	local st
+	st="$(systemctl --user is-active "${1}.service" 2>/dev/null | head -n1 || true)"
+	echo "${st:-inactive}"
+}
+
+unit_boot_state() {
+	if [[ -f "$HOME/.config/containers/systemd/${1}.container.d/10-autostart.conf" ]]; then
+		echo "enabled"
+	else
+		echo "disabled"
+	fi
+}
+
+# Strictly checks IPv4 loopback 127.0.0.1:<port> so tailscale serve listeners on
+# 100.x.y.z / [fd7a:...] never trigger a false positive when the container is stopped.
+port_listening_loopback() {
+	local port="$1"
+	ss -tlnH "src 127.0.0.1 sport = :${port}" 2>/dev/null | grep -q .
+}
+
+image_cached() {
+	local img="$1"
+	[[ -n "$img" ]] && podman image exists "$img" 2>/dev/null
+}
+
+pick_unit() {
+	local filter="${1:-all}"
+	local header="${2:-Escolha um serviço:}"
+	local -a choices=()
+	local u st
+	while IFS= read -r u; do
+		[[ -n "$u" ]] || continue
+		st="$(unit_state "$u")"
+		if [[ "$filter" == "active" && "$st" != "active" && "$st" != "activating" ]]; then
+			continue
+		fi
+		if [[ "$filter" == "remote" ]]; then
+			[[ "$u" == "nomad-llama" ]] && continue
+			local p
+			p="$(unit_primary_port "$u")"
+			[[ -n "$p" && "$p" -ge 61300 && "$p" -le 61399 ]] || continue
+		fi
+		choices+=("$(short_name "$u") (${st})")
+	done < <(all_units)
+
+	if [[ ${#choices[@]} -eq 0 ]]; then
+		return 1
+	fi
+	if ! is_tty || ! has_ugum; then
+		echo "❌ Alvo obrigatório fora de terminal interativo. Disponíveis:" >&2
+		printf '  %s\n' "${choices[@]}" >&2
+		return 2
+	fi
+	local picked
+	picked="$(ugum choose --header "$header" "${choices[@]}")" || return 1
+	resolve_unit "${picked%% *}"
+}
+
+cmd_status() {
+	local target="${1:-}"
+	if [[ -n "$target" ]]; then
+		local u
+		u="$(resolve_unit "$target")"
+		local st boot img port listen serve_st gpu_tag cache_st
+		st="$(unit_state "$u")"
+		boot="$(unit_boot_state "$u")"
+		img="$(unit_image "$u")"
+		port="$(unit_primary_port "$u")"
+		gpu_tag=""
+		unit_is_gpu "$u" && gpu_tag=" [GPU]"
+		if image_cached "$img"; then cache_st="cached"; else cache_st="missing"; fi
+
+		printf '%-14s %s%s (boot: %s)\n' "$(short_name "$u"):" "$st" "$gpu_tag" "$boot"
+		printf '%-14s %s\n' "unit:" "${u}.service"
+		printf '%-14s %s (%s)\n' "imagem:" "$cache_st" "${img##*/}"
+		if [[ -n "$port" ]]; then
+			if [[ "$st" == "active" ]] && port_listening_loopback "$port"; then
+				listen="ABERTA (http://127.0.0.1:${port})"
+			elif port_listening_loopback "$port"; then
+				listen="ocupada em 127.0.0.1:${port} (unit ${st})"
+			else
+				listen="fechada"
+			fi
+			printf '%-14s %s\n' "porta ${port}:" "$listen"
+			if [[ "$port" -ge 61300 && "$port" -le 61399 && "$u" != "nomad-llama" ]]; then
+				serve_st="$("$SERVE_BIN" status "$port" "$port" http 2>/dev/null || echo "absent")"
+				printf '%-14s %s\n' "tailnet:" "$serve_st"
+				if [[ "$serve_st" == "ok" ]]; then
+					local dns
+					dns="$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)"
+					[[ -n "$dns" && "$dns" != "null" ]] && printf '%-14s https://%s:%s\n' "url remota:" "$dns" "$port"
+				fi
+			fi
+		fi
+		return 0
+	fi
+
+	printf '%-14s %-10s %-19s %-10s %-8s %s\n' "SERVIÇO" "SYSTEMD" "LOOPBACK" "TAILNET" "CACHE" "TAGS"
+	printf '%-14s %-10s %-19s %-10s %-8s %s\n' "--------------" "----------" "-------------------" "----------" "--------" "--------"
+
+	local u st port lb tailnet cache tags img
+	while IFS= read -r u; do
+		[[ -n "$u" ]] || continue
+		st="$(unit_state "$u")"
+		port="$(unit_primary_port "$u")"
+		img="$(unit_image "$u")"
+		if [[ -n "$port" ]]; then
+			if [[ "$st" == "active" ]] && port_listening_loopback "$port"; then
+				lb="127.0.0.1:${port} ✔"
+			elif port_listening_loopback "$port"; then
+				lb="127.0.0.1:${port} ?"
+			else
+				lb=":${port} off"
+			fi
+		else
+			lb="-"
+		fi
+		if [[ -n "$port" && "$port" -ge 61300 && "$port" -le 61399 && "$u" != "nomad-llama" ]]; then
+			tailnet="$("$SERVE_BIN" status "$port" "$port" http 2>/dev/null || echo "absent")"
+		elif [[ "$u" == "nomad-llama" ]]; then
+			tailnet="local-only"
+		else
+			tailnet="-"
+		fi
+		if image_cached "$img"; then cache="cached"; else cache="missing"; fi
+		tags=""
+		unit_is_gpu "$u" && tags="GPU"
+		[[ "$(unit_boot_state "$u")" == "enabled" ]] && tags="${tags:+${tags},}boot"
+		printf '%-14s %-10s %-19s %-10s %-8s %s\n' "$(short_name "$u")" "$st" "$lb" "$tailnet" "$cache" "${tags:--}"
+	done < <(all_units)
+
+	echo
+	if command -v nvidia-smi >/dev/null 2>&1; then
+		local vram
+		vram="$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader 2>/dev/null || true)"
+		[[ -n "$vram" ]] && echo "GPU VRAM:     $vram"
+	fi
+	if [[ -f "$OFFLINE_ENV" ]]; then
+		echo "Modo offline: ATIVO ($OFFLINE_ENV)"
+	else
+		echo "Modo offline: inativo"
+	fi
+}
+
+_pre_start_hook() {
+	local u="$1"
+	case "$u" in
+	nomad-admin)
+		if [[ ! -d /var/srv/nomad/storage ]]; then
+			echo "❌ /var/srv/nomad/storage não existe — verifique: systemctl status bazzite-dx-groups.service" >&2
+			return 1
+		fi
+		/usr/libexec/project-nomad-bootstrap-env
+		;;
+	nomad-llama)
+		local cfg="$LLAMA_CFG"
+		if [[ ! -e "$cfg" ]]; then
+			mkdir -p "$(dirname "$cfg")"
+			if [[ -f /usr/share/nomad-llama/config.example.yaml ]]; then
+				cp /usr/share/nomad-llama/config.example.yaml "$cfg"
+				echo "📝 Config inicial criada em $cfg."
+			fi
+		fi
+		;;
+	aistudio-visual)
+		if [[ ! -d /var/srv/visual ]]; then
+			echo "❌ /var/srv/visual não existe — verifique: systemctl status bazzite-dx-groups.service" >&2
+			return 1
+		fi
+		mkdir -p "${XDG_PICTURES_DIR:-$HOME/Pictures}/AI_Studio"
+		;;
+	aistudio-audio)
+		if [[ ! -d /var/srv/audio/data ]]; then
+			echo "❌ /var/srv/audio/data não existe — verifique: systemctl status bazzite-dx-groups.service" >&2
+			return 1
+		fi
+		mkdir -p "${XDG_MUSIC_DIR:-$HOME/Music}/AI_Studio"
+		;;
+	mesh-searxng)
+		/usr/libexec/agent-mesh-bootstrap-env
+		;;
+	mesh-vane)
+		/usr/libexec/agent-mesh-bootstrap-env
+		if ! systemctl --user is-active --quiet mesh-searxng.service; then
+			echo "→ Iniciando dependência SearXNG..."
+			systemctl --user start mesh-searxng.service
+		fi
+		if [[ -e "$LLAMA_CFG" ]] && ! systemctl --user is-active --quiet nomad-llama.service; then
+			echo "→ Iniciando dependência nomad-llama..."
+			systemctl --user start nomad-llama.service
+		fi
+		;;
+	mesh-recoll)
+		if [[ ! -d /var/srv/recoll/xapiandb ]]; then
+			echo "❌ /var/srv/recoll/xapiandb não existe — verifique: systemctl status bazzite-dx-groups.service" >&2
+			return 1
+		fi
+		if [[ ! -f "$HOME/.config/recoll/recoll.conf" ]]; then
+			mkdir -p "$HOME/.config/recoll"
+			local tmpl="/usr/share/recoll/recoll.conf.template"
+			[[ -f "$tmpl" ]] && cp "$tmpl" "$HOME/.config/recoll/recoll.conf"
+		fi
+		;;
+	esac
+}
+
+_start_one() {
+	local u="$1"
+	local swap="$2"
+	local force_offline="$3"
+
+	local img
+	img="$(unit_image "$u")"
+	if ! image_cached "$img"; then
+		if [[ "$force_offline" == true || -f "$OFFLINE_ENV" ]]; then
+			echo "❌ Imagem de $(short_name "$u") não está em cache local (modo offline ativo)." >&2
+			echo "   Quando estiver online, rode: ujust svc prefetch $(short_name "$u")" >&2
+			return 1
+		fi
+		echo "⚠️  Imagem de $(short_name "$u") não está em cache local — o systemd fará pull agora."
+	fi
+
+	if unit_is_gpu "$u"; then
+		if ! systemctl is-active --quiet nvidia-persistenced.service 2>/dev/null; then
+			echo "⚠️  nvidia-persistenced parado — a injeção CDI pode falhar." >&2
+		fi
+		if [[ "$(getsebool container_use_devices 2>/dev/null || echo '--> off')" == *off ]]; then
+			echo "⚠️  container_use_devices=off — o container pode levar Permission denied nos devices." >&2
+		fi
+
+		local -a peers=()
+		local other
+		while IFS= read -r other; do
+			[[ "$other" == "$u" ]] && continue
+			unit_is_gpu "$other" || continue
+			if systemctl --user is-active --quiet "${other}.service" 2>/dev/null; then
+				peers+=("$other")
+			fi
+		done < <(all_units)
+
+		if [[ ${#peers[@]} -gt 0 ]]; then
+			local -a peer_names=()
+			local p
+			for p in "${peers[@]}"; do peer_names+=("$(short_name "$p")"); done
+			if [[ "$swap" == true ]]; then
+				echo "🔄 Liberando VRAM: parando ${peer_names[*]}..."
+				for p in "${peers[@]}"; do
+					systemctl --user stop "${p}.service"
+				done
+			elif is_tty && has_ugum; then
+				echo "⚠️  Concorrente(s) de VRAM ativo(s): ${peer_names[*]} (RTX 3060 6 GB)."
+				if ugum confirm "Parar ${peer_names[*]} antes de subir $(short_name "$u")?"; then
+					for p in "${peers[@]}"; do
+						systemctl --user stop "${p}.service"
+					done
+				fi
+			else
+				echo "⚠️  Concorrente(s) de VRAM ativo(s): ${peer_names[*]}. Use --swap para pará-los automaticamente." >&2
+			fi
+		fi
+	fi
+
+	_pre_start_hook "$u"
+	systemctl --user daemon-reload
+	systemctl --user start "${u}.service"
+
+	if [[ "$u" == "nomad-admin" ]]; then
+		podman start nomad_qdrant 2>/dev/null || true
+	fi
+
+	local port
+	port="$(unit_primary_port "$u")"
+	if [[ -n "$port" ]]; then
+		echo "✅ $(short_name "$u") ativo em http://127.0.0.1:${port}"
+	else
+		echo "✅ $(short_name "$u") ativo."
+	fi
+}
+
+cmd_up() {
+	local target="" swap=false force_offline=false arg
+	for arg in "$@"; do
+		case "$arg" in
+		--swap) swap=true ;;
+		--offline) force_offline=true ;;
+		-*) echo "❌ Flag desconhecida: $arg" >&2; exit 2 ;;
+		*) target="$arg" ;;
+		esac
+	done
+
+	if [[ -z "$target" ]]; then
+		target="$(pick_unit all "Escolha o serviço para iniciar:")" || exit 0
+	fi
+
+	local u
+	while IFS= read -r u; do
+		[[ -n "$u" ]] || continue
+		_start_one "$u" "$swap" "$force_offline"
+	done < <(expand_group "$target")
+}
+
+_stop_one() {
+	local u="$1"
+	if [[ "$u" == "nomad-admin" ]]; then
+		podman stop nomad_qdrant 2>/dev/null || true
+		systemctl --user stop nomad-admin.service nomad-mysql.service nomad-redis.service 2>/dev/null || true
+		echo "🛑 nomad (admin/mysql/redis) parado."
+		return 0
+	fi
+	systemctl --user stop "${u}.service" 2>/dev/null || true
+	echo "🛑 $(short_name "$u") parado."
+	if [[ "$u" == "mesh-vane" ]] && systemctl --user is-active --quiet nomad-llama.service 2>/dev/null; then
+		echo "💡 nomad-llama ainda está ativo (pode estar segurando VRAM). Para liberar: ujust llama unload ou ujust svc down llama"
+	fi
+}
+
+cmd_down() {
+	local target="${1:-}"
+	if [[ -z "$target" ]]; then
+		if ! target="$(pick_unit active "Escolha o serviço ativo para parar:")"; then
+			echo "✅ Nenhum serviço Quadlet ativo."
+			return 0
+		fi
+	fi
+
+	case "$target" in
+	gpu)
+		local u stopped=0
+		while IFS= read -r u; do
+			[[ -n "$u" ]] || continue
+			if systemctl --user is-active --quiet "${u}.service" 2>/dev/null; then
+				_stop_one "$u"
+				stopped=$((stopped + 1))
+			fi
+		done < <(expand_group gpu)
+		if [[ "$stopped" -eq 0 ]]; then
+			echo "✅ Nenhum consumidor de GPU ativo."
+		fi
+		if command -v nvidia-smi >/dev/null 2>&1; then
+			nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader 2>/dev/null | sed 's/^/   VRAM: /' || true
+		fi
+		;;
+	all)
+		# Stop nomad-admin before mysql/redis to avoid Requires= failure logs.
+		local u
+		if systemctl --user is-active --quiet nomad-admin.service 2>/dev/null; then
+			_stop_one nomad-admin
+		fi
+		while IFS= read -r u; do
+			[[ -n "$u" ]] || continue
+			[[ "$u" == "nomad-admin" || "$u" == "nomad-mysql" || "$u" == "nomad-redis" ]] && continue
+			if systemctl --user is-active --quiet "${u}.service" 2>/dev/null; then
+				_stop_one "$u"
+			fi
+		done < <(all_units)
+		echo "🛑 Todos os serviços Quadlet parados."
+		;;
+	*)
+		local u
+		while IFS= read -r u; do
+			[[ -n "$u" ]] || continue
+			_stop_one "$u"
+		done < <(expand_group "$target")
+		;;
+	esac
+}
+
+cmd_restart() {
+	local target="${1:-}"
+	if [[ -z "$target" ]]; then
+		target="$(pick_unit active "Escolha o serviço para reiniciar:")" || exit 0
+	fi
+	local u
+	u="$(resolve_unit "$target")"
+	systemctl --user restart "${u}.service"
+	echo "🔄 $(short_name "$u") reiniciado."
+}
+
+cmd_logs() {
+	local target="${1:-}"
+	if [[ -z "$target" ]]; then
+		target="$(pick_unit all "Escolha o serviço para ver logs:")" || exit 0
+	fi
+	local u
+	u="$(resolve_unit "$target")"
+	exec journalctl --user -u "${u}.service" -f --no-hostname -o cat
+}
+
+cmd_remote() {
+	local action="${1:-status}"
+	local target="${2:-}"
+
+	case "$action" in
+	on | off | status) ;;
+	*)
+		echo "Uso: dx-svc remote <on|off|status> [serviço]" >&2
+		exit 2
+		;;
+	esac
+
+	if [[ -z "$target" ]]; then
+		target="$(pick_unit remote "Escolha o serviço para Tailscale Serve (${action}):")" || exit 0
+	fi
+	local u
+	u="$(resolve_unit "$target")"
+
+	if [[ "$u" == "nomad-llama" ]]; then
+		echo "❌ nomad-llama (:61383) não possui autenticação e nunca deve ser exposto no tailnet." >&2
+		exit 1
+	fi
+
+	local port
+	port="$(unit_primary_port "$u")"
+	if [[ -z "$port" || "$port" -lt 61300 || "$port" -gt 61399 ]]; then
+		echo "❌ $(short_name "$u") não possui porta loopback na faixa DX (61300-61399)." >&2
+		exit 1
+	fi
+
+	case "$action" in
+	status)
+		"$SERVE_BIN" status "$port" "$port" http
+		;;
+	on)
+		if ! systemctl --user is-active --quiet "${u}.service" 2>/dev/null; then
+			echo "❌ $(short_name "$u") não está ativo. Rode 'ujust svc up $(short_name "$u")' primeiro." >&2
+			exit 1
+		fi
+		"$SERVE_BIN" ensure "$port"
+		local dns
+		dns="$(tailscale status --self --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//' || true)"
+		if [[ "$u" == "nomad-admin" && -n "$dns" && "$dns" != "null" && -f /var/srv/nomad/.env ]]; then
+			local new_url="https://${dns}:${port}"
+			if ! grep -q "^URL=${new_url}$" /var/srv/nomad/.env 2>/dev/null; then
+				sed -i "s|^URL=.*|URL=${new_url}|" /var/srv/nomad/.env
+				systemctl --user try-restart nomad-admin.service
+			fi
+		fi
+		echo "✅ $(short_name "$u") remoto: https://${dns:-localhost}:${port}"
+		;;
+	off)
+		"$SERVE_BIN" off "$port" || true
+		if [[ "$u" == "nomad-admin" && -f /var/srv/nomad/.env ]]; then
+			sed -i 's|^URL=.*|URL=http://localhost:61380|' /var/srv/nomad/.env
+			systemctl --user try-restart nomad-admin.service
+		fi
+		echo "🔓 $(short_name "$u") removido do Tailscale Serve."
+		;;
+	esac
+}
+
+cmd_boot() {
+	local action="${1:-status}"
+	local target="${2:-}"
+
+	case "$action" in
+	on | off | status) ;;
+	*)
+		echo "Uso: dx-svc boot <on|off|status> [serviço]" >&2
+		exit 2
+		;;
+	esac
+
+	if [[ -z "$target" ]]; then
+		target="$(pick_unit all "Escolha o serviço para autostart (${action}):")" || exit 0
+	fi
+	local u
+	u="$(resolve_unit "$target")"
+	local dropin_dir="$HOME/.config/containers/systemd/${u}.container.d"
+	local dropin_file="$dropin_dir/10-autostart.conf"
+
+	case "$action" in
+	status)
+		printf '%-12s boot: %s\n' "$(short_name "$u"):" "$(unit_boot_state "$u")"
+		;;
+	on)
+		mkdir -p "$dropin_dir"
+		printf '[Install]\nWantedBy=default.target\n' >"$dropin_file"
+		systemctl --user daemon-reload
+		echo "⚡ $(short_name "$u") habilitado no boot (drop-in em $dropin_file)."
+		;;
+	off)
+		rm -f "$dropin_file"
+		rmdir "$dropin_dir" 2>/dev/null || true
+		systemctl --user daemon-reload
+		echo "🔌 $(short_name "$u") removido do boot automático."
+		;;
+	esac
+}
+
+cmd_prefetch() {
+	local target="${1:-all}"
+	local cached=0 pulled=0 failed=0
+	local -A seen_imgs=()
+	local u img
+
+	while IFS= read -r u; do
+		[[ -n "$u" ]] || continue
+		img="$(unit_image "$u")"
+		[[ -n "$img" ]] || continue
+		if [[ -n "${seen_imgs[$img]:-}" ]]; then
+			continue
+		fi
+		seen_imgs["$img"]=1
+
+		if image_cached "$img"; then
+			printf '  ✔ %-12s cached (%s)\n' "$(short_name "$u")" "${img##*/}"
+			cached=$((cached + 1))
+		else
+			printf '  ↓ %-12s puxando %s...\n' "$(short_name "$u")" "$img"
+			if podman pull "$img"; then
+				pulled=$((pulled + 1))
+			else
+				echo "  ❌ Falha ao puxar $img" >&2
+				failed=$((failed + 1))
+			fi
+		fi
+	done < <(expand_group "$target")
+
+	echo
+	echo "Prefetch concluído: cached=${cached} | pulled=${pulled} | failed=${failed}"
+	[[ "$failed" -eq 0 ]]
+}
+
+cmd_offline() {
+	local action="${1:-status}"
+	local -a ai_units=(aistudio-audio aistudio-visual)
+	case "$action" in
+	status)
+		if [[ -f "$OFFLINE_ENV" ]]; then
+			echo "Modo offline: ATIVO ($OFFLINE_ENV)"
+			sed 's/^/  /' "$OFFLINE_ENV"
+		else
+			echo "Modo offline: inativo (ative com: ujust svc offline on)"
+		fi
+		;;
+	on)
+		mkdir -p "$(dirname "$OFFLINE_ENV")"
+		cat >"$OFFLINE_ENV" <<-'EOF'
+			HF_HUB_OFFLINE=1
+			TRANSFORMERS_OFFLINE=1
+		EOF
+		local u d
+		for u in "${ai_units[@]}"; do
+			d="$HOME/.config/containers/systemd/${u}.container.d"
+			mkdir -p "$d"
+			cat >"${d}/20-offline.conf" <<-'EOF'
+				[Container]
+				Environment=HF_HUB_OFFLINE=1
+				Environment=TRANSFORMERS_OFFLINE=1
+			EOF
+		done
+		systemctl --user daemon-reload
+		echo "✈️  Modo offline ATIVO (HF_HUB_OFFLINE=1, TRANSFORMERS_OFFLINE=1)."
+		echo "   Reinicie serviços de IA ativos para aplicar (ex.: ujust svc restart audio)."
+		;;
+	off)
+		rm -f "$OFFLINE_ENV"
+		local u d
+		for u in "${ai_units[@]}"; do
+			d="$HOME/.config/containers/systemd/${u}.container.d"
+			rm -f "${d}/20-offline.conf"
+			rmdir "$d" 2>/dev/null || true
+		done
+		systemctl --user daemon-reload
+		echo "🌐 Modo offline desativado."
+		;;
+	*)
+		echo "Uso: dx-svc offline [on|off|status]" >&2
+		exit 2
+		;;
+	esac
+}
+
+cmd_prune() {
+	local apply=false apply_gguf=false arg
+	for arg in "$@"; do
+		case "$arg" in
+		--apply | apply) apply=true ;;
+		--gguf) apply_gguf=true ;;
+		dry-run | --dry-run) ;;
+		*)
+			echo "Uso: dx-svc prune [dry-run|--apply] [--gguf]" >&2
+			exit 2
+			;;
+		esac
+	done
+
+	if [[ ! -d "$UNIT_DIR" ]]; then
+		echo "❌ Sem Quadlets em $UNIT_DIR — nada a podar."
+		return 0
+	fi
+
+	# 1. Scoped Podman prune — strictly allowlisted to Quadlet repositories.
+	local -a allow=()
+	mapfile -t allow < <(
+		grep -h '^Image=' "$UNIT_DIR"/*.container 2>/dev/null |
+			sed -E 's/^Image=//; s/@sha256:[a-f0-9]+$//; s/:[^/:]+$//' |
+			sort -u
+	)
+	if [[ ${#allow[@]} -eq 0 ]]; then
+		echo "❌ Nenhum Image= declarado — recusando podar." >&2
+		return 1
+	fi
+
+	_repo_of() {
+		local ref="$1"
+		ref="${ref%%@*}"
+		[[ "$ref" == *:* ]] && ref="${ref%:*}"
+		printf '%s' "$ref"
+	}
+
+	_allowed() {
+		local repo="$1" r
+		for r in "${allow[@]}"; do
+			[[ "$repo" == "$r" ]] && return 0
+		done
+		return 1
+	}
+
+	echo "=== 1. Podman (allowlist de ${#allow[@]} repositórios dos Quadlets) ==="
+	local -a stale_ctrs=()
+	mapfile -t stale_ctrs < <(
+		podman ps -a --filter status=exited --filter status=created \
+			--format '{{.Id}}|{{.Image}}|{{.Names}}' 2>/dev/null |
+			while IFS='|' read -r cid image name; do
+				[[ -n "${cid:-}" ]] || continue
+				_allowed "$(_repo_of "$image")" && printf '%s|%s|%s\n' "$cid" "$image" "$name"
+			done
+	)
+
+	if [[ ${#stale_ctrs[@]} -gt 0 ]]; then
+		echo "Containers parados da imagem:"
+		local c cid image name
+		for c in "${stale_ctrs[@]}"; do
+			IFS='|' read -r cid image name <<<"$c"
+			echo "  $name ($image)"
+			if [[ "$apply" == true ]]; then
+				podman rm -f "$cid" >/dev/null && echo "    ✔ removido"
+			fi
+		done
+	else
+		echo "✅ Nenhum container parado no escopo."
+	fi
+
+	# Protect both images used by existing containers AND images currently pinned by
+	# Quadlets (so offline-prefetched images of stopped services are never pruned).
+	local -a used=()
+	mapfile -t used < <(
+		{
+			podman ps -a --format '{{.ImageID}}' 2>/dev/null || true
+			local u img iid
+			while IFS= read -r u; do
+				[[ -n "$u" ]] || continue
+				img="$(unit_image "$u")"
+				[[ -n "$img" ]] || continue
+				iid="$(podman image inspect --format '{{.Id}}' "$img" 2>/dev/null || true)"
+				[[ -n "$iid" ]] && printf '%s\n' "$iid" "${iid:0:12}"
+			done < <(all_units)
+		} | sort -u
+	)
+	_image_used() {
+		local id="$1" u
+		for u in "${used[@]}"; do
+			[[ "$u" == "$id" || "$u" == "${id}"* || "$id" == "${u}"* ]] && return 0
+		done
+		return 1
+	}
+
+	local -a stale_imgs=()
+	local id repo tag size
+	while IFS='|' read -r id repo tag size; do
+		[[ -n "${id:-}" ]] || continue
+		_allowed "$(_repo_of "$repo:$tag")" || continue
+		_image_used "$id" && continue
+		stale_imgs+=("$id|$repo:$tag|$size")
+	done < <(podman images --format '{{.Id}}|{{.Repository}}|{{.Tag}}|{{.Size}}' 2>/dev/null)
+
+	if [[ ${#stale_imgs[@]} -gt 0 ]]; then
+		echo "Imagens órfãs da imagem:"
+		local i ref
+		for i in "${stale_imgs[@]}"; do
+			IFS='|' read -r id ref size <<<"$i"
+			echo "  $ref ($size)"
+			if [[ "$apply" == true ]]; then
+				podman rmi "$id" >/dev/null && echo "    ✔ removida"
+			fi
+		done
+	else
+		echo "✅ Nenhuma imagem órfã no escopo."
+	fi
+
+	# 2. Retired GGUFs in /var/srv/nomad/gguf (unreferenced by llama-swap config.yaml).
+	echo
+	echo "=== 2. GGUFs não referenciados em $GGUF_DIR ==="
+	if [[ ! -d "$GGUF_DIR" ]]; then
+		echo "ℹ️  Diretório $GGUF_DIR ausente — pulando."
+	elif [[ ! -f "$LLAMA_CFG" ]]; then
+		echo "⚠️  Config do llama-swap ausente ($LLAMA_CFG) — recusando classificar GGUFs."
+	else
+		local -A active_ggufs=()
+		local rel full
+		while IFS= read -r rel; do
+			[[ -n "$rel" ]] || continue
+			full="${GGUF_DIR}/${rel#/models/gguf/}"
+			active_ggufs["$(readlink -f "$full" 2>/dev/null || echo "$full")"]=1
+		done < <(grep -oE '/models/gguf/[^[:space:]"'"'"']+\.gguf' "$LLAMA_CFG" 2>/dev/null | sort -u || true)
+
+		local -a retired_paths=()
+		local -a retired_labels=()
+		local total_bytes=0 f realf sz_bytes sz_human
+		while IFS= read -r -d '' f; do
+			realf="$(readlink -f "$f" 2>/dev/null || echo "$f")"
+			[[ -n "${active_ggufs[$realf]:-}" ]] && continue
+			sz_bytes="$(stat -c '%s' "$f" 2>/dev/null || echo 0)"
+			sz_human="$(numfmt --to=iec-i --suffix=B "$sz_bytes" 2>/dev/null || echo "${sz_bytes}B")"
+			total_bytes=$((total_bytes + sz_bytes))
+			retired_paths+=("$f")
+			retired_labels+=("$(printf '%-9s %s' "$sz_human" "${f#"$GGUF_DIR"/}")")
+		done < <(find "$GGUF_DIR" -type f -name '*.gguf' -print0 2>/dev/null | sort -z)
+
+		if [[ ${#retired_paths[@]} -eq 0 ]]; then
+			echo "✅ Todos os GGUFs em $GGUF_DIR estão referenciados em $LLAMA_CFG."
+		else
+			local total_human
+			total_human="$(numfmt --to=iec-i --suffix=B "$total_bytes" 2>/dev/null || echo "${total_bytes}B")"
+			echo "Encontrados ${#retired_paths[@]} GGUFs fora do config.yaml (total recuperável: ${total_human}):"
+			printf '  %s\n' "${retired_labels[@]}"
+
+			if [[ "$apply" == true ]]; then
+				if is_tty && has_ugum; then
+					echo
+					local selected
+					selected="$(ugum choose --no-limit --header "Selecione GGUFs retired para remover (Espaço=marcar, Enter=confirmar, Esc=pular):" "${retired_labels[@]}" || true)"
+					if [[ -n "$selected" ]]; then
+						local line rel_path target_file
+						while IFS= read -r line; do
+							[[ -n "$line" ]] || continue
+							rel_path="${line#* }"
+							rel_path="${rel_path#"${rel_path%%[![:space:]]*}"}"
+							target_file="${GGUF_DIR}/${rel_path}"
+							if [[ -f "$target_file" ]]; then
+								rm -f "$target_file" && echo "  ✔ removido: $rel_path"
+							fi
+						done <<<"$selected"
+						find "$GGUF_DIR" -mindepth 1 -type d -empty -delete 2>/dev/null || true
+					else
+						echo "Nenhum GGUF selecionado."
+					fi
+				elif [[ "$apply_gguf" == true ]]; then
+					for f in "${retired_paths[@]}"; do
+						rm -f "$f" && echo "  ✔ removido: ${f#"$GGUF_DIR"/}"
+					done
+					find "$GGUF_DIR" -mindepth 1 -type d -empty -delete 2>/dev/null || true
+				else
+					echo "ℹ️  Modo não-interativo: GGUFs preservados. Passe --gguf junto com --apply para removê-los sem prompt."
+				fi
+			fi
+		fi
+	fi
+
+	echo
+	if [[ "$apply" != true ]]; then
+		echo "Dry-run. Aplique com: ujust svc prune --apply"
+	else
+		podman system df
+	fi
+}
+
+cmd_menu() {
+	if ! is_tty || ! has_ugum; then
+		cmd_status
+		echo
+		usage
+	fi
+	local action
+	action="$(ugum choose --header "DX Services — escolha uma ação:" \
+		"status" "up" "down" "restart" "logs" "remote" "prefetch" "offline" "prune" "boot")" || exit 0
+	case "$action" in
+	status) cmd_status ;;
+	up) cmd_up ;;
+	down) cmd_down ;;
+	restart) cmd_restart ;;
+	logs) cmd_logs ;;
+	remote)
+		local ra
+		ra="$(ugum choose --header "Tailscale Serve:" "on" "off" "status")" || exit 0
+		cmd_remote "$ra"
+		;;
+	boot)
+		local ba
+		ba="$(ugum choose --header "Autostart no boot:" "status" "on" "off")" || exit 0
+		cmd_boot "$ba"
+		;;
+	prefetch) cmd_prefetch all ;;
+	offline)
+		local oa
+		oa="$(ugum choose --header "Modo offline:" "status" "on" "off")" || exit 0
+		cmd_offline "$oa"
+		;;
+	prune)
+		local pa
+		pa="$(ugum choose --header "Prune:" "dry-run" "--apply")" || exit 0
+		cmd_prune "$pa"
+		;;
+	esac
+}
+
+if [[ $# -eq 0 ]]; then
+	cmd_menu
+	exit 0
+fi
+
+ACTION="$1"
+shift
+
+case "$ACTION" in
+status) cmd_status "$@" ;;
+up | start) cmd_up "$@" ;;
+down | stop) cmd_down "$@" ;;
+restart) cmd_restart "$@" ;;
+logs) cmd_logs "$@" ;;
+remote) cmd_remote "$@" ;;
+boot) cmd_boot "$@" ;;
+prefetch) cmd_prefetch "$@" ;;
+offline) cmd_offline "$@" ;;
+prune) cmd_prune "$@" ;;
+-h | --help | help) usage ;;
+*)
+	echo "❌ Ação desconhecida: '$ACTION'" >&2
+	usage
+	;;
+esac
