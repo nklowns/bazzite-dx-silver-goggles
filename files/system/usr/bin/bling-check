@@ -46,7 +46,7 @@ if rpm -q bash-preexec &>/dev/null; then
 elif [[ -f "${HOMEBREW_PREFIX:-}/etc/profile.d/bash-preexec.sh" ]]; then
 	printf "   %b bash-preexec       brew:%s\n" "$OK" "${HOMEBREW_PREFIX}/etc/profile.d/bash-preexec.sh"
 else
-	printf "   %b bash-preexec       — not found (run: ujust setup-default-brew cli)\n" "$WARN"
+	printf "   %b bash-preexec       — not found (run: ujust brew install cli)\n" "$WARN"
 fi
 
 # --- 2. Homebrew ---

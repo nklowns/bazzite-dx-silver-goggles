@@ -66,7 +66,7 @@ restore do fbdev é chamado com config vazia e o driver dereferencia NULL
 **Solução declarativa (não aplicada ainda — decisão do dono).**
 `files/system/usr/lib/modprobe.d/zz-nvidia-drm.conf` com
 `options nvidia_drm modeset=1 fbdev=0`. Preferir modprobe.d a karg: nesta imagem
-kargs declarados em `/usr/lib/bootc/kargs.d` só convergem via `ujust dx-kargs`
+kargs declarados em `/usr/lib/bootc/kargs.d` só convergem via `ujust dx kargs`
 no host rpm-ostree. Não se perde nada aqui: o painel interno é `i915`, e o fbdev
 da dGPU nem chega a inicializar.
 

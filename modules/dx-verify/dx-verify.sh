@@ -178,6 +178,8 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/user/plasma-plasmashell.service.d/10-igpu-video.conf|Policy: Plasmashell Video Decode on iGPU|Error"
 	"unit|/usr/lib/systemd/user/plasma-plasmashell.service.d/10-igpu-video.conf|Behaviour: Plasmashell iGPU Drop-in Parses Clean|Error"
 	"nostage|/usr/share/bluebuild/justfiles|Policy: No ujust Recipe Stages a Unit into \$HOME|Error"
+	"file|/usr/libexec/dx-svc|Asset: Unified Quadlet Service Controller (dx-svc)|Error"
+	"file|/usr/share/bluebuild/justfiles/65-dx-services.just|Asset: Unified ujust svc Surface|Error"
 
 	"file|/usr/lib/systemd/user/uxplay.service|Asset: Casting UxPlay Unit|Error"
 	"file|/usr/share/ublue-os/casting/uxplayrc.tmpl|Asset: Casting UxPlay Config Template|Error"

@@ -296,17 +296,13 @@ The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 
 
 | Command | Action |
 | :--- | :--- |
-| `ujust visual-up` (ou `comfyui-up`) | Start the ComfyUI GPU container (`http://localhost:61384`) |
-| `ujust visual-down` (ou `comfyui-down`) | Stop ComfyUI and release all 6 GB VRAM |
-| `ujust visual-status` (ou `comfyui-status`) | Detailed diagnostics (VRAM usage, API health, rootless permissions) |
-| `ujust visual-purge` (ou `comfyui-vram-purge`) | Instant VRAM purge (unload GPU models without stopping container) |
-| `ujust visual-animate <img_8k> <audio_wav>` | Animate any portrait with speech and LivePortrait neural lip sync |
-| `ujust visual-enable-boot` | Opt-in to start ComfyUI automatically on boot via Quadlet drop-in |
-| `ujust visual-disable-boot` | Remove ComfyUI from automatic boot startup |
-| `ujust comfyui-sync` | Synchronize Python packages from declarative `requirements.txt` to SSD |
-| `ujust comfyui-install <pkg>` | Install/upgrade a package into `/var/srv/visual/site-packages` live with no OS reboot |
-| `ujust comfyui-container-shell` | Open interactive bash terminal inside the running container |
-| `ujust remote-ai-setup` | Expose ComfyUI over Tailnet with TLS (`https://…:61384`) |
+| `ujust visual up` / `down` / `status` | Start, stop (frees 6 GB VRAM) or inspect ComfyUI (`http://127.0.0.1:61384`) |
+| `ujust visual purge` | Instant VRAM purge (unload GPU models without stopping container) |
+| `ujust visual animate <img_8k> <audio_wav>` | Animate any portrait with speech and LivePortrait neural lip sync |
+| `ujust visual boot on` / `off` | Opt-in/out of automatic boot startup via Quadlet drop-in |
+| `ujust visual sync` / `install <pkg>` | Sync declarative `requirements.txt` or install a package into `/var/srv/visual/site-packages` |
+| `ujust visual container-shell` | Open interactive bash terminal inside the running container |
+| `ujust visual remote on` / `off` | Expose or unpublish ComfyUI over Tailnet with TLS (`https://…:61384`) |
 
 ---
 
@@ -325,14 +321,10 @@ The **AI Studio Audio** stack provides a complete, modern open-source studio DAW
 
 | Command | Action |
 | :--- | :--- |
-| `ujust audio-up` (ou `tts-up`) | Start VoiceStudio service and Web UI (`:61386`) |
-| `ujust audio-down` (ou `tts-down`) | Stop VoiceStudio service and free GPU VRAM |
-| `ujust audio-purge` | Purge GPU VRAM without disabling the service |
-| `ujust audio-status` (ou `tts-status`) | Check VoiceStudio health, OpenAI models, port status, and storage |
-| `ujust audio-portal` (ou `audio-open`) | Display VoiceStudio Web UI and API access URLs |
-| `ujust audio-enable-boot` | Opt-in to start VoiceStudio automatically on boot via Quadlet drop-in |
-| `ujust audio-disable-boot` | Remove VoiceStudio from automatic boot startup |
-| `ujust remote-audio-setup` | Expose VoiceStudio over Tailnet with TLS via `bazzite-dx-serve` (`:61386`) |
-| `ujust remote-audio-teardown` | Remove VoiceStudio from Tailscale Serve |
+| `ujust audio up` / `down` / `status` | Start, stop (frees GPU VRAM) or inspect VoiceStudio (`:61386`) |
+| `ujust audio purge` | Purge GPU VRAM without disabling the service |
+| `ujust audio portal` | Display VoiceStudio Web UI and API access URLs |
+| `ujust audio boot on` / `off` | Opt-in/out of automatic boot startup via Quadlet drop-in |
+| `ujust audio remote on` / `off` | Expose or unpublish VoiceStudio over Tailnet with TLS (`:61386`) |
 
 

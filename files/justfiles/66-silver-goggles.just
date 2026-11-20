@@ -420,7 +420,7 @@ code ACTION="" *ARGS:
         done
         ;;
     up)
-        command -v code-server >/dev/null 2>&1 || { echo "❌ code-server não encontrado. Rode 'ujust setup-personal-suite install'." >&2; exit 1; }
+        command -v code-server >/dev/null 2>&1 || { echo "❌ code-server não encontrado. Rode 'ujust brew install personal'." >&2; exit 1; }
         mkdir -p "$CONF_DIR"
         umask 077
         if [[ ! -f "$CONF_DIR/config.yaml" ]]; then

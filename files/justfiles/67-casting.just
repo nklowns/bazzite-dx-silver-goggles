@@ -160,7 +160,7 @@ casting ACTION="" *ARGS:
         pair)
             HOST="${1:-}"; PORT="${2:-}"
             [[ -n "$HOST" && -n "$PORT" ]] || { echo "Uso: ujust casting android pair <host> <port>" >&2; exit 2; }
-            command -v adb >/dev/null 2>&1 || { echo "adb not found. Run 'ujust setup-personal-suite install'." >&2; exit 1; }
+            command -v adb >/dev/null 2>&1 || { echo "adb not found. Run 'ujust brew install personal'." >&2; exit 1; }
             TARGET="$HOST"
             if command -v tailscale >/dev/null && tailscale status >/dev/null 2>&1; then
                 RESOLVED="$(tailscale ip -4 "$HOST" 2>/dev/null | head -1 || true)"
@@ -172,7 +172,7 @@ casting ACTION="" *ARGS:
         mirror)
             HOST="${1:-}"; PORT="${2:-}"
             for tool in adb scrcpy; do
-                command -v "$tool" >/dev/null 2>&1 || { echo "$tool not found. Run 'ujust setup-personal-suite install'." >&2; exit 1; }
+                command -v "$tool" >/dev/null 2>&1 || { echo "$tool not found. Run 'ujust brew install personal'." >&2; exit 1; }
             done
             if [[ -z "$HOST" ]]; then
                 exec scrcpy
