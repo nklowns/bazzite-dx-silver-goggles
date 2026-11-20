@@ -45,7 +45,7 @@
         'pinDigest',
       ],
       automerge: true,
-      ignoreTests: true,
+      ignoreTests: false,
     },
     {
       description: 'Automerge GitHub Actions digest updates in workflows for security parity',
@@ -60,7 +60,7 @@
         'pinDigest',
       ],
       automerge: true,
-      ignoreTests: true,
+      ignoreTests: false,
     },
     {
       description: 'Bazzite-Nvidia base image: group image-versions.yaml and the Containerfile default into one manually merged PR',

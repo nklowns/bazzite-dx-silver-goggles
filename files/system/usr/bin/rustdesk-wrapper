@@ -36,6 +36,15 @@ except Exception:
 	exit 0
 fi
 
+# Ensure allow-hide-cm is enabled in RustDesk2.toml (prevents leaking orphaned --cm processes).
+# Lives here rather than a run-once login hook because RustDesk2.toml only exists after first launch.
+RUSTDESK_CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
+if [ -f "$RUSTDESK_CONF" ] && ! grep -q '^allow-hide-cm' "$RUSTDESK_CONF" 2>/dev/null; then
+	if grep -q '^\[options\]' "$RUSTDESK_CONF" 2>/dev/null; then
+		sed -i "/^\[options\]/a allow-hide-cm = 'Y'" "$RUSTDESK_CONF" 2>/dev/null || true
+	fi
+fi
+
 if systemctl --user is-enabled rustdesk.service >/dev/null 2>&1; then
 	exec systemctl --user start rustdesk.service
 else

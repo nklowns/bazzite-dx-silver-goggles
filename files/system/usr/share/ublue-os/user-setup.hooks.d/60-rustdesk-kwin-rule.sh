@@ -143,13 +143,3 @@ case "$cmd" in
 esac
 EOF
 chmod +x "$SHIM_DIR/loginctl"
-
-# Ensure allow-hide-cm is enabled in RustDesk2.toml to prevent leaking orphaned --cm processes
-RUSTDESK_CONF="$HOME/.var/app/com.rustdesk.RustDesk/config/rustdesk/RustDesk2.toml"
-if [ -f "$RUSTDESK_CONF" ]; then
-	if ! grep -q '^allow-hide-cm' "$RUSTDESK_CONF" 2>/dev/null; then
-		if grep -q '^\[options\]' "$RUSTDESK_CONF" 2>/dev/null; then
-			sed -i "/^\[options\]/a allow-hide-cm = 'Y'" "$RUSTDESK_CONF"
-		fi
-	fi
-fi

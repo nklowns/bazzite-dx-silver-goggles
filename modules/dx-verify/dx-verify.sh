@@ -29,7 +29,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/libexec/udisks-ignore-root|Asset: UDisks Root Device Helper|Error"
 	"file|/usr/lib/modules-load.d/ip_tables.conf|Asset: IP Tables Config|Error"
 	"file|/usr/lib/modules-load.d/v4l2loopback.conf|Asset: V4L2Loopback Proactive Autoload|Error"
-	"file|/etc/modprobe.d/v4l2loopback.conf|Policy: V4L2Loopback Multi-Camera Pool|Error"
+	"file|/usr/lib/modprobe.d/v4l2loopback.conf|Policy: V4L2Loopback Multi-Camera Pool|Error"
 	"file|/usr/libexec/bazzite-dx-groups|Asset: DX Groups Orchestrator|Error"
 	"file|/usr/libexec/bazzite-dx-serve|Asset: Tailscale Serve Helper|Error"
 	"file|/usr/libexec/bazzite-dx-sunshine-apps|Asset: Sunshine Multi-Monitor Apps Helper|Error"
@@ -81,7 +81,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/systemd/system/podman.socket|Unit: Podman Socket|Error"
 	"file|/usr/lib/systemd/system-preset/50-input-remapper.preset|Unit: Input Remapper Systemd Preset|Error"
 	"file|/usr/lib/systemd/system-preset/99-dx-flavor.preset|Unit: DX Flavor Preset|Error"
-	"file|/etc/systemd/resolved.conf.d/00-amyos-dns.conf|Policy: DNS-over-TLS Config|Error"
+	"file|/usr/lib/systemd/resolved.conf.d/00-amyos-dns.conf|Policy: DNS-over-TLS Config|Error"
 	"file|/usr/lib/NetworkManager/conf.d/00-amyos-random-mac.conf|Policy: NM MAC Randomization|Error"
 	"file|/usr/lib/NetworkManager/conf.d/30-tailscale.conf|Policy: NM Tailscale Unmanaged|Error"
 	"file|/etc/security/limits.d/99-realtime-gaming.conf|Policy: Realtime Gaming Limits (Sunshine/PipeWire)|Error"
@@ -192,7 +192,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/share/flatpak/overrides/com.deskflow.deskflow|Policy: Deskflow Flatpak Override|Error"
 	"file|/usr/lib/firewalld/services/uxplay.xml|Asset: Firewalld UxPlay Service Def|Error"
 	"file|/usr/lib/firewalld/services/fcast.xml|Asset: Firewalld FCast Service Def|Error"
-	"file|/etc/pipewire/pipewire-pulse.conf.d/50-rustdesk.conf|Asset: PipeWire-Pulse RustDesk Low-Latency Config|Error"
+	"file|/usr/share/pipewire/pipewire-pulse.conf.d/50-rustdesk.conf|Asset: PipeWire-Pulse RustDesk Low-Latency Config|Error"
 	"unit|/usr/lib/systemd/user/rustdesk.service|Behavior: RustDesk Service Verify|Error"
 	"unit|/usr/lib/systemd/user/bazzite-dx-remote-display-watcher.service|Behavior: Remote Display Hotplug Watcher|Error"
 	"file|/usr/libexec/bazzite-dx-rustdesk-audio-fix|Asset: RustDesk Dynamic Audio-Input Fix Script|Error"
@@ -234,7 +234,7 @@ readonly AUDIT_REGISTRY=(
 
 	"content|/usr/share/ublue-os/bazaar/main.yaml::blocklist-dx.yaml|Policy: Bazaar DX Blocklist Registered|Error"
 	"content|/usr/lib/modules-load.d/ip_tables.conf::br_netfilter|Policy: Bridge Netfilter Autoload (docker egress)|Error"
-	"content|/etc/modprobe.d/v4l2loopback.conf::video_nr=9|Policy: OBS Virtual Camera Reserved Slot|Error"
+	"content|/usr/lib/modprobe.d/v4l2loopback.conf::video_nr=9|Policy: OBS Virtual Camera Reserved Slot|Error"
 )
 
 # --- Providers ---
