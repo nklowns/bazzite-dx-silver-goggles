@@ -21,7 +21,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=ghcr.io/debpalash/omnivoice-studio:latest@sha256:57e7079d9a8a381d39ac3901e9a9476d2778df3262fd8c718e5c7941075fc713
+Image=ghcr.io/debpalash/omnivoice-studio:latest@sha256:1525094369b4fb002b5845fb165f19c10eed95b01d2a48665c5c8d9778d1ba81
 ContainerName=aistudio_audio
 Network=project-nomad_default.network
 NetworkAlias=aistudio-audio
