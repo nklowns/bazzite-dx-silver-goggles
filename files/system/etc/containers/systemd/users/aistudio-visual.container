@@ -46,7 +46,7 @@ Volume=%h/Pictures/AI_Studio:/root/ComfyUI/output:z
 Volume=/var/srv/visual/user-scripts:/root/user-scripts:Z
 Volume=/var/srv/visual/site-packages:/root/.local/lib/python3.12/site-packages:Z
 
-Environment=CLI_ARGS=--fast --cache-classic --reserve-vram 1.0
+Environment="CLI_ARGS=--fast --cache-classic --reserve-vram 1.0 --enable-assets"
 
 [Service]
 Restart=on-failure
