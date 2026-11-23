@@ -8,7 +8,7 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script chrome-pip-kwin-rule user 1 || exit 0
+version-script chrome-pip-kwin-rule user 2 || exit 0
 
 if [ -f /run/.containerenv ] || [ -f /.dockerenv ]; then
 	exit 0
@@ -26,6 +26,9 @@ RULE_ID="chrome-pip-rule"
 EXISTING_RULES=""
 if [ -f "$KWIN_RULES" ]; then
 	EXISTING_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key rules 2>/dev/null || true)
+	if [ -z "$EXISTING_RULES" ]; then
+		EXISTING_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key Order 2>/dev/null || true)
+	fi
 fi
 
 CLEAN_RULES=$(echo "$EXISTING_RULES" | tr ',' '\n' | grep -v -E "^${RULE_ID}$" | grep -v '^$' | paste -sd ',' - || true)
@@ -37,6 +40,7 @@ else
 fi
 
 kwriteconfig6 --file kwinrulesrc --group General --key rules "$FINAL_RULES"
+kwriteconfig6 --file kwinrulesrc --group General --key Order "$FINAL_RULES"
 
 # Rule properties
 kwriteconfig6 --file kwinrulesrc --group "$RULE_ID" --key Description "Chrome Picture-in-Picture"
@@ -64,6 +68,7 @@ kwriteconfig6 --file kwinrulesrc --group "$RULE_ID" --key skiptaskbarrule 2
 
 # Update rule count
 ALL_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key rules 2>/dev/null || true)
+[ -z "$ALL_RULES" ] && ALL_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key Order 2>/dev/null || true)
 COUNT=$(echo "$ALL_RULES" | tr ',' '\n' | grep -c -v '^$' || true)
 kwriteconfig6 --file kwinrulesrc --group General --key count "$COUNT"
 

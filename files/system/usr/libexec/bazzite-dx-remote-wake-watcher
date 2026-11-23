@@ -16,8 +16,8 @@ wake_screen() {
 		/var/home/cloud/dev/personal/os/bazzite-dx-silver-goggles/files/system/usr/bin/bazzite-dx-display-wake
 	else
 		env WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" kscreen-doctor --dpms on >/dev/null 2>&1 || true
-		qdbus org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || true
-		qdbus org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || true
+		qdbus-qt6 org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || qdbus org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || true
+		qdbus-qt6 org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || qdbus org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || true
 	fi
 }
 

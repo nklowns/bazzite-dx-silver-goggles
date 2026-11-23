@@ -9,12 +9,15 @@ set -euo pipefail
 if pgrep -f "com.rustdesk.RustDesk" >/dev/null 2>&1 || pgrep -x "rustdesk" >/dev/null 2>&1; then
 	# Restore / un-minimize window if already running
 	python3 -c "
-import subprocess
+import subprocess, shutil
+qdbus = 'qdbus-qt6' if shutil.which('qdbus-qt6') else 'qdbus'
 script = '''
-var clients = workspace.stackingOrder;
+var clients = (typeof workspace.windowList === 'function') ? workspace.windowList() : workspace.stackingOrder;
 for (var i = 0; i < clients.length; i++) {
     var c = clients[i];
-    if ((c.caption && c.caption.indexOf(\"RustDesk\") !== -1) || (c.resourceClass && c.resourceClass.indexOf(\"rustdesk\") !== -1)) {
+    var cap = (c.caption || '').toLowerCase();
+    var cls = (c.resourceClass || '').toLowerCase();
+    if (cap.indexOf('rustdesk') !== -1 || cls.indexOf('rustdesk') !== -1) {
         c.minimized = false;
         workspace.activeWindow = c;
     }
@@ -23,9 +26,11 @@ for (var i = 0; i < clients.length; i++) {
 with open('/tmp/kwin_restore_rustdesk.js', 'w') as f:
     f.write(script)
 try:
-    subprocess.call(['qdbus', 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.loadScript', '/tmp/kwin_restore_rustdesk.js', 'restoreRustDesk'], stderr=subprocess.DEVNULL)
-    subprocess.call(['qdbus', 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.start'], stderr=subprocess.DEVNULL)
-    subprocess.call(['qdbus', 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.unloadScript', 'restoreRustDesk'], stderr=subprocess.DEVNULL)
+    res = subprocess.check_output([qdbus, 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.loadScript', '/tmp/kwin_restore_rustdesk.js'], stderr=subprocess.DEVNULL, text=True).strip()
+    if res.isdigit():
+        subprocess.call([qdbus, 'org.kde.KWin', f'/Scripting/Script{res}', 'run'], stderr=subprocess.DEVNULL)
+        subprocess.call([qdbus, 'org.kde.KWin', f'/Scripting/Script{res}', 'stop'], stderr=subprocess.DEVNULL)
+        subprocess.call([qdbus, 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting.unloadScript', res], stderr=subprocess.DEVNULL)
 except Exception:
     pass
 " 2>/dev/null || true

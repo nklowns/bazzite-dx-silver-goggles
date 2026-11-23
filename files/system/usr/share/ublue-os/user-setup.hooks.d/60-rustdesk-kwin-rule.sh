@@ -8,7 +8,7 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script rustdesk-kwin-rule user 1 || exit 0
+version-script rustdesk-kwin-rule user 2 || exit 0
 
 if [ -f /run/.containerenv ] || [ -f /.dockerenv ]; then
 	exit 0
@@ -27,6 +27,9 @@ RULE_ID="rustdesk-hide-rule"
 EXISTING_RULES=""
 if [ -f "$KWIN_RULES" ]; then
 	EXISTING_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key rules 2>/dev/null || true)
+	if [ -z "$EXISTING_RULES" ]; then
+		EXISTING_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key Order 2>/dev/null || true)
+	fi
 fi
 
 # Clean legacy IDs from General rules list
@@ -39,6 +42,7 @@ else
 fi
 
 kwriteconfig6 --file kwinrulesrc --group General --key rules "$FINAL_RULES"
+kwriteconfig6 --file kwinrulesrc --group General --key Order "$FINAL_RULES"
 
 kwriteconfig6 --file kwinrulesrc --group "$RULE_ID" --key Description "Hide all RustDesk windows from Alt-Tab/Taskbar/KRunner to Systray"
 kwriteconfig6 --file kwinrulesrc --group "$RULE_ID" --key minimize true
@@ -58,11 +62,12 @@ kwriteconfig6 --file kwinrulesrc --group "$RULE_ID" --key titlematch --delete 2>
 
 # Update General count key
 ALL_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key rules 2>/dev/null || true)
+[ -z "$ALL_RULES" ] && ALL_RULES=$(kreadconfig6 --file kwinrulesrc --group General --key Order 2>/dev/null || true)
 COUNT=$(echo "$ALL_RULES" | tr ',' '\n' | grep -c -v '^$')
 kwriteconfig6 --file kwinrulesrc --group General --key count "$COUNT"
 
 # Trigger KWin configuration reload
-qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
+qdbus-qt6 org.kde.KWin /KWin reconfigure 2>/dev/null || qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
 
 # Provision self-contained loginctl emulator for RustDesk Flatpak session verification
 # (Parses read-only /run/systemd/{sessions,seats} inside sandbox without flatpak-spawn or host escape)

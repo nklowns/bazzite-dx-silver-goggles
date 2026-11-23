@@ -6,11 +6,14 @@
 # ==============================================================================
 set -euo pipefail
 
+QDBUS_BIN="qdbus-qt6"
+command -v qdbus-qt6 >/dev/null 2>&1 || QDBUS_BIN="qdbus"
+
 # 1. Wake display output via kscreen-doctor (turns on DPMS)
 env WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" kscreen-doctor --dpms on >/dev/null 2>&1 || true
 
 # 2. Simulate user activity to wake ScreenSaver / lock screen
-qdbus org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || true
+$QDBUS_BIN org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.SimulateUserActivity >/dev/null 2>&1 || true
 
 # 3. Wake KDE Solid Power Management
-qdbus org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || true
+$QDBUS_BIN org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement org.kde.Solid.PowerManagement.wakeup >/dev/null 2>&1 || true

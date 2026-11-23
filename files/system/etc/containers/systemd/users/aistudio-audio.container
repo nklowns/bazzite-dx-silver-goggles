@@ -46,6 +46,8 @@ Environment=XDG_CACHE_HOME=/app/omnivoice_data/cache
 Environment=TRITON_CACHE_DIR=/app/omnivoice_data/triton
 Environment=TORCH_COMPILE_DISABLE=1
 Environment=OMNIVOICE_ASR_BACKEND=pytorch-whisper
+Environment=OLLAMA_BASE_URL=http://llama:8080/v1
+Environment=OLLAMA_API_KEY=local
 Environment=PYTHONPATH=/app/omnivoice_data/site-packages:/app/backend
 Environment=PYTHONUNBUFFERED=1
 
