@@ -21,13 +21,13 @@ set -euo pipefail
 QUADLET=/etc/containers/systemd/users/aistudio-visual.container
 IMAGE="${1:-$(sed -n 's/^Image=//p' "${QUADLET}" | head -n1)}"
 [[ -n "${IMAGE}" ]] || { echo "aistudio-visual-preflight: no Image= in ${QUADLET}" >&2; exit 1; }
-SITE_PKG="/var/srv/visual/site-packages"
+SITE_PKG="/var/srv/visual/site-packages-py313"
 COMFYUI_DIR="/var/srv/visual/ComfyUI"
 MAX_ATTEMPTS=3
 MAX_PREFLIGHT_SECS=30
 
 # Packages that must NEVER be upgraded into the volume (provided by the base image).
-BLOCKED_PKGS=("torch" "torchvision" "torchaudio" "functorch")
+BLOCKED_PKGS=("torch" "torchvision" "torchaudio" "functorch" "numpy")
 # nvidia/ cuda: exact match only — pip packages like nvidia-cuda-cupti are NOT blocked.
 BLOCKED_EXACT=("nvidia" "cuda")
 
@@ -43,13 +43,13 @@ fast_check() {
 	local out
 	out=$(podman run --rm \
 		--device nvidia.com/gpu=all \
-		--env PYTHONPATH=/root/.local/lib/python3.12/site-packages \
+		--env PYTHONPATH=/root/.local/lib/python3.13/site-packages \
 		--env PYTHONUSERBASE=/root/.local \
-		--volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
-		--volume "${COMFYUI_DIR}:/root/ComfyUI:Z" \
+		--volume "${SITE_PKG}:/root/.local/lib/python3.13/site-packages:Z" \
+		--volume "${COMFYUI_DIR}:/root/ComfyUI:z" \
 		--workdir /root/ComfyUI \
 		"${IMAGE}" \
-		python3 -c "
+		python3.13 -c "
 import sys, importlib
 sys.path.insert(0, '/root/ComfyUI')
 modules = ['comfy.utils', 'comfy.storage', 'comfy.model_management']
@@ -98,11 +98,11 @@ pip_upgrade() {
 	local pkg="$1"
 	log "Upgrading '${pkg}' into ${SITE_PKG}…"
 	podman run --rm \
-		--env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
-		--volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
+		--env PIP_TARGET=/root/.local/lib/python3.13/site-packages \
+		--volume "${SITE_PKG}:/root/.local/lib/python3.13/site-packages:Z" \
 		"${IMAGE}" \
-		pip install --upgrade --quiet --no-warn-script-location \
-		--target /root/.local/lib/python3.12/site-packages \
+		python3.13 -m pip install --upgrade --quiet --no-warn-script-location \
+		--target /root/.local/lib/python3.13/site-packages \
 		"${pkg}"
 	log "  ✔ '${pkg}' upgraded."
 }

@@ -26,7 +26,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Container]
-Image=docker.io/yanwk/comfyui-boot:cu126-slim@sha256:fcaeb26d7e6a6a25554fd935a5e10e48c1d2fbf0e314e7e203cb0cd1154bc2ba
+Image=docker.io/yanwk/comfyui-boot:cu130-slim-v2@sha256:1ebd87fc7a22c0edc53e54620d4f93915a09bbb3ac99df466ac3a086d058a412
 ContainerName=aistudio_visual
 Network=project-nomad_default.network
 NetworkAlias=aistudio-visual
@@ -37,14 +37,14 @@ PublishPort=127.0.0.1:61384:8188
 AddDevice=nvidia.com/gpu=all
 Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
-Environment=PYTHONPATH=/root/.local/lib/python3.12/site-packages
+Environment=PYTHONPATH=/root/.local/lib/python3.13/site-packages
 Environment=PYTHONUSERBASE=/root/.local
-Environment=PIP_TARGET=/root/.local/lib/python3.12/site-packages
+Environment=PIP_TARGET=/root/.local/lib/python3.13/site-packages
 
-Volume=/var/srv/visual/ComfyUI:/root/ComfyUI:Z
+Volume=/var/srv/visual/ComfyUI:/root/ComfyUI:z
 Volume=%h/Pictures/AI_Studio:/root/ComfyUI/output:z
 Volume=/var/srv/visual/user-scripts:/root/user-scripts:Z
-Volume=/var/srv/visual/site-packages:/root/.local/lib/python3.12/site-packages:Z
+Volume=/var/srv/visual/site-packages-py313:/root/.local/lib/python3.13/site-packages:Z
 Volume=/var/srv/visual/sdcpp:/root/sdcpp:ro
 
 Environment="CLI_ARGS=--fast --cache-classic --reserve-vram 1.0 --enable-assets"

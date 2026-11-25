@@ -68,37 +68,37 @@ visual ACTION="" *ARGS:
             MOUNT=(-v /var/srv/visual/ComfyUI/requirements.txt:/comfyui-requirements.txt:ro,Z)
             PIP_ARGS+=(-r /comfyui-requirements.txt)
         fi
-        mkdir -p /var/srv/visual/site-packages
+        mkdir -p /var/srv/visual/site-packages-py313
         podman run --rm \
-            -v /var/srv/visual/site-packages:/target:Z \
+            -v /var/srv/visual/site-packages-py313:/target:Z \
             -v "$REQ":/requirements.txt:ro,Z \
             "${MOUNT[@]}" \
             "$COMFY_IMAGE" \
-            pip install --upgrade -q --no-warn-script-location --target /target "${PIP_ARGS[@]}"
-        rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
+            python3.13 -m pip install --upgrade -q --no-warn-script-location --target /target "${PIP_ARGS[@]}"
+        rm -rf /var/srv/visual/site-packages-py313/torch* /var/srv/visual/site-packages-py313/nvidia* /var/srv/visual/site-packages-py313/functorch* /var/srv/visual/site-packages-py313/cuda* /var/srv/visual/site-packages-py313/numpy*
         if systemctl --user is-active --quiet aistudio-visual.service; then
             systemctl --user restart aistudio-visual.service
         fi
         echo "✅ Sincronização concluída."
         ;;
     pkg-sync)
-        SITE_PKG="/var/srv/visual/site-packages"
+        SITE_PKG="/var/srv/visual/site-packages-py313"
         mapfile -t PKGS < <(find "${SITE_PKG}" -maxdepth 1 -name "comfy_*-*.dist-info" -printf "%f\n" | sed 's/-[0-9].*//' | sort -u)
         if (( ${#PKGS[@]} == 0 )); then
             echo "⚠  Nenhum pacote comfy_* encontrado em ${SITE_PKG}."
             exit 0
         fi
         podman run --rm \
-            --env PIP_TARGET=/root/.local/lib/python3.12/site-packages \
-            --volume "${SITE_PKG}:/root/.local/lib/python3.12/site-packages:Z" \
+            --env PIP_TARGET=/root/.local/lib/python3.13/site-packages \
+            --volume "${SITE_PKG}:/root/.local/lib/python3.13/site-packages:Z" \
             "$COMFY_IMAGE" \
-            pip install --upgrade --quiet --no-warn-script-location \
-                --target /root/.local/lib/python3.12/site-packages \
+            python3.13 -m pip install --upgrade --quiet --no-warn-script-location \
+                --target /root/.local/lib/python3.13/site-packages \
                 "${PKGS[@]}"
         echo "✅ pkg-sync concluído: ${PKGS[*]}"
         ;;
     update)
-        podman run --rm -v /var/srv/visual/ComfyUI:/root/ComfyUI:Z "$COMFY_IMAGE" \
+        podman run --rm -v /var/srv/visual/ComfyUI:/root/ComfyUI:z "$COMFY_IMAGE" \
             bash -c "cd /root/ComfyUI && git pull --ff-only"
         ujust visual pkg-sync
         if systemctl --user is-active --quiet aistudio-visual.service; then
@@ -109,11 +109,11 @@ visual ACTION="" *ARGS:
     install)
         pkg="{{ ARGS }}"
         [[ -n "$pkg" ]] || { echo "Uso: ujust visual install <pacote>" >&2; exit 2; }
-        mkdir -p /var/srv/visual/site-packages
+        mkdir -p /var/srv/visual/site-packages-py313
         # shellcheck disable=SC2086
-        podman run --rm -v /var/srv/visual/site-packages:/target:Z "$COMFY_IMAGE" \
-            pip install -q --no-warn-script-location --target /target $pkg
-        rm -rf /var/srv/visual/site-packages/torch* /var/srv/visual/site-packages/nvidia* /var/srv/visual/site-packages/functorch* /var/srv/visual/site-packages/cuda*
+        podman run --rm -v /var/srv/visual/site-packages-py313:/target:Z "$COMFY_IMAGE" \
+            python3.13 -m pip install -q --no-warn-script-location --target /target $pkg
+        rm -rf /var/srv/visual/site-packages-py313/torch* /var/srv/visual/site-packages-py313/nvidia* /var/srv/visual/site-packages-py313/functorch* /var/srv/visual/site-packages-py313/cuda* /var/srv/visual/site-packages-py313/numpy*
         if systemctl --user is-active --quiet aistudio-visual.service; then
             systemctl --user restart aistudio-visual.service
         fi
@@ -128,7 +128,7 @@ visual ACTION="" *ARGS:
             echo "ComfyUI upstream:  $(gh release view -R comfyanonymous/ComfyUI --json tagName -q .tagName 2>/dev/null || echo '?')"
         fi
         for p in comfy_kitchen comfy_aimdo comfyui_frontend_package huggingface_hub; do
-            v="$(find /var/srv/visual/site-packages -maxdepth 1 -name "${p}-*.dist-info" -printf '%f\n' 2>/dev/null | sed -E 's|^[^-]+-([^/]+)\.dist-info|\1|' | sort -V | tail -1)"
+            v="$(find /var/srv/visual/site-packages-py313 -maxdepth 1 -name "${p}-*.dist-info" -printf '%f\n' 2>/dev/null | sed -E 's|^[^-]+-([^/]+)\.dist-info|\1|' | sort -V | tail -1)"
             echo "$p instalado: ${v:-?}"
         done
         ;;
@@ -156,7 +156,7 @@ visual ACTION="" *ARGS:
         mkdir -p "$VISUAL_DIR"
         OUT_FILE="${out:-$VISUAL_DIR/Avatar_Animado_$(date +%s).mp4}"
         systemctl --user is-active --quiet aistudio-visual.service || "$DX_SVC" up visual
-        podman exec aistudio_visual python3 /root/user-scripts/animate_avatar.py \
+        podman exec aistudio_visual python3.13 /root/user-scripts/animate_avatar.py \
             "$img" "/root/ComfyUI/output/temp_animated_export.mp4" "$aud" "$drv"
         if [[ -f "$VISUAL_DIR/temp_animated_export.mp4" && "$OUT_FILE" != "$VISUAL_DIR/temp_animated_export.mp4" ]]; then
             mv "$VISUAL_DIR/temp_animated_export.mp4" "$OUT_FILE"
@@ -185,8 +185,23 @@ visual ACTION="" *ARGS:
         sync_repo "https://github.com/christian-byrne/audio-separation-nodes-comfyui.git" "audio-separation-nodes"
         ujust visual install "soundfile librosa pydub conformer vocos"
         ;;
+    build-sdcpp)
+        SDCPP_DIR="/var/srv/visual/sdcpp/stable-diffusion.cpp"
+        mkdir -p /var/srv/visual/sdcpp
+        if [[ -d "$SDCPP_DIR/.git" ]]; then
+            git -C "$SDCPP_DIR" pull --ff-only
+            git -C "$SDCPP_DIR" submodule update --init --recursive
+        else
+            git clone --recursive https://github.com/leejet/stable-diffusion.cpp "$SDCPP_DIR"
+        fi
+        podman run --rm \
+            -v "$SDCPP_DIR:/src:z" \
+            docker.io/yanwk/comfyui-boot:base-cu130-devel \
+            bash -c 'set -euo pipefail; dnf install -y -q cmake make >/dev/null; cmake -S /src -B /src/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=86 -DSD_CUDA=ON -DGGML_CUDA_FA=ON && cmake --build /src/build --config Release -j"$(nproc)" --target sd-cli'
+        echo "✅ sd-cli (CUDA 13 / sm_86) compilado em $SDCPP_DIR/build/bin/sd-cli"
+        ;;
     help | -h | --help)
-        echo "Uso: ujust visual <status|up|down|restart|logs|remote <on|off|status>|boot <on|off|status>|prefetch|sync|pkg-sync|update|install <pkg>|versions|pull-models|animate|purge|fix-perms|shell|container-shell|audio-nodes>"
+        echo "Uso: ujust visual <status|up|down|restart|logs|remote <on|off|status>|boot <on|off|status>|prefetch|sync|pkg-sync|update|install <pkg>|versions|pull-models|build-sdcpp|animate|purge|fix-perms|shell|container-shell|audio-nodes>"
         ;;
     *)
         echo "❌ Ação desconhecida para visual: '$OPT'" >&2
