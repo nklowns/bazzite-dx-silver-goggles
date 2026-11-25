@@ -1,7 +1,7 @@
 # Declarative builder for upstream leejet/stable-diffusion.cpp (master, CUDA 13 / sm_86).
 # Produces /out/sd-cli compatible with docker.io/yanwk/comfyui-boot:cu130-slim-v2.
 # Invoked via: ujust visual build-sdcpp
-FROM docker.io/yanwk/comfyui-boot:base-cu130-devel
+FROM docker.io/yanwk/comfyui-boot:base-cu130-devel@sha256:d2bf152056133b2b74a3a79f75088eb34c8452065684ca4dc577f3046ac10d04
 
 RUN dnf install -y -q cmake make git && dnf clean all
 
