@@ -76,7 +76,7 @@ visual ACTION="" *ARGS:
             "${MOUNT[@]}" \
             "$COMFY_IMAGE" \
             python3.13 -m pip install --upgrade -q --no-warn-script-location --target /target "${PIP_ARGS[@]}"
-        rm -rf /var/srv/visual/site-packages-py313/torch* /var/srv/visual/site-packages-py313/nvidia* /var/srv/visual/site-packages-py313/functorch* /var/srv/visual/site-packages-py313/cuda* /var/srv/visual/site-packages-py313/numpy*
+        rm -rf /var/srv/visual/site-packages-py313/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
         if systemctl --user is-active --quiet aistudio-visual.service; then
             systemctl --user restart aistudio-visual.service
         fi
@@ -112,7 +112,7 @@ visual ACTION="" *ARGS:
         # shellcheck disable=SC2086
         podman run --rm -v /var/srv/visual/site-packages-py313:/target:Z "$COMFY_IMAGE" \
             python3.13 -m pip install -q --no-warn-script-location --target /target $pkg
-        rm -rf /var/srv/visual/site-packages-py313/torch* /var/srv/visual/site-packages-py313/nvidia* /var/srv/visual/site-packages-py313/functorch* /var/srv/visual/site-packages-py313/cuda* /var/srv/visual/site-packages-py313/numpy*
+        rm -rf /var/srv/visual/site-packages-py313/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
         if systemctl --user is-active --quiet aistudio-visual.service; then
             systemctl --user restart aistudio-visual.service
         fi
