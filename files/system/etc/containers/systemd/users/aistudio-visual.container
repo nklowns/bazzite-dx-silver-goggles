@@ -39,7 +39,10 @@ Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
 Environment=PYTHONPATH=/root/.local/lib/python3.13/site-packages
 Environment=PYTHONUSERBASE=/root/.local
+Environment=PIP_CONSTRAINT=/etc/aistudio-visual-constraints.txt
+Environment=UV_CONSTRAINT=/etc/aistudio-visual-constraints.txt
 
+Volume=/usr/share/bazzite-dx/aistudio-visual/constraints.txt:/etc/aistudio-visual-constraints.txt:ro
 Volume=/var/srv/visual/ComfyUI:/root/ComfyUI:z
 Volume=%h/Pictures/AI_Studio:/root/ComfyUI/output:z
 Volume=/var/srv/visual/user-scripts:/root/user-scripts:Z
