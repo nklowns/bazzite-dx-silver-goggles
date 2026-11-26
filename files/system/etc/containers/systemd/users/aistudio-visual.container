@@ -39,7 +39,6 @@ Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
 Environment=PYTHONPATH=/root/.local/lib/python3.13/site-packages
 Environment=PYTHONUSERBASE=/root/.local
-Environment=PIP_TARGET=/root/.local/lib/python3.13/site-packages
 
 Volume=/var/srv/visual/ComfyUI:/root/ComfyUI:z
 Volume=%h/Pictures/AI_Studio:/root/ComfyUI/output:z

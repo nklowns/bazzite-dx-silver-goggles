@@ -64,12 +64,11 @@ visual ACTION="" *ARGS:
         [[ -f "$REQ" ]] || { echo "✖ requirements.txt do AI Studio Visual não encontrado." >&2; exit 1; }
         CONSTRAINTS=/usr/share/bazzite-dx/aistudio-visual/constraints.txt
         [[ -f "$CONSTRAINTS" ]] || CONSTRAINTS="{{ justfile_directory() }}/../system/usr/share/bazzite-dx/aistudio-visual/constraints.txt"
-        UV_SYNC=/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync
-        [[ -f "$UV_SYNC" ]] || UV_SYNC="{{ justfile_directory() }}/../system/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync"
         PIP_ARGS=(-r /requirements.txt)
-        MOUNT=(-v "$UV_SYNC":/uv-pip-sync:ro)
+        MOUNT=()
         if [[ -f "$CONSTRAINTS" ]]; then
             MOUNT+=(-v "$CONSTRAINTS":/constraints.txt:ro)
+            PIP_ARGS+=(-c /constraints.txt)
         fi
         if [[ -f /var/srv/visual/ComfyUI/requirements.txt ]]; then
             MOUNT+=(-v /var/srv/visual/ComfyUI/requirements.txt:/comfyui-requirements.txt:ro)
@@ -82,12 +81,14 @@ visual ACTION="" *ARGS:
         mkdir -p /var/srv/visual/site-packages-py313
         podman run --rm \
             --security-opt label=disable \
-            -v /var/srv/visual/site-packages-py313:/target:Z \
+            -e PIP_USER=true \
+            -e PYTHONUSERBASE=/root/.local \
+            -e PIP_ROOT_USER_ACTION=ignore \
+            -v /var/srv/visual/site-packages-py313:/root/.local/lib/python3.13/site-packages:Z \
             -v "$REQ":/requirements.txt:ro \
             "${MOUNT[@]}" \
             "$COMFY_IMAGE" \
-            bash /uv-pip-sync --upgrade "${PIP_ARGS[@]}"
-        rm -rf /var/srv/visual/site-packages-py313/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
+            python3.13 -m pip install -q --no-warn-script-location "${PIP_ARGS[@]}"
         if systemctl --user is-active --quiet aistudio-visual.service; then
             systemctl --user restart aistudio-visual.service
         fi
@@ -97,24 +98,27 @@ visual ACTION="" *ARGS:
         SITE_PKG="/var/srv/visual/site-packages-py313"
         CONSTRAINTS=/usr/share/bazzite-dx/aistudio-visual/constraints.txt
         [[ -f "$CONSTRAINTS" ]] || CONSTRAINTS="{{ justfile_directory() }}/../system/usr/share/bazzite-dx/aistudio-visual/constraints.txt"
-        UV_SYNC=/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync
-        [[ -f "$UV_SYNC" ]] || UV_SYNC="{{ justfile_directory() }}/../system/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync"
         mapfile -t PKGS < <(find "${SITE_PKG}" -maxdepth 1 -name "comfy_*-*.dist-info" -printf "%f\n" | sed 's/-[0-9].*//' | sort -u)
         if (( ${#PKGS[@]} == 0 )); then
             echo "⚠  Nenhum pacote comfy_* encontrado em ${SITE_PKG}."
             exit 0
         fi
-        MOUNT=(-v "$UV_SYNC":/uv-pip-sync:ro)
+        MOUNT=()
+        PIP_ARGS=()
         if [[ -f "$CONSTRAINTS" ]]; then
             MOUNT+=(-v "$CONSTRAINTS":/constraints.txt:ro)
+            PIP_ARGS+=(-c /constraints.txt)
         fi
         podman run --rm \
             --security-opt label=disable \
-            --volume "${SITE_PKG}:/target:Z" \
+            -e PIP_USER=true \
+            -e PYTHONUSERBASE=/root/.local \
+            -e PIP_ROOT_USER_ACTION=ignore \
+            --volume "${SITE_PKG}:/root/.local/lib/python3.13/site-packages:Z" \
             "${MOUNT[@]}" \
             "$COMFY_IMAGE" \
-            bash /uv-pip-sync --upgrade "${PKGS[@]}"
-        rm -rf "${SITE_PKG}"/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
+            python3.13 -m pip install --upgrade -q --no-warn-script-location \
+                "${PIP_ARGS[@]}" "${PKGS[@]}"
         echo "✅ pkg-sync concluído: ${PKGS[*]}"
         ;;
     update)
@@ -129,21 +133,23 @@ visual ACTION="" *ARGS:
         [[ -n "$pkg" ]] || { echo "Uso: ujust visual install <pacote>" >&2; exit 2; }
         CONSTRAINTS=/usr/share/bazzite-dx/aistudio-visual/constraints.txt
         [[ -f "$CONSTRAINTS" ]] || CONSTRAINTS="{{ justfile_directory() }}/../system/usr/share/bazzite-dx/aistudio-visual/constraints.txt"
-        UV_SYNC=/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync
-        [[ -f "$UV_SYNC" ]] || UV_SYNC="{{ justfile_directory() }}/../system/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync"
-        MOUNT=(-v "$UV_SYNC":/uv-pip-sync:ro)
+        MOUNT=()
+        PIP_ARGS=()
         if [[ -f "$CONSTRAINTS" ]]; then
             MOUNT+=(-v "$CONSTRAINTS":/constraints.txt:ro)
+            PIP_ARGS+=(-c /constraints.txt)
         fi
         mkdir -p /var/srv/visual/site-packages-py313
         # shellcheck disable=SC2086
         podman run --rm \
             --security-opt label=disable \
-            -v /var/srv/visual/site-packages-py313:/target:Z \
+            -e PIP_USER=true \
+            -e PYTHONUSERBASE=/root/.local \
+            -e PIP_ROOT_USER_ACTION=ignore \
+            -v /var/srv/visual/site-packages-py313:/root/.local/lib/python3.13/site-packages:Z \
             "${MOUNT[@]}" \
             "$COMFY_IMAGE" \
-            bash /uv-pip-sync $pkg
-        rm -rf /var/srv/visual/site-packages-py313/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
+            python3.13 -m pip install -q --no-warn-script-location "${PIP_ARGS[@]}" $pkg
         if systemctl --user is-active --quiet aistudio-visual.service; then
             systemctl --user restart aistudio-visual.service
         fi

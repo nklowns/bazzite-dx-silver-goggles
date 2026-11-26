@@ -97,18 +97,22 @@ is_blocked() {
 pip_upgrade() {
 	local pkg="$1"
 	local constraints="/usr/share/bazzite-dx/aistudio-visual/constraints.txt"
-	local uv_sync="/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync"
-	local mount_args=(--security-opt label=disable --volume "${uv_sync}:/uv-pip-sync:ro")
+	local mount_args=()
+	local pip_args=()
 	if [[ -f "${constraints}" ]]; then
-		mount_args+=(--volume "${constraints}:/constraints.txt:ro")
+		mount_args=(--security-opt label=disable --volume "${constraints}:/constraints.txt:ro")
+		pip_args=(-c /constraints.txt)
 	fi
 	log "Upgrading '${pkg}' into ${SITE_PKG}…"
 	podman run --rm \
 		"${mount_args[@]}" \
-		--volume "${SITE_PKG}:/target:Z" \
+		--env PIP_USER=true \
+		--env PYTHONUSERBASE=/root/.local \
+		--env PIP_ROOT_USER_ACTION=ignore \
+		--volume "${SITE_PKG}:/root/.local/lib/python3.13/site-packages:Z" \
 		"${IMAGE}" \
-		bash /uv-pip-sync --upgrade "${pkg}"
-	rm -rf "${SITE_PKG}"/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
+		python3.13 -m pip install --upgrade -q --no-warn-script-location \
+		"${pip_args[@]}" "${pkg}"
 	log "  ✔ '${pkg}' upgraded."
 }
 
