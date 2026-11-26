@@ -7,7 +7,7 @@
 # huggingface-hub: diffusers/transformers/WanVideoWrapper need >=1.32; 2.x breaks (httpx2).
 
 huggingface-hub>=1.32,<2
-pillow>=12.1.0,<13.0.0
+pillow>=13.0.0,<13.1.0
 
 blake3
 comfy-angle
