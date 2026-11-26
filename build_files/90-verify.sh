@@ -125,6 +125,7 @@ readonly AUDIT_REGISTRY=(
 	"file|/usr/lib/tmpfiles.d/rustdesk-server.conf|Policy: RustDesk Storage Structure|Error"
 	"file|/usr/lib/tmpfiles.d/mediamtx.conf|Policy: MediaMTX Storage Structure|Error"
 	"file|/usr/share/bazzite-dx/aistudio-visual/requirements.txt|Asset: AI Studio Visual Requirements|Error"
+	"file|/usr/share/bazzite-dx/aistudio-visual/constraints.txt|Asset: AI Studio Visual Constraints|Error"
 	"file|/usr/libexec/project-nomad-bootstrap-env|Asset: Project NOMAD Secret Bootstrap|Error"
 	"file|/usr/libexec/agent-mesh-bootstrap-env|Asset: Agent Mesh Secret Bootstrap|Error"
 	"file|/usr/libexec/bazzite-dx-recoll-index|Asset: Recoll Indexer Helper|Error"

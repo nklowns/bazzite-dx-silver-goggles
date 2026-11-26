@@ -1,0 +1,6 @@
+# ABI & base-image compatibility constraints for ComfyUI Visual Studio (Python 3.13 / cu130-slim-v2).
+# Passed via -c/--constraints to uv pip during sync, install, and preflight.
+# Prevents ComfyUI/requirements.txt, custom_nodes, or requirements.local.txt from breaking base-image pins.
+
+huggingface-hub>=1.32,<2
+pillow>=12.1.0,<13.0.0

@@ -262,5 +262,15 @@
       ],
       allowedVersions: '<2',
     },
+    {
+      description: 'Pin pillow to 12.x in ComfyUI visual studio: base image rembg 2.0.81 requires <13.0.0,>=12.1.0',
+      matchFileNames: [
+        'files/system/usr/share/bazzite-dx/aistudio-visual/requirements.txt',
+      ],
+      matchPackageNames: [
+        'pillow',
+      ],
+      allowedVersions: '<13.0.0',
+    },
   ],
 }

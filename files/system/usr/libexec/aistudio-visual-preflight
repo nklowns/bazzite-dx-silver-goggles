@@ -27,7 +27,7 @@ MAX_ATTEMPTS=3
 MAX_PREFLIGHT_SECS=30
 
 # Packages that must NEVER be upgraded into the volume (provided by the base image).
-BLOCKED_PKGS=("torch" "torchvision" "torchaudio" "functorch" "numpy")
+BLOCKED_PKGS=("torch" "torchvision" "torchaudio" "functorch" "numpy" "triton")
 # nvidia/ cuda: exact match only — pip packages like nvidia-cuda-cupti are NOT blocked.
 BLOCKED_EXACT=("nvidia" "cuda")
 
@@ -96,14 +96,21 @@ is_blocked() {
 # ---------------------------------------------------------------------------
 pip_upgrade() {
 	local pkg="$1"
+	local constraints="/usr/share/bazzite-dx/aistudio-visual/constraints.txt"
+	local mount_args=()
+	local uv_args=()
+	if [[ -f "${constraints}" ]]; then
+		mount_args=(--security-opt label=disable --volume "${constraints}:/constraints.txt:ro")
+		uv_args=(--constraints /constraints.txt)
+	fi
 	log "Upgrading '${pkg}' into ${SITE_PKG}…"
 	podman run --rm \
-		--env PIP_TARGET=/root/.local/lib/python3.13/site-packages \
-		--volume "${SITE_PKG}:/root/.local/lib/python3.13/site-packages:Z" \
+		"${mount_args[@]}" \
+		--volume "${SITE_PKG}:/target:Z" \
 		"${IMAGE}" \
-		python3.13 -m pip install --upgrade --quiet --no-warn-script-location \
-		--target /root/.local/lib/python3.13/site-packages \
-		"${pkg}"
+		uv pip install --python /usr/bin/python3.13 --target /target --upgrade --quiet \
+		"${uv_args[@]}" "${pkg}"
+	rm -rf "${SITE_PKG}"/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
 	log "  ✔ '${pkg}' upgraded."
 }
 

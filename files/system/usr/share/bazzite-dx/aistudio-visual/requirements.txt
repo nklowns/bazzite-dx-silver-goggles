@@ -1,21 +1,10 @@
-# Declarative Python Package Set for ComfyUI Visual Studio (Python 3.13 / cu130)
+# Declarative Python delta for ComfyUI Visual Studio (Python 3.13 / cu130-slim-v2)
 # Hardware: Dell G15 5520 (NVIDIA GeForce RTX 3060 6GB VRAM + 64GB DDR5)
-# Installed once to /var/srv/visual/site-packages-py313 on SSD. Zero runtime boot installs.
+# Installed to /var/srv/visual/site-packages-py313 on SSD.
 #
-# comfy-*/comfyui-* and torch/numpy are NOT pinned here: the base image + ComfyUI checkout
-# are authoritative.
-# huggingface-hub: diffusers/transformers/WanVideoWrapper need >=1.32; 2.x breaks (httpx2).
+# Only packages NOT already shipped by the base image or ComfyUI/requirements.txt belong here.
+# Base-image ABI caps live in constraints.txt; personal/project packages belong in
+# /var/srv/visual/requirements.local.txt (optional, unmanaged by the OS).
 
 huggingface-hub>=1.32,<2
-pillow>=13.0.0,<13.1.0
-
-blake3
-comfy-angle
-PyOpenGL
 pykalman
-insightface
-onnxruntime-gpu
-dill
-imageio
-imageio-ffmpeg
-av
