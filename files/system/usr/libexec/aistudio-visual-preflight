@@ -97,19 +97,17 @@ is_blocked() {
 pip_upgrade() {
 	local pkg="$1"
 	local constraints="/usr/share/bazzite-dx/aistudio-visual/constraints.txt"
-	local mount_args=()
-	local uv_args=()
+	local uv_sync="/usr/share/bazzite-dx/aistudio-visual/uv-pip-sync"
+	local mount_args=(--security-opt label=disable --volume "${uv_sync}:/uv-pip-sync:ro")
 	if [[ -f "${constraints}" ]]; then
-		mount_args=(--security-opt label=disable --volume "${constraints}:/constraints.txt:ro")
-		uv_args=(--constraints /constraints.txt)
+		mount_args+=(--volume "${constraints}:/constraints.txt:ro")
 	fi
 	log "Upgrading '${pkg}' into ${SITE_PKG}…"
 	podman run --rm \
 		"${mount_args[@]}" \
 		--volume "${SITE_PKG}:/target:Z" \
 		"${IMAGE}" \
-		uv pip install --python /usr/bin/python3.13 --target /target --upgrade --quiet \
-		"${uv_args[@]}" "${pkg}"
+		bash /uv-pip-sync --upgrade "${pkg}"
 	rm -rf "${SITE_PKG}"/{torch,torch-*,torchgen,torchvision*,torchaudio*,nvidia*,functorch*,cuda*,numpy*,triton*}
 	log "  ✔ '${pkg}' upgraded."
 }
