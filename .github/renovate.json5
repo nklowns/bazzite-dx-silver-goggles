@@ -122,6 +122,7 @@
       matchFileNames: [
         'files/system/etc/containers/systemd/users/nomad-llama.container',
       ],
+      sourceUrl: 'https://github.com/mostlygeek/llama-swap',
       versioning: 'regex:^v(?<major>\\d+)-cuda-b(?<minor>\\d+)$',
       pinDigests: true,
       groupName: 'Project NOMAD container digests',
@@ -189,7 +190,33 @@
       matchPackageNames: [
         'docker.io/yanwk/comfyui-boot',
       ],
+      sourceUrl: 'https://github.com/YanWenKun/ComfyUI-Docker',
       allowedVersions: '/^cu126-slim$/',
+    },
+    {
+      description: 'Fix missing/upstream sourceUrl for container images without accurate OCI org.opencontainers.image.source labels',
+      matchPackageNames: [
+        'docker.io/lightpanda/browser',
+      ],
+      sourceUrl: 'https://github.com/lightpanda-io/browser',
+    },
+    {
+      matchPackageNames: [
+        'docker.io/itzcrazykns1337/vane',
+      ],
+      sourceUrl: 'https://github.com/ItzCrazyKns/Vane',
+    },
+    {
+      matchPackageNames: [
+        'docker.io/osminogin/tor-simple',
+      ],
+      sourceUrl: 'https://github.com/osminogin/docker-tor-simple',
+    },
+    {
+      matchPackageNames: [
+        'docker.io/bluenviron/mediamtx',
+      ],
+      sourceUrl: 'https://github.com/bluenviron/mediamtx',
     },
     {
       description: 'Auto-update ComfyUI AI Studio container digest in Quadlet unit',
