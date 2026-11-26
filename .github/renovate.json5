@@ -186,12 +186,12 @@
       commitMessagePrefix: 'chore(deps-remote): ',
     },
     {
-      description: 'ComfyUI base image: track digest of the pinned tag only (cu126-slim, py3.12 matches the persistent site-packages); tag/CUDA/Python moves are manual',
+      description: 'ComfyUI base image: track digest of the pinned tag only (cu130-slim-v2, py3.13 matches the persistent site-packages-py313); tag/CUDA/Python moves are manual',
       matchPackageNames: [
         'docker.io/yanwk/comfyui-boot',
       ],
       sourceUrl: 'https://github.com/YanWenKun/ComfyUI-Docker',
-      allowedVersions: '/^cu126-slim$/',
+      allowedVersions: '/^cu130-slim-v2$/',
     },
     {
       description: 'Fix missing/upstream sourceUrl for container images without accurate OCI org.opencontainers.image.source labels',

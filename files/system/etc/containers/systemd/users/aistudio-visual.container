@@ -10,7 +10,7 @@
 # PERSISTENT SSD ENVIRONMENT:
 # ---------------------------
 # All validated Python dependencies (LivePortrait, MediaPipe, VideoHelperSuite, ChatTTS)
-# are stored permanently on SSD in /var/srv/visual/site-packages and mounted to /root/.local.
+# are stored permanently on SSD in /var/srv/visual/site-packages-py313 and mounted to /root/.local.
 # Zero runtime pip installs occur on healthy boots. If the ComfyUI core (also on SSD) is
 # updated via ComfyUI Manager and introduces new package requirements, the preflight script
 # /usr/libexec/aistudio-visual-preflight detects the drift via a dry-run import check and

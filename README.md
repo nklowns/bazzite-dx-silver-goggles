@@ -290,7 +290,7 @@ The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 
 
 - **CyberRealistic V9 & SD 1.5**: Photorealistic 8K UHD avatars generated in sub-10s with DDR5 pinned cache.
 - **LivePortrait Neural Animation**: 3D mesh deformation and lip synchronization driven by audio or reference video at ~9.7 FPS on RTX 3060.
-- **Persistent SSD Environment**: All Python toolkits and custom nodes are preserved in `/var/srv/visual/site-packages` on SSD, enabling sub-2s startup with **zero runtime pip installs at boot**.
+- **Persistent SSD Environment**: All Python toolkits and custom nodes are preserved in `/var/srv/visual/site-packages-py313` on SSD, enabling sub-2s startup with **zero runtime pip installs at boot**.
 
 ### `ujust` commands (AI Studio Visual)
 
@@ -300,7 +300,7 @@ The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 
 | `ujust visual purge` | Instant VRAM purge (unload GPU models without stopping container) |
 | `ujust visual animate <img_8k> <audio_wav>` | Animate any portrait with speech and LivePortrait neural lip sync |
 | `ujust visual boot on` / `off` | Opt-in/out of automatic boot startup via Quadlet drop-in |
-| `ujust visual sync` / `install <pkg>` | Sync declarative `requirements.txt` or install a package into `/var/srv/visual/site-packages` |
+| `ujust visual sync` / `install <pkg>` | Sync declarative `requirements.txt` or install a package into `/var/srv/visual/site-packages-py313` |
 | `ujust visual container-shell` | Open interactive bash terminal inside the running container |
 | `ujust visual remote on` / `off` | Expose or unpublish ComfyUI over Tailnet with TLS (`https://…:61384`) |
 
