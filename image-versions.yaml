@@ -12,5 +12,5 @@
 images:
   - name: bazzite-nvidia
     image: ghcr.io/ublue-os/bazzite-nvidia-open
-    tag: 45.20261117
-    digest: sha256:32ef103b5d5cb29c9e6311b38d77ad328091a6a89cb6feb85b3716b4d2dda101
+    tag: 45.20261125
+    digest: sha256:98a6a6a31670cbfa005866c6d6de2e768409dd7cb9db25f324b20cc55294fb89
