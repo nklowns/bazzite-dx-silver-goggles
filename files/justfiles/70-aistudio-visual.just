@@ -65,13 +65,14 @@ visual ACTION="" *ARGS:
         PIP_ARGS=(-r /requirements.txt)
         MOUNT=()
         if [[ -f /var/srv/visual/ComfyUI/requirements.txt ]]; then
-            MOUNT=(-v /var/srv/visual/ComfyUI/requirements.txt:/comfyui-requirements.txt:ro,Z)
+            MOUNT=(-v /var/srv/visual/ComfyUI/requirements.txt:/comfyui-requirements.txt:ro)
             PIP_ARGS+=(-r /comfyui-requirements.txt)
         fi
         mkdir -p /var/srv/visual/site-packages-py313
         podman run --rm \
+            --security-opt label=disable \
             -v /var/srv/visual/site-packages-py313:/target:Z \
-            -v "$REQ":/requirements.txt:ro,Z \
+            -v "$REQ":/requirements.txt:ro \
             "${MOUNT[@]}" \
             "$COMFY_IMAGE" \
             python3.13 -m pip install --upgrade -q --no-warn-script-location --target /target "${PIP_ARGS[@]}"
@@ -101,9 +102,7 @@ visual ACTION="" *ARGS:
         podman run --rm -v /var/srv/visual/ComfyUI:/root/ComfyUI:z "$COMFY_IMAGE" \
             bash -c "cd /root/ComfyUI && git pull --ff-only"
         ujust visual pkg-sync
-        if systemctl --user is-active --quiet aistudio-visual.service; then
-            systemctl --user restart aistudio-visual.service
-        fi
+        ujust visual sync
         echo "✅ ComfyUI Core atualizado."
         ;;
     install)
