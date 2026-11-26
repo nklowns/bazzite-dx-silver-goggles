@@ -219,6 +219,35 @@
       sourceUrl: 'https://github.com/bluenviron/mediamtx',
     },
     {
+      matchPackageNames: [
+        'ghcr.io/debpalash/omnivoice-studio',
+      ],
+      sourceUrl: 'https://github.com/debpalash/VoiceStudio',
+    },
+    {
+      description: 'Allow pre-release, beta, and nightly container tags across Quadlet units',
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/*.container',
+      ],
+      ignoreUnstable: false,
+    },
+    {
+      description: 'Auto-update AI Studio Audio container digest in Quadlet unit',
+      matchFileNames: [
+        'files/system/etc/containers/systemd/users/aistudio-audio.container',
+      ],
+      matchUpdateTypes: [
+        'digest',
+        'pinDigest',
+      ],
+      pinDigests: true,
+      groupName: 'AI Studio Audio container digest',
+      schedule: [
+        'before 6am on monday',
+      ],
+      commitMessagePrefix: 'chore(deps-ai): ',
+    },
+    {
       description: 'Auto-update ComfyUI AI Studio container digest in Quadlet unit',
       matchFileNames: [
         'files/system/etc/containers/systemd/users/aistudio-visual.container',
