@@ -11,7 +11,7 @@
 
 # Single source of truth for the pin is image-versions.yaml; this default keeps
 # `podman build .` working and `just check` asserts the two agree.
-ARG BASE_IMAGE_REF=ghcr.io/ublue-os/bazzite-nvidia-open:45.20261117@sha256:32ef103b5d5cb29c9e6311b38d77ad328091a6a89cb6feb85b3716b4d2dda101
+ARG BASE_IMAGE_REF=ghcr.io/ublue-os/bazzite-nvidia-open:45.20261125@sha256:98a6a6a31670cbfa005866c6d6de2e768409dd7cb9db25f324b20cc55294fb89
 
 # Build context, kept out of the final image.
 FROM scratch AS ctx
