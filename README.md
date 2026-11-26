@@ -300,9 +300,16 @@ The **Visual Studio** runs [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 
 | `ujust visual purge` | Instant VRAM purge (unload GPU models without stopping container) |
 | `ujust visual animate <img_8k> <audio_wav>` | Animate any portrait with speech and LivePortrait neural lip sync |
 | `ujust visual boot on` / `off` | Opt-in/out of automatic boot startup via Quadlet drop-in |
-| `ujust visual sync` / `install <pkg>` | Sync declarative `requirements.txt` or install a package into `/var/srv/visual/site-packages-py313` |
+| `ujust visual sync` / `install <pkg>` | Sync declarative `requirements.txt` (plus optional `/var/srv/visual/requirements.local.txt`) or install a package into `/var/srv/visual/site-packages-py313` using `PIP_USER=true` |
 | `ujust visual container-shell` | Open interactive bash terminal inside the running container |
 | `ujust visual remote on` / `off` | Expose or unpublish ComfyUI over Tailnet with TLS (`https://…:61384`) |
+
+### User / Project Extension Points (without modifying the OS image)
+
+- **Extra Python packages:** `/var/srv/visual/requirements.local.txt` (optional; automatically included by `ujust visual sync`, constrained by `/etc/aistudio-visual-constraints.txt` via `PIP_CONSTRAINT`/`UV_CONSTRAINT`).
+- **Extra volumes, env vars, or `CLI_ARGS`:** user Quadlet drop-ins in `~/.config/containers/systemd/aistudio-visual.container.d/*.conf`.
+- **Container pre-start hook:** `/var/srv/visual/user-scripts/pre-start.sh` (sourced before ComfyUI starts).
+- **External `custom_nodes` & models:** ComfyUI's native `extra_model_paths.yaml` (or `--extra-model-paths-config` via a Quadlet drop-in).
 
 ---
 

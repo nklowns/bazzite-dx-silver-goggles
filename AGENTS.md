@@ -225,7 +225,8 @@ The AI Studio stack follows a **Single Unified Mode** architecture based on **Ro
 - **AI Studio Visual (`aistudio-visual.container`, Port :61384)**:
   - Backed by ComfyUI, CyberRealistic V9, SD 1.5, and LivePortrait Neural Facial Animation.
   - Accelerated via NVIDIA CUDA on RTX 3060 Laptop GPU.
-  - **Zero Boot-Time Pip Installs**: All Python packages live permanently on SSD in `/var/srv/visual/site-packages-py313` and mount into `PYTHONPATH`. Starts in **< 2 seconds**.
+  - **Zero Boot-Time Pip Installs**: All Python packages live permanently on SSD in `/var/srv/visual/site-packages-py313` (managed via native `PIP_USER=true` + `/etc/aistudio-visual-constraints.txt` for `PIP_CONSTRAINT`/`UV_CONSTRAINT`) and mount into `PYTHONPATH`. Starts in **< 2 seconds**.
+  - **User / Project Extension Surface**: Keep the OS image generic; layer personal/project customization via `/var/srv/visual/requirements.local.txt` (optional, read by `ujust visual sync`), Quadlet drop-ins (`~/.config/containers/systemd/aistudio-visual.container.d/*.conf`), `/var/srv/visual/user-scripts/pre-start.sh`, and ComfyUI's `extra_model_paths.yaml`.
   - Recipes: `70-aistudio-visual.just` (`ujust visual [status|up|down|restart|logs|remote|boot|prefetch|sync|update|pull-models|animate|purge]`) and `65-dx-services.just` (`ujust svc ...`).
 
 - **AI Studio Audio (`aistudio-audio.container`, Port :61386)**:
